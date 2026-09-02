@@ -6,7 +6,7 @@ import { AudioEngine } from '@/lib/audioEngine';
 import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
 import { NoteCell } from './NoteCell';
 import { NoteEditorHud } from './NoteEditorHud';
-import { Play, Square, Plus, MessageSquareQuote } from 'lucide-react';
+import { Play, Square, Plus, MessageSquareQuote, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface VerseModeViewProps {
   verses: VerseItem[];
@@ -146,9 +146,46 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   )}
                 </button>
 
-                <span className="px-2.5 py-1.5 rounded-xl bg-amber-500/15 dark:bg-amber-500/20 text-amber-900 dark:text-amber-200 font-black font-mono text-xs border border-amber-300/60 dark:border-amber-700/60">
-                  第 {vIdx + 1} 句
-                </span>
+                {/* Previous / Next Verse Switcher */}
+                <div className="flex items-center bg-white dark:bg-zinc-800 rounded-xl border border-amber-300 dark:border-zinc-700 p-0.5 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (vIdx > 0) {
+                        const prevVerse = verses[vIdx - 1];
+                        const target = prevVerse.notes[0];
+                        if (target) onSelectNote(target.measureIndex, target.noteIndex);
+                        document.getElementById(`verse-card-${vIdx - 1}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }}
+                    disabled={vIdx === 0}
+                    className="p-1 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-amber-100 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 cursor-pointer touch-manipulation min-h-[34px] min-w-[34px] flex items-center justify-center transition-all"
+                    title="跳至上一句 (Previous Verse)"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="px-2.5 py-1 bg-amber-500/15 dark:bg-amber-500/20 text-amber-900 dark:text-amber-200 font-black font-mono text-xs rounded-lg mx-0.5">
+                    第 {vIdx + 1} 句
+                  </span>
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (vIdx < verses.length - 1) {
+                        const nextVerse = verses[vIdx + 1];
+                        const target = nextVerse.notes[0];
+                        if (target) onSelectNote(target.measureIndex, target.noteIndex);
+                        document.getElementById(`verse-card-${vIdx + 1}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }}
+                    disabled={vIdx === verses.length - 1}
+                    className="p-1 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-amber-100 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 cursor-pointer touch-manipulation min-h-[34px] min-w-[34px] flex items-center justify-center transition-all"
+                    title="跳至下一句 (Next Verse)"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
 
                 {verse.section && (
                   <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-bold text-xs border border-indigo-200 dark:border-indigo-800">

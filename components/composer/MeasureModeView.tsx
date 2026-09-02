@@ -5,7 +5,7 @@ import { JianpuNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, 
 import { AudioEngine } from '@/lib/audioEngine';
 import { NoteCell } from './NoteCell';
 import { NoteEditorHud } from './NoteEditorHud';
-import { Play, Square, Plus, Copy, Trash2 } from 'lucide-react';
+import { Play, Square, Plus, Copy, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface MeasureModeViewProps {
   song: Song;
@@ -139,9 +139,42 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                   )}
                 </button>
 
-                <span className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold flex items-center justify-center font-mono text-xs border border-zinc-200 dark:border-zinc-700">
-                  #{mIdx + 1}
-                </span>
+                {/* Previous / Next Measure Switcher */}
+                <div className="flex items-center bg-white dark:bg-zinc-800 rounded-xl border border-amber-300 dark:border-zinc-700 p-0.5 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (mIdx > 0) {
+                        onSelectNote(mIdx - 1, 0);
+                        document.getElementById(`measure-card-${mIdx - 1}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }}
+                    disabled={mIdx === 0}
+                    className="p-1 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-amber-100 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 cursor-pointer touch-manipulation min-h-[34px] min-w-[34px] flex items-center justify-center transition-all"
+                    title="跳至上一小節 (Previous Measure)"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="px-2.5 py-1 bg-amber-500/15 dark:bg-amber-500/20 text-amber-900 dark:text-amber-200 font-black font-mono text-xs rounded-lg mx-0.5">
+                    #{mIdx + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (mIdx < song.measures.length - 1) {
+                        onSelectNote(mIdx + 1, 0);
+                        document.getElementById(`measure-card-${mIdx + 1}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }}
+                    disabled={mIdx === song.measures.length - 1}
+                    className="p-1 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-amber-100 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 cursor-pointer touch-manipulation min-h-[34px] min-w-[34px] flex items-center justify-center transition-all"
+                    title="跳至下一小節 (Next Measure)"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
 
                 {/* Section Selector */}
                 <select
