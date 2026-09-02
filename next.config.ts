@@ -1,5 +1,7 @@
 import type {NextConfig} from 'next';
 
+const isStaticExport = process.env.STATIC_EXPORT === 'true' || process.env.GITHUB_PAGES === 'true';
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   eslint: {
@@ -8,11 +10,15 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  // Static export configuration for GitHub Pages
-  output: 'export',
-  trailingSlash: true,
-  basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
-  assetPrefix: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
+  // Static export for GitHub Pages only; Cloud Run uses standard server runtime
+  ...(isStaticExport
+    ? {
+        output: 'export',
+        trailingSlash: true,
+        basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
+        assetPrefix: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
+      }
+    : {}),
   images: {
     unoptimized: true,
     remotePatterns: [

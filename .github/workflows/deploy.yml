@@ -49,6 +49,7 @@ jobs:
 
       - name: Build static Next.js export
         env:
+          STATIC_EXPORT: 'true'
           NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
         run: npm run build
 
