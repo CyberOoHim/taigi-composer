@@ -3,8 +3,22 @@
 import React, { useState } from 'react';
 import { LyricSyllable, Song } from '@/types/song';
 import { splitTaigiLyricSyllables, groupSongIntoVerses } from '@/lib/taigiUtils';
-import { convertTaigiLyricsByVersesWithAi, convertTaigiLyricsWithAi } from '@/lib/geminiService';
-import { AlignLeft, Sparkles, X, Check, Loader2 } from 'lucide-react';
+import {
+  convertTaigiLyricsByVersesWithAi,
+  convertTaigiLyricsWithAi,
+  GeminiModelChoice,
+  GeminiThinkingEffort,
+} from '@/lib/geminiService';
+import {
+  AlignLeft,
+  Sparkles,
+  X,
+  Check,
+  Loader2,
+  Cpu,
+  BrainCircuit,
+  Key,
+} from 'lucide-react';
 
 interface QuickLyricAlignerModalProps {
   isOpen: boolean;
@@ -30,9 +44,55 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [targetField, setTargetField] = useState<'hanji' | 'poj' | 'pij' | 'custom' | 'auto_ai'>('auto_ai');
+  const [aiModel, setAiModel] = useState<GeminiModelChoice>(() => {
+    if (typeof window !== 'undefined') {
+      const savedModel = localStorage.getItem('taigi_gemini_model') as GeminiModelChoice;
+      if (savedModel === 'gemini-2.5-flash' || savedModel === 'gemini-2.5-flash-lite') {
+        return savedModel;
+      }
+    }
+    return 'gemini-2.5-flash';
+  });
+  const [thinkingEffort, setThinkingEffort] = useState<GeminiThinkingEffort>(() => {
+    if (typeof window !== 'undefined') {
+      const savedEffort = localStorage.getItem('taigi_gemini_thinking_effort') as GeminiThinkingEffort;
+      if (savedEffort === 'HIGH' || savedEffort === 'MEDIUM') {
+        return savedEffort;
+      }
+    }
+    return 'MEDIUM';
+  });
+  const [customApiKey, setCustomApiKey] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('taigi_gemini_api_key') || '';
+    }
+    return '';
+  });
+  const [showApiKeyInput, setShowApiKeyInput] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [versePreviews, setVersePreviews] = useState<VersePreviewItem[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  const handleModelChange = (model: GeminiModelChoice) => {
+    setAiModel(model);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('taigi_gemini_model', model);
+    }
+  };
+
+  const handleThinkingEffortChange = (effort: GeminiThinkingEffort) => {
+    setThinkingEffort(effort);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('taigi_gemini_thinking_effort', effort);
+    }
+  };
+
+  const handleApiKeyChange = (key: string) => {
+    setCustomApiKey(key);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('taigi_gemini_api_key', key);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -58,10 +118,23 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
       setIsLoadingAi(true);
       try {
         let tokensByVerse: LyricSyllable[][] = [];
+        const aiOptions = {
+          model: aiModel,
+          thinkingEffort,
+        };
+
         if (lines.length > 1) {
-          tokensByVerse = await convertTaigiLyricsByVersesWithAi(lines);
+          tokensByVerse = await convertTaigiLyricsByVersesWithAi(
+            lines,
+            customApiKey.trim() || undefined,
+            aiOptions
+          );
         } else {
-          const singleTokens = await convertTaigiLyricsWithAi(lines[0]);
+          const singleTokens = await convertTaigiLyricsWithAi(
+            lines[0],
+            customApiKey.trim() || undefined,
+            aiOptions
+          );
           tokensByVerse = [singleTokens];
         }
 
@@ -314,6 +387,95 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               </button>
             </div>
           </div>
+
+          {/* AI Model & Thinking Effort Settings Panel */}
+          {targetField === 'auto_ai' && (
+            <div
+              id="aligner-ai-config-panel"
+              className="p-3.5 bg-amber-500/10 dark:bg-amber-950/30 border border-amber-300/60 dark:border-amber-700/60 rounded-xl flex flex-col gap-3 animate-in fade-in duration-150"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span>Gemini AI 模型與思考設定 (AI Configuration)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowApiKeyInput(prev => !prev)}
+                  className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 hover:underline cursor-pointer"
+                >
+                  <Key className="w-3 h-3" />
+                  <span>{showApiKeyInput ? '隱藏自訂 API Key' : '自訂 API Key (選填)'}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 1. Gemini Model Selection Dropdown */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="aligner-ai-model-select"
+                    className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5"
+                  >
+                    <Cpu className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Gemini 模型 (AI Model)</span>
+                  </label>
+                  <select
+                    id="aligner-ai-model-select"
+                    value={aiModel}
+                    onChange={e => handleModelChange(e.target.value as GeminiModelChoice)}
+                    className="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-2xs"
+                  >
+                    <option value="gemini-2.5-flash">1. gemini flash latest (預設)</option>
+                    <option value="gemini-2.5-flash-lite">2. gemini flash lite latest</option>
+                  </select>
+                </div>
+
+                {/* 2. Thinking Effort Dropdown */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="aligner-thinking-effort-select"
+                    className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5"
+                  >
+                    <BrainCircuit className="w-3.5 h-3.5 text-amber-500" />
+                    <span>思考程度 (Thinking Effort)</span>
+                  </label>
+                  <select
+                    id="aligner-thinking-effort-select"
+                    value={thinkingEffort}
+                    onChange={e => handleThinkingEffortChange(e.target.value as GeminiThinkingEffort)}
+                    className="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-2xs"
+                  >
+                    <option value="MEDIUM">medium (預設)</option>
+                    <option value="HIGH">high</option>
+                  </select>
+                </div>
+              </div>
+
+              {showApiKeyInput && (
+                <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/50 flex flex-col gap-1.5 animate-in fade-in duration-100">
+                  <div className="flex items-center justify-between">
+                    <label
+                      htmlFor="aligner-custom-api-key"
+                      className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400"
+                    >
+                      Gemini API Key (自訂金鑰)
+                    </label>
+                    <span className="text-[10px] text-zinc-500">
+                      預設使用環境變數，亦可輸入私有 Key
+                    </span>
+                  </div>
+                  <input
+                    id="aligner-custom-api-key"
+                    type="password"
+                    value={customApiKey}
+                    onChange={e => handleApiKeyChange(e.target.value)}
+                    placeholder="AIzaSy..."
+                    className="w-full px-3 py-2 text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-mono shadow-2xs"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Action Trigger Button */}
           <button

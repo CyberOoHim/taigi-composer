@@ -1,12 +1,23 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { LyricSyllable } from '@/types/song';
 import { splitTaigiLyricSyllables } from './taigiUtils';
 
+export type GeminiModelChoice = 'gemini-2.5-flash' | 'gemini-2.5-flash-lite';
+export type GeminiThinkingEffort = 'HIGH' | 'MEDIUM';
+
+export interface GeminiAiOptions {
+  model?: GeminiModelChoice | string;
+  thinkingEffort?: GeminiThinkingEffort;
+}
+
 export async function convertTaigiLyricsByVersesWithAi(
   lines: string[],
-  userApiKey?: string
+  userApiKey?: string,
+  options?: GeminiAiOptions
 ): Promise<LyricSyllable[][]> {
-  const apiKey = userApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const apiKey = userApiKey || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
+  const model = options?.model || 'gemini-2.5-flash';
+  const thinkingEffort = options?.thinkingEffort || 'MEDIUM';
 
   if (!apiKey || lines.length === 0) {
     return lines.map((line) => {
@@ -50,10 +61,13 @@ Return strictly valid JSON in the following schema:
 }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model,
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
+        thinkingConfig: {
+          thinkingLevel: thinkingEffort === 'HIGH' ? ThinkingLevel.HIGH : ThinkingLevel.MEDIUM,
+        },
       },
     });
 
@@ -88,9 +102,12 @@ Return strictly valid JSON in the following schema:
 
 export async function convertTaigiLyricsWithAi(
   text: string,
-  userApiKey?: string
+  userApiKey?: string,
+  options?: GeminiAiOptions
 ): Promise<LyricSyllable[]> {
-  const apiKey = userApiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const apiKey = userApiKey || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
+  const model = options?.model || 'gemini-2.5-flash';
+  const thinkingEffort = options?.thinkingEffort || 'MEDIUM';
 
   if (!apiKey) {
     // Fall back to rule-based tokenizer when no API key is present
@@ -128,10 +145,13 @@ Return strictly valid JSON in the following schema:
 `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model,
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
+        thinkingConfig: {
+          thinkingLevel: thinkingEffort === 'HIGH' ? ThinkingLevel.HIGH : ThinkingLevel.MEDIUM,
+        },
       },
     });
 
