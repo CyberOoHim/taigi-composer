@@ -498,7 +498,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     <span className="text-[11px] text-zinc-500">支援手機拍照或掃描檔，自動壓縮與最佳化。</span>
                   </div>
                   <div className="flex flex-col gap-1 p-2 rounded-lg bg-white/60 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800">
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100">2. Gemini 2.5 解析</span>
+                    <span className="font-bold text-zinc-900 dark:text-zinc-100">2. Gemini AI 解析</span>
                     <span className="text-[11px] text-zinc-500">深度樂理思考，多頁小節自動無縫拼接。</span>
                   </div>
                   <div className="flex flex-col gap-1 p-2 rounded-lg bg-white/60 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800">
