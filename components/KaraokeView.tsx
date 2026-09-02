@@ -20,7 +20,27 @@ import {
   ChevronLeft,
   ChevronRight,
   Disc,
+  SkipBack,
+  SkipForward,
+  Bookmark,
+  Layers,
+  Pencil,
 } from 'lucide-react';
+
+export interface KaraokeSection {
+  id: string;
+  name: string;
+  startMeasureIndex: number;
+  endMeasureIndex: number;
+  startMeasureNumber: number;
+  endMeasureNumber: number;
+  startTimeSec: number;
+  durationSec: number;
+  startPercent: number;
+  endPercent: number;
+  chord?: string;
+  firstLyricSnippet: string;
+}
 
 interface KaraokeViewProps {
   song: Song;
@@ -28,6 +48,8 @@ interface KaraokeViewProps {
   displayMode: LyricDisplayMode;
   setDisplayMode: (mode: LyricDisplayMode) => void;
   onSelectMeasure?: (measureIndex: number) => void;
+  onEditSection?: (section: KaraokeSection) => void;
+  onEditMeasure?: (measureIndex: number) => void;
 }
 
 export const KaraokeView: React.FC<KaraokeViewProps> = ({
@@ -36,6 +58,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   displayMode,
   setDisplayMode,
   onSelectMeasure,
+  onEditSection,
+  onEditMeasure,
 }) => {
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
     isPlaying: false,
@@ -58,8 +82,13 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   const [isLoopingMeasure, setIsLoopingMeasure] = useState<boolean>(false);
   const [showMixer, setShowMixer] = useState<boolean>(false);
 
+  // Slider scrubbing & debounce state
+  const [sliderDraggingPercent, setSliderDraggingPercent] = useState<number | null>(null);
+  const seekDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const sheetScrollRef = useRef<HTMLDivElement>(null);
+  const sectionScrollRef = useRef<HTMLDivElement>(null);
 
   // Sync state with AudioEngine
   useEffect(() => {
@@ -86,6 +115,15 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     };
   }, [audioEngine]);
 
+  // Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (seekDebounceTimerRef.current) {
+        clearTimeout(seekDebounceTimerRef.current);
+      }
+    };
+  }, []);
+
   // Update audio options when controls change
   useEffect(() => {
     audioEngine.setOptions({
@@ -95,8 +133,9 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       metronomeVolume,
       transpose,
       tempoMultiplier,
+      loopMeasure: isLoopingMeasure ? playbackState.currentMeasureIndex : null,
     });
-  }, [audioEngine, instrument, melodyVolume, backingVolume, metronomeVolume, transpose, tempoMultiplier]);
+  }, [audioEngine, instrument, melodyVolume, backingVolume, metronomeVolume, transpose, tempoMultiplier, isLoopingMeasure, playbackState.currentMeasureIndex]);
 
   // Auto-scroll active measure into view during playback
   useEffect(() => {
@@ -108,7 +147,119 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     }
   }, [playbackState.currentMeasureIndex, playbackState.isPlaying]);
 
-  // Group song measures into Lyric lines (2 measures per line typically)
+  // Extract song sections with precise timestamps and percentages
+  const songSections = useMemo<KaraokeSection[]>(() => {
+    if (!song.measures || song.measures.length === 0) return [];
+
+    const effectiveBpm = song.bpm * tempoMultiplier;
+    const secPerBeat = 60 / effectiveBpm;
+
+    // 1. Calculate measure start times
+    const measureStartTimes: number[] = [];
+    let runningTime = 0;
+
+    for (let i = 0; i < song.measures.length; i++) {
+      measureStartTimes.push(runningTime);
+      let measureBeats = 0;
+      for (const note of song.measures[i].notes) {
+        if (note.pitch !== 'empty' && note.pitch !== 0 && !note.annotation) {
+          measureBeats += note.duration;
+        } else if (note.pitch === 0 || (typeof note.pitch === 'number' && note.pitch > 0)) {
+          measureBeats += note.duration;
+        }
+      }
+      runningTime += measureBeats * secPerBeat;
+    }
+    const totalDuration = runningTime || audioEngine.calculateSongDuration(song) || 1;
+
+    // 2. Detect section boundaries from measure.section properties
+    const sectionStartIndices: { index: number; name: string }[] = [];
+
+    song.measures.forEach((m, idx) => {
+      if (m.section && m.section.trim()) {
+        sectionStartIndices.push({ index: idx, name: m.section.trim() });
+      }
+    });
+
+    // If measure 0 is not explicitly marked as a section, add it
+    if (sectionStartIndices.length === 0 || sectionStartIndices[0].index !== 0) {
+      const firstSectionName = sectionStartIndices.length > 0 ? '前奏 (Intro)' : '段落 1';
+      sectionStartIndices.unshift({ index: 0, name: firstSectionName });
+    }
+
+    // If there is only 1 section and no explicit sections anywhere, chunk every 4 measures
+    if (sectionStartIndices.length === 1 && !song.measures[0]?.section) {
+      const chunkSize = song.notesPerLine || 4;
+      sectionStartIndices.length = 0;
+      for (let i = 0; i < song.measures.length; i += chunkSize) {
+        const secNum = Math.floor(i / chunkSize) + 1;
+        sectionStartIndices.push({ index: i, name: `段落 ${secNum}` });
+      }
+    }
+
+    const sections: KaraokeSection[] = [];
+
+    for (let i = 0; i < sectionStartIndices.length; i++) {
+      const current = sectionStartIndices[i];
+      const next = sectionStartIndices[i + 1];
+      const startMeasureIndex = current.index;
+      const endMeasureIndex = next ? next.index - 1 : song.measures.length - 1;
+
+      const startTimeSec = measureStartTimes[startMeasureIndex] || 0;
+      const endTimeSec = next && measureStartTimes[next.index] !== undefined
+        ? measureStartTimes[next.index]
+        : totalDuration;
+      const durationSec = Math.max(0, endTimeSec - startTimeSec);
+      const startPercent = Math.min(100, (startTimeSec / totalDuration) * 100);
+      const endPercent = Math.min(100, (endTimeSec / totalDuration) * 100);
+
+      // Extract first lyric words in this section
+      const lyricWords: string[] = [];
+      for (let mIdx = startMeasureIndex; mIdx <= endMeasureIndex; mIdx++) {
+        const m = song.measures[mIdx];
+        if (!m) continue;
+        for (const note of m.notes) {
+          const w = note.lyric.hanji || note.lyric.custom || note.lyric.poj || note.lyric.pij;
+          if (w && w.trim() && w !== '—' && w !== '，' && w !== '。') {
+            lyricWords.push(w);
+            if (lyricWords.length >= 6) break;
+          }
+        }
+        if (lyricWords.length >= 6) break;
+      }
+
+      sections.push({
+        id: `sec-${i}-${startMeasureIndex}`,
+        name: current.name,
+        startMeasureIndex,
+        endMeasureIndex,
+        startMeasureNumber: song.measures[startMeasureIndex]?.measureNumber || (startMeasureIndex + 1),
+        endMeasureNumber: song.measures[endMeasureIndex]?.measureNumber || (endMeasureIndex + 1),
+        startTimeSec,
+        durationSec,
+        startPercent,
+        endPercent,
+        chord: song.measures[startMeasureIndex]?.chord,
+        firstLyricSnippet: lyricWords.join(' ') || (song.measures[startMeasureIndex]?.chord ? `和弦: ${song.measures[startMeasureIndex]?.chord}` : ''),
+      });
+    }
+
+    return sections;
+  }, [song, tempoMultiplier, audioEngine]);
+
+  // Active section corresponding to currently playing or scrubbed measure
+  const activeSection = useMemo(() => {
+    if (!songSections.length) return null;
+    return (
+      songSections.find(
+        sec =>
+          playbackState.currentMeasureIndex >= sec.startMeasureIndex &&
+          playbackState.currentMeasureIndex <= sec.endMeasureIndex
+      ) || songSections[0]
+    );
+  }, [songSections, playbackState.currentMeasureIndex]);
+
+  // Group song measures into Lyric lines
   const lyricLines = useMemo(() => {
     const lines: {
       lineIndex: number;
@@ -151,6 +302,40 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   const currentLine = lyricLines[activeLineIndex !== -1 ? activeLineIndex : 0];
   const nextLine = lyricLines[(activeLineIndex !== -1 ? activeLineIndex : 0) + 1] || null;
 
+  // Jump to specific section handler (instant touch jump)
+  const handleJumpToSection = (section: KaraokeSection) => {
+    audioEngine.seek(song, section.startTimeSec);
+    if (onSelectMeasure) {
+      onSelectMeasure(section.startMeasureIndex);
+    }
+    // Scroll score roll to section start measure
+    if (sheetScrollRef.current) {
+      const activeEl = sheetScrollRef.current.querySelector(`[data-measure-idx="${section.startMeasureIndex}"]`);
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  };
+
+  // Skip to previous or next section
+  const handleJumpPrevSection = () => {
+    if (!songSections.length) return;
+    const currentIndex = songSections.findIndex(s => s.id === activeSection?.id);
+    if (currentIndex > 0) {
+      handleJumpToSection(songSections[currentIndex - 1]);
+    } else {
+      handleJumpToSection(songSections[0]);
+    }
+  };
+
+  const handleJumpNextSection = () => {
+    if (!songSections.length) return;
+    const currentIndex = songSections.findIndex(s => s.id === activeSection?.id);
+    if (currentIndex >= 0 && currentIndex < songSections.length - 1) {
+      handleJumpToSection(songSections[currentIndex + 1]);
+    }
+  };
+
   // Playback control handlers
   const handleTogglePlay = () => {
     if (playbackState.isPlaying) {
@@ -166,11 +351,38 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     audioEngine.play(song, 0);
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const totalDuration = playbackState.totalDuration || audioEngine.calculateSongDuration(song);
+  const currentDisplayPercent = sliderDraggingPercent !== null ? sliderDraggingPercent : (playbackState.progressPercent || 0);
+  const currentDisplayTime = sliderDraggingPercent !== null
+    ? (sliderDraggingPercent / 100) * totalDuration
+    : playbackState.currentTime;
+
+  // Debounced slider sliding handler
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const percent = parseFloat(e.target.value);
-    const total = playbackState.totalDuration || audioEngine.calculateSongDuration(song);
-    const targetSec = (percent / 100) * total;
-    audioEngine.seek(song, targetSec);
+    setSliderDraggingPercent(percent);
+
+    if (seekDebounceTimerRef.current) {
+      clearTimeout(seekDebounceTimerRef.current);
+    }
+
+    // Debounce: jump to target position/section after 160ms of continuous sliding
+    seekDebounceTimerRef.current = setTimeout(() => {
+      const targetSec = (percent / 100) * totalDuration;
+      audioEngine.seek(song, targetSec);
+    }, 160);
+  };
+
+  const handleSliderPointerUp = () => {
+    if (seekDebounceTimerRef.current) {
+      clearTimeout(seekDebounceTimerRef.current);
+      seekDebounceTimerRef.current = null;
+    }
+    if (sliderDraggingPercent !== null) {
+      const targetSec = (sliderDraggingPercent / 100) * totalDuration;
+      audioEngine.seek(song, targetSec);
+      setSliderDraggingPercent(null);
+    }
   };
 
   const handleTranspose = (delta: number) => {
@@ -307,12 +519,21 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-rose-500/10 blur-3xl pointer-events-none" />
 
-        {/* Current Active Section Badge */}
-        {song.measures[playbackState.currentMeasureIndex]?.section && (
-          <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800/80 border border-zinc-700 text-xs font-semibold text-amber-400 shadow-xs">
+        {/* Current Active Section Badge (Interactive Jump Trigger) */}
+        {activeSection && (
+          <button
+            id="ktv-stage-active-section-badge"
+            type="button"
+            onClick={() => handleJumpToSection(activeSection)}
+            className="mb-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-zinc-800/90 hover:bg-zinc-700/90 border border-amber-500/40 text-xs font-semibold text-amber-300 shadow-md transition-all active:scale-95 cursor-pointer"
+            title={`點擊重新從「${activeSection.name}」開始`}
+          >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>{song.measures[playbackState.currentMeasureIndex].section}</span>
-          </div>
+            <span>{activeSection.name}</span>
+            <span className="text-[10px] text-zinc-400 font-mono">
+              (#{activeSection.startMeasureNumber}~#{activeSection.endMeasureNumber})
+            </span>
+          </button>
         )}
 
         {/* CURRENT LYRIC LINE (Big KTV Karaoke Sweeping Text) */}
@@ -326,13 +547,18 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               item.measureIdx < playbackState.currentMeasureIndex ||
               (item.measureIdx === playbackState.currentMeasureIndex && item.noteIdx < playbackState.currentNoteIndex);
 
-            const hanji = item.note.lyric.hanji || item.note.lyric.custom || '';
-            const roman =
+            const rawHanji = item.note.lyric.hanji ?? item.note.lyric.custom ?? '';
+            const rawRoman =
               displayMode === 'hanji_pij' || displayMode === 'pij_only'
-                ? item.note.lyric.pij || item.note.lyric.poj || ''
-                : item.note.lyric.poj || item.note.lyric.pij || '';
+                ? item.note.lyric.pij ?? item.note.lyric.poj ?? ''
+                : item.note.lyric.poj ?? item.note.lyric.pij ?? '';
 
-            if ((item.note.pitch === 0 || item.note.pitch === 'empty') && !hanji && !roman && !item.note.annotation) {
+            // Check if there is explicit input (even if it's "-" or "—")
+            const hasHanji = Boolean(rawHanji && rawHanji.trim());
+            const hasRoman = Boolean(rawRoman && rawRoman.trim());
+            const hasExplicitText = hasHanji || hasRoman;
+
+            if ((item.note.pitch === 0 || item.note.pitch === 'empty') && !hasExplicitText && !item.note.annotation) {
               return null; // Rest or empty space without lyrics or annotation
             }
 
@@ -344,10 +570,22 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
                 ? '0'
                 : `${item.note.accidental || ''}${item.note.pitch}`;
 
+            // Determine text to show for romanization and main word
+            // When no word input, do NOT display any word or dash; keep transparent space for aligned notation layout
+            const romanDisplay = hasRoman ? rawRoman : '\u00A0';
+            let mainWordDisplay = '\u00A0';
+            if (displayMode === 'poj_only' || displayMode === 'pij_only') {
+              mainWordDisplay = hasRoman ? rawRoman : '\u00A0';
+            } else if (hasHanji) {
+              mainWordDisplay = rawHanji;
+            } else if (hasRoman) {
+              mainWordDisplay = rawRoman;
+            }
+
             return (
               <div
                 key={`${item.measureIdx}-${item.noteIdx}-${idx}`}
-                className={`relative flex flex-col items-center transition-transform duration-150 ${
+                className={`relative flex flex-col items-center transition-transform duration-150 min-w-[32px] ${
                   isNoteActive ? 'scale-115 -translate-y-1' : ''
                 }`}
               >
@@ -359,9 +597,9 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
                 )}
 
                 {/* Romanization (POJ / PIJ) Ruby above */}
-                {(displayMode === 'all' || displayMode === 'hanji_poj' || displayMode === 'hanji_pij' || displayMode === 'poj_only' || displayMode === 'pij_only') && (
+                {(displayMode === 'all' || displayMode === 'hanji_poj' || displayMode === 'hanji_pij') && (
                   <span
-                    className={`text-xs sm:text-sm font-serif italic mb-0.5 transition-colors ${
+                    className={`text-xs sm:text-sm font-serif italic mb-0.5 min-h-[1.25rem] transition-colors select-none ${
                       isNoteActive
                         ? 'text-amber-300 font-bold drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]'
                         : isPassed
@@ -369,24 +607,24 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
                         : 'text-zinc-400'
                     }`}
                   >
-                    {roman || (item.note.pitch === 'empty' ? '' : '—')}
+                    {romanDisplay}
                   </span>
                 )}
 
                 {/* Hanji / Main Lyric Word */}
-                {displayMode !== 'poj_only' && displayMode !== 'pij_only' && (
-                  <span
-                    className={`text-2xl sm:text-4xl font-black tracking-wider transition-all duration-150 ${
-                      isNoteActive
-                        ? 'text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 scale-105 drop-shadow-[0_0_16px_rgba(245,158,11,0.9)]'
-                        : isPassed
-                        ? 'text-amber-400'
-                        : 'text-zinc-300'
-                    }`}
-                  >
-                    {hanji || roman || (item.note.pitch === 'empty' ? '␣' : '—')}
-                  </span>
-                )}
+                <span
+                  className={`text-2xl sm:text-4xl font-black tracking-wider min-h-[2.5rem] flex items-center justify-center transition-all duration-150 select-none ${
+                    displayMode === 'poj_only' || displayMode === 'pij_only' ? 'font-serif italic text-xl sm:text-3xl' : ''
+                  } ${
+                    isNoteActive
+                      ? 'text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 scale-105 drop-shadow-[0_0_16px_rgba(245,158,11,0.9)]'
+                      : isPassed
+                      ? 'text-amber-400'
+                      : 'text-zinc-300'
+                  }`}
+                >
+                  {mainWordDisplay}
+                </span>
 
                 {/* Corresponding Jianpu Number below */}
                 <span
@@ -415,14 +653,88 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
             {nextLine.notes.map((item, idx) => {
               const hanji = item.note.lyric.hanji || item.note.lyric.custom || '';
               const roman = item.note.lyric.poj || item.note.lyric.pij || '';
+              const displayWord = displayMode === 'poj_only' || displayMode === 'pij_only' ? roman : (hanji || roman);
+              if (!displayWord || !displayWord.trim()) return null;
               return (
                 <span key={idx} className="font-medium">
-                  {hanji || roman}
+                  {displayWord}
                 </span>
               );
             })}
           </div>
         )}
+      </div>
+
+      {/* SECTION QUICK-JUMP BAR: Touch-selectable sections with instant jump */}
+      <div className="bg-zinc-900/90 px-4 py-3 border-b border-zinc-800/80">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Bookmark className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-xs font-bold tracking-wide text-zinc-200">
+              段落觸控跳轉 (Touch Sections to Jump)
+            </span>
+            <span className="text-[11px] text-zinc-500 hidden md:inline">
+              · 觸控任一段落立即跳轉演奏
+            </span>
+          </div>
+          {activeSection && (
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
+              目前段落: {activeSection.name}
+            </span>
+          )}
+        </div>
+
+        {/* Touch-Friendly Section Cards Carousel */}
+        <div
+          ref={sectionScrollRef}
+          className="flex items-center gap-2.5 overflow-x-auto pb-1.5 pt-0.5 scroll-smooth"
+        >
+          {songSections.map((sec, sIdx) => {
+            const isSectionActive = activeSection?.id === sec.id;
+            return (
+              <button
+                key={sec.id}
+                id={`ktv-section-jump-btn-${sIdx}`}
+                type="button"
+                onClick={() => handleJumpToSection(sec)}
+                className={`shrink-0 min-h-[48px] px-3.5 py-2 rounded-xl border text-left transition-all cursor-pointer select-none active:scale-95 touch-manipulation flex items-center gap-3 ${
+                  isSectionActive
+                    ? 'bg-gradient-to-r from-amber-500/25 to-amber-600/20 border-amber-400 ring-2 ring-amber-500/30 text-white shadow-lg shadow-amber-500/10'
+                    : 'bg-zinc-950/70 border-zinc-800/90 text-zinc-300 hover:bg-zinc-800/80 hover:border-zinc-700'
+                }`}
+                title={`點擊跳轉至「${sec.name}」(${formatTime(sec.startTimeSec)})`}
+              >
+                <div
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                    isSectionActive
+                      ? 'bg-amber-400 text-zinc-950 shadow-xs'
+                      : 'bg-zinc-800 text-zinc-400'
+                  }`}
+                >
+                  {sIdx + 1}
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-xs font-bold ${isSectionActive ? 'text-amber-300' : 'text-zinc-200'}`}>
+                      {sec.name}
+                    </span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-800/90 text-zinc-400">
+                      {formatTime(sec.startTimeSec)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 mt-0.5">
+                    <span>#{sec.startMeasureNumber}~#{sec.endMeasureNumber}小節</span>
+                    {sec.firstLyricSnippet && (
+                      <span className="text-zinc-500 max-w-[130px] truncate hidden sm:inline">
+                        · {sec.firstLyricSnippet}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Aligned Jianpu Score Roll / Strip */}
@@ -448,20 +760,69 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               <div
                 key={measure.id}
                 data-measure-idx={mIdx}
-                onClick={() => onSelectMeasure && onSelectMeasure(mIdx)}
+                onClick={() => {
+                  audioEngine.seekToMeasure(song, mIdx);
+                  if (onSelectMeasure) onSelectMeasure(mIdx);
+                }}
                 className={`shrink-0 flex flex-col p-2.5 rounded-xl border transition-all cursor-pointer ${
                   isMeasureActive
                     ? 'bg-zinc-800/90 border-amber-500/80 ring-2 ring-amber-500/30 shadow-lg'
                     : 'bg-zinc-950/70 border-zinc-800/80 hover:border-zinc-700'
                 }`}
+                title={`點擊跳轉至第 ${mIdx + 1} 小節`}
               >
-                {/* Measure Header */}
+                {/* Measure Header with Section info and Edit button */}
                 <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1.5 px-1">
-                  <span className="font-mono font-semibold">#{measure.measureNumber}</span>
-                  {measure.chord && (
-                    <span className="font-bold text-amber-400 bg-amber-950/40 px-1.5 py-0.2 rounded border border-amber-800/50">
-                      {measure.chord}
-                    </span>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono font-semibold">#{measure.measureNumber}</span>
+                    {measure.section && (
+                      <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-800/60">
+                        {measure.section}
+                      </span>
+                    )}
+                    {measure.chord && (
+                      <span className="font-bold text-amber-400 bg-amber-950/40 px-1.5 py-0.2 rounded border border-amber-800/50">
+                        {measure.chord}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Edit Icon in Measure Card */}
+                  {(onEditMeasure || onEditSection) && (
+                    <button
+                      id={`ktv-measure-edit-btn-${mIdx}`}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onEditMeasure) {
+                          onEditMeasure(mIdx);
+                        } else if (onEditSection) {
+                          const sec = songSections.find(s => s.startMeasureIndex <= mIdx && s.endMeasureIndex >= mIdx);
+                          if (sec) {
+                            onEditSection(sec);
+                          } else {
+                            onEditSection({
+                              id: `sec-${mIdx}`,
+                              name: measure.section || `第 ${mIdx + 1} 小節`,
+                              startMeasureIndex: mIdx,
+                              endMeasureIndex: mIdx,
+                              startMeasureNumber: measure.measureNumber,
+                              endMeasureNumber: measure.measureNumber,
+                              startTimeSec: 0,
+                              durationSec: 0,
+                              startPercent: 0,
+                              endPercent: 0,
+                              firstLyricSnippet: '',
+                            });
+                          }
+                        }
+                      }}
+                      className="p-1 rounded-md text-zinc-400 hover:text-amber-300 hover:bg-zinc-800 active:scale-90 transition-all cursor-pointer border border-transparent hover:border-zinc-700 ml-1.5"
+                      title={`編輯此段落/小節 (跳轉至簡譜編寫器)`}
+                      aria-label={`編輯第 ${mIdx + 1} 小節`}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
                   )}
                 </div>
 
@@ -489,33 +850,149 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       </div>
 
       {/* Primary Karaoke Controls Bar */}
-      <div className="p-4 bg-zinc-900/95 flex flex-col gap-3">
-        {/* Progress Slider */}
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-xs text-zinc-400 min-w-[38px] text-right">
-            {formatTime(playbackState.currentTime)}
-          </span>
-          <div className="relative flex-1 group flex items-center">
+      <div className="p-4 bg-zinc-900/95 flex flex-col gap-3.5">
+        {/* Progress Slider with Section Markers & Debounced Scrubbing */}
+        <div className="flex flex-col gap-1.5 w-full">
+          {/* Time & Active Section Info Bar */}
+          <div className="flex items-center justify-between text-xs font-mono text-zinc-400">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-amber-400 min-w-[42px]">
+                {formatTime(currentDisplayTime)}
+              </span>
+              {sliderDraggingPercent !== null && (
+                <span className="text-[11px] font-sans px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                  跳轉位置: {formatTime(currentDisplayTime)}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {activeSection && (
+                <span className="text-[11px] font-sans text-zinc-400 hidden sm:inline-flex items-center gap-1">
+                  <span>段落:</span>
+                  <span className="text-amber-300 font-bold">{activeSection.name}</span>
+                </span>
+              )}
+              <span className="text-zinc-400 min-w-[42px] text-right">
+                {formatTime(totalDuration)}
+              </span>
+            </div>
+          </div>
+
+          {/* Timeline Track with Visual Section Markers */}
+          <div className="relative py-2.5 select-none group flex items-center">
+            {/* Background Track Bar */}
+            <div className="w-full h-3 bg-zinc-800/90 rounded-full relative overflow-hidden border border-zinc-700/60 shadow-inner">
+              {/* Progress Fill */}
+              <div
+                className="h-full bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400 rounded-full transition-[width] duration-75"
+                style={{ width: `${Math.max(0, Math.min(100, currentDisplayPercent))}%` }}
+              />
+            </div>
+
+            {/* Visual Section Markers along the Track (Select & Jump) */}
+            <div className="absolute inset-x-0 top-0 bottom-0 pointer-events-none">
+              {songSections.map((sec, sIdx) => {
+                const isSectionActive = activeSection?.id === sec.id;
+                return (
+                  <div
+                    key={sec.id}
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-auto z-20"
+                    style={{ left: `${sec.startPercent}%` }}
+                  >
+                    {/* Interactive Marker Pin */}
+                    <button
+                      id={`ktv-slider-section-mark-${sIdx}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleJumpToSection(sec);
+                      }}
+                      onTouchStart={(e) => {
+                        e.stopPropagation();
+                        handleJumpToSection(sec);
+                      }}
+                      className="group/mark relative flex flex-col items-center justify-center p-2 focus:outline-hidden cursor-pointer touch-manipulation transition-transform active:scale-90"
+                      title={`段落標記: ${sec.name} (${formatTime(sec.startTimeSec)} · #${sec.startMeasureNumber}小節) - 點擊立即跳轉`}
+                    >
+                      {/* Vertical Notch Marker */}
+                      <div
+                        className={`w-1.5 h-4.5 rounded-full transition-all shadow-sm ${
+                          isSectionActive
+                            ? 'bg-amber-300 ring-2 ring-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.9)] scale-110'
+                            : 'bg-zinc-400 hover:bg-amber-400 group-hover/mark:bg-amber-400'
+                        }`}
+                      />
+
+                      {/* Tooltip on Hover / Touch */}
+                      <div className="absolute -top-9 opacity-0 group-hover/mark:opacity-100 group-focus/mark:opacity-100 pointer-events-none transition-all duration-150 transform -translate-y-1 group-hover/mark:translate-y-0 z-30 whitespace-nowrap">
+                        <div className="bg-zinc-900 border border-amber-500/50 text-amber-300 text-[11px] font-medium px-2 py-0.5 rounded-md shadow-xl flex items-center gap-1.5 backdrop-blur-md">
+                          <span className="font-bold">{sec.name}</span>
+                          <span className="font-mono text-zinc-400 text-[10px]">{formatTime(sec.startTimeSec)}</span>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Overlaid Range Input for Smooth Scrubbing & Immediate Debounced Jump */}
             <input
               id="ktv-seek-slider"
               type="range"
               min="0"
               max="100"
               step="0.1"
-              value={playbackState.progressPercent || 0}
-              onChange={handleSeek}
-              className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500 focus:outline-hidden"
+              value={currentDisplayPercent}
+              onChange={handleSliderChange}
+              onMouseUp={handleSliderPointerUp}
+              onTouchEnd={handleSliderPointerUp}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 touch-pan-x"
+              aria-label="Karaoke Seek Slider"
             />
           </div>
-          <span className="font-mono text-xs text-zinc-400 min-w-[38px]">
-            {formatTime(playbackState.totalDuration || audioEngine.calculateSongDuration(song))}
-          </span>
+
+          {/* Section Names Below Slider Track */}
+          <div className="relative w-full h-5 hidden sm:block text-[10px] text-zinc-500 select-none overflow-hidden">
+            {songSections.map((sec, sIdx) => {
+              const isSectionActive = activeSection?.id === sec.id;
+              return (
+                <button
+                  key={`label-${sec.id}`}
+                  id={`ktv-slider-label-${sIdx}`}
+                  onClick={() => handleJumpToSection(sec)}
+                  className={`absolute transform -translate-x-1/2 px-1.5 py-0.5 rounded-sm transition-all cursor-pointer truncate max-w-[100px] ${
+                    isSectionActive
+                      ? 'text-amber-300 font-bold bg-amber-500/20 border border-amber-500/40 shadow-xs'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                  }`}
+                  style={{
+                    left: `${Math.min(92, Math.max(8, sec.startPercent))}%`,
+                  }}
+                  title={`跳轉至 ${sec.name}`}
+                >
+                  {sec.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Action Buttons Row */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          {/* Main Transport Controls */}
+          {/* Main Transport Controls with Section Skip Navigation */}
           <div className="flex items-center gap-2">
+            {/* Skip to Previous Section */}
+            <button
+              id="ktv-prev-section-btn"
+              onClick={handleJumpPrevSection}
+              className="p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+              title="Jump to Previous Section (上一段落)"
+            >
+              <SkipBack className="w-4 h-4" />
+            </button>
+
+            {/* Restart from beginning */}
             <button
               id="ktv-restart-btn"
               onClick={handleRestart}
@@ -525,6 +1002,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               <RotateCcw className="w-4 h-4" />
             </button>
 
+            {/* Big Play / Pause Button */}
             <button
               id="ktv-main-play-pause-btn"
               onClick={handleTogglePlay}
@@ -538,6 +1016,16 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               )}
             </button>
 
+            {/* Skip to Next Section */}
+            <button
+              id="ktv-next-section-btn"
+              onClick={handleJumpNextSection}
+              className="p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+              title="Jump to Next Section (下一段落)"
+            >
+              <SkipForward className="w-4 h-4" />
+            </button>
+
             {/* Loop Measure Toggle */}
             <button
               id="ktv-loop-measure-btn"
@@ -547,7 +1035,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
                   ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
                   : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white'
               }`}
-              title="Loop active measure"
+              title="Loop active measure (循環播放當前小節)"
             >
               <Repeat className="w-4 h-4" />
             </button>
@@ -697,3 +1185,4 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     </div>
   );
 };
+

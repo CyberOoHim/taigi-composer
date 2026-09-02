@@ -13,6 +13,8 @@ import {
   Library,
   Play,
   Pause,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -25,6 +27,12 @@ interface HeaderBarProps {
   onOpenImportExport: () => void;
   isPlaying: boolean;
   onTogglePlay: () => void;
+  onUndo?: () => boolean;
+  onRedo?: () => boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  pastCount?: number;
+  futureCount?: number;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -35,6 +43,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenImportExport,
   isPlaying,
   onTogglePlay,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
+  pastCount = 0,
+  futureCount = 0,
 }) => {
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 shadow-xs">
@@ -99,8 +113,52 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </button>
         </div>
 
-        {/* Right Action Tools: Song Selector, Quick Play, Import/Export */}
+        {/* Right Action Tools: Undo/Redo, Song Selector, Quick Play, Import/Export */}
         <div className="flex items-center gap-2">
+          {/* Undo / Redo Action Group */}
+          {onUndo && onRedo && (
+            <div
+              id="header-undo-redo-group"
+              className="flex items-center bg-zinc-100 dark:bg-zinc-800/80 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700"
+            >
+              <button
+                id="header-undo-btn"
+                type="button"
+                onClick={onUndo}
+                disabled={!canUndo}
+                title={canUndo ? `復原上一步 (Undo) [Ctrl+Z / ⌘Z] · 尚有 ${pastCount} 步可復原` : '無可復原的步驟 (Undo) [Ctrl+Z]'}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">復原</span>
+                {canUndo && pastCount > 0 && (
+                  <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono">
+                    {pastCount}
+                  </span>
+                )}
+              </button>
+
+              <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-600 mx-0.5" />
+
+              <button
+                id="header-redo-btn"
+                type="button"
+                onClick={onRedo}
+                disabled={!canRedo}
+                title={canRedo ? `重做下一步 (Redo) [Ctrl+Y / ⌘⇧Z] · 尚有 ${futureCount} 步可重做` : '無可重做的步驟 (Redo) [Ctrl+Y]'}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95"
+              >
+                <Redo2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">重做</span>
+                {canRedo && futureCount > 0 && (
+                  <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono">
+                    {futureCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
+
           {/* Preset Song Quick Picker */}
           <select
             id="header-preset-song-select"

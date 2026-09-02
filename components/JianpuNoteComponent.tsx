@@ -3,6 +3,7 @@
 import React from 'react';
 import { JianpuNote, LyricDisplayMode } from '@/types/song';
 import { cn } from '@/lib/utils';
+import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
 
 interface JianpuNoteComponentProps {
   note: JianpuNote;
@@ -25,20 +26,29 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = ({
   className,
   isKaraokeMode = false,
 }) => {
-  // Format octave dots (only for pitched notes)
-  const isPitched = typeof note.pitch === 'number' && note.pitch > 0;
-  const isEmptyNote = note.pitch === 'empty' || !note.pitch && note.pitch !== 0;
+  const isNonNotation = isNonNotationItem(note);
+  const isPitched = !isNonNotation && typeof note.pitch === 'number' && note.pitch > 0;
+  const isEmptyNote = isNonNotation || note.pitch === 'empty' || (!note.pitch && note.pitch !== 0);
+
+  // Octave dots (only for active pitched musical notes)
   const octaveTopDots = isPitched && note.octave > 0 ? note.octave : 0;
   const octaveBottomDots = isPitched && note.octave < 0 ? Math.abs(note.octave) : 0;
 
   // Underlines for eighth notes (duration <= 0.5) and 16th notes (duration <= 0.25)
-  const isEighth = note.duration === 0.5 || note.duration === 0.75;
-  const isSixteenth = note.duration <= 0.25 || note.duration === 0.375;
-  const showDot = note.isDotted || note.duration === 1.5 || note.duration === 0.75 || note.duration === 3 || note.duration === 0.375 || note.duration === 1.75;
+  const isEighth = !isNonNotation && (note.duration === 0.5 || note.duration === 0.75);
+  const isSixteenth = !isNonNotation && (note.duration <= 0.25 || note.duration === 0.375);
+  const showDot = !isNonNotation && (note.isDotted || note.duration === 1.5 || note.duration === 0.75 || note.duration === 3 || note.duration === 0.375 || note.duration === 1.75);
 
   // Extension dashes for 2, 3, 4 beats
-  const dashesCount =
-    note.duration === 2 ? 1 : note.duration === 3 ? 2 : note.duration === 4 ? 3 : 0;
+  const dashesCount = !isNonNotation
+    ? note.duration === 2
+      ? 1
+      : note.duration === 3
+      ? 2
+      : note.duration === 4
+      ? 3
+      : 0
+    : 0;
 
   // Lyric texts
   const hanji = note.lyric.hanji || '';
@@ -51,19 +61,20 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = ({
   const renderLyricContent = () => {
     const hasText = Boolean(hanji || poj || pij || custom || annotation);
     if (!hasText) {
-      if (note.pitch === 0) {
+      if (note.pitch === 0 && !isNonNotation) {
         return <span className="text-zinc-400 dark:text-zinc-600 font-mono text-xs">0</span>;
       }
       if (isEmptyNote) {
         return <span className="text-zinc-300 dark:text-zinc-700 font-mono text-xs select-none">␣</span>;
       }
+      if (isKaraokeMode) {
+        return <span className="text-transparent font-mono text-xs select-none">&nbsp;</span>;
+      }
       return <span className="text-zinc-400 dark:text-zinc-600 font-mono text-xs">—</span>;
     }
 
     const primaryText = hanji || custom || annotation || poj || pij || '';
-
-    // If it's punctuation or comment
-    const isPunctuation = /^[，。！？、；：—…「」()（）,\.!?\sV]+$/.test(primaryText.trim());
+    const isPunctuation = isPunctuationOrSpacer(primaryText);
 
     switch (displayMode) {
       case 'hanji_only':
@@ -170,7 +181,7 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = ({
           ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/50 shadow-sm ring-2 ring-amber-400/50'
           : !isKaraokeMode && 'border-zinc-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60',
         isActive && 'bg-amber-400/20 dark:bg-amber-500/25 ring-2 ring-amber-500 scale-[1.04]',
-        isEmptyNote && 'opacity-90',
+        isNonNotation && 'opacity-90 border-dashed bg-zinc-50/50 dark:bg-zinc-900/40',
         className
       )}
     >
@@ -184,13 +195,13 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = ({
       {/* Note Number Container */}
       <div className="flex items-center justify-center relative min-h-[36px] px-1">
         {/* Slur / Tie Indicator */}
-        {note.isTied && (
+        {note.isTied && !isNonNotation && (
           <span className="absolute -top-2.5 text-zinc-400 dark:text-zinc-500 text-xs font-bold">⌒</span>
         )}
 
         {/* Top Annotation if set */}
-        {annotation && isEmptyNote && (
-          <span className="absolute -top-3 text-[10px] font-sans font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">
+        {annotation && isNonNotation && (
+          <span className="absolute -top-3 text-[10px] font-sans font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950 px-1.5 py-0.2 rounded-full border border-indigo-200 dark:border-indigo-800 whitespace-nowrap shadow-2xs">
             {annotation}
           </span>
         )}
@@ -221,7 +232,7 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = ({
             <span
               className={cn(
                 'transition-colors',
-                isEmptyNote
+                isNonNotation
                   ? 'text-zinc-400/80 dark:text-zinc-500 font-mono text-base px-1 min-w-[14px] text-center'
                   : note.pitch === 0
                   ? 'text-zinc-400 dark:text-zinc-500 font-normal'
@@ -230,13 +241,13 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = ({
                   : 'text-zinc-900 dark:text-zinc-100'
               )}
             >
-              {isEmptyNote ? (annotation ? '' : ' ') : note.pitch}
+              {isNonNotation ? (annotation ? '' : isPunctuationOrSpacer(hanji || custom) ? (hanji || custom) : '␣') : note.pitch}
             </span>
-            {showDot && !isEmptyNote && (
+            {showDot && (
               <span className="text-sm font-black text-amber-600 dark:text-amber-400 ml-0.5">·</span>
             )}
             {/* Extension Dashes */}
-            {dashesCount > 0 && !isEmptyNote && (
+            {dashesCount > 0 && (
               <span className="font-mono text-zinc-500 dark:text-zinc-400 text-sm ml-1 font-semibold">
                 {' -'.repeat(dashesCount)}
               </span>
@@ -259,7 +270,7 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = ({
           )}
 
           {/* Duration Underlines */}
-          {isEighth && !isEmptyNote && (
+          {isEighth && (
             <div
               className={cn(
                 'w-full h-[2px] mt-0.5 rounded-full',
@@ -267,7 +278,7 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = ({
               )}
             />
           )}
-          {isSixteenth && !isEmptyNote && (
+          {isSixteenth && (
             <div className="flex flex-col gap-[2px] w-full mt-0.5">
               <div
                 className={cn(

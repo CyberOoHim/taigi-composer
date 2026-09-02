@@ -51,3 +51,33 @@ export interface Song {
 export type LyricDisplayMode = 'all' | 'hanji_poj' | 'hanji_pij' | 'hanji_only' | 'poj_only' | 'pij_only' | 'custom_only';
 
 export type InstrumentType = 'piano' | 'flute' | 'guitar' | 'synth' | 'bell';
+
+export type EditorEditMode = 'verse' | 'measure';
+
+export interface VerseNoteRef {
+  note: JianpuNote;
+  measureIdx: number;
+  noteIdx: number;
+  measureIndex: number;
+  noteIndex: number;
+  measureNumber: number;
+  chord?: string;
+  section?: string;
+  isFirstInMeasure: boolean;
+}
+
+export interface VerseItem {
+  id: string;
+  verseIndex: number;
+  notes: VerseNoteRef[];
+  startMeasureNumber: number;
+  endMeasureNumber: number;
+  section?: string;
+  chords: string[];
+  lyricSummary: {
+    hanji: string;
+    poj: string;
+    pij: string;
+    custom: string;
+  };
+}

@@ -1,4 +1,4 @@
-import { KeySignature, PitchNumber } from '@/types/song';
+import { JianpuNote, KeySignature, PitchNumber, Song, VerseItem, VerseNoteRef } from '@/types/song';
 
 // Semitones relative to C4 (MIDI note 60)
 export const KEY_SEMITONES: Record<KeySignature, number> = {
@@ -391,4 +391,259 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         isDotted: duration % 1 !== 0 && duration !== 0.5 && duration !== 0.25,
       };
   }
+}
+
+/**
+ * Check if a note is punctuation (標點), an annotation (註解), or whitespace/blank spacer (空白).
+ * Punctuation, annotations, and whitespace are NOT treated as musical notation
+ * and do NOT occupy any time duration when playing (0 duration).
+ */
+export function isNonNotationItem(note: JianpuNote | null | undefined): boolean {
+  if (!note) return false;
+
+  // 1. Explicit 'empty' pitch (blank notation / spacer for punctuation/annotation)
+  if (note.pitch === 'empty') return true;
+
+  const isMusicalPitch = typeof note.pitch === 'number' && note.pitch > 0;
+
+  // 2. Note has an annotation and has no active musical pitch (1-7)
+  if (note.annotation && !isMusicalPitch) {
+    return true;
+  }
+
+  // 3. Note contains punctuation in lyrics and does not have a pitched melody note (1-7)
+  const hanji = note.lyric?.hanji?.trim() || '';
+  const custom = note.lyric?.custom?.trim() || '';
+  const poj = note.lyric?.poj?.trim() || '';
+  const pij = note.lyric?.pij?.trim() || '';
+
+  const isHanjiPunct = isPunctuationOrSpacer(hanji);
+  const isCustomPunct = isPunctuationOrSpacer(custom);
+  const isPojPunct = isPunctuationOrSpacer(poj);
+  const isPijPunct = isPunctuationOrSpacer(pij);
+
+  const isPurePunctuationLyric =
+    (hanji ? isHanjiPunct : false) ||
+    (custom ? isCustomPunct : false) ||
+    (poj ? isPojPunct : false) ||
+    (pij ? isPijPunct : false);
+
+  if (isPurePunctuationLyric && !isMusicalPitch) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if a character or string is a punctuation mark or spacer
+ */
+export function isPunctuationOrSpacer(str?: string): boolean {
+  if (!str) return false;
+  const trimmed = str.trim();
+  if (trimmed === '' || trimmed === '—' || trimmed === '…' || trimmed === 'V') return true;
+  return /^[，。！？、；：""''（）()「」,.!?;:\s—…]+$/.test(trimmed);
+}
+
+/**
+ * Check if a note is a verse separator (punctuation or space/rest pause)
+ */
+export function isVerseBreakNote(note: JianpuNote): boolean {
+  if (isNonNotationItem(note)) return true;
+
+  // Rest note with empty or dash lyric
+  if (
+    note.pitch === 0 &&
+    (!note.lyric.hanji || isPunctuationOrSpacer(note.lyric.hanji)) &&
+    (!note.lyric.poj || isPunctuationOrSpacer(note.lyric.poj))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Group song into Verses (句 / 樂句) sectioned by punctuation (標點) or whitespace/rest (空白)
+ */
+export function groupSongIntoVerses(song: Song): VerseItem[] {
+  const verses: VerseItem[] = [];
+  let currentNotes: VerseNoteRef[] = [];
+  let currentSection: string | undefined = undefined;
+
+  const pushCurrentVerse = () => {
+    if (currentNotes.length === 0) return;
+
+    const startMNum = currentNotes[0].measureNumber;
+    const endMNum = currentNotes[currentNotes.length - 1].measureNumber;
+
+    const chords = Array.from(
+      new Set(currentNotes.map(n => n.chord).filter(Boolean) as string[])
+    );
+
+    const hanjiParts: string[] = [];
+    const pojParts: string[] = [];
+    const pijParts: string[] = [];
+    const customParts: string[] = [];
+
+    currentNotes.forEach(n => {
+      if (n.note.lyric.hanji) hanjiParts.push(n.note.lyric.hanji);
+      if (n.note.lyric.poj) pojParts.push(n.note.lyric.poj);
+      if (n.note.lyric.pij) pijParts.push(n.note.lyric.pij);
+      if (n.note.lyric.custom) customParts.push(n.note.lyric.custom);
+    });
+
+    const verseIndex = verses.length;
+    verses.push({
+      id: `verse-${verseIndex + 1}-${startMNum}-${endMNum}`,
+      verseIndex,
+      notes: [...currentNotes],
+      startMeasureNumber: startMNum,
+      endMeasureNumber: endMNum,
+      section: currentSection || currentNotes[0].section,
+      chords,
+      lyricSummary: {
+        hanji: hanjiParts.join(''),
+        poj: pojParts.join(' '),
+        pij: pijParts.join(' '),
+        custom: customParts.join(' '),
+      },
+    });
+
+    currentNotes = [];
+  };
+
+  song.measures.forEach((measure, mIdx) => {
+    measure.notes.forEach((note, nIdx) => {
+      const isFirstInMeasure = nIdx === 0;
+
+      // If a measure has a new explicit section tag and we already have notes in the current verse, close the verse
+      if (measure.section && isFirstInMeasure && currentNotes.length > 0 && currentSection !== measure.section) {
+        pushCurrentVerse();
+        currentSection = measure.section;
+      } else if (measure.section && !currentSection) {
+        currentSection = measure.section;
+      }
+
+      const noteRef: VerseNoteRef = {
+        note,
+        measureIdx: mIdx,
+        noteIdx: nIdx,
+        measureIndex: mIdx,
+        noteIndex: nIdx,
+        measureNumber: measure.measureNumber,
+        chord: measure.chord,
+        section: measure.section,
+        isFirstInMeasure,
+      };
+
+      currentNotes.push(noteRef);
+
+      // Check if this note acts as a phrase / verse ending separator
+      const isSeparator = isVerseBreakNote(note);
+
+      if (isSeparator) {
+        // If we have accumulated at least one pitched/lyrical note before this separator, close the verse here
+        const hasContent = currentNotes.some(
+          n => (typeof n.note.pitch === 'number' && n.note.pitch > 0) || (n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji))
+        );
+
+        if (hasContent) {
+          pushCurrentVerse();
+          currentSection = undefined;
+        }
+      }
+    });
+  });
+
+  // Push remaining notes
+  pushCurrentVerse();
+
+  // If for some reason song has no notes or produced empty verses, provide a fallback single verse
+  if (verses.length === 0 && song.measures.length > 0) {
+    const allNotes: VerseNoteRef[] = [];
+    song.measures.forEach((m, mIdx) => {
+      m.notes.forEach((n, nIdx) => {
+        allNotes.push({
+          note: n,
+          measureIdx: mIdx,
+          noteIdx: nIdx,
+          measureIndex: mIdx,
+          noteIndex: nIdx,
+          measureNumber: m.measureNumber,
+          chord: m.chord,
+          section: m.section,
+          isFirstInMeasure: nIdx === 0,
+        });
+      });
+    });
+
+    if (allNotes.length > 0) {
+      verses.push({
+        id: 'verse-1',
+        verseIndex: 0,
+        notes: allNotes,
+        startMeasureNumber: 1,
+        endMeasureNumber: song.measures[song.measures.length - 1].measureNumber,
+        section: song.measures[0]?.section,
+        chords: Array.from(new Set(allNotes.map(n => n.chord).filter(Boolean) as string[])),
+        lyricSummary: {
+          hanji: allNotes.map(n => n.note.lyric.hanji || '').join(''),
+          poj: allNotes.map(n => n.note.lyric.poj || '').join(' '),
+          pij: allNotes.map(n => n.note.lyric.pij || '').join(' '),
+          custom: allNotes.map(n => n.note.lyric.custom || '').join(' '),
+        },
+      });
+    }
+  }
+
+  return verses;
+}
+
+/**
+ * Tokenize verse text into syllables while preserving or recognizing punctuation marks
+ */
+export function splitVerseTextTokens(text: string): { text: string; isPunct: boolean }[] {
+  if (!text) return [];
+
+  const tokens: { text: string; isPunct: boolean }[] = [];
+  let currentLatin = '';
+
+  const flushLatin = () => {
+    if (currentLatin.trim()) {
+      tokens.push({ text: currentLatin.trim(), isPunct: false });
+      currentLatin = '';
+    }
+  };
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const isPunct = isPunctuationOrSpacer(char);
+
+    if (isPunct) {
+      flushLatin();
+      if (char.trim()) {
+        tokens.push({ text: char, isPunct: true });
+      }
+      continue;
+    }
+
+    const code = char.charCodeAt(0);
+    const isHan =
+      (code >= 0x4e00 && code <= 0x9fff) ||
+      (code >= 0x3400 && code <= 0x4dbf) ||
+      (code >= 0x20000 && code <= 0x2a6df);
+
+    if (isHan) {
+      flushLatin();
+      tokens.push({ text: char, isPunct: false });
+    } else if (char === '-' || char === ' ') {
+      flushLatin();
+    } else {
+      currentLatin += char;
+    }
+  }
+
+  flushLatin();
+  return tokens;
 }

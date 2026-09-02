@@ -1,5 +1,5 @@
 import { InstrumentType, JianpuNote, KeySignature, Measure, Song } from '@/types/song';
-import { getChordNotes, getPitchFrequency } from './taigiUtils';
+import { getChordNotes, getPitchFrequency, isNonNotationItem } from './taigiUtils';
 
 export interface PlaybackState {
   isPlaying: boolean;
@@ -138,6 +138,7 @@ export class AudioEngine {
    * Play a single preview note (e.g. clicking a note in the editor)
    */
   public previewNote(key: KeySignature, note: JianpuNote) {
+    if (isNonNotationItem(note)) return; // Punctuation, annotations, and whitespace produce no sound
     this.initContext();
     if (!this.ctx || !this.melodyGain) return;
 
@@ -380,7 +381,10 @@ export class AudioEngine {
     for (const measure of song.measures) {
       let measureBeats = 0;
       for (const note of measure.notes) {
-        measureBeats += note.duration;
+        // Punctuation, annotations, and blank whitespace do not occupy any time duration when playing
+        if (!isNonNotationItem(note)) {
+          measureBeats += note.duration;
+        }
       }
       totalBeats += measureBeats;
     }
@@ -408,7 +412,9 @@ export class AudioEngine {
 
     let measureBeats = 0;
     for (const note of targetMeasure.notes) {
-      measureBeats += note.duration;
+      if (!isNonNotationItem(note)) {
+        measureBeats += note.duration;
+      }
     }
 
     const tsParts = (targetMeasure.timeSignature || song.timeSignature).split('/');
@@ -428,25 +434,28 @@ export class AudioEngine {
 
     let noteTime = 0;
     targetMeasure.notes.forEach((note, nIdx) => {
-      const noteDurationSec = note.duration * secPerBeat;
+      const isNonNotation = isNonNotationItem(note);
+      const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
       const scheduleAt = audioStart + noteTime;
 
-      const freq = getPitchFrequency(
-        song.key,
-        note.pitch,
-        note.octave,
-        note.accidental,
-        this.options.transpose
-      );
-
-      if (freq > 0) {
-        this.playTone(
-          freq,
-          scheduleAt,
-          noteDurationSec,
-          this.melodyGain!,
-          this.options.instrument
+      if (!isNonNotation) {
+        const freq = getPitchFrequency(
+          song.key,
+          note.pitch,
+          note.octave,
+          note.accidental,
+          this.options.transpose
         );
+
+        if (freq > 0) {
+          this.playTone(
+            freq,
+            scheduleAt,
+            noteDurationSec,
+            this.melodyGain!,
+            this.options.instrument
+          );
+        }
       }
 
       timelineEvents.push({
@@ -457,7 +466,10 @@ export class AudioEngine {
         durationSec: noteDurationSec,
       });
 
-      noteTime += noteDurationSec;
+      // Punctuation, annotations, and blank whitespace do not occupy any time duration
+      if (!isNonNotation) {
+        noteTime += noteDurationSec;
+      }
     });
 
     // Schedule chord backing & metronome for this measure
@@ -481,6 +493,109 @@ export class AudioEngine {
         if (onFinished) onFinished();
       }
     }, (totalMeasureDurationSec + 0.08) * 1000);
+
+    this.scheduledTimeoutIds.push(stopTimer as unknown as number);
+  }
+
+  /**
+   * Play only a specific verse (sequence of notes across measures)
+   */
+  public playVerse(
+    song: Song,
+    verseNotes: { note: JianpuNote; measureIdx: number; noteIdx: number }[],
+    onFinished?: () => void
+  ) {
+    this.initContext();
+    this.stop(); // Stop any existing playback
+
+    if (!verseNotes || verseNotes.length === 0) return;
+
+    this.currentSong = song;
+    this.isPlaying = true;
+    this.isPaused = false;
+    this.pausedSongTime = 0;
+
+    const effectiveBpm = song.bpm * this.options.tempoMultiplier;
+    const secPerBeat = 60 / effectiveBpm;
+
+    let totalVerseBeats = 0;
+    for (const item of verseNotes) {
+      if (!isNonNotationItem(item.note)) {
+        totalVerseBeats += item.note.duration;
+      }
+    }
+    const totalVerseDurationSec = totalVerseBeats * secPerBeat;
+
+    const audioStart = this.ctx!.currentTime + 0.05;
+    this.startAudioTime = audioStart;
+
+    const timelineEvents: {
+      time: number;
+      measureIndex: number;
+      noteIndex: number;
+      note: JianpuNote;
+      durationSec: number;
+    }[] = [];
+
+    let noteTime = 0;
+    let lastChord = '';
+
+    verseNotes.forEach(item => {
+      const { note, measureIdx, noteIdx } = item;
+      const isNonNotation = isNonNotationItem(note);
+      const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
+      const scheduleAt = audioStart + noteTime;
+
+      if (!isNonNotation) {
+        const freq = getPitchFrequency(
+          song.key,
+          note.pitch,
+          note.octave,
+          note.accidental,
+          this.options.transpose
+        );
+
+        if (freq > 0) {
+          this.playTone(
+            freq,
+            scheduleAt,
+            noteDurationSec,
+            this.melodyGain!,
+            this.options.instrument
+          );
+        }
+
+        const m = song.measures[measureIdx];
+        if (m?.chord && m.chord !== lastChord) {
+          this.playChordBeat(m.chord, scheduleAt, Math.min(secPerBeat, noteDurationSec), true);
+          lastChord = m.chord;
+        }
+      }
+
+      timelineEvents.push({
+        time: noteTime,
+        measureIndex: measureIdx,
+        noteIndex: noteIdx,
+        note,
+        durationSec: noteDurationSec,
+      });
+
+      if (!isNonNotation) {
+        noteTime += noteDurationSec;
+      }
+    });
+
+    // Start UI tracking loop
+    this.startTrackingLoop(totalVerseDurationSec, timelineEvents);
+
+    // Auto stop when verse finishes
+    const stopTimer = setTimeout(() => {
+      if (this.isPlaying && this.currentSong === song) {
+        this.stop();
+        this.notifyEnded();
+        if (onFinished) onFinished();
+      }
+    }, (totalVerseDurationSec + 0.08) * 1000);
 
     this.scheduledTimeoutIds.push(stopTimer as unknown as number);
   }
@@ -525,43 +640,48 @@ export class AudioEngine {
       const beatsPerBar = parseInt(tsParts[0], 10) || 4;
 
       measure.notes.forEach((note, nIdx) => {
-        const noteDurationSec = note.duration * secPerBeat;
+        const isNonNotation = isNonNotationItem(note);
+        const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
         const noteStartTime = measureTime;
 
         // Schedule melody note if it starts at or after our playback cursor
-        if (noteStartTime + noteDurationSec >= startFromSec) {
-          const scheduleAt = this.startAudioTime + noteStartTime;
-          if (scheduleAt >= this.ctx!.currentTime) {
-            const freq = getPitchFrequency(
-              song.key,
-              note.pitch,
-              note.octave,
-              note.accidental,
-              this.options.transpose
-            );
-
-            if (freq > 0) {
-              this.playTone(
-                freq,
-                scheduleAt,
-                noteDurationSec,
-                this.melodyGain!,
-                this.options.instrument
+        if (!isNonNotation) {
+          if (noteStartTime + noteDurationSec >= startFromSec) {
+            const scheduleAt = this.startAudioTime + noteStartTime;
+            if (scheduleAt >= this.ctx!.currentTime) {
+              const freq = getPitchFrequency(
+                song.key,
+                note.pitch,
+                note.octave,
+                note.accidental,
+                this.options.transpose
               );
+
+              if (freq > 0) {
+                this.playTone(
+                  freq,
+                  scheduleAt,
+                  noteDurationSec,
+                  this.melodyGain!,
+                  this.options.instrument
+                );
+              }
             }
           }
-
-          timelineEvents.push({
-            time: noteStartTime,
-            measureIndex: mIdx,
-            noteIndex: nIdx,
-            note,
-            durationSec: noteDurationSec,
-          });
         }
 
-        measureTime += noteDurationSec;
-        measureBeatsCount += note.duration;
+        timelineEvents.push({
+          time: noteStartTime,
+          measureIndex: mIdx,
+          noteIndex: nIdx,
+          note,
+          durationSec: noteDurationSec,
+        });
+
+        if (!isNonNotation) {
+          measureTime += noteDurationSec;
+          measureBeatsCount += note.duration;
+        }
       });
 
       // Schedule chord backing and metronome per beat of this measure
@@ -711,6 +831,77 @@ export class AudioEngine {
     });
   }
 
+  /**
+   * Get the start time of a specific measure in seconds
+   */
+  public getMeasureStartTime(song: Song, measureIndex: number): number {
+    const effectiveBpm = song.bpm * this.options.tempoMultiplier;
+    const secPerBeat = 60 / effectiveBpm;
+    let accumulatedTime = 0;
+
+    const limit = Math.min(measureIndex, song.measures.length);
+    for (let i = 0; i < limit; i++) {
+      let measureBeats = 0;
+      for (const note of song.measures[i].notes) {
+        if (!isNonNotationItem(note)) {
+          measureBeats += note.duration;
+        }
+      }
+      accumulatedTime += measureBeats * secPerBeat;
+    }
+    return accumulatedTime;
+  }
+
+  /**
+   * Determine exact measureIndex and noteIndex at a given target time
+   */
+  public getPlaybackLocationAtTime(song: Song, targetTimeSec: number): {
+    measureIndex: number;
+    noteIndex: number;
+    noteId: string | null;
+  } {
+    if (!song.measures.length) {
+      return { measureIndex: 0, noteIndex: 0, noteId: null };
+    }
+
+    const effectiveBpm = song.bpm * this.options.tempoMultiplier;
+    const secPerBeat = 60 / effectiveBpm;
+    let accumulatedTime = 0;
+
+    for (let mIdx = 0; mIdx < song.measures.length; mIdx++) {
+      const measure = song.measures[mIdx];
+      for (let nIdx = 0; nIdx < measure.notes.length; nIdx++) {
+        const note = measure.notes[nIdx];
+        const isNonNotation = isNonNotationItem(note);
+        const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
+
+        // If targetTime falls within this note or at the end of the song
+        if (
+          accumulatedTime + noteDurationSec > targetTimeSec ||
+          (mIdx === song.measures.length - 1 && nIdx === measure.notes.length - 1)
+        ) {
+          return {
+            measureIndex: mIdx,
+            noteIndex: nIdx,
+            noteId: note.id,
+          };
+        }
+        accumulatedTime += noteDurationSec;
+      }
+    }
+
+    return {
+      measureIndex: 0,
+      noteIndex: 0,
+      noteId: song.measures[0]?.notes[0]?.id || null,
+    };
+  }
+
+  public seekToMeasure(song: Song, measureIndex: number) {
+    const targetTime = this.getMeasureStartTime(song, measureIndex);
+    this.seek(song, targetTime);
+  }
+
   public seek(song: Song, targetTimeSec: number) {
     const wasPlaying = this.isPlaying;
     this.stopAudioNodes();
@@ -722,19 +913,20 @@ export class AudioEngine {
     this.pausedSongTime = targetTimeSec;
 
     const totalDuration = this.calculateSongDuration(song);
-    const progressPercent = totalDuration > 0 ? (targetTimeSec / totalDuration) * 100 : 0;
+    const progressPercent = totalDuration > 0 ? Math.min(100, (targetTimeSec / totalDuration) * 100) : 0;
 
     if (wasPlaying) {
       this.play(song, targetTimeSec);
     } else {
       this.isPaused = true;
       this.isPlaying = false;
+      const loc = this.getPlaybackLocationAtTime(song, targetTimeSec);
       this.notifyState({
         isPlaying: false,
         isPaused: true,
-        currentMeasureIndex: 0,
-        currentNoteIndex: 0,
-        currentNoteId: null,
+        currentMeasureIndex: loc.measureIndex,
+        currentNoteIndex: loc.noteIndex,
+        currentNoteId: loc.noteId,
         currentTime: targetTimeSec,
         totalDuration,
         progressPercent,

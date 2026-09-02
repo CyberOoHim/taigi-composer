@@ -5,10 +5,11 @@ import { LyricDisplayMode, Song } from '@/types/song';
 import { PRESET_SONGS } from '@/lib/presets';
 import { audioEngine, PlaybackState } from '@/lib/audioEngine';
 import { HeaderBar, ActiveTabMode } from '@/components/HeaderBar';
-import { KaraokeView } from '@/components/KaraokeView';
+import { KaraokeView, KaraokeSection } from '@/components/KaraokeView';
 import { ComposerEditor } from '@/components/ComposerEditor';
 import { ImportExportModal } from '@/components/ImportExportModal';
 import { QuickLyricAlignerModal } from '@/components/QuickLyricAlignerModal';
+import { useSongHistory } from '@/hooks/useSongHistory';
 import {
   Mic2,
   Music,
@@ -20,12 +21,38 @@ import {
 } from 'lucide-react';
 
 export default function Home() {
-  const [song, setSong] = useState<Song>(PRESET_SONGS[0]);
+  const {
+    song,
+    setSong,
+    loadNewSong,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    pastCount,
+    futureCount,
+  } = useSongHistory(PRESET_SONGS[0]);
+
   const [activeTab, setActiveTab] = useState<ActiveTabMode>('karaoke');
   const [displayMode, setDisplayMode] = useState<LyricDisplayMode>('all');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isAlignerOpen, setIsAlignerOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [targetMeasureIndex, setTargetMeasureIndex] = useState<number | null>(null);
+
+  const handleEditMeasure = useCallback((measureIndex: number) => {
+    if (activeTab === 'karaoke') {
+      setActiveTab('editor');
+    }
+    setTargetMeasureIndex(measureIndex);
+  }, [activeTab]);
+
+  const handleEditSection = useCallback((section: KaraokeSection) => {
+    if (activeTab === 'karaoke') {
+      setActiveTab('editor');
+    }
+    setTargetMeasureIndex(section.startMeasureIndex);
+  }, [activeTab]);
 
   const handleTogglePlay = useCallback(() => {
     if (!audioEngine) return;
@@ -42,8 +69,8 @@ export default function Home() {
     if (audioEngine) {
       audioEngine.stop();
     }
-    setSong(newSong);
-  }, []);
+    loadNewSong(newSong);
+  }, [loadNewSong]);
 
   // Subscribe to audio engine playback state
   useEffect(() => {
@@ -56,9 +83,26 @@ export default function Home() {
     };
   }, []);
 
-  // Keyboard shortcut: Spacebar to toggle playback (if not typing in input/textarea/select)
+  // Global Keyboard shortcuts: Space for playback, Ctrl+Z / Cmd+Z for undo, Ctrl+Y / Cmd+Shift+Z for redo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Undo (Ctrl+Z or Cmd+Z without Shift)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      // Check for Redo (Ctrl+Y or Cmd+Shift+Z or Ctrl+Shift+Z)
+      if (
+        ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z'))
+      ) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      // Spacebar to toggle playback (if not typing in input/textarea/select)
       if (
         (e.code === 'Space' || e.key === ' ') &&
         document.activeElement?.tagName !== 'INPUT' &&
@@ -71,7 +115,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTogglePlay]);
+  }, [undo, redo, handleTogglePlay]);
 
   return (
     <div className="min-h-screen bg-zinc-100/70 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col antialiased">
@@ -84,6 +128,12 @@ export default function Home() {
         onOpenImportExport={() => setIsImportExportOpen(true)}
         isPlaying={isPlaying}
         onTogglePlay={handleTogglePlay}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        pastCount={pastCount}
+        futureCount={futureCount}
       />
 
       {/* Main Body Canvas */}
@@ -97,6 +147,8 @@ export default function Home() {
               displayMode={displayMode}
               setDisplayMode={setDisplayMode}
               onSelectMeasure={() => {}}
+              onEditMeasure={handleEditMeasure}
+              onEditSection={handleEditSection}
             />
 
             {/* Quick Switch to Editor CTA */}
@@ -110,13 +162,13 @@ export default function Home() {
                     想修改這首歌的旋律、音符或台語歌詞嗎？
                   </h4>
                   <p className="text-xs text-zinc-500">
-                    切換至簡譜編寫模式，隨時調整簡譜 1-7 音符、調號、和弦與漢字/白話字/臺羅歌詞。
+                    切換至簡譜編寫模式，隨時調整簡譜 1-7 音符、調號、和弦與漢字/白話字/臺羅歌詞。支援完整的復原 (Undo) 與重做 (Redo)。
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setActiveTab('editor')}
-                className="flex items-center gap-1.5 px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold text-xs rounded-xl hover:opacity-90 transition-opacity"
+                className="flex items-center gap-1.5 px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold text-xs rounded-xl hover:opacity-90 transition-opacity cursor-pointer"
               >
                 <span>前往編寫器 (Open Editor)</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -134,6 +186,14 @@ export default function Home() {
               displayMode={displayMode}
               setDisplayMode={setDisplayMode}
               onOpenAligner={() => setIsAlignerOpen(true)}
+              targetMeasureIndex={targetMeasureIndex}
+              onTargetMeasureHandled={() => setTargetMeasureIndex(null)}
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              pastCount={pastCount}
+              futureCount={futureCount}
             />
           </div>
         )}
@@ -150,6 +210,8 @@ export default function Home() {
                 audioEngine={audioEngine}
                 displayMode={displayMode}
                 setDisplayMode={setDisplayMode}
+                onEditMeasure={handleEditMeasure}
+                onEditSection={handleEditSection}
               />
             </div>
 
@@ -165,6 +227,14 @@ export default function Home() {
                 displayMode={displayMode}
                 setDisplayMode={setDisplayMode}
                 onOpenAligner={() => setIsAlignerOpen(true)}
+                targetMeasureIndex={targetMeasureIndex}
+                onTargetMeasureHandled={() => setTargetMeasureIndex(null)}
+                onUndo={undo}
+                onRedo={redo}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                pastCount={pastCount}
+                futureCount={futureCount}
               />
             </div>
           </div>
@@ -178,7 +248,7 @@ export default function Home() {
               <span>多格式台語歌詞支援 (Hanji / POJ / PIJ)</span>
             </h4>
             <p className="leading-relaxed">
-              支援漢字 (Hanji)、白話字 (Pe̍h-ōe-jī)、臺灣閩南語羅馬字拼音方案 (臺羅 / PIJ) 以及漢羅合用 (Han-lô)。每個音符精確對齊對應的音節，並提供聲調符號快捷盤。
+              支援漢字 (Hanji)、白話字 (Pe̍h-ōe-jī)、臺灣閩南語羅馬字拼音方案 (臺羅 / PIJ) 以及漢羅合用 (Han-lô)。每個音符精確對齊對應的音節與演唱註解。
             </p>
           </div>
 
