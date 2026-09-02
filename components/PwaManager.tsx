@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Download, Check, X, WifiOff, Sparkles, Smartphone } from 'lucide-react';
+import { Download, X, WifiOff, Smartphone } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -21,11 +21,20 @@ declare global {
 export const PwaManager: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return Boolean(
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+        (window.navigator as unknown as { standalone?: boolean }).standalone === true
+    );
+  });
   const [showBanner, setShowBanner] = useState(false);
-  const [isOffline, setIsOffline] = useState(false);
+  const [isOffline, setIsOffline] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !navigator.onLine;
+  });
 
-  // Register Service Worker
+  // Register Service Worker & online/offline listeners
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       // Use relative or basePath for SW registration
@@ -52,22 +61,16 @@ export const PwaManager: React.FC = () => {
         });
     }
 
-    // Check online/offline status
-    const updateOnlineStatus = () => {
-      setIsOffline(!navigator.onLine);
-    };
+    // Check online/offline status via event listener
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
 
-    if (typeof window !== 'undefined') {
-      setIsOffline(!navigator.onLine);
-      window.addEventListener('online', updateOnlineStatus);
-      window.addEventListener('offline', updateOnlineStatus);
-    }
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('online', updateOnlineStatus);
-        window.removeEventListener('offline', updateOnlineStatus);
-      }
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -96,14 +99,6 @@ export const PwaManager: React.FC = () => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
-
-    // Check if running in standalone mode (already installed/running as PWA)
-    if (
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true
-    ) {
-      setIsInstalled(true);
-    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -170,7 +165,7 @@ export const PwaManager: React.FC = () => {
             </div>
             <button
               onClick={handleDismiss}
-              className="text-zinc-400 hover:text-zinc-200 p-1 rounded-lg transition-colors shrink-0"
+              className="text-zinc-400 hover:text-zinc-200 p-1 rounded-lg transition-colors shrink-0 cursor-pointer"
               title="關閉提示"
             >
               <X className="w-4 h-4" />
@@ -180,14 +175,14 @@ export const PwaManager: React.FC = () => {
           <div className="flex items-center justify-end gap-2 mt-3 pt-2 border-t border-zinc-800">
             <button
               onClick={handleDismiss}
-              className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 font-medium transition-colors"
+              className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 font-medium transition-colors cursor-pointer"
             >
               稍後再說
             </button>
             <button
               id="pwa-install-confirm-btn"
               onClick={handleInstallClick}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 text-zinc-950 font-bold text-xs shadow-md shadow-amber-500/20 hover:from-amber-400 hover:to-amber-300 transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 text-zinc-950 font-bold text-xs shadow-md shadow-amber-500/20 hover:from-amber-400 hover:to-amber-300 transition-all active:scale-95 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>立即安裝 (Install)</span>
