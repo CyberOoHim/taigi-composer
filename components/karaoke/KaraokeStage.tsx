@@ -1,0 +1,182 @@
+'use client';
+
+import React from 'react';
+import { JianpuNote, LyricDisplayMode, Measure } from '@/types/song';
+import { PlaybackState } from '@/lib/audioEngine';
+import { KaraokeSection } from './SectionJumpBar';
+import { Sparkles } from 'lucide-react';
+
+interface LyricLine {
+  lineIndex: number;
+  measures: Measure[];
+  measureIndices: number[];
+  notes: { note: JianpuNote; measureIdx: number; noteIdx: number }[];
+}
+
+interface KaraokeStageProps {
+  currentLine: LyricLine;
+  nextLine: LyricLine | null;
+  activeSection: KaraokeSection | null;
+  playbackState: PlaybackState;
+  displayMode: LyricDisplayMode;
+  onJumpToSection: (section: KaraokeSection) => void;
+}
+
+export const KaraokeStage: React.FC<KaraokeStageProps> = ({
+  currentLine,
+  nextLine,
+  activeSection,
+  playbackState,
+  displayMode,
+  onJumpToSection,
+}) => {
+  return (
+    <div className="relative flex flex-col items-center justify-center p-6 sm:p-10 min-h-[280px] bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900 border-b border-zinc-800/80 select-none overflow-hidden">
+      {/* Background Ambience / Disco Glow */}
+      <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-rose-500/10 blur-3xl pointer-events-none" />
+
+      {/* Current Active Section Badge */}
+      {activeSection && (
+        <button
+          id="ktv-stage-active-section-badge"
+          type="button"
+          onClick={() => onJumpToSection(activeSection)}
+          className="mb-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-zinc-800/90 hover:bg-zinc-700/90 border border-amber-500/40 text-xs font-semibold text-amber-300 shadow-md transition-all active:scale-95 cursor-pointer"
+          title={`點擊重新從「${activeSection.name}」開始`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <span>{activeSection.name}</span>
+          <span className="text-[10px] text-zinc-400 font-mono">
+            (#{activeSection.startMeasureNumber}~#{activeSection.endMeasureNumber})
+          </span>
+        </button>
+      )}
+
+      {/* CURRENT LYRIC LINE (Big KTV Karaoke Sweeping Text) */}
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 max-w-4xl text-center z-10 min-h-[90px]">
+        {currentLine.notes.map((item, idx) => {
+          const isNoteActive =
+            playbackState.currentMeasureIndex === item.measureIdx &&
+            playbackState.currentNoteIndex === item.noteIdx;
+
+          const isPassed =
+            item.measureIdx < playbackState.currentMeasureIndex ||
+            (item.measureIdx === playbackState.currentMeasureIndex && item.noteIdx < playbackState.currentNoteIndex);
+
+          const rawHanji = item.note.lyric.hanji ?? item.note.lyric.custom ?? '';
+          const rawRoman =
+            displayMode === 'hanji_pij' || displayMode === 'pij_only'
+              ? item.note.lyric.pij ?? item.note.lyric.poj ?? ''
+              : item.note.lyric.poj ?? item.note.lyric.pij ?? '';
+
+          const hasHanji = Boolean(rawHanji && rawHanji.trim());
+          const hasRoman = Boolean(rawRoman && rawRoman.trim());
+          const hasExplicitText = hasHanji || hasRoman;
+
+          if ((item.note.pitch === 0 || item.note.pitch === 'empty') && !hasExplicitText && !item.note.annotation) {
+            return null; // Rest or empty space without lyrics or annotation
+          }
+
+          const isPitched = typeof item.note.pitch === 'number' && item.note.pitch > 0;
+          const pitchLabel =
+            item.note.pitch === 'empty'
+              ? '␣'
+              : item.note.pitch === 0
+              ? '0'
+              : `${item.note.accidental || ''}${item.note.pitch}`;
+
+          const romanDisplay = hasRoman ? rawRoman : '\u00A0';
+          let mainWordDisplay = '\u00A0';
+          if (displayMode === 'poj_only' || displayMode === 'pij_only') {
+            mainWordDisplay = hasRoman ? rawRoman : '\u00A0';
+          } else if (hasHanji) {
+            mainWordDisplay = rawHanji;
+          } else if (hasRoman) {
+            mainWordDisplay = rawRoman;
+          }
+
+          return (
+            <div
+              key={`${item.measureIdx}-${item.noteIdx}-${idx}`}
+              className={`relative flex flex-col items-center transition-transform duration-150 min-w-[32px] ${
+                isNoteActive ? 'scale-115 -translate-y-1' : ''
+              }`}
+            >
+              {/* Annotation pill if present */}
+              {item.note.annotation && (
+                <span className="text-[10px] font-sans font-bold text-indigo-300 bg-indigo-950/80 px-1.5 py-0.2 rounded-full border border-indigo-700/60 mb-0.5">
+                  {item.note.annotation}
+                </span>
+              )}
+
+              {/* Romanization (POJ / PIJ) Ruby above */}
+              {(displayMode === 'all' || displayMode === 'hanji_poj' || displayMode === 'hanji_pij') && (
+                <span
+                  className={`text-xs sm:text-sm font-serif italic mb-0.5 min-h-[1.25rem] transition-colors select-none ${
+                    isNoteActive
+                      ? 'text-amber-300 font-bold drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]'
+                      : isPassed
+                      ? 'text-amber-500/80'
+                      : 'text-zinc-400'
+                  }`}
+                >
+                  {romanDisplay}
+                </span>
+              )}
+
+              {/* Hanji / Main Lyric Word */}
+              <span
+                className={`text-2xl sm:text-4xl font-black tracking-wider min-h-[2.5rem] flex items-center justify-center transition-all duration-150 select-none ${
+                  displayMode === 'poj_only' || displayMode === 'pij_only' ? 'font-serif italic text-xl sm:text-3xl' : ''
+                } ${
+                  isNoteActive
+                    ? 'text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 scale-105 drop-shadow-[0_0_16px_rgba(245,158,11,0.9)]'
+                    : isPassed
+                    ? 'text-amber-400'
+                    : 'text-zinc-300'
+                }`}
+              >
+                {mainWordDisplay}
+              </span>
+
+              {/* Corresponding Jianpu Number below */}
+              <span
+                className={`mt-1 text-xs font-mono font-bold px-1.5 py-0.5 rounded transition-colors ${
+                  isNoteActive
+                    ? 'bg-amber-400 text-zinc-950 ring-2 ring-amber-300 shadow-md'
+                    : isPassed
+                    ? 'bg-zinc-800 text-amber-300/80'
+                    : 'bg-zinc-900/90 text-zinc-400'
+                }`}
+              >
+                {pitchLabel}
+                {isPitched && item.note.octave > 0 ? '̇' : isPitched && item.note.octave < 0 ? '̣' : ''}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* NEXT UPCOMING LYRIC LINE PREVIEW */}
+      {nextLine && (
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-zinc-500 text-sm sm:text-base opacity-75">
+          <span className="text-xs px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-400 font-medium">
+            Next:
+          </span>
+          {nextLine.notes.map((item, idx) => {
+            const hanji = item.note.lyric.hanji || item.note.lyric.custom || '';
+            const roman = item.note.lyric.poj || item.note.lyric.pij || '';
+            const displayWord = displayMode === 'poj_only' || displayMode === 'pij_only' ? roman : (hanji || roman);
+            if (!displayWord || !displayWord.trim()) return null;
+            return (
+              <span key={idx} className="font-medium">
+                {displayWord}
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
