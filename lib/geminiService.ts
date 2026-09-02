@@ -3,8 +3,10 @@ import { KeySignature, LyricSyllable, NoteDuration, PitchNumber, Song, TimeSigna
 import { splitTaigiLyricSyllables } from './taigiUtils';
 import { getActiveGeminiApiKey } from './geminiAuth';
 
-export type GeminiModelChoice = 'gemini-2.5-flash' | 'gemini-2.5-flash-lite';
-export type GeminiThinkingEffort = 'HIGH' | 'MEDIUM';
+export type GeminiModelChoice = 'gemini-3.7-flash' | 'gemini-3.7-flash-lite';
+export type GeminiThinkingEffort = 'HIGH' | 'MEDIUM' | 'LOW' | 'OFF' | 'AUTO';
+
+export const DEFAULT_GEMINI_MODEL: GeminiModelChoice = 'gemini-3.7-flash';
 
 export interface GeminiAiOptions {
   model?: GeminiModelChoice | string;
@@ -12,7 +14,7 @@ export interface GeminiAiOptions {
 }
 
 export interface ScoreImageInput {
-  data: string;     // base64 data without data:image/xxx;base64, prefix
+  data: string;     // base64 data (with or without data:image/xxx;base64, prefix)
   mimeType: string; // image/jpeg, image/png, etc.
   name?: string;
 }
@@ -28,6 +30,72 @@ export interface AiScoreExtractionResult {
   error?: string;
 }
 
+/**
+ * Builds appropriate thinking configuration based on the target model and effort level.
+ * Both gemini-3.7-flash and gemini-3.7-flash-lite share the same thinkingConfig capabilities.
+ */
+export function buildThinkingConfig(
+  model?: string,
+  effort?: GeminiThinkingEffort
+): { thinkingBudget?: number; thinkingLevel?: ThinkingLevel } | undefined {
+  if (effort === 'OFF') {
+    return { thinkingBudget: 0 };
+  }
+
+  switch (effort) {
+    case 'HIGH':
+      return {
+        thinkingBudget: 8192,
+        thinkingLevel: ThinkingLevel.HIGH,
+      };
+    case 'LOW':
+      return {
+        thinkingBudget: 1024,
+        thinkingLevel: ThinkingLevel.LOW,
+      };
+    case 'AUTO':
+      return {
+        thinkingBudget: -1,
+      };
+    case 'MEDIUM':
+    default:
+      return {
+        thinkingBudget: 2048,
+        thinkingLevel: ThinkingLevel.MEDIUM,
+      };
+  }
+}
+
+/**
+ * Executes generateContent with automatic retry fallback if thinkingConfig is rejected by the endpoint.
+ */
+async function callGenerateContentSafe(
+  ai: GoogleGenAI,
+  params: Parameters<typeof ai.models.generateContent>[0]
+) {
+  try {
+    return await ai.models.generateContent(params);
+  } catch (error: unknown) {
+    const errorStr = String(error);
+    if (
+      params.config?.thinkingConfig &&
+      (errorStr.toLowerCase().includes('thinking') ||
+        errorStr.toLowerCase().includes('budget') ||
+        errorStr.toLowerCase().includes('unsupported') ||
+        errorStr.toLowerCase().includes('invalid argument'))
+    ) {
+      console.warn('Retrying Gemini generateContent without thinkingConfig due to:', errorStr);
+      const fallbackConfig = { ...params.config };
+      delete fallbackConfig.thinkingConfig;
+      return await ai.models.generateContent({
+        ...params,
+        config: fallbackConfig,
+      });
+    }
+    throw error;
+  }
+}
+
 export async function convertTaigiLyricsByVersesWithAi(
   lines: string[],
   userApiKey?: string,
@@ -37,7 +105,7 @@ export async function convertTaigiLyricsByVersesWithAi(
     userApiKey ||
     getActiveGeminiApiKey() ||
     (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
-  const model = options?.model || 'gemini-2.5-flash';
+  const model = options?.model || DEFAULT_GEMINI_MODEL;
   const thinkingEffort = options?.thinkingEffort || 'MEDIUM';
 
   if (!apiKey || lines.length === 0) {
@@ -81,14 +149,14 @@ Return strictly valid JSON in the following schema:
   ]
 }`;
 
-    const response = await ai.models.generateContent({
+    const thinkingConfig = buildThinkingConfig(model, thinkingEffort);
+
+    const response = await callGenerateContentSafe(ai, {
       model,
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
-        thinkingConfig: {
-          thinkingLevel: thinkingEffort === 'HIGH' ? ThinkingLevel.HIGH : ThinkingLevel.MEDIUM,
-        },
+        ...(thinkingConfig ? { thinkingConfig } : {}),
       },
     });
 
@@ -130,7 +198,7 @@ export async function convertTaigiLyricsWithAi(
     userApiKey ||
     getActiveGeminiApiKey() ||
     (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
-  const model = options?.model || 'gemini-2.5-flash';
+  const model = options?.model || DEFAULT_GEMINI_MODEL;
   const thinkingEffort = options?.thinkingEffort || 'MEDIUM';
 
   if (!apiKey) {
@@ -168,14 +236,14 @@ Return strictly valid JSON in the following schema:
 }
 `;
 
-    const response = await ai.models.generateContent({
+    const thinkingConfig = buildThinkingConfig(model, thinkingEffort);
+
+    const response = await callGenerateContentSafe(ai, {
       model,
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
-        thinkingConfig: {
-          thinkingLevel: thinkingEffort === 'HIGH' ? ThinkingLevel.HIGH : ThinkingLevel.MEDIUM,
-        },
+        ...(thinkingConfig ? { thinkingConfig } : {}),
       },
     });
 
@@ -251,7 +319,7 @@ export async function extractScoreFromImagesWithAi(
     userApiKey ||
     getActiveGeminiApiKey() ||
     (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
-  const model = options?.model || 'gemini-2.5-flash';
+  const model = options?.model || DEFAULT_GEMINI_MODEL;
   const thinkingEffort = options?.thinkingEffort || 'HIGH';
 
   if (!apiKey) {
@@ -278,10 +346,10 @@ export async function extractScoreFromImagesWithAi(
   try {
     const ai = new GoogleGenAI({ apiKey });
 
-    // Build multimodal contents
-    const imageParts = images.map((img, idx) => ({
+    // Build multimodal contents with clean base64 image data
+    const imageParts = images.map((img) => ({
       inlineData: {
-        data: img.data,
+        data: img.data.replace(/^data:[^;]+;base64,/, '').trim(),
         mimeType: img.mimeType || 'image/jpeg',
       },
     }));
@@ -396,10 +464,13 @@ Return strictly valid JSON matching this schema:
       ]
     }
   ]
-}`;
+}
+`;
     }
 
-    const response = await ai.models.generateContent({
+    const thinkingConfig = buildThinkingConfig(model, thinkingEffort);
+
+    const response = await callGenerateContentSafe(ai, {
       model,
       contents: [
         ...imageParts,
@@ -409,9 +480,7 @@ Return strictly valid JSON matching this schema:
       ],
       config: {
         responseMimeType: 'application/json',
-        thinkingConfig: {
-          thinkingLevel: thinkingEffort === 'HIGH' ? ThinkingLevel.HIGH : ThinkingLevel.MEDIUM,
-        },
+        ...(thinkingConfig ? { thinkingConfig } : {}),
       },
     });
 

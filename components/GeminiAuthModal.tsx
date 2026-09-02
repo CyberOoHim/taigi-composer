@@ -51,10 +51,11 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [activeModel, setActiveModel] = useState<GeminiModelChoice>(() => {
     if (typeof window !== 'undefined') {
-      const savedModel = localStorage.getItem('taigi_gemini_model') as GeminiModelChoice;
-      if (savedModel) return savedModel;
+      const savedModel = localStorage.getItem('taigi_gemini_model') as string;
+      if (savedModel === 'gemini-3.7-flash' || savedModel === 'gemini-3.7-flash-lite') return savedModel;
+      if (savedModel === 'gemini-2.5-flash-lite') return 'gemini-3.7-flash-lite';
     }
-    return 'gemini-2.5-flash';
+    return 'gemini-3.7-flash';
   });
   const [thinkingEffort, setThinkingEffort] = useState<GeminiThinkingEffort>(() => {
     if (typeof window !== 'undefined') {
@@ -272,8 +273,8 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                     onChange={e => handleModelChange(e.target.value as GeminiModelChoice)}
                     className="w-full px-2.5 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-200 cursor-pointer"
                   >
-                    <option value="gemini-2.5-flash">gemini-2.5-flash (預設)</option>
-                    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+                    <option value="gemini-3.7-flash">gemini-3.7-flash (預設)</option>
+                    <option value="gemini-3.7-flash-lite">gemini-3.7-flash-lite</option>
                   </select>
                 </div>
 

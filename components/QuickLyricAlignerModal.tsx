@@ -65,12 +65,13 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   const [targetField, setTargetField] = useState<'hanji' | 'poj' | 'pij' | 'custom' | 'auto_ai'>('auto_ai');
   const [aiModel, setAiModel] = useState<GeminiModelChoice>(() => {
     if (typeof window !== 'undefined') {
-      const savedModel = localStorage.getItem('taigi_gemini_model') as GeminiModelChoice;
-      if (savedModel === 'gemini-2.5-flash' || savedModel === 'gemini-2.5-flash-lite') {
+      const savedModel = localStorage.getItem('taigi_gemini_model') as string;
+      if (savedModel === 'gemini-3.7-flash' || savedModel === 'gemini-3.7-flash-lite') {
         return savedModel;
       }
+      if (savedModel === 'gemini-2.5-flash-lite') return 'gemini-3.7-flash-lite';
     }
-    return 'gemini-2.5-flash';
+    return 'gemini-3.7-flash';
   });
   const [thinkingEffort, setThinkingEffort] = useState<GeminiThinkingEffort>(() => {
     if (typeof window !== 'undefined') {
@@ -628,8 +629,8 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                     onChange={e => handleModelChange(e.target.value as GeminiModelChoice)}
                     className="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-2xs"
                   >
-                    <option value="gemini-2.5-flash">1. gemini flash latest (預設)</option>
-                    <option value="gemini-2.5-flash-lite">2. gemini flash lite latest</option>
+                    <option value="gemini-3.7-flash">1. gemini-3.7-flash (預設 · 深度推理)</option>
+                    <option value="gemini-3.7-flash-lite">2. gemini-3.7-flash-lite (快速 · 輕量)</option>
                   </select>
                 </div>
 

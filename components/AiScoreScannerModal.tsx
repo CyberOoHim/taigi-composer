@@ -83,10 +83,11 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
   const [mode, setMode] = useState<AiScoreExtractionMode>('full_score');
   const [aiModel, setAiModel] = useState<GeminiModelChoice>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('taigi_gemini_model') as GeminiModelChoice;
-      if (saved === 'gemini-2.5-flash' || saved === 'gemini-2.5-flash-lite') return saved;
+      const saved = localStorage.getItem('taigi_gemini_model') as string;
+      if (saved === 'gemini-3.7-flash' || saved === 'gemini-3.7-flash-lite') return saved;
+      if (saved === 'gemini-2.5-flash-lite') return 'gemini-3.7-flash-lite';
     }
-    return 'gemini-2.5-flash';
+    return 'gemini-3.7-flash';
   });
   const [thinkingEffort, setThinkingEffort] = useState<GeminiThinkingEffort>(() => {
     if (typeof window !== 'undefined') {
@@ -227,7 +228,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
     setScanStepMessage('準備圖片資料中...');
 
     try {
-      setScanStepMessage(`傳送 ${images.length} 頁樂譜圖片至 Gemini 2.5 多模態模型...`);
+      setScanStepMessage(`傳送 ${images.length} 頁樂譜圖片至 Gemini 3.7 多模態模型...`);
       const imagePayloads = images.map(img => ({
         data: img.base64,
         mimeType: img.mimeType,
@@ -669,7 +670,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                 </div>
 
                 <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
-                  請輸入通行密碼以啟用 Gemini 2.5 多模態識譜功能（預設提示：<code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 rounded font-mono font-bold">taigi</code> 或個人 API Key）。
+                  請輸入通行密碼以啟用 Gemini 3.7 多模態識譜功能（預設提示：<code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 rounded font-mono font-bold">taigi</code> 或個人 API Key）。
                 </p>
 
                 <form onSubmit={handleVerifyPasscode} className="flex gap-2">
@@ -730,8 +731,8 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                   }}
                   className="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer"
                 >
-                  <option value="gemini-2.5-flash">1. gemini-2.5-flash (推薦·精準識譜)</option>
-                  <option value="gemini-2.5-flash-lite">2. gemini-2.5-flash-lite (快速)</option>
+                  <option value="gemini-3.7-flash">1. gemini-3.7-flash (推薦·精準識譜)</option>
+                  <option value="gemini-3.7-flash-lite">2. gemini-3.7-flash-lite (快速·輕量)</option>
                 </select>
               </div>
 
