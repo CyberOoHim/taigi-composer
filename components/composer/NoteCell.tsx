@@ -82,6 +82,11 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
           : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 hover:border-amber-300 dark:hover:border-amber-700'
       }`}
     >
+      {/* Downward Anchor Pointer to In-Card Deck */}
+      {isSelected && (
+        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-amber-500 rotate-45 rounded-xs z-20 pointer-events-none shadow-xs" />
+      )}
+
       {/* UPPER TOUCH ZONE: PITCH & ANNOTATION (Select note without focusing inputs) */}
       <div
         onClick={() => onSelectNote(mIdx, nIdx)}

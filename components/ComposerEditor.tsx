@@ -980,14 +980,28 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           </div>
         </div>
 
-        {/* PERSISTENT STUDIO TOUCH DECK (NoteEditorHud) */}
-        {currentNote && selectedMeasureIndex !== null && (
-          <NoteEditorHud
-            currentNote={currentNote}
+        {/* Score Grid: Conditional by Edit Mode ('verse' vs 'measure') with In-Card Note Editing */}
+        {editMode === 'verse' ? (
+          <VerseModeView
+            verses={verses}
             selectedMeasureIndex={selectedMeasureIndex}
             selectedNoteIndex={selectedNoteIndex}
+            currentNote={currentNote}
             keySignature={song.key}
             audioEngine={audioEngine}
+            playingVerseIdx={playingVerseIdx}
+            activePlaybackNoteId={activePlaybackNoteId}
+            displayMode={displayMode}
+            verseBatchTexts={verseBatchTexts}
+            onSetVerseBatchTexts={setVerseBatchTexts}
+            onSelectNote={handleSelectNote}
+            onTogglePlayVerse={handleTogglePlayVerse}
+            onAddNoteToVerseEnd={handleAddNoteToVerseEnd}
+            onDistributeVerseLyrics={handleDistributeVerseLyrics}
+            onInsertPunctuationToNote={handleInsertPunctuationToNote}
+            onUpdateLyric={handleUpdateLyricAt}
+            onGoToNextNote={handleGoToNextNote}
+            onGoToPrevNote={handleGoToPrevNote}
             onUpdateSelectedNote={updateSelectedNote}
             onSetPitch={handleSetPitch}
             onSetOctave={handleSetOctave}
@@ -1004,41 +1018,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onNavigatePrevNote={handleNavigatePrevNote}
             autoStepAdvance={autoStepAdvance}
             onToggleAutoStepAdvance={() => setAutoStepAdvance(prev => !prev)}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            pastCount={pastCount}
-            futureCount={futureCount}
             showNotice={showNotice}
-          />
-        )}
-
-        {/* Score Grid: Conditional by Edit Mode ('verse' vs 'measure') */}
-        {editMode === 'verse' ? (
-          <VerseModeView
-            verses={verses}
-            selectedMeasureIndex={selectedMeasureIndex}
-            selectedNoteIndex={selectedNoteIndex}
-            playingVerseIdx={playingVerseIdx}
-            activePlaybackNoteId={activePlaybackNoteId}
-            displayMode={displayMode}
-            verseBatchTexts={verseBatchTexts}
-            onSetVerseBatchTexts={setVerseBatchTexts}
-            onSelectNote={handleSelectNote}
-            onTogglePlayVerse={handleTogglePlayVerse}
-            onAddNoteToVerseEnd={handleAddNoteToVerseEnd}
-            onDistributeVerseLyrics={handleDistributeVerseLyrics}
-            onInsertPunctuationToNote={handleInsertPunctuationToNote}
-            onUpdateLyric={handleUpdateLyricAt}
-            onGoToNextNote={handleGoToNextNote}
-            onGoToPrevNote={handleGoToPrevNote}
           />
         ) : (
           <MeasureModeView
             song={song}
             selectedMeasureIndex={selectedMeasureIndex}
             selectedNoteIndex={selectedNoteIndex}
+            currentNote={currentNote}
+            keySignature={song.key}
+            audioEngine={audioEngine}
             playingMeasureIdx={playingMeasureIdx}
             activePlaybackNoteId={activePlaybackNoteId}
             displayMode={displayMode}
@@ -1055,6 +1044,23 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onUpdateLyric={handleUpdateLyricAt}
             onGoToNextNote={handleGoToNextNote}
             onGoToPrevNote={handleGoToPrevNote}
+            onUpdateSelectedNote={updateSelectedNote}
+            onSetPitch={handleSetPitch}
+            onSetOctave={handleSetOctave}
+            onSetAccidental={handleSetAccidental}
+            onSetDuration={handleSetDuration}
+            onToggleDotted={handleToggleDotted}
+            onToggleTie={handleToggleTie}
+            onInsertPunctuation={handleInsertPunctuationToNote}
+            onInsertAnnotation={handleInsertAnnotationToNote}
+            onSetAnnotation={handleSetAnnotation}
+            onInsertNoteAt={handleInsertNoteAt}
+            onDeleteNoteAt={handleDeleteNoteAt}
+            onNavigateNextNote={handleNavigateNextNote}
+            onNavigatePrevNote={handleNavigatePrevNote}
+            autoStepAdvance={autoStepAdvance}
+            onToggleAutoStepAdvance={() => setAutoStepAdvance(prev => !prev)}
+            showNotice={showNotice}
           />
         )}
 

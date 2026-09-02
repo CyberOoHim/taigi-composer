@@ -1,14 +1,19 @@
 'use client';
 
 import React from 'react';
-import { LyricDisplayMode, Song } from '@/types/song';
+import { JianpuNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, Song } from '@/types/song';
+import { AudioEngine } from '@/lib/audioEngine';
 import { NoteCell } from './NoteCell';
+import { NoteEditorHud } from './NoteEditorHud';
 import { Play, Square, Plus, Copy, Trash2 } from 'lucide-react';
 
 interface MeasureModeViewProps {
   song: Song;
   selectedMeasureIndex: number | null;
   selectedNoteIndex: number | null;
+  currentNote: JianpuNote | null;
+  keySignature: KeySignature;
+  audioEngine: AudioEngine;
   playingMeasureIdx: number | null;
   activePlaybackNoteId: string | null;
   displayMode: LyricDisplayMode;
@@ -25,12 +30,32 @@ interface MeasureModeViewProps {
   onUpdateLyric: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom', val: string) => void;
   onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom') => void;
   onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom') => void;
+  onUpdateSelectedNote: (updater: (note: JianpuNote) => JianpuNote) => void;
+  onSetPitch: (pitch: PitchNumber) => void;
+  onSetOctave: (delta: number) => void;
+  onSetAccidental: (acc: '' | '#' | 'b') => void;
+  onSetDuration: (duration: NoteDuration) => void;
+  onToggleDotted: () => void;
+  onToggleTie: () => void;
+  onInsertPunctuation: (punct: string) => void;
+  onInsertAnnotation: (annot: string) => void;
+  onSetAnnotation: (annot: string) => void;
+  onInsertNoteAt: (mIdx: number, nIdx: number) => void;
+  onDeleteNoteAt: (mIdx: number, nIdx: number) => void;
+  onNavigateNextNote?: () => void;
+  onNavigatePrevNote?: () => void;
+  autoStepAdvance?: boolean;
+  onToggleAutoStepAdvance?: () => void;
+  showNotice: (msg: string) => void;
 }
 
 export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   song,
   selectedMeasureIndex,
   selectedNoteIndex,
+  currentNote,
+  keySignature,
+  audioEngine,
   playingMeasureIdx,
   activePlaybackNoteId,
   displayMode,
@@ -47,6 +72,23 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   onUpdateLyric,
   onGoToNextNote,
   onGoToPrevNote,
+  onUpdateSelectedNote,
+  onSetPitch,
+  onSetOctave,
+  onSetAccidental,
+  onSetDuration,
+  onToggleDotted,
+  onToggleTie,
+  onInsertPunctuation,
+  onInsertAnnotation,
+  onSetAnnotation,
+  onInsertNoteAt,
+  onDeleteNoteAt,
+  onNavigateNextNote,
+  onNavigatePrevNote,
+  autoStepAdvance,
+  onToggleAutoStepAdvance,
+  showNotice,
 }) => {
   return (
     <div id="measure-mode-container" className="flex flex-col gap-6">
@@ -205,6 +247,37 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                 );
               })}
             </div>
+
+            {/* INTEGRATED IN-CARD NOTE EDITOR DECK */}
+            {isSelectedMeasure && currentNote && selectedMeasureIndex !== null && (
+              <div onClick={e => e.stopPropagation()} className="w-full">
+                <NoteEditorHud
+                  currentNote={currentNote}
+                  selectedMeasureIndex={selectedMeasureIndex}
+                  selectedNoteIndex={selectedNoteIndex}
+                  keySignature={keySignature}
+                  audioEngine={audioEngine}
+                  onUpdateSelectedNote={onUpdateSelectedNote}
+                  onSetPitch={onSetPitch}
+                  onSetOctave={onSetOctave}
+                  onSetAccidental={onSetAccidental}
+                  onSetDuration={onSetDuration}
+                  onToggleDotted={onToggleDotted}
+                  onToggleTie={onToggleTie}
+                  onInsertPunctuation={onInsertPunctuation}
+                  onInsertAnnotation={onInsertAnnotation}
+                  onSetAnnotation={onSetAnnotation}
+                  onInsertNoteAt={onInsertNoteAt}
+                  onDeleteNoteAt={onDeleteNoteAt}
+                  onNavigateNextNote={onNavigateNextNote}
+                  onNavigatePrevNote={onNavigatePrevNote}
+                  autoStepAdvance={autoStepAdvance}
+                  onToggleAutoStepAdvance={onToggleAutoStepAdvance}
+                  showNotice={showNotice}
+                  inCard={true}
+                />
+              </div>
+            )}
 
             {/* Quick Measure-Wide Batch Lyric Input Row */}
             <div className="flex items-center gap-2 pt-3 mt-2 border-t border-zinc-200/80 dark:border-zinc-800 text-xs">

@@ -1,15 +1,20 @@
 'use client';
 
 import React from 'react';
-import { LyricDisplayMode, VerseItem, VerseNoteRef } from '@/types/song';
+import { JianpuNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, VerseItem, VerseNoteRef } from '@/types/song';
+import { AudioEngine } from '@/lib/audioEngine';
 import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
 import { NoteCell } from './NoteCell';
+import { NoteEditorHud } from './NoteEditorHud';
 import { Play, Square, Plus, MessageSquareQuote } from 'lucide-react';
 
 interface VerseModeViewProps {
   verses: VerseItem[];
   selectedMeasureIndex: number | null;
   selectedNoteIndex: number | null;
+  currentNote: JianpuNote | null;
+  keySignature: KeySignature;
+  audioEngine: AudioEngine;
   playingVerseIdx: number | null;
   activePlaybackNoteId: string | null;
   displayMode: LyricDisplayMode;
@@ -23,12 +28,32 @@ interface VerseModeViewProps {
   onUpdateLyric: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom', val: string) => void;
   onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom') => void;
   onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom') => void;
+  onUpdateSelectedNote: (updater: (note: JianpuNote) => JianpuNote) => void;
+  onSetPitch: (pitch: PitchNumber) => void;
+  onSetOctave: (delta: number) => void;
+  onSetAccidental: (acc: '' | '#' | 'b') => void;
+  onSetDuration: (duration: NoteDuration) => void;
+  onToggleDotted: () => void;
+  onToggleTie: () => void;
+  onInsertPunctuation: (punct: string) => void;
+  onInsertAnnotation: (annot: string) => void;
+  onSetAnnotation: (annot: string) => void;
+  onInsertNoteAt: (mIdx: number, nIdx: number) => void;
+  onDeleteNoteAt: (mIdx: number, nIdx: number) => void;
+  onNavigateNextNote?: () => void;
+  onNavigatePrevNote?: () => void;
+  autoStepAdvance?: boolean;
+  onToggleAutoStepAdvance?: () => void;
+  showNotice: (msg: string) => void;
 }
 
 export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   verses,
   selectedMeasureIndex,
   selectedNoteIndex,
+  currentNote,
+  keySignature,
+  audioEngine,
   playingVerseIdx,
   activePlaybackNoteId,
   displayMode,
@@ -42,6 +67,23 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   onUpdateLyric,
   onGoToNextNote,
   onGoToPrevNote,
+  onUpdateSelectedNote,
+  onSetPitch,
+  onSetOctave,
+  onSetAccidental,
+  onSetDuration,
+  onToggleDotted,
+  onToggleTie,
+  onInsertPunctuation,
+  onInsertAnnotation,
+  onSetAnnotation,
+  onInsertNoteAt,
+  onDeleteNoteAt,
+  onNavigateNextNote,
+  onNavigatePrevNote,
+  autoStepAdvance,
+  onToggleAutoStepAdvance,
+  showNotice,
 }) => {
   return (
     <div id="verse-mode-container" className="flex flex-col gap-6">
@@ -182,6 +224,37 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                 );
               })}
             </div>
+
+            {/* INTEGRATED IN-CARD NOTE EDITOR DECK */}
+            {hasSelectedNoteInVerse && currentNote && selectedMeasureIndex !== null && (
+              <div onClick={e => e.stopPropagation()} className="w-full">
+                <NoteEditorHud
+                  currentNote={currentNote}
+                  selectedMeasureIndex={selectedMeasureIndex}
+                  selectedNoteIndex={selectedNoteIndex}
+                  keySignature={keySignature}
+                  audioEngine={audioEngine}
+                  onUpdateSelectedNote={onUpdateSelectedNote}
+                  onSetPitch={onSetPitch}
+                  onSetOctave={onSetOctave}
+                  onSetAccidental={onSetAccidental}
+                  onSetDuration={onSetDuration}
+                  onToggleDotted={onToggleDotted}
+                  onToggleTie={onToggleTie}
+                  onInsertPunctuation={onInsertPunctuation}
+                  onInsertAnnotation={onInsertAnnotation}
+                  onSetAnnotation={onSetAnnotation}
+                  onInsertNoteAt={onInsertNoteAt}
+                  onDeleteNoteAt={onDeleteNoteAt}
+                  onNavigateNextNote={onNavigateNextNote}
+                  onNavigatePrevNote={onNavigatePrevNote}
+                  autoStepAdvance={autoStepAdvance}
+                  onToggleAutoStepAdvance={onToggleAutoStepAdvance}
+                  showNotice={showNotice}
+                  inCard={true}
+                />
+              </div>
+            )}
 
             {/* Verse-Wide Batch Lyric & Punctuation Helper Row */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 mt-2 border-t border-zinc-200/80 dark:border-zinc-800 text-xs">
