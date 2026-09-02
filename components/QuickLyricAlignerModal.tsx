@@ -2,15 +2,24 @@
 
 import React, { useState } from 'react';
 import { LyricSyllable, Song } from '@/types/song';
-import { splitTaigiLyricSyllables } from '@/lib/taigiUtils';
-import { convertTaigiLyricsWithAi } from '@/lib/geminiService';
-import { AlignLeft, Sparkles, X, Check, Loader2, ArrowRight } from 'lucide-react';
+import { splitTaigiLyricSyllables, groupSongIntoVerses } from '@/lib/taigiUtils';
+import { convertTaigiLyricsByVersesWithAi, convertTaigiLyricsWithAi } from '@/lib/geminiService';
+import { AlignLeft, Sparkles, X, Check, Loader2 } from 'lucide-react';
 
 interface QuickLyricAlignerModalProps {
   isOpen: boolean;
   onClose: () => void;
   song: Song;
   onApplyLyrics: (updatedSong: Song) => void;
+}
+
+interface VersePreviewItem {
+  verseIndex: number;
+  verseTitle: string;
+  section?: string;
+  measureRange: string;
+  noteCount: number;
+  tokens: LyricSyllable[];
 }
 
 export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
@@ -22,77 +31,168 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   const [inputText, setInputText] = useState('');
   const [targetField, setTargetField] = useState<'hanji' | 'poj' | 'pij' | 'custom' | 'auto_ai'>('auto_ai');
   const [isLoadingAi, setIsLoadingAi] = useState(false);
-  const [previewTokens, setPreviewTokens] = useState<LyricSyllable[]>([]);
+  const [versePreviews, setVersePreviews] = useState<VersePreviewItem[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  // Calculate total notes available in song
+  // Calculate total notes and verses available in song
   const totalNotesCount = song.measures.reduce((acc, m) => acc + m.notes.length, 0);
+  const songVerses = groupSongIntoVerses(song);
+  const totalPreviewTokensCount = versePreviews.reduce((acc, vp) => acc + vp.tokens.length, 0);
 
-  // Handle preview generation
+  // Handle preview generation with newline as verse splitter
   const handleGeneratePreview = async () => {
     setAiError(null);
     if (!inputText.trim()) return;
 
+    // Split input text by newlines into non-empty lines (each line is a verse)
+    const lines = inputText
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) return;
+
     if (targetField === 'auto_ai') {
       setIsLoadingAi(true);
       try {
-        const tokens = await convertTaigiLyricsWithAi(inputText.trim());
-        setPreviewTokens(tokens);
+        let tokensByVerse: LyricSyllable[][] = [];
+        if (lines.length > 1) {
+          tokensByVerse = await convertTaigiLyricsByVersesWithAi(lines);
+        } else {
+          const singleTokens = await convertTaigiLyricsWithAi(lines[0]);
+          tokensByVerse = [singleTokens];
+        }
+
+        const previews: VersePreviewItem[] = lines.map((line, idx) => {
+          const matchedVerse = songVerses[idx];
+          const tokens = tokensByVerse[idx] || [];
+          return {
+            verseIndex: idx,
+            verseTitle: matchedVerse
+              ? `第 ${idx + 1} 句${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
+              : `第 ${idx + 1} 句 (超出樂曲總句數)`,
+            section: matchedVerse?.section,
+            measureRange: matchedVerse
+              ? `第 ${matchedVerse.startMeasureNumber}~${matchedVerse.endMeasureNumber} 小節`
+              : '',
+            noteCount: matchedVerse ? matchedVerse.notes.length : 0,
+            tokens,
+          };
+        });
+
+        setVersePreviews(previews);
       } catch (err: unknown) {
         // Fallback to local rule-based tokenizer
-        const rawSyllables = splitTaigiLyricSyllables(inputText);
-        const tokens: LyricSyllable[] = rawSyllables.map(s => ({
-          hanji: s,
-          poj: s,
-          pij: s,
-          custom: s,
-        }));
-        setPreviewTokens(tokens);
+        const previews: VersePreviewItem[] = lines.map((line, idx) => {
+          const rawSyllables = splitTaigiLyricSyllables(line);
+          const tokens: LyricSyllable[] = rawSyllables.map(s => ({
+            hanji: s,
+            poj: s,
+            pij: s,
+            custom: s,
+          }));
+          const matchedVerse = songVerses[idx];
+          return {
+            verseIndex: idx,
+            verseTitle: matchedVerse
+              ? `第 ${idx + 1} 句${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
+              : `第 ${idx + 1} 句 (超出樂曲總句數)`,
+            section: matchedVerse?.section,
+            measureRange: matchedVerse
+              ? `第 ${matchedVerse.startMeasureNumber}~${matchedVerse.endMeasureNumber} 小節`
+              : '',
+            noteCount: matchedVerse ? matchedVerse.notes.length : 0,
+            tokens,
+          };
+        });
+        setVersePreviews(previews);
         setAiError('AI connection unavailable, applied local syllable tokenizer.');
       } finally {
         setIsLoadingAi(false);
       }
     } else {
       // Local splitting
-      const rawSyllables = splitTaigiLyricSyllables(inputText);
-      const tokens: LyricSyllable[] = rawSyllables.map(s => {
-        const item: LyricSyllable = {};
-        item[targetField] = s;
-        return item;
+      const previews: VersePreviewItem[] = lines.map((line, idx) => {
+        const rawSyllables = splitTaigiLyricSyllables(line);
+        const tokens: LyricSyllable[] = rawSyllables.map(s => {
+          const item: LyricSyllable = {};
+          item[targetField] = s;
+          return item;
+        });
+        const matchedVerse = songVerses[idx];
+        return {
+          verseIndex: idx,
+          verseTitle: matchedVerse
+            ? `第 ${idx + 1} 句${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
+            : `第 ${idx + 1} 句 (超出樂曲總句數)`,
+          section: matchedVerse?.section,
+          measureRange: matchedVerse
+            ? `第 ${matchedVerse.startMeasureNumber}~${matchedVerse.endMeasureNumber} 小節`
+            : '',
+          noteCount: matchedVerse ? matchedVerse.notes.length : 0,
+          tokens,
+        };
       });
-      setPreviewTokens(tokens);
+      setVersePreviews(previews);
     }
   };
 
   const handleApply = () => {
-    if (previewTokens.length === 0) return;
+    if (versePreviews.length === 0) return;
 
-    let tokenIdx = 0;
-    const newMeasures = song.measures.map(m => {
-      const newNotes = m.notes.map(note => {
-        if (tokenIdx < previewTokens.length) {
-          const tok = previewTokens[tokenIdx++];
-          return {
-            ...note,
-            lyric: {
+    // Deep clone measures
+    const newMeasures = song.measures.map(m => ({
+      ...m,
+      notes: m.notes.map(note => ({
+        ...note,
+        lyric: { ...note.lyric },
+      })),
+    }));
+
+    // If input has multiple lines or song has multiple verses:
+    if (versePreviews.length > 1 || songVerses.length > 1) {
+      versePreviews.forEach((vp, vIdx) => {
+        const targetVerse = songVerses[vIdx];
+        if (!targetVerse) return;
+
+        let tokIdx = 0;
+        for (let nIdx = 0; nIdx < targetVerse.notes.length; nIdx++) {
+          if (tokIdx >= vp.tokens.length) break;
+          const noteRef = targetVerse.notes[nIdx];
+          const note = newMeasures[noteRef.measureIndex]?.notes[noteRef.noteIndex];
+          if (!note) continue;
+
+          const tok = vp.tokens[tokIdx++];
+          note.lyric = {
+            ...note.lyric,
+            ...(tok.hanji !== undefined ? { hanji: tok.hanji } : {}),
+            ...(tok.poj !== undefined ? { poj: tok.poj } : {}),
+            ...(tok.pij !== undefined ? { pij: tok.pij } : {}),
+            ...(tok.custom !== undefined ? { custom: tok.custom } : {}),
+          };
+        }
+      });
+    } else {
+      // Single continuous line across the whole song
+      let tokenIdx = 0;
+      const flatTokens = versePreviews[0]?.tokens || [];
+      newMeasures.forEach(m => {
+        m.notes.forEach(note => {
+          if (tokenIdx < flatTokens.length) {
+            const tok = flatTokens[tokenIdx++];
+            note.lyric = {
               ...note.lyric,
               ...(tok.hanji !== undefined ? { hanji: tok.hanji } : {}),
               ...(tok.poj !== undefined ? { poj: tok.poj } : {}),
               ...(tok.pij !== undefined ? { pij: tok.pij } : {}),
               ...(tok.custom !== undefined ? { custom: tok.custom } : {}),
-            },
-          };
-        }
-        return note;
+            };
+          }
+        });
       });
-
-      return {
-        ...m,
-        notes: newNotes,
-      };
-    });
+    }
 
     onApplyLyrics({
       ...song,
@@ -114,7 +214,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           <button
             id="quick-aligner-close-btn"
             onClick={onClose}
-            className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg transition-colors"
+            className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -123,15 +223,20 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
         {/* Modal Body */}
         <div className="p-6 flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
           <div>
-            <label htmlFor="aligner-input-text" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-              貼上歌詞文字 (Paste Lyrics Text - Hanji / POJ / PIJ / Han-lô)
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="aligner-input-text" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                貼上歌詞文字 (Paste Lyrics Text - Hanji / POJ / PIJ / Han-lô)
+              </label>
+              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                💡 支援以換行（New Line）自動依樂句分段對齊
+              </span>
+            </div>
             <textarea
               id="aligner-input-text"
               rows={4}
               value={inputText}
               onChange={e => setInputText(e.target.value)}
-              placeholder="例：獨夜無伴守燈下，清風對面吹 或 To̍k-iā bô-phōaⁿ siú teng-ē, chheng-hong tùi bīn chhoe..."
+              placeholder={`例：\n走揣夢中少年的你\n我擔頭改換名字\n\n看著頭前天就欲光`}
               className="w-full px-3 py-2.5 text-sm bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 font-serif"
             />
           </div>
@@ -146,7 +251,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 id="align-mode-auto-ai"
                 type="button"
                 onClick={() => setTargetField('auto_ai')}
-                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border font-medium transition-all ${
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border font-medium transition-all cursor-pointer ${
                   targetField === 'auto_ai'
                     ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs'
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
@@ -160,7 +265,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 id="align-mode-hanji"
                 type="button"
                 onClick={() => setTargetField('hanji')}
-                className={`p-2 rounded-xl border font-medium transition-all ${
+                className={`p-2 rounded-xl border font-medium transition-all cursor-pointer ${
                   targetField === 'hanji'
                     ? 'bg-amber-500 text-zinc-950 border-amber-500'
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
@@ -173,7 +278,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 id="align-mode-poj"
                 type="button"
                 onClick={() => setTargetField('poj')}
-                className={`p-2 rounded-xl border font-medium transition-all ${
+                className={`p-2 rounded-xl border font-medium transition-all cursor-pointer ${
                   targetField === 'poj'
                     ? 'bg-amber-500 text-zinc-950 border-amber-500'
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
@@ -186,7 +291,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 id="align-mode-pij"
                 type="button"
                 onClick={() => setTargetField('pij')}
-                className={`p-2 rounded-xl border font-medium transition-all ${
+                className={`p-2 rounded-xl border font-medium transition-all cursor-pointer ${
                   targetField === 'pij'
                     ? 'bg-amber-500 text-zinc-950 border-amber-500'
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
@@ -199,7 +304,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 id="align-mode-custom"
                 type="button"
                 onClick={() => setTargetField('custom')}
-                className={`p-2 rounded-xl border font-medium transition-all ${
+                className={`p-2 rounded-xl border font-medium transition-all cursor-pointer ${
                   targetField === 'custom'
                     ? 'bg-amber-500 text-zinc-950 border-amber-500'
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
@@ -216,7 +321,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             type="button"
             disabled={!inputText.trim() || isLoadingAi}
             onClick={handleGeneratePreview}
-            className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 font-semibold text-sm transition-all disabled:opacity-50"
+            className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 font-semibold text-sm transition-all disabled:opacity-50 cursor-pointer"
           >
             {isLoadingAi ? (
               <>
@@ -237,33 +342,84 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             </p>
           )}
 
-          {/* Preview Tokens Grid */}
-          {previewTokens.length > 0 && (
-            <div id="aligner-preview-container" className="flex flex-col gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+          {/* Preview Tokens Grid Grouped by Verse */}
+          {versePreviews.length > 0 && (
+            <div id="aligner-preview-container" className="flex flex-col gap-3 pt-2 border-t border-zinc-200 dark:border-zinc-800">
               <div className="flex items-center justify-between text-xs text-zinc-500">
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                  音節對齊預覽 (Syllables Preview: {previewTokens.length} 個音節 / 全曲共 {totalNotesCount} 個音符)
+                <span className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>
+                    音節對齊預覽 (共 {versePreviews.length} 句 / {totalPreviewTokensCount} 個音節 / 全曲共 {totalNotesCount} 個音符)
+                  </span>
                 </span>
-                {previewTokens.length > totalNotesCount && (
-                  <span className="text-amber-600 dark:text-amber-400 font-medium">
-                    (提示: 歌詞音節數多於當前音符數，超出部分將被忽略)
+                {versePreviews.length > songVerses.length && (
+                  <span className="text-amber-600 dark:text-amber-400 font-medium text-xs">
+                    (提示: 歌詞行數多於樂曲句數，超出部分將被忽略)
                   </span>
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-2 p-3 bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/60 rounded-xl max-h-48 overflow-y-auto">
-                {previewTokens.map((tok, idx) => (
-                  <div
-                    key={idx}
-                    className="flex flex-col items-center px-2 py-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs"
-                  >
-                    <span className="text-[10px] text-zinc-600 dark:text-zinc-400 font-mono">#{idx + 1}</span>
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">{tok.hanji || tok.custom || '—'}</span>
-                    {(tok.poj || tok.pij) && (
-                      <span className="font-serif italic text-emerald-600 dark:text-emerald-400 text-[11px]">{tok.poj || tok.pij}</span>
-                    )}
-                  </div>
-                ))}
+              <div className="flex flex-col gap-2.5 max-h-56 overflow-y-auto pr-1">
+                {versePreviews.map((vp, vIdx) => {
+                  const isOverflowVerse = vIdx >= songVerses.length;
+                  const isSyllableOverflow = !isOverflowVerse && vp.tokens.length > vp.noteCount;
+                  return (
+                    <div
+                      key={vIdx}
+                      className={`p-2.5 rounded-xl border flex flex-col gap-2 ${
+                        isOverflowVerse
+                          ? 'bg-zinc-100/50 dark:bg-zinc-800/30 border-dashed border-zinc-300 dark:border-zinc-700 opacity-60'
+                          : 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700/80'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-amber-600 dark:text-amber-400 font-mono">
+                            {vp.verseTitle}
+                          </span>
+                          {vp.measureRange && (
+                            <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">
+                              ({vp.measureRange} · 此句共 {vp.noteCount} 音)
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-zinc-500 font-mono">
+                          {vp.tokens.length} 音節
+                          {isSyllableOverflow && (
+                            <span className="text-amber-600 dark:text-amber-400 ml-1">
+                              (超出 {vp.tokens.length - vp.noteCount} 字將自動截斷)
+                            </span>
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {vp.tokens.map((tok, tokIdx) => {
+                          const isExceedingNote = !isOverflowVerse && tokIdx >= vp.noteCount;
+                          return (
+                            <div
+                              key={tokIdx}
+                              className={`flex flex-col items-center px-2 py-1 border rounded-lg text-xs transition-all ${
+                                isExceedingNote
+                                  ? 'bg-amber-50/50 dark:bg-amber-950/30 border-amber-300/50 text-zinc-400 dark:text-zinc-500 line-through'
+                                  : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-2xs'
+                              }`}
+                              title={isExceedingNote ? '此音節超出此句音符上限' : undefined}
+                            >
+                              <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-mono">#{tokIdx + 1}</span>
+                              <span className="font-bold text-sm leading-tight">{tok.hanji || tok.custom || '—'}</span>
+                              {(tok.poj || tok.pij) && (
+                                <span className="font-serif italic text-emerald-600 dark:text-emerald-400 text-[10px] leading-tight">
+                                  {tok.poj || tok.pij}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -275,16 +431,16 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             id="aligner-cancel-btn"
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+            className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
           >
             取消 (Cancel)
           </button>
           <button
             id="aligner-apply-btn"
             type="button"
-            disabled={previewTokens.length === 0}
+            disabled={versePreviews.length === 0}
             onClick={handleApply}
-            className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-sm shadow-md transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-sm shadow-md transition-all disabled:opacity-50 cursor-pointer"
           >
             <Check className="w-4 h-4" />
             <span>套用到樂譜音符 (Apply to Score)</span>
@@ -294,3 +450,4 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
     </div>
   );
 };
+
