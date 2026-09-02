@@ -14,7 +14,6 @@ import {
   Redo2,
   Keyboard,
   X,
-  Sparkles,
 } from 'lucide-react';
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -53,100 +52,107 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 shadow-xs transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 shadow-xs transition-colors select-none">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
         {/* Logo & App Brand */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-zinc-950 font-black shadow-md shadow-amber-500/20 ring-1 ring-amber-400/40 shrink-0">
-            <Music className={`w-5 h-5 ${isPlaying ? 'animate-bounce' : ''}`} />
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center justify-center w-9 sm:w-10 h-9 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-zinc-950 font-black shadow-md shadow-amber-500/20 ring-1 ring-amber-400/40 shrink-0">
+            <Music className={`w-4 sm:w-5 h-4 sm:h-5 ${isPlaying ? 'animate-bounce' : ''}`} />
           </div>
           <div className="hidden sm:block">
-            <h1 className="text-base font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+            <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
               <span>台語簡譜創作與卡拉OK</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 font-mono font-bold border border-amber-300/50 dark:border-amber-700/50">
+              <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 font-mono font-bold border border-amber-300/50 dark:border-amber-700/50">
                 Taigi Studio
               </span>
             </h1>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              Jianpu Numbered Notation · Hanji · POJ · PIJ · Interactive Karaoke Engine
+            <p className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400">
+              Jianpu Numbered Notation · Hanji · POJ · PIJ · Touch Composer Deck
             </p>
           </div>
         </div>
 
-        {/* View Mode Switcher */}
-        <div id="view-mode-switcher" className="flex items-center bg-zinc-100/90 dark:bg-zinc-900/90 p-1 rounded-xl border border-zinc-200/80 dark:border-zinc-800 text-xs font-semibold shadow-inner">
+        {/* View Mode Switcher (Karaoke / Editor / Split) */}
+        <div id="view-mode-switcher" className="flex items-center bg-zinc-100 dark:bg-zinc-900 p-1 rounded-xl border border-zinc-200/80 dark:border-zinc-800 text-xs font-semibold shadow-inner">
           <button
             id="tab-btn-karaoke"
             type="button"
             onClick={() => setActiveTab('karaoke')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[36px] ${
               activeTab === 'karaoke'
-                ? 'bg-amber-500 text-zinc-950 shadow-xs font-extrabold'
+                ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
             <Mic2 className="w-3.5 h-3.5" />
-            <span>卡拉OK機 (Karaoke)</span>
+            <span className="hidden xs:inline sm:inline">卡拉OK</span>
+            <span className="inline xs:hidden sm:hidden">KTV</span>
           </button>
 
           <button
             id="tab-btn-editor"
             type="button"
             onClick={() => setActiveTab('editor')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[36px] ${
               activeTab === 'editor'
-                ? 'bg-amber-500 text-zinc-950 shadow-xs font-extrabold'
+                ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
             <Music className="w-3.5 h-3.5" />
-            <span>簡譜編寫 (Composer)</span>
+            <span>簡譜編寫</span>
           </button>
 
           <button
             id="tab-btn-split"
             type="button"
             onClick={() => setActiveTab('split')}
-            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`hidden md:flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[36px] ${
               activeTab === 'split'
-                ? 'bg-amber-500 text-zinc-950 shadow-xs font-extrabold'
+                ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
             <Columns className="w-3.5 h-3.5" />
-            <span>雙視窗 (Split View)</span>
+            <span>雙視窗</span>
           </button>
         </div>
 
-        {/* Right Action Tools: Shortcuts, Undo/Redo, Song Selector, Quick Play, Import/Export */}
-        <div className="flex items-center gap-2">
-          {/* Keyboard Shortcuts trigger */}
-          <button
-            id="header-shortcuts-btn"
-            type="button"
-            onClick={() => setShowKeyboardShortcuts(true)}
-            className="hidden lg:flex items-center justify-center p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700 transition-colors cursor-pointer"
-            title="快捷鍵指南 (Keyboard Shortcuts)"
+        {/* Right Action Tools: Preset Song Selector, Undo/Redo, Quick Play, Import/Export */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Preset Song Quick Picker */}
+          <select
+            id="header-preset-song-select"
+            value={song.id}
+            onChange={e => {
+              const selected = PRESET_SONGS.find(p => p.id === e.target.value);
+              if (selected) onSelectSong(selected);
+            }}
+            className="hidden sm:block text-xs font-bold bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl px-2.5 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-amber-500 max-w-[130px] md:max-w-[170px] truncate cursor-pointer min-h-[36px]"
           >
-            <Keyboard className="w-3.5 h-3.5" />
-          </button>
+            {PRESET_SONGS.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
+            ))}
+          </select>
 
           {/* Undo / Redo Action Group */}
           {onUndo && onRedo && (
             <div
               id="header-undo-redo-group"
-              className="flex items-center bg-zinc-100/90 dark:bg-zinc-800/80 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700"
+              className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700"
             >
               <button
                 id="header-undo-btn"
                 type="button"
                 onClick={onUndo}
                 disabled={!canUndo}
-                title={canUndo ? `復原上一步 (Undo) [Ctrl+Z / ⌘Z] · 尚有 ${pastCount} 步可復原` : '無可復原的步驟 (Undo) [Ctrl+Z]'}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer"
+                title={canUndo ? `復原上一步 (Undo) [Ctrl+Z] · 尚有 ${pastCount} 步` : '無可復原步驟'}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
               >
                 <Undo2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">復原</span>
+                <span className="hidden lg:inline">復原</span>
                 {canUndo && pastCount > 0 && (
                   <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
                     {pastCount}
@@ -161,11 +167,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 type="button"
                 onClick={onRedo}
                 disabled={!canRedo}
-                title={canRedo ? `重做下一步 (Redo) [Ctrl+Y / ⌘⇧Z] · 尚有 ${futureCount} 步可重做` : '無可重做的步驟 (Redo) [Ctrl+Y]'}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer"
+                title={canRedo ? `重做下一步 (Redo) [Ctrl+Y] · 尚有 ${futureCount} 步` : '無可重做步驟'}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
               >
                 <Redo2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">重做</span>
+                <span className="hidden lg:inline">重做</span>
                 {canRedo && futureCount > 0 && (
                   <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
                     {futureCount}
@@ -175,43 +181,26 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </div>
           )}
 
-          {/* Preset Song Quick Picker */}
-          <select
-            id="header-preset-song-select"
-            value={song.id}
-            onChange={e => {
-              const selected = PRESET_SONGS.find(p => p.id === e.target.value);
-              if (selected) onSelectSong(selected);
-            }}
-            className="hidden lg:block text-xs font-semibold bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl px-2.5 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-amber-500 max-w-[160px] truncate cursor-pointer"
-          >
-            {PRESET_SONGS.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
-          </select>
-
           {/* Quick Play/Pause Button */}
           <button
             id="header-toggle-play-btn"
             type="button"
             onClick={onTogglePlay}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
               isPlaying
-                ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md shadow-amber-500/20'
+                ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md shadow-amber-500/20 font-black'
                 : 'bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white'
             }`}
           >
             {isPlaying ? (
               <>
                 <Pause className="w-3.5 h-3.5 fill-current" />
-                <span>暫停 (Pause)</span>
+                <span className="hidden sm:inline">暫停</span>
               </>
             ) : (
               <>
                 <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-                <span>播放 (Play)</span>
+                <span className="hidden sm:inline">播放</span>
               </>
             )}
           </button>
@@ -221,11 +210,22 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             id="header-open-library-btn"
             type="button"
             onClick={onOpenImportExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100/90 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl border border-zinc-200/80 dark:border-zinc-700 text-xs font-semibold transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl border border-zinc-200/80 dark:border-zinc-700 text-xs font-bold transition-colors cursor-pointer touch-manipulation min-h-[36px]"
             title="曲庫與匯入匯出"
           >
             <Library className="w-3.5 h-3.5 text-amber-500" />
-            <span className="hidden sm:inline">曲庫/匯入匯出</span>
+            <span className="hidden md:inline">曲庫/匯入匯出</span>
+          </button>
+
+          {/* Keyboard Shortcuts trigger */}
+          <button
+            id="header-shortcuts-btn"
+            type="button"
+            onClick={() => setShowKeyboardShortcuts(true)}
+            className="hidden xl:flex items-center justify-center p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700 transition-colors cursor-pointer min-h-[36px] min-w-[36px]"
+            title="快捷鍵指南 (Keyboard Shortcuts)"
+          >
+            <Keyboard className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -300,7 +300,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <button
                 type="button"
                 onClick={() => setShowKeyboardShortcuts(false)}
-                className="px-4 py-1.5 rounded-xl bg-amber-500 text-zinc-950 font-bold text-xs hover:bg-amber-400 transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-amber-500 text-zinc-950 font-bold text-xs hover:bg-amber-400 transition-colors cursor-pointer"
               >
                 我知道了 (Got it)
               </button>

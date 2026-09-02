@@ -21,6 +21,7 @@ import {
 } from '@/lib/taigiUtils';
 import { SongMetadataHeader } from './composer/SongMetadataHeader';
 import { NoteEditorHud } from './composer/NoteEditorHud';
+import { SectionRail } from './composer/SectionRail';
 import { VerseModeView } from './composer/VerseModeView';
 import { MeasureModeView } from './composer/MeasureModeView';
 import {
@@ -75,6 +76,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   // Edit Mode: 'verse' (default, separated by punctuation or spaces) vs 'measure' (sectioned by musical measures)
   const [editMode, setEditMode] = useState<EditorEditMode>('verse');
   const [selectedCoord, setSelectedCoord] = useState<[number, number] | null>([0, 0]);
+  const [autoStepAdvance, setAutoStepAdvance] = useState<boolean>(false);
 
   const [notification, setNotification] = useState<string | null>(null);
   const [playingMeasureIdx, setPlayingMeasureIdx] = useState<number | null>(null);
@@ -242,7 +244,30 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     [selectedMeasureIndex, selectedNoteIndex, updateNoteAt]
   );
 
-  // Change pitch
+  // Note Navigation: Previous and Next note
+  const handleNavigateNextNote = useCallback(() => {
+    if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
+    const curM = song.measures[selectedMeasureIndex];
+    if (curM && selectedNoteIndex < curM.notes.length - 1) {
+      handleSelectNote(selectedMeasureIndex, selectedNoteIndex + 1);
+    } else if (selectedMeasureIndex < song.measures.length - 1) {
+      handleSelectNote(selectedMeasureIndex + 1, 0);
+    }
+  }, [selectedMeasureIndex, selectedNoteIndex, song.measures, handleSelectNote]);
+
+  const handleNavigatePrevNote = useCallback(() => {
+    if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
+    if (selectedNoteIndex > 0) {
+      handleSelectNote(selectedMeasureIndex, selectedNoteIndex - 1);
+    } else if (selectedMeasureIndex > 0) {
+      const prevM = song.measures[selectedMeasureIndex - 1];
+      if (prevM && prevM.notes.length > 0) {
+        handleSelectNote(selectedMeasureIndex - 1, prevM.notes.length - 1);
+      }
+    }
+  }, [selectedMeasureIndex, selectedNoteIndex, song.measures, handleSelectNote]);
+
+  // Change pitch (with optional auto-advance)
   const handleSetPitch = useCallback(
     (pitch: PitchNumber) => {
       updateSelectedNote(n => {
@@ -250,8 +275,14 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         audioEngine.previewNote(song.key, updated);
         return updated;
       });
+
+      if (autoStepAdvance) {
+        setTimeout(() => {
+          handleNavigateNextNote();
+        }, 120);
+      }
     },
-    [updateSelectedNote, audioEngine, song.key]
+    [updateSelectedNote, audioEngine, song.key, autoStepAdvance, handleNavigateNextNote]
   );
 
   // Change octave
@@ -664,6 +695,29 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     return success;
   }, [onRedo, showNotice]);
 
+  // Jump to specific measure from SectionRail
+  const handleJumpToMeasure = useCallback((mIdx: number) => {
+    setSelectedCoord([mIdx, 0]);
+    const note = song.measures[mIdx]?.notes[0];
+    if (note) {
+      audioEngine.previewNote(song.key, note);
+    }
+    if (editMode === 'verse') {
+      const vIdx = verses.findIndex(v => v.notes.some(n => n.measureIndex === mIdx));
+      if (vIdx !== -1) {
+        const el = document.getElementById(`verse-card-${vIdx}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    } else {
+      const el = document.getElementById(`measure-card-${mIdx}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [song, audioEngine, editMode, verses]);
+
   // Global Keyboard listener for quick score editing
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -704,22 +758,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         handleInsertPunctuationToNote(mark);
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        const curM = song.measures[selectedMeasureIndex];
-        if (curM && selectedNoteIndex < curM.notes.length - 1) {
-          handleSelectNote(selectedMeasureIndex, selectedNoteIndex + 1);
-        } else if (selectedMeasureIndex < song.measures.length - 1) {
-          handleSelectNote(selectedMeasureIndex + 1, 0);
-        }
+        handleNavigateNextNote();
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        if (selectedNoteIndex > 0) {
-          handleSelectNote(selectedMeasureIndex, selectedNoteIndex - 1);
-        } else if (selectedMeasureIndex > 0) {
-          const prevM = song.measures[selectedMeasureIndex - 1];
-          if (prevM && prevM.notes.length > 0) {
-            handleSelectNote(selectedMeasureIndex - 1, prevM.notes.length - 1);
-          }
-        }
+        handleNavigatePrevNote();
       } else if (e.key === ' ') {
         e.preventDefault();
         if (currentNote) {
@@ -735,30 +777,31 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   }, [
     selectedMeasureIndex,
     selectedNoteIndex,
-    song,
     currentNote,
     audioEngine,
+    song.key,
     handleSetPitch,
-    handleSelectNote,
+    handleNavigateNextNote,
+    handleNavigatePrevNote,
     handleInsertPunctuationToNote,
     handleUndo,
     handleRedo,
   ]);
 
   return (
-    <div id="composer-editor-root" className="flex flex-col gap-6 w-full pb-10">
+    <div id="composer-editor-root" className="flex flex-col gap-5 w-full pb-10">
       {/* Inline Notification Banner */}
       {notification && (
         <div
           id="composer-notice-banner"
-          className="p-3 bg-amber-500 text-zinc-950 font-bold text-xs rounded-xl shadow-md flex items-center justify-between animate-in fade-in duration-150"
+          className="p-3 bg-amber-500 text-zinc-950 font-bold text-xs rounded-2xl shadow-md flex items-center justify-between animate-in fade-in duration-150"
         >
           <span>{notification}</span>
           <button
             id="composer-notice-dismiss-btn"
             type="button"
             onClick={() => setNotification(null)}
-            className="px-2 py-0.5 bg-zinc-950/20 hover:bg-zinc-950/30 rounded text-xs cursor-pointer"
+            className="px-2.5 py-1 bg-zinc-950/20 hover:bg-zinc-950/30 rounded-lg text-xs cursor-pointer font-bold"
           >
             關閉
           </button>
@@ -774,13 +817,23 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         onOpenAligner={onOpenAligner}
       />
 
+      {/* Persistent Section Navigation Rail (Quick Section Jump) */}
+      <SectionRail
+        song={song}
+        selectedMeasureIndex={selectedMeasureIndex}
+        onSelectMeasure={handleJumpToMeasure}
+        playingMeasureIdx={playingMeasureIdx}
+      />
+
       {/* WYSIWYG JIANPU SCORE SHEET CONTAINER */}
-      <div id="wysiwyg-jianpu-score-container" className="flex flex-col gap-5">
+      <div id="wysiwyg-jianpu-score-container" className="flex flex-col gap-4">
+        {/* Score Sheet Header */}
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+          <h2 className="text-base font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
             <Music2 className="w-5 h-5 text-amber-500" />
             <span>台語簡譜曲譜編輯區 (WYSIWYG Jianpu Score Sheet)</span>
           </h2>
+
           <div className="flex items-center gap-2 text-xs">
             {/* Undo / Redo in Score Header */}
             {onUndo && onRedo && (
@@ -794,12 +847,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                   onClick={handleUndo}
                   disabled={!canUndo}
                   title={canUndo ? `復原 (Undo) [Ctrl+Z] · 尚有 ${pastCount} 步` : '無可復原步驟 (Undo)'}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
                 >
                   <Undo2 className="w-3.5 h-3.5" />
                   <span>復原</span>
                   {canUndo && pastCount > 0 && (
-                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono">
+                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
                       {pastCount}
                     </span>
                   )}
@@ -813,12 +866,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                   onClick={handleRedo}
                   disabled={!canRedo}
                   title={canRedo ? `重做 (Redo) [Ctrl+Y] · 尚有 ${futureCount} 步` : '無可重做步驟 (Redo)'}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
                 >
                   <Redo2 className="w-3.5 h-3.5" />
                   <span>重做</span>
                   {canRedo && futureCount > 0 && (
-                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono">
+                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
                       {futureCount}
                     </span>
                   )}
@@ -829,10 +882,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             <button
               type="button"
               onClick={handleAddMeasure}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl font-bold shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>新增小節 (Add Measure)</span>
+              <span>新增小節</span>
             </button>
           </div>
         </div>
@@ -852,16 +905,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                 id="editor-mode-verse-btn"
                 type="button"
                 onClick={() => setEditMode('verse')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[36px] ${
                   editMode === 'verse'
-                    ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                    ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                 }`}
               >
                 <AlignLeft className="w-3.5 h-3.5" />
                 <span>句編輯模式 (Verse Mode)</span>
-                <span className="text-[10px] px-1 py-0.2 rounded bg-amber-600/30 text-zinc-950 dark:text-zinc-900 font-extrabold ml-1">
-                  預設
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-600/30 text-zinc-950 dark:text-zinc-900 font-extrabold ml-1">
+                  推薦
                 </span>
               </button>
 
@@ -869,9 +922,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                 id="editor-mode-measure-btn"
                 type="button"
                 onClick={() => setEditMode('measure')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[36px] ${
                   editMode === 'measure'
-                    ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                    ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                 }`}
               >
@@ -883,12 +936,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
           <div className="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             {editMode === 'verse' ? (
-              <span className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-800/60 font-medium">
+              <span className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/60 font-medium">
                 <span className="font-bold text-amber-600 dark:text-amber-400">句模式：</span>
                 依歌詞標點符號或空白留白自動分句 · 共 {verses.length} 句
               </span>
             ) : (
-              <span className="flex items-center gap-1.5 bg-zinc-200/70 dark:bg-zinc-700/60 text-zinc-800 dark:text-zinc-200 px-2.5 py-1 rounded-lg font-medium">
+              <span className="flex items-center gap-1.5 bg-zinc-200/70 dark:bg-zinc-700/60 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-xl font-medium">
                 <span className="font-bold text-zinc-900 dark:text-zinc-100">小節模式：</span>
                 依樂譜小節線獨立分段 · 共 {song.measures.length} 小節
               </span>
@@ -896,7 +949,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           </div>
         </div>
 
-        {/* PERSISTENT STICKY NOTE EDITING TOOLBAR */}
+        {/* PERSISTENT STUDIO TOUCH DECK (NoteEditorHud) */}
         {currentNote && selectedMeasureIndex !== null && (
           <NoteEditorHud
             currentNote={currentNote}
@@ -916,6 +969,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onSetAnnotation={handleSetAnnotation}
             onInsertNoteAt={handleInsertNoteAt}
             onDeleteNoteAt={handleDeleteNoteAt}
+            onNavigateNextNote={handleNavigateNextNote}
+            onNavigatePrevNote={handleNavigatePrevNote}
+            autoStepAdvance={autoStepAdvance}
+            onToggleAutoStepAdvance={() => setAutoStepAdvance(prev => !prev)}
             onUndo={handleUndo}
             onRedo={handleRedo}
             canUndo={canUndo}
@@ -976,7 +1033,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             id="composer-add-measure-bottom-btn"
             type="button"
             onClick={handleAddMeasure}
-            className="flex items-center gap-2 px-6 py-3 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-bold text-sm rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer"
+            className="flex items-center gap-2 px-6 py-3.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-extrabold text-sm rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px]"
           >
             <Plus className="w-4 h-4" />
             <span>在曲末新增小節 (Append Measure)</span>

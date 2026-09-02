@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { LyricDisplayMode, Song } from '@/types/song';
 import { PRESET_SONGS } from '@/lib/presets';
-import { audioEngine, PlaybackState } from '@/lib/audioEngine';
+import { audioEngine } from '@/lib/audioEngine';
 import { HeaderBar, ActiveTabMode } from '@/components/HeaderBar';
 import { KaraokeView, KaraokeSection } from '@/components/KaraokeView';
 import { ComposerEditor } from '@/components/ComposerEditor';
@@ -13,9 +13,7 @@ import { useSongHistory } from '@/hooks/useSongHistory';
 import {
   Mic2,
   Music,
-  Info,
   Sparkles,
-  Keyboard,
   Layers,
   ArrowRight,
 } from 'lucide-react';
@@ -137,7 +135,7 @@ export default function Home() {
       />
 
       {/* Main Body Canvas */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-8 flex flex-col gap-6">
         {/* Dynamic View Mode Container */}
         {activeTab === 'karaoke' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-200">
@@ -168,7 +166,7 @@ export default function Home() {
               </div>
               <button
                 onClick={() => setActiveTab('editor')}
-                className="flex items-center gap-1.5 px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold text-xs rounded-xl hover:opacity-90 transition-opacity cursor-pointer"
+                className="flex items-center gap-1.5 px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold text-xs rounded-xl hover:opacity-90 transition-opacity cursor-pointer touch-manipulation min-h-[38px]"
               >
                 <span>前往編寫器 (Open Editor)</span>
                 <ArrowRight className="w-3.5 h-3.5" />

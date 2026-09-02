@@ -60,7 +60,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = ({
             id={`measure-card-${mIdx}`}
             className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs ${
               isPlayingThisMeasure
-                ? 'border-amber-500 ring-2 ring-amber-400 bg-amber-50/50 dark:bg-amber-950/40 shadow-md'
+                ? 'border-amber-500 ring-2 ring-amber-400 bg-amber-50/60 dark:bg-amber-950/40 shadow-md'
                 : isSelectedMeasure
                 ? 'border-amber-400 dark:border-amber-600/90 bg-amber-50/20 dark:bg-amber-950/20'
                 : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/95'
@@ -77,7 +77,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = ({
                     e.stopPropagation();
                     onTogglePlayMeasure(mIdx);
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer touch-manipulation min-h-[40px] ${
                     isPlayingThisMeasure
                       ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 animate-pulse font-black'
                       : 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
@@ -97,7 +97,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = ({
                   )}
                 </button>
 
-                <span className="w-7 h-7 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold flex items-center justify-center font-mono text-xs border border-zinc-200 dark:border-zinc-700">
+                <span className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold flex items-center justify-center font-mono text-xs border border-zinc-200 dark:border-zinc-700">
                   #{mIdx + 1}
                 </span>
 
@@ -106,7 +106,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = ({
                   id={`measure-section-select-${mIdx}`}
                   value={measure.section || ''}
                   onChange={e => onUpdateMeasureSection(mIdx, e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold rounded-lg px-2 py-1 text-xs cursor-pointer"
+                  className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold rounded-xl px-2.5 py-2 text-xs cursor-pointer min-h-[38px]"
                   title="段落標籤"
                 >
                   <option value="">無段落標記</option>
@@ -120,7 +120,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = ({
                 </select>
 
                 {/* Chord Selector */}
-                <div className="flex items-center gap-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-0.5 text-xs">
+                <div className="flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-1 text-xs min-h-[38px]">
                   <span className="text-zinc-600 dark:text-zinc-400 font-medium">和弦:</span>
                   <select
                     id={`measure-chord-select-${mIdx}`}
@@ -140,17 +140,17 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = ({
                 </div>
               </div>
 
-              {/* Right: Quick Measure Actions & Batch Lyric */}
+              {/* Right: Quick Measure Actions */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 {/* Add note to this measure */}
                 <button
                   id={`measure-add-note-btn-${mIdx}`}
                   type="button"
                   onClick={() => onAddNoteToMeasure(mIdx)}
-                  className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-lg font-semibold text-xs border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl font-bold text-xs border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer touch-manipulation min-h-[40px]"
                   title="在此小節尾端增加一個音符"
                 >
-                  <Plus className="w-3 h-3" />
+                  <Plus className="w-3.5 h-3.5" />
                   <span>加音符</span>
                 </button>
 
@@ -159,10 +159,10 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = ({
                   id={`measure-duplicate-btn-${mIdx}`}
                   type="button"
                   onClick={() => onDuplicateMeasure(mIdx)}
-                  className="p-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
+                  className="p-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer touch-manipulation min-h-[40px] min-w-[40px] flex items-center justify-center"
                   title="複製此小節"
                 >
-                  <Copy className="w-3.5 h-3.5" />
+                  <Copy className="w-4 h-4" />
                 </button>
 
                 {/* Delete measure */}
@@ -170,16 +170,19 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = ({
                   id={`measure-delete-btn-${mIdx}`}
                   type="button"
                   onClick={() => onDeleteMeasure(mIdx)}
-                  className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-400 rounded-lg border border-rose-200 dark:border-rose-900 transition-colors cursor-pointer"
+                  className="p-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-400 rounded-xl border border-rose-200 dark:border-rose-900 transition-colors cursor-pointer touch-manipulation min-h-[40px] min-w-[40px] flex items-center justify-center"
                   title="刪除此小節"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {/* THE WYSIWYG JIANPU SCORE ROW */}
-            <div className="flex items-stretch overflow-x-auto pb-2 pt-1 gap-2 sm:gap-3">
+            <div
+              className="flex items-stretch overflow-x-auto pb-3 pt-1 gap-2 sm:gap-3"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
               {measure.notes.map((note, nIdx) => {
                 const isSelected = selectedMeasureIndex === mIdx && selectedNoteIndex === nIdx;
                 const isPlaybackActive = activePlaybackNoteId === note.id;
@@ -204,8 +207,8 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = ({
             </div>
 
             {/* Quick Measure-Wide Batch Lyric Input Row */}
-            <div className="flex items-center gap-2 pt-2.5 mt-2 border-t border-zinc-200/80 dark:border-zinc-800 text-xs">
-              <span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 shrink-0">
+            <div className="flex items-center gap-2 pt-3 mt-2 border-t border-zinc-200/80 dark:border-zinc-800 text-xs">
+              <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400 shrink-0">
                 整小節快速填詞:
               </span>
               <input
@@ -221,13 +224,13 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = ({
                   }
                 }}
                 placeholder={`輸入第 ${mIdx + 1} 小節完整歌詞 (如: 獨夜無伴 或 To̍k iā bô phōaⁿ)`}
-                className="flex-1 px-2.5 py-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800"
+                className="flex-1 px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800"
               />
               <button
                 type="button"
                 onClick={() => onDistributeMeasureLyrics(mIdx)}
                 disabled={!(measureBatchTexts[mIdx] || '').trim()}
-                className="px-3 py-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-zinc-950 font-bold rounded-lg text-xs transition-colors shrink-0 shadow-2xs cursor-pointer"
+                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-zinc-950 font-bold rounded-xl text-xs transition-colors shrink-0 shadow-xs cursor-pointer touch-manipulation min-h-[38px]"
               >
                 分配至此小節
               </button>
