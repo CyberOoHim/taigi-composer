@@ -4,6 +4,7 @@ import React from 'react';
 import { JianpuNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, VerseItem, VerseNoteRef } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
+import { scrollToCardElement } from '@/lib/utils';
 import { NoteCell } from './NoteCell';
 import { NoteEditorHud } from './NoteEditorHud';
 import { Play, Square, Plus, MessageSquareQuote, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -107,7 +108,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                 onSelectNote(firstContentNote.measureIndex, firstContentNote.noteIndex);
               }
             }}
-            className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs cursor-pointer ${
+            className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs cursor-pointer scroll-mt-20 sm:scroll-mt-24 ${
               isPlayingThisVerse
                 ? 'border-amber-500 ring-2 ring-amber-400 bg-amber-50/60 dark:bg-amber-950/40 shadow-md'
                 : hasSelectedNoteInVerse
@@ -156,7 +157,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                         const prevVerse = verses[vIdx - 1];
                         const target = prevVerse.notes[0];
                         if (target) onSelectNote(target.measureIndex, target.noteIndex);
-                        document.getElementById(`verse-card-${vIdx - 1}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        scrollToCardElement(`verse-card-${vIdx - 1}`);
                       }
                     }}
                     disabled={vIdx === 0}
@@ -176,7 +177,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                         const nextVerse = verses[vIdx + 1];
                         const target = nextVerse.notes[0];
                         if (target) onSelectNote(target.measureIndex, target.noteIndex);
-                        document.getElementById(`verse-card-${vIdx + 1}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        scrollToCardElement(`verse-card-${vIdx + 1}`);
                       }
                     }}
                     disabled={vIdx === verses.length - 1}

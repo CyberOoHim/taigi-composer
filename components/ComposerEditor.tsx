@@ -20,6 +20,7 @@ import {
   isPunctuationOrSpacer,
   isNonNotationItem,
 } from '@/lib/taigiUtils';
+import { scrollToCardElement } from '@/lib/utils';
 import { SongMetadataHeader } from './composer/SongMetadataHeader';
 import { NoteEditorHud } from './composer/NoteEditorHud';
 import { SectionRail } from './composer/SectionRail';
@@ -146,9 +147,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             );
           }
           if (vIdx !== -1) {
+            scrollToCardElement(`verse-card-${vIdx}`);
             const el = document.getElementById(`verse-card-${vIdx}`);
             if (el) {
-              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
               el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
               setTimeout(() => {
                 el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
@@ -156,9 +157,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             }
           }
         } else {
+          scrollToCardElement(`measure-card-${validMeasureIdx}`);
           const el = document.getElementById(`measure-card-${validMeasureIdx}`);
           if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
             setTimeout(() => {
               el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
@@ -736,16 +737,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         vIdx = verses.findIndex(v => v.notes.some(n => n.measureIndex === mIdx));
       }
       if (vIdx !== -1) {
-        const el = document.getElementById(`verse-card-${vIdx}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        scrollToCardElement(`verse-card-${vIdx}`);
       }
     } else {
-      const el = document.getElementById(`measure-card-${mIdx}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      scrollToCardElement(`measure-card-${mIdx}`);
     }
   }, [song, audioEngine, editMode, verses]);
 

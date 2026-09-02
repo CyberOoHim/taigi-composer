@@ -3,6 +3,7 @@
 import React from 'react';
 import { JianpuNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, Song } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
+import { scrollToCardElement } from '@/lib/utils';
 import { NoteCell } from './NoteCell';
 import { NoteEditorHud } from './NoteEditorHud';
 import { Play, Square, Plus, Copy, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -100,7 +101,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
           <div
             key={measure.id}
             id={`measure-card-${mIdx}`}
-            className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs ${
+            className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs scroll-mt-20 sm:scroll-mt-24 ${
               isPlayingThisMeasure
                 ? 'border-amber-500 ring-2 ring-amber-400 bg-amber-50/60 dark:bg-amber-950/40 shadow-md'
                 : isSelectedMeasure
@@ -147,7 +148,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                       e.stopPropagation();
                       if (mIdx > 0) {
                         onSelectNote(mIdx - 1, 0);
-                        document.getElementById(`measure-card-${mIdx - 1}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        scrollToCardElement(`measure-card-${mIdx - 1}`);
                       }
                     }}
                     disabled={mIdx === 0}
@@ -165,7 +166,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                       e.stopPropagation();
                       if (mIdx < song.measures.length - 1) {
                         onSelectNote(mIdx + 1, 0);
-                        document.getElementById(`measure-card-${mIdx + 1}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        scrollToCardElement(`measure-card-${mIdx + 1}`);
                       }
                     }}
                     disabled={mIdx === song.measures.length - 1}
