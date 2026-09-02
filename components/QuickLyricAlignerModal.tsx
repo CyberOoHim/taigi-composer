@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { LyricSyllable, Song } from '@/types/song';
 import { splitTaigiLyricSyllables } from '@/lib/taigiUtils';
+import { convertTaigiLyricsWithAi } from '@/lib/geminiService';
 import { AlignLeft, Sparkles, X, Check, Loader2, ArrowRight } from 'lucide-react';
 
 interface QuickLyricAlignerModalProps {
@@ -37,25 +38,8 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
     if (targetField === 'auto_ai') {
       setIsLoadingAi(true);
       try {
-        const res = await fetch('/api/gemini/assist', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'convert_lyrics',
-            text: inputText.trim(),
-          }),
-        });
-
-        if (!res.ok) {
-          throw new Error('AI conversion failed');
-        }
-
-        const data = await res.json();
-        if (data.syllables && Array.isArray(data.syllables)) {
-          setPreviewTokens(data.syllables);
-        } else {
-          throw new Error('Invalid format returned by AI');
-        }
+        const tokens = await convertTaigiLyricsWithAi(inputText.trim());
+        setPreviewTokens(tokens);
       } catch (err: unknown) {
         // Fallback to local rule-based tokenizer
         const rawSyllables = splitTaigiLyricSyllables(inputText);
