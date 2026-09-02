@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { KeySignature, LyricDisplayMode, Song, TimeSignature } from '@/types/song';
-import { AlignLeft, ChevronDown, ChevronUp, SlidersHorizontal, Music } from 'lucide-react';
+import { AlignLeft, ChevronDown, ChevronUp, SlidersHorizontal, Music, ScanLine } from 'lucide-react';
 
 interface SongMetadataHeaderProps {
   song: Song;
@@ -10,6 +10,7 @@ interface SongMetadataHeaderProps {
   displayMode: LyricDisplayMode;
   setDisplayMode: (mode: LyricDisplayMode) => void;
   onOpenAligner: () => void;
+  onOpenScanner?: () => void;
 }
 
 export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(({
@@ -18,6 +19,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   displayMode,
   setDisplayMode,
   onOpenAligner,
+  onOpenScanner,
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
@@ -54,8 +56,22 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
           </div>
         </div>
 
-        {/* Right: Quick Aligner & Expand Button */}
+        {/* Right: Quick Aligner, Scanner & Expand Button */}
         <div className="flex items-center gap-2">
+          {/* AI Score Scanner Modal Trigger */}
+          {onOpenScanner && (
+            <button
+              id="composer-open-scanner-btn"
+              type="button"
+              onClick={onOpenScanner}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 font-bold text-xs rounded-xl shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+              title="AI 圖片識譜匯入 (最多 3 頁)"
+            >
+              <ScanLine className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span className="hidden sm:inline">圖片識譜匯入</span>
+            </button>
+          )}
+
           {/* Quick Lyric Aligner Modal Trigger */}
           <button
             id="composer-open-aligner-btn"

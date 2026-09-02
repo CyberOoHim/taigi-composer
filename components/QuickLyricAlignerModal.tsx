@@ -34,6 +34,7 @@ import {
   AlertCircle,
   CheckCircle2,
   LogOut,
+  ScanLine,
 } from 'lucide-react';
 
 interface QuickLyricAlignerModalProps {
@@ -41,6 +42,7 @@ interface QuickLyricAlignerModalProps {
   onClose: () => void;
   song: Song;
   onApplyLyrics: (updatedSong: Song) => void;
+  onOpenScanner?: () => void;
 }
 
 interface VersePreviewItem {
@@ -57,6 +59,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   onClose,
   song,
   onApplyLyrics,
+  onOpenScanner,
 }) => {
   const [inputText, setInputText] = useState('');
   const [targetField, setTargetField] = useState<'hanji' | 'poj' | 'pij' | 'custom' | 'auto_ai'>('auto_ai');
@@ -378,9 +381,24 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               <label htmlFor="aligner-input-text" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 貼上歌詞文字 (Paste Lyrics Text - Hanji / POJ / PIJ / Han-lô)
               </label>
-              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                💡 支援以換行（New Line）自動依樂句分段對齊
-              </span>
+              <div className="flex items-center gap-2">
+                {onOpenScanner && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenScanner();
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 hover:underline cursor-pointer"
+                  >
+                    <ScanLine className="w-3 h-3" />
+                    <span>從樂譜圖片擷取歌詞 (Image OCR)</span>
+                  </button>
+                )}
+                <span className="hidden sm:inline text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                  💡 支援換行分段對齊
+                </span>
+              </div>
             </div>
             <textarea
               id="aligner-input-text"

@@ -10,6 +10,7 @@ import { ComposerEditor } from '@/components/ComposerEditor';
 import { ImportExportModal } from '@/components/ImportExportModal';
 import { QuickLyricAlignerModal } from '@/components/QuickLyricAlignerModal';
 import { GeminiAuthModal } from '@/components/GeminiAuthModal';
+import { AiScoreScannerModal } from '@/components/AiScoreScannerModal';
 import { useSongHistory } from '@/hooks/useSongHistory';
 import { usePowerSaveMode } from '@/hooks/usePowerSaveMode';
 import {
@@ -45,8 +46,26 @@ export default function Home() {
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isAlignerOpen, setIsAlignerOpen] = useState(false);
   const [isGeminiAuthOpen, setIsGeminiAuthOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [targetMeasureIndex, setTargetMeasureIndex] = useState<number | null>(null);
+
+  const handleApplyScannedSong = useCallback(
+    (
+      resultSong: Song,
+      action: 'new' | 'replace' | 'append' | 'lyrics'
+    ) => {
+      if (audioEngine) {
+        audioEngine.stop();
+      }
+      if (action === 'new') {
+        loadNewSong(resultSong);
+      } else {
+        setSong(resultSong);
+      }
+    },
+    [loadNewSong, setSong]
+  );
 
   const handleEditMeasure = useCallback((measureIndex: number) => {
     if (activeTab === 'karaoke') {
@@ -135,6 +154,7 @@ export default function Home() {
         setActiveTab={setActiveTab}
         onOpenImportExport={() => setIsImportExportOpen(true)}
         onOpenGeminiAuth={() => setIsGeminiAuthOpen(true)}
+        onOpenScanner={() => setIsScannerOpen(true)}
         isPlaying={isPlaying}
         onTogglePlay={handleTogglePlay}
         onUndo={undo}
@@ -200,6 +220,7 @@ export default function Home() {
               displayMode={displayMode}
               setDisplayMode={setDisplayMode}
               onOpenAligner={() => setIsAlignerOpen(true)}
+              onOpenScanner={() => setIsScannerOpen(true)}
               targetMeasureIndex={targetMeasureIndex}
               onTargetMeasureHandled={() => setTargetMeasureIndex(null)}
               onUndo={undo}
@@ -242,6 +263,7 @@ export default function Home() {
                 displayMode={displayMode}
                 setDisplayMode={setDisplayMode}
                 onOpenAligner={() => setIsAlignerOpen(true)}
+                onOpenScanner={() => setIsScannerOpen(true)}
                 targetMeasureIndex={targetMeasureIndex}
                 onTargetMeasureHandled={() => setTargetMeasureIndex(null)}
                 onUndo={undo}
@@ -295,6 +317,7 @@ export default function Home() {
         onClose={() => setIsImportExportOpen(false)}
         currentSong={song}
         onLoadSong={handleSelectSong}
+        onOpenScanner={() => setIsScannerOpen(true)}
       />
 
       <QuickLyricAlignerModal
@@ -302,11 +325,19 @@ export default function Home() {
         onClose={() => setIsAlignerOpen(false)}
         song={song}
         onApplyLyrics={setSong}
+        onOpenScanner={() => setIsScannerOpen(true)}
       />
 
       <GeminiAuthModal
         isOpen={isGeminiAuthOpen}
         onClose={() => setIsGeminiAuthOpen(false)}
+      />
+
+      <AiScoreScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        currentSong={song}
+        onApply={handleApplyScannedSong}
       />
     </div>
   );

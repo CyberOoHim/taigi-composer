@@ -20,6 +20,7 @@ import {
   X,
   AlertCircle,
   Sparkles,
+  ScanLine,
 } from 'lucide-react';
 
 interface ImportExportModalProps {
@@ -27,6 +28,7 @@ interface ImportExportModalProps {
   onClose: () => void;
   currentSong: Song;
   onLoadSong: (song: Song) => void;
+  onOpenScanner?: () => void;
 }
 
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({
@@ -34,8 +36,9 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   onClose,
   currentSong,
   onLoadSong,
+  onOpenScanner,
 }) => {
-  const [activeTab, setActiveTab] = useState<'presets' | 'export' | 'import'>('presets');
+  const [activeTab, setActiveTab] = useState<'presets' | 'export' | 'import' | 'ai_scan'>('presets');
   const [exportFormat, setExportFormat] = useState<'json' | 'text'>('json');
   const [copied, setCopied] = useState(false);
 
@@ -159,6 +162,19 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           >
             <Upload className="w-4 h-4" />
             <span>匯入樂譜 (Import)</span>
+          </button>
+
+          <button
+            id="tab-ai-scan-btn"
+            onClick={() => setActiveTab('ai_scan')}
+            className={`flex items-center gap-2 px-4 py-2.5 border-b-2 transition-all ${
+              activeTab === 'ai_scan'
+                ? 'border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
+                : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+            }`}
+          >
+            <ScanLine className="w-4 h-4 text-amber-500" />
+            <span>AI 圖片識譜 (AI Scan)</span>
           </button>
         </div>
 
@@ -321,6 +337,60 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   <Check className="w-4 h-4" />
                   <span>確認匯入 (Confirm Import)</span>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: AI IMAGE SCORE SCAN */}
+          {activeTab === 'ai_scan' && (
+            <div id="ai-scan-panel" className="flex flex-col gap-4">
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300/70 dark:border-amber-700/70 flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-zinc-950 flex items-center justify-center font-black shadow-md shadow-amber-500/20">
+                    <ScanLine className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-zinc-900 dark:text-zinc-100 text-base flex items-center gap-2">
+                      <span>Gemini AI 多模態圖片識譜</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 font-mono font-bold">
+                        1~3 頁
+                      </span>
+                    </h4>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      上傳實體歌本、簡譜或歌詞照片，AI 自動辨識旋律、節奏、八度、和弦與台語音節聲調！
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs text-zinc-600 dark:text-zinc-400 pt-2 border-t border-amber-200/60 dark:border-amber-800/60">
+                  <div className="flex flex-col gap-1 p-2 rounded-lg bg-white/60 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800">
+                    <span className="font-bold text-zinc-900 dark:text-zinc-100">1. 上傳 1~3 頁圖片</span>
+                    <span className="text-[11px] text-zinc-500">支援手機拍照或掃描檔，自動壓縮與最佳化。</span>
+                  </div>
+                  <div className="flex flex-col gap-1 p-2 rounded-lg bg-white/60 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800">
+                    <span className="font-bold text-zinc-900 dark:text-zinc-100">2. Gemini 2.5 解析</span>
+                    <span className="text-[11px] text-zinc-500">深度樂理思考，多頁小節自動無縫拼接。</span>
+                  </div>
+                  <div className="flex flex-col gap-1 p-2 rounded-lg bg-white/60 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800">
+                    <span className="font-bold text-zinc-900 dark:text-zinc-100">3. 預覽並一鍵匯入</span>
+                    <span className="text-[11px] text-zinc-500">對照原圖檢查，可匯入新曲或追加小節。</span>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    id="launch-ai-scanner-btn"
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      if (onOpenScanner) onOpenScanner();
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-extrabold text-sm shadow-md transition-all active:scale-98 cursor-pointer"
+                  >
+                    <ScanLine className="w-4 h-4" />
+                    <span>開啟 AI 圖片識譜工具 (Open AI Scanner) →</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}

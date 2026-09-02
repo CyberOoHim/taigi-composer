@@ -19,6 +19,7 @@ import {
   BatteryCharging,
   BatteryLow,
   Sparkles,
+  ScanLine,
 } from 'lucide-react';
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -30,6 +31,7 @@ interface HeaderBarProps {
   setActiveTab: (tab: ActiveTabMode) => void;
   onOpenImportExport: () => void;
   onOpenGeminiAuth?: () => void;
+  onOpenScanner?: () => void;
   isPlaying: boolean;
   onTogglePlay: () => void;
   onUndo?: () => boolean;
@@ -51,6 +53,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   setActiveTab,
   onOpenImportExport,
   onOpenGeminiAuth,
+  onOpenScanner,
   isPlaying,
   onTogglePlay,
   onUndo,
@@ -251,6 +254,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   {Math.round(batteryLevel * 100)}%
                 </span>
               )}
+            </button>
+          )}
+
+          {/* AI Score Scanner Modal Trigger */}
+          {onOpenScanner && (
+            <button
+              id="header-open-scanner-btn"
+              type="button"
+              onClick={onOpenScanner}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-amber-400/20 hover:from-amber-500/30 hover:to-amber-400/30 text-amber-900 dark:text-amber-200 rounded-xl border border-amber-400/60 dark:border-amber-600/60 text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+              title="AI 圖片識譜 (多頁樂譜與歌詞轉錄)"
+            >
+              <ScanLine className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span className="hidden sm:inline">AI 圖片識譜</span>
             </button>
           )}
 
