@@ -18,6 +18,7 @@ import {
   Battery,
   BatteryCharging,
   BatteryLow,
+  Sparkles,
 } from 'lucide-react';
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -28,6 +29,7 @@ interface HeaderBarProps {
   activeTab: ActiveTabMode;
   setActiveTab: (tab: ActiveTabMode) => void;
   onOpenImportExport: () => void;
+  onOpenGeminiAuth?: () => void;
   isPlaying: boolean;
   onTogglePlay: () => void;
   onUndo?: () => boolean;
@@ -48,6 +50,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   activeTab,
   setActiveTab,
   onOpenImportExport,
+  onOpenGeminiAuth,
   isPlaying,
   onTogglePlay,
   onUndo,
@@ -262,6 +265,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <Library className="w-3.5 h-3.5 text-amber-500" />
             <span className="hidden md:inline">曲庫/匯入匯出</span>
           </button>
+
+          {/* Gemini AI Passcode Auth Modal Trigger */}
+          {onOpenGeminiAuth && (
+            <button
+              id="header-open-gemini-auth-btn"
+              type="button"
+              onClick={onOpenGeminiAuth}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 rounded-xl border border-amber-300/80 dark:border-amber-700/80 text-xs font-bold transition-colors cursor-pointer touch-manipulation min-h-[36px]"
+              title="Gemini AI 通行密碼驗證與設定 (Gemini AI Passcode Auth)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden sm:inline">AI 通行碼</span>
+            </button>
+          )}
 
           {/* Keyboard Shortcuts trigger */}
           <button

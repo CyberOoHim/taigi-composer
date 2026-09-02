@@ -9,6 +9,7 @@ import { KaraokeView, KaraokeSection } from '@/components/KaraokeView';
 import { ComposerEditor } from '@/components/ComposerEditor';
 import { ImportExportModal } from '@/components/ImportExportModal';
 import { QuickLyricAlignerModal } from '@/components/QuickLyricAlignerModal';
+import { GeminiAuthModal } from '@/components/GeminiAuthModal';
 import { useSongHistory } from '@/hooks/useSongHistory';
 import { usePowerSaveMode } from '@/hooks/usePowerSaveMode';
 import {
@@ -43,6 +44,7 @@ export default function Home() {
   const [displayMode, setDisplayMode] = useState<LyricDisplayMode>('all');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isAlignerOpen, setIsAlignerOpen] = useState(false);
+  const [isGeminiAuthOpen, setIsGeminiAuthOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [targetMeasureIndex, setTargetMeasureIndex] = useState<number | null>(null);
 
@@ -132,6 +134,7 @@ export default function Home() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenImportExport={() => setIsImportExportOpen(true)}
+        onOpenGeminiAuth={() => setIsGeminiAuthOpen(true)}
         isPlaying={isPlaying}
         onTogglePlay={handleTogglePlay}
         onUndo={undo}
@@ -299,6 +302,11 @@ export default function Home() {
         onClose={() => setIsAlignerOpen(false)}
         song={song}
         onApplyLyrics={setSong}
+      />
+
+      <GeminiAuthModal
+        isOpen={isGeminiAuthOpen}
+        onClose={() => setIsGeminiAuthOpen(false)}
       />
     </div>
   );

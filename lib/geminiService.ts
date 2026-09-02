@@ -1,6 +1,7 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { LyricSyllable } from '@/types/song';
 import { splitTaigiLyricSyllables } from './taigiUtils';
+import { getActiveGeminiApiKey } from './geminiAuth';
 
 export type GeminiModelChoice = 'gemini-2.5-flash' | 'gemini-2.5-flash-lite';
 export type GeminiThinkingEffort = 'HIGH' | 'MEDIUM';
@@ -15,7 +16,10 @@ export async function convertTaigiLyricsByVersesWithAi(
   userApiKey?: string,
   options?: GeminiAiOptions
 ): Promise<LyricSyllable[][]> {
-  const apiKey = userApiKey || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
+  const apiKey =
+    userApiKey ||
+    getActiveGeminiApiKey() ||
+    (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
   const model = options?.model || 'gemini-2.5-flash';
   const thinkingEffort = options?.thinkingEffort || 'MEDIUM';
 
@@ -105,7 +109,10 @@ export async function convertTaigiLyricsWithAi(
   userApiKey?: string,
   options?: GeminiAiOptions
 ): Promise<LyricSyllable[]> {
-  const apiKey = userApiKey || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
+  const apiKey =
+    userApiKey ||
+    getActiveGeminiApiKey() ||
+    (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
   const model = options?.model || 'gemini-2.5-flash';
   const thinkingEffort = options?.thinkingEffort || 'MEDIUM';
 
