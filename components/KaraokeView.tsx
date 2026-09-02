@@ -235,7 +235,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     }
 
     return sections;
-  }, [song, tempoMultiplier, audioEngine]);
+  }, [song, audioEngine]);
 
   // Active section corresponding to currently playing or scrubbed measure
   const activeSection = useMemo(() => {
@@ -260,7 +260,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         }
       }
     }
-  }, [activeSection?.id, playbackState.isPlaying, songSections]);
+  }, [activeSection, playbackState.isPlaying, songSections]);
 
   // Group song measures into Lyric lines
   const lyricLines = useMemo(() => {

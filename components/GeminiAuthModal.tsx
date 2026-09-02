@@ -39,30 +39,30 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
 }) => {
   const [passcode, setPasscode] = useState('');
   const [showPasscode, setShowPasscode] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return isGeminiAuthenticated();
+    return false;
+  });
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return isGeminiAuthenticated();
+    return false;
+  });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [activeModel, setActiveModel] = useState<GeminiModelChoice>('gemini-2.5-flash');
-  const [thinkingEffort, setThinkingEffort] = useState<GeminiThinkingEffort>('MEDIUM');
-
-  useEffect(() => {
-    if (isOpen) {
-      const authed = isGeminiAuthenticated();
-      setIsAuthenticated(authed);
-      setIsCollapsed(authed); // If already authenticated, start in collapsed state
-      setErrorMsg(null);
-      setSuccessMsg(null);
-      setPasscode('');
-
-      if (typeof window !== 'undefined') {
-        const savedModel = localStorage.getItem('taigi_gemini_model') as GeminiModelChoice;
-        if (savedModel) setActiveModel(savedModel);
-        const savedEffort = localStorage.getItem('taigi_gemini_thinking_effort') as GeminiThinkingEffort;
-        if (savedEffort) setThinkingEffort(savedEffort);
-      }
+  const [activeModel, setActiveModel] = useState<GeminiModelChoice>(() => {
+    if (typeof window !== 'undefined') {
+      const savedModel = localStorage.getItem('taigi_gemini_model') as GeminiModelChoice;
+      if (savedModel) return savedModel;
     }
-  }, [isOpen]);
+    return 'gemini-2.5-flash';
+  });
+  const [thinkingEffort, setThinkingEffort] = useState<GeminiThinkingEffort>(() => {
+    if (typeof window !== 'undefined') {
+      const savedEffort = localStorage.getItem('taigi_gemini_thinking_effort') as GeminiThinkingEffort;
+      if (savedEffort) return savedEffort;
+    }
+    return 'MEDIUM';
+  });
 
   if (!isOpen) return null;
 

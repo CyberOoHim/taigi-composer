@@ -90,8 +90,14 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   const [showApiKeyInput, setShowApiKeyInput] = useState<boolean>(false);
 
   // Gemini Passcode Auth States
-  const [isAiAuthenticated, setIsAiAuthenticated] = useState<boolean>(false);
-  const [isAuthCollapsed, setIsAuthCollapsed] = useState<boolean>(false);
+  const [isAiAuthenticated, setIsAiAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return isGeminiAuthenticated();
+    return false;
+  });
+  const [isAuthCollapsed, setIsAuthCollapsed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return isGeminiAuthenticated();
+    return false;
+  });
   const [passcode, setPasscode] = useState<string>('');
   const [showPasscode, setShowPasscode] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -100,18 +106,6 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [versePreviews, setVersePreviews] = useState<VersePreviewItem[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
-
-  // Initialize auth state on mount/modal open
-  useEffect(() => {
-    if (isOpen) {
-      const authed = isGeminiAuthenticated();
-      setIsAiAuthenticated(authed);
-      setIsAuthCollapsed(authed); // Collapse automatically if already verified
-      setAuthError(null);
-      setAuthSuccess(null);
-      setPasscode('');
-    }
-  }, [isOpen]);
 
   const handleModelChange = (model: GeminiModelChoice) => {
     setAiModel(model);

@@ -104,8 +104,14 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
 
   // Passcode Auth States
-  const [isAiAuthenticated, setIsAiAuthenticated] = useState(false);
-  const [isAuthCollapsed, setIsAuthCollapsed] = useState(false);
+  const [isAiAuthenticated, setIsAiAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return isGeminiAuthenticated();
+    return false;
+  });
+  const [isAuthCollapsed, setIsAuthCollapsed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return isGeminiAuthenticated();
+    return false;
+  });
   const [passcode, setPasscode] = useState('');
   const [showPasscode, setShowPasscode] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -120,18 +126,6 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
   const [copiedText, setCopiedText] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Sync auth state on open
-  useEffect(() => {
-    if (isOpen) {
-      const authed = isGeminiAuthenticated();
-      setIsAiAuthenticated(authed);
-      setIsAuthCollapsed(authed);
-      setAuthError(null);
-      setAuthSuccess(null);
-      setUploadError(null);
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
