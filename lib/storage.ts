@@ -99,6 +99,11 @@ export function getStoredCurrentSong(): Song {
     try {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.id && Array.isArray(parsed.measures) && parsed.measures.length > 0) {
+        // If the user had the previous default ('bang-chhun-hong') or old 'u-ia-hoe' (key 'G' or fewer measures),
+        // refresh to the new default 'u-ia-hoe' (key 'Bb').
+        if (parsed.id === 'bang-chhun-hong' || (parsed.id === 'u-ia-hoe' && (parsed.key !== 'Bb' || parsed.measures.length < 20))) {
+          return PRESET_SONGS[0];
+        }
         return parsed as Song;
       }
     } catch {
