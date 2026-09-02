@@ -14,6 +14,14 @@ import { AiScoreScannerModal } from '@/components/AiScoreScannerModal';
 import { useSongHistory } from '@/hooks/useSongHistory';
 import { usePowerSaveMode } from '@/hooks/usePowerSaveMode';
 import {
+  getStoredActiveTab,
+  setStoredActiveTab,
+  getStoredDisplayMode,
+  setStoredDisplayMode,
+  getStoredCurrentSong,
+  setStoredCurrentSong,
+} from '@/lib/storage';
+import {
   Mic2,
   Music,
   Sparkles,
@@ -41,14 +49,50 @@ export default function Home() {
     isCharging,
   } = usePowerSaveMode();
 
-  const [activeTab, setActiveTab] = useState<ActiveTabMode>('karaoke');
-  const [displayMode, setDisplayMode] = useState<LyricDisplayMode>('all');
+  // Default to 'split' (雙視窗) as requested
+  const [activeTab, setActiveTabState] = useState<ActiveTabMode>('split');
+  const [displayMode, setDisplayModeState] = useState<LyricDisplayMode>('all');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isAlignerOpen, setIsAlignerOpen] = useState(false);
   const [isGeminiAuthOpen, setIsGeminiAuthOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [targetMeasureIndex, setTargetMeasureIndex] = useState<number | null>(null);
+
+  // Load persisted user UI selections from localStorage on mount
+  useEffect(() => {
+    const savedTab = getStoredActiveTab();
+    if (savedTab) {
+      setActiveTabState(savedTab);
+    }
+
+    const savedMode = getStoredDisplayMode();
+    if (savedMode) {
+      setDisplayModeState(savedMode);
+    }
+
+    const savedSong = getStoredCurrentSong();
+    if (savedSong && (savedSong.id !== PRESET_SONGS[0].id || savedSong.title !== PRESET_SONGS[0].title)) {
+      loadNewSong(savedSong);
+    }
+  }, [loadNewSong]);
+
+  const setActiveTab = useCallback((tab: ActiveTabMode) => {
+    setActiveTabState(tab);
+    setStoredActiveTab(tab);
+  }, []);
+
+  const setDisplayMode = useCallback((mode: LyricDisplayMode) => {
+    setDisplayModeState(mode);
+    setStoredDisplayMode(mode);
+  }, []);
+
+  // Save current song to localStorage when updated
+  useEffect(() => {
+    if (song) {
+      setStoredCurrentSong(song);
+    }
+  }, [song]);
 
   const handleApplyScannedSong = useCallback(
     (

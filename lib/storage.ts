@@ -1,0 +1,286 @@
+'use client';
+
+import { Song, LyricDisplayMode, InstrumentType, EditorEditMode } from '@/types/song';
+import { PRESET_SONGS } from '@/lib/presets';
+
+export const STORAGE_KEYS = {
+  ACTIVE_TAB: 'taigi_composer_active_tab',
+  LYRIC_DISPLAY_MODE: 'taigi_composer_lyric_display_mode',
+  CURRENT_SONG: 'taigi_composer_current_song',
+  CUSTOM_LIBRARY: 'taigi_composer_custom_library',
+  POWER_SAVE_MODE: 'taigi_composer_power_save_mode',
+  INSTRUMENT: 'taigi_composer_instrument',
+  MELODY_VOLUME: 'taigi_composer_melody_volume',
+  BACKING_VOLUME: 'taigi_composer_backing_volume',
+  METRONOME_VOLUME: 'taigi_composer_metronome_volume',
+  TRANSPOSE: 'taigi_composer_transpose',
+  TEMPO_MULTIPLIER: 'taigi_composer_tempo_multiplier',
+  SHOW_MIXER: 'taigi_composer_show_mixer',
+  EDITOR_EDIT_MODE: 'taigi_composer_editor_edit_mode',
+  AUTO_STEP_ADVANCE: 'taigi_composer_auto_step_advance',
+  DECK_TAB: 'taigi_composer_deck_tab',
+  GEMINI_AUTH_VERIFIED: 'taigi_gemini_auth_verified',
+  GEMINI_AUTH_PASSCODE: 'taigi_gemini_auth_passcode',
+  GEMINI_API_KEY: 'taigi_gemini_api_key',
+  GEMINI_MODEL: 'taigi_gemini_model',
+  GEMINI_THINKING_EFFORT: 'taigi_gemini_thinking_effort',
+} as const;
+
+export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
+export type DeckTabMode = 'numpad' | 'piano' | 'lyrics';
+
+/**
+ * Safe local storage getter with fallback
+ */
+function safeGetItem(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Safe local storage setter
+ */
+function safeSetItem(key: string, value: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore quota/privacy errors
+  }
+}
+
+// ============================================================================
+// 1. ACTIVE VIEW TAB (Default: 'split' / 雙視窗)
+// ============================================================================
+export function getStoredActiveTab(): ActiveTabMode {
+  const val = safeGetItem(STORAGE_KEYS.ACTIVE_TAB);
+  if (val === 'split' || val === 'karaoke' || val === 'editor') {
+    return val;
+  }
+  return 'split'; // Default to 雙視窗
+}
+
+export function setStoredActiveTab(tab: ActiveTabMode): void {
+  safeSetItem(STORAGE_KEYS.ACTIVE_TAB, tab);
+}
+
+// ============================================================================
+// 2. LYRIC DISPLAY MODE (Default: 'all')
+// ============================================================================
+export function getStoredDisplayMode(): LyricDisplayMode {
+  const val = safeGetItem(STORAGE_KEYS.LYRIC_DISPLAY_MODE);
+  if (
+    val === 'all' ||
+    val === 'hanji_poj' ||
+    val === 'hanji_pij' ||
+    val === 'hanji_only' ||
+    val === 'poj_only'
+  ) {
+    return val;
+  }
+  return 'all';
+}
+
+export function setStoredDisplayMode(mode: LyricDisplayMode): void {
+  safeSetItem(STORAGE_KEYS.LYRIC_DISPLAY_MODE, mode);
+}
+
+// ============================================================================
+// 3. CURRENT ACTIVE SONG (Default: PRESET_SONGS[0])
+// ============================================================================
+export function getStoredCurrentSong(): Song {
+  const raw = safeGetItem(STORAGE_KEYS.CURRENT_SONG);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.id && Array.isArray(parsed.measures) && parsed.measures.length > 0) {
+        return parsed as Song;
+      }
+    } catch {
+      // JSON parse error, fallback
+    }
+  }
+  return PRESET_SONGS[0];
+}
+
+export function setStoredCurrentSong(song: Song): void {
+  try {
+    safeSetItem(STORAGE_KEYS.CURRENT_SONG, JSON.stringify(song));
+  } catch {
+    // ignore storage limit error
+  }
+}
+
+// ============================================================================
+// 4. CUSTOM SONG LIBRARY (User-saved songs)
+// ============================================================================
+export function getStoredCustomLibrary(): Song[] {
+  const raw = safeGetItem(STORAGE_KEYS.CUSTOM_LIBRARY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed as Song[];
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return [];
+}
+
+export function setStoredCustomLibrary(songs: Song[]): void {
+  try {
+    safeSetItem(STORAGE_KEYS.CUSTOM_LIBRARY, JSON.stringify(songs));
+  } catch {
+    // ignore
+  }
+}
+
+export function saveSongToCustomLibrary(song: Song): Song[] {
+  const library = getStoredCustomLibrary();
+  const existingIdx = library.findIndex(s => s.id === song.id);
+  let updated: Song[];
+  if (existingIdx !== -1) {
+    updated = [...library];
+    updated[existingIdx] = song;
+  } else {
+    updated = [song, ...library];
+  }
+  setStoredCustomLibrary(updated);
+  return updated;
+}
+
+export function deleteSongFromCustomLibrary(songId: string): Song[] {
+  const library = getStoredCustomLibrary();
+  const updated = library.filter(s => s.id !== songId);
+  setStoredCustomLibrary(updated);
+  return updated;
+}
+
+// ============================================================================
+// 5. AUDIO / KARAOKE CONTROLS
+// ============================================================================
+export function getStoredInstrument(): InstrumentType {
+  const val = safeGetItem(STORAGE_KEYS.INSTRUMENT);
+  if (val === 'piano' || val === 'flute' || val === 'guitar' || val === 'synth' || val === 'bell') {
+    return val;
+  }
+  return 'piano';
+}
+
+export function setStoredInstrument(inst: InstrumentType): void {
+  safeSetItem(STORAGE_KEYS.INSTRUMENT, inst);
+}
+
+export function getStoredMelodyVolume(defaultVal = 0.85): number {
+  const val = safeGetItem(STORAGE_KEYS.MELODY_VOLUME);
+  if (val !== null) {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0 && num <= 1) return num;
+  }
+  return defaultVal;
+}
+
+export function setStoredMelodyVolume(vol: number): void {
+  safeSetItem(STORAGE_KEYS.MELODY_VOLUME, String(vol));
+}
+
+export function getStoredBackingVolume(defaultVal = 0.5): number {
+  const val = safeGetItem(STORAGE_KEYS.BACKING_VOLUME);
+  if (val !== null) {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0 && num <= 1) return num;
+  }
+  return defaultVal;
+}
+
+export function setStoredBackingVolume(vol: number): void {
+  safeSetItem(STORAGE_KEYS.BACKING_VOLUME, String(vol));
+}
+
+export function getStoredMetronomeVolume(defaultVal = 0.15): number {
+  const val = safeGetItem(STORAGE_KEYS.METRONOME_VOLUME);
+  if (val !== null) {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0 && num <= 1) return num;
+  }
+  return defaultVal;
+}
+
+export function setStoredMetronomeVolume(vol: number): void {
+  safeSetItem(STORAGE_KEYS.METRONOME_VOLUME, String(vol));
+}
+
+export function getStoredTranspose(defaultVal = 0): number {
+  const val = safeGetItem(STORAGE_KEYS.TRANSPOSE);
+  if (val !== null) {
+    const num = parseInt(val, 10);
+    if (!isNaN(num) && num >= -12 && num <= 12) return num;
+  }
+  return defaultVal;
+}
+
+export function setStoredTranspose(transpose: number): void {
+  safeSetItem(STORAGE_KEYS.TRANSPOSE, String(transpose));
+}
+
+export function getStoredTempoMultiplier(defaultVal = 1.0): number {
+  const val = safeGetItem(STORAGE_KEYS.TEMPO_MULTIPLIER);
+  if (val !== null) {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0.5 && num <= 2.0) return num;
+  }
+  return defaultVal;
+}
+
+export function setStoredTempoMultiplier(mul: number): void {
+  safeSetItem(STORAGE_KEYS.TEMPO_MULTIPLIER, String(mul));
+}
+
+export function getStoredShowMixer(defaultVal = false): boolean {
+  const val = safeGetItem(STORAGE_KEYS.SHOW_MIXER);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredShowMixer(show: boolean): void {
+  safeSetItem(STORAGE_KEYS.SHOW_MIXER, String(show));
+}
+
+// ============================================================================
+// 6. COMPOSER EDITOR SETTINGS
+// ============================================================================
+export function getStoredEditorEditMode(): EditorEditMode {
+  const val = safeGetItem(STORAGE_KEYS.EDITOR_EDIT_MODE);
+  if (val === 'verse' || val === 'measure') return val;
+  return 'verse';
+}
+
+export function setStoredEditorEditMode(mode: EditorEditMode): void {
+  safeSetItem(STORAGE_KEYS.EDITOR_EDIT_MODE, mode);
+}
+
+export function getStoredAutoStepAdvance(defaultVal = false): boolean {
+  const val = safeGetItem(STORAGE_KEYS.AUTO_STEP_ADVANCE);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredAutoStepAdvance(advance: boolean): void {
+  safeSetItem(STORAGE_KEYS.AUTO_STEP_ADVANCE, String(advance));
+}
+
+export function getStoredDeckTab(): DeckTabMode {
+  const val = safeGetItem(STORAGE_KEYS.DECK_TAB);
+  if (val === 'numpad' || val === 'piano' || val === 'lyrics') return val;
+  return 'numpad';
+}
+
+export function setStoredDeckTab(tab: DeckTabMode): void {
+  safeSetItem(STORAGE_KEYS.DECK_TAB, tab);
+}

@@ -5,10 +5,13 @@
    POWER SAVING & HARDWARE OPTIMIZATION FOR ALL DEVICES & IPADS
    ========================================================================= */
 
-/* Optimization for Touch / Mobile Safari */
+/* Optimization for Touch / Mobile Safari & iPad */
 html, body {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
 }
 
 /* Eco Mode / Low Power Mode Rules */

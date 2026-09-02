@@ -9,6 +9,7 @@ import {
   ANNOTATION_MARKS,
 } from '@/lib/taigiUtils';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
+import { getStoredDeckTab, setStoredDeckTab } from '@/lib/storage';
 import {
   Volume2,
   PlusCircle,
@@ -92,7 +93,16 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   showNotice,
   inCard = true,
 }) => {
-  const [activeTab, setActiveTab] = useState<DeckTabMode>('numpad');
+  const [activeTab, setActiveTabState] = useState<DeckTabMode>(() => {
+    if (typeof window !== 'undefined') return getStoredDeckTab();
+    return 'numpad';
+  });
+
+  const setActiveTab = React.useCallback((tab: DeckTabMode) => {
+    setActiveTabState(tab);
+    setStoredDeckTab(tab);
+  }, []);
+
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
   const durationInfo = getDurationChineseInfo(currentNote.duration);

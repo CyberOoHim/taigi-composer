@@ -8,6 +8,22 @@ import { KaraokeStage } from './karaoke/KaraokeStage';
 import { AlignedScoreRoll } from './karaoke/AlignedScoreRoll';
 import { KaraokeControls } from './karaoke/KaraokeControls';
 import { wakeLockManager } from '@/lib/wakeLock';
+import {
+  getStoredInstrument,
+  setStoredInstrument,
+  getStoredMelodyVolume,
+  setStoredMelodyVolume,
+  getStoredBackingVolume,
+  setStoredBackingVolume,
+  getStoredMetronomeVolume,
+  setStoredMetronomeVolume,
+  getStoredTranspose,
+  setStoredTranspose,
+  getStoredTempoMultiplier,
+  setStoredTempoMultiplier,
+  getStoredShowMixer,
+  setStoredShowMixer,
+} from '@/lib/storage';
 import confetti from 'canvas-confetti';
 import {
   Radio,
@@ -49,15 +65,77 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     progressPercent: 0,
   });
 
-  const [instrument, setInstrument] = useState<InstrumentType>('piano');
-  const [melodyVolume, setMelodyVolume] = useState<number>(0.85);
-  const [backingVolume, setBackingVolume] = useState<number>(0.5);
-  const [metronomeVolume, setMetronomeVolume] = useState<number>(0.15);
-  const [transpose, setTranspose] = useState<number>(0);
-  const [tempoMultiplier, setTempoMultiplier] = useState<number>(1.0);
+  const [instrument, setInstrumentState] = useState<InstrumentType>(() => {
+    if (typeof window !== 'undefined') return getStoredInstrument();
+    return 'piano';
+  });
+  const [melodyVolume, setMelodyVolumeState] = useState<number>(() => {
+    if (typeof window !== 'undefined') return getStoredMelodyVolume(0.85);
+    return 0.85;
+  });
+  const [backingVolume, setBackingVolumeState] = useState<number>(() => {
+    if (typeof window !== 'undefined') return getStoredBackingVolume(0.5);
+    return 0.5;
+  });
+  const [metronomeVolume, setMetronomeVolumeState] = useState<number>(() => {
+    if (typeof window !== 'undefined') return getStoredMetronomeVolume(0.15);
+    return 0.15;
+  });
+  const [transpose, setTransposeState] = useState<number>(() => {
+    if (typeof window !== 'undefined') return getStoredTranspose(0);
+    return 0;
+  });
+  const [tempoMultiplier, setTempoMultiplierState] = useState<number>(() => {
+    if (typeof window !== 'undefined') return getStoredTempoMultiplier(1.0);
+    return 1.0;
+  });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isLoopingMeasure, setIsLoopingMeasure] = useState<boolean>(false);
-  const [showMixer, setShowMixer] = useState<boolean>(false);
+  const [showMixer, setShowMixerState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return getStoredShowMixer(false);
+    return false;
+  });
+
+  const setInstrument = useCallback((inst: InstrumentType) => {
+    setInstrumentState(inst);
+    setStoredInstrument(inst);
+  }, []);
+
+  const setMelodyVolume = useCallback((vol: number) => {
+    setMelodyVolumeState(vol);
+    setStoredMelodyVolume(vol);
+  }, []);
+
+  const setBackingVolume = useCallback((vol: number) => {
+    setBackingVolumeState(vol);
+    setStoredBackingVolume(vol);
+  }, []);
+
+  const setMetronomeVolume = useCallback((vol: number) => {
+    setMetronomeVolumeState(vol);
+    setStoredMetronomeVolume(vol);
+  }, []);
+
+  const setTranspose = useCallback((tr: number | ((prev: number) => number)) => {
+    setTransposeState(prev => {
+      const next = typeof tr === 'function' ? tr(prev) : tr;
+      setStoredTranspose(next);
+      return next;
+    });
+  }, []);
+
+  const setTempoMultiplier = useCallback((mul: number) => {
+    setTempoMultiplierState(mul);
+    setStoredTempoMultiplier(mul);
+  }, []);
+
+  const setShowMixer = useCallback((show: boolean | ((prev: boolean) => boolean)) => {
+    setShowMixerState(prev => {
+      const next = typeof show === 'function' ? show(prev) : show;
+      setStoredShowMixer(next);
+      return next;
+    });
+  }, []);
 
   // Slider scrubbing & debounce state
   const [sliderDraggingPercent, setSliderDraggingPercent] = useState<number | null>(null);

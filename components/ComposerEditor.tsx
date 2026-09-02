@@ -21,6 +21,12 @@ import {
   isNonNotationItem,
 } from '@/lib/taigiUtils';
 import { scrollToCardElement } from '@/lib/utils';
+import {
+  getStoredEditorEditMode,
+  setStoredEditorEditMode,
+  getStoredAutoStepAdvance,
+  setStoredAutoStepAdvance,
+} from '@/lib/storage';
 import { SongMetadataHeader } from './composer/SongMetadataHeader';
 import { NoteEditorHud } from './composer/NoteEditorHud';
 import { SectionRail } from './composer/SectionRail';
@@ -78,9 +84,28 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   futureCount = 0,
 }) => {
   // Edit Mode: 'verse' (default, separated by punctuation or spaces) vs 'measure' (sectioned by musical measures)
-  const [editMode, setEditMode] = useState<EditorEditMode>('verse');
+  const [editMode, setEditModeState] = useState<EditorEditMode>(() => {
+    if (typeof window !== 'undefined') return getStoredEditorEditMode();
+    return 'verse';
+  });
   const [selectedCoord, setSelectedCoord] = useState<[number, number] | null>([0, 0]);
-  const [autoStepAdvance, setAutoStepAdvance] = useState<boolean>(false);
+  const [autoStepAdvance, setAutoStepAdvanceState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return getStoredAutoStepAdvance(false);
+    return false;
+  });
+
+  const setEditMode = useCallback((mode: EditorEditMode) => {
+    setEditModeState(mode);
+    setStoredEditorEditMode(mode);
+  }, []);
+
+  const setAutoStepAdvance = useCallback((adv: boolean | ((prev: boolean) => boolean)) => {
+    setAutoStepAdvanceState(prev => {
+      const next = typeof adv === 'function' ? adv(prev) : adv;
+      setStoredAutoStepAdvance(next);
+      return next;
+    });
+  }, []);
 
   const [notification, setNotification] = useState<string | null>(null);
   const [playingMeasureIdx, setPlayingMeasureIdx] = useState<number | null>(null);
