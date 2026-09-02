@@ -14,6 +14,7 @@ interface KaraokeStageProps {
   displayMode: LyricDisplayMode;
   onJumpToSection: (section: KaraokeSection) => void;
   isEcoMode?: boolean;
+  zoomScale?: number;
 }
 
 export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
@@ -24,7 +25,39 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   displayMode,
   onJumpToSection,
   isEcoMode = false,
+  zoomScale = 1.0,
 }) => {
+  // Dynamic font and sizing tiers for Stage Mode / Music Stand zoom
+  const hanjiSizeClass =
+    zoomScale >= 1.75
+      ? 'text-4xl sm:text-6xl md:text-7xl lg:text-8xl min-h-[4rem] sm:min-h-[5.5rem]'
+      : zoomScale >= 1.5
+      ? 'text-3xl sm:text-5xl md:text-6xl lg:text-7xl min-h-[3.5rem] sm:min-h-[4.5rem]'
+      : zoomScale >= 1.25
+      ? 'text-2xl sm:text-4xl md:text-5xl lg:text-6xl min-h-[3rem] sm:min-h-[3.75rem]'
+      : 'text-2xl sm:text-4xl md:text-5xl min-h-[2.5rem] sm:min-h-[3.25rem]';
+
+  const romanSizeClass =
+    zoomScale >= 1.5
+      ? 'text-sm sm:text-base md:text-lg'
+      : zoomScale >= 1.25
+      ? 'text-xs sm:text-sm md:text-base'
+      : 'text-xs sm:text-sm';
+
+  const noteMinWClass =
+    zoomScale >= 1.5
+      ? 'min-w-[44px] sm:min-w-[56px]'
+      : zoomScale >= 1.25
+      ? 'min-w-[38px] sm:min-w-[48px]'
+      : 'min-w-[32px] sm:min-w-[40px]';
+
+  const rowGapClass =
+    zoomScale >= 1.5
+      ? 'gap-x-5 sm:gap-x-8 gap-y-4'
+      : zoomScale >= 1.25
+      ? 'gap-x-4 sm:gap-x-7 gap-y-3.5'
+      : 'gap-x-4 sm:gap-x-6 gap-y-3.5';
+
   return (
     <div className="relative flex flex-col items-center justify-center p-6 sm:p-10 min-h-[300px] sm:min-h-[340px] bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900 border-b border-zinc-800/80 select-none overflow-hidden">
       {/* Background Ambience / Disco Glow (Omitted in Eco Mode to save GPU power) */}
@@ -134,7 +167,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
       </div>
 
       {/* CENTER ROW: CURRENT ACTIVE VERSE (Big KTV Sweeping Lyrics) */}
-      <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-6 gap-y-3.5 max-w-5xl text-center z-10 min-h-[96px] sm:min-h-[110px]">
+      <div className={`flex flex-wrap items-center justify-center ${rowGapClass} max-w-6xl text-center z-10 min-h-[96px] sm:min-h-[110px]`}>
         {currentVerse && currentVerse.notes.length > 0 ? (
           currentVerse.notes.map((item, idx) => {
             const isNoteActive =
@@ -180,7 +213,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
             return (
               <div
                 key={`${item.measureIndex}-${item.noteIndex}-${idx}`}
-                className={`relative flex flex-col items-center transition-transform duration-150 min-w-[32px] sm:min-w-[40px] ${
+                className={`relative flex flex-col items-center transition-transform duration-150 ${noteMinWClass} ${
                   isNoteActive ? 'scale-115 -translate-y-1' : ''
                 }`}
                 style={{ transform: isNoteActive ? 'translate3d(0, -4px, 0) scale(1.15)' : 'translate3d(0, 0, 0)' }}
@@ -195,7 +228,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 {/* Romanization (POJ / PIJ) Ruby above */}
                 {(displayMode === 'all' || displayMode === 'hanji_poj' || displayMode === 'hanji_pij') && (
                   <span
-                    className={`text-xs sm:text-sm font-serif italic mb-0.5 min-h-[1.25rem] transition-colors select-none ${
+                    className={`${romanSizeClass} font-serif italic mb-0.5 min-h-[1.25rem] transition-colors select-none ${
                       isNoteActive
                         ? isEcoMode
                           ? 'text-amber-300 font-bold'
@@ -211,7 +244,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
 
                 {/* Hanji / Main Lyric Word */}
                 <span
-                  className={`text-2xl sm:text-4xl md:text-5xl font-black tracking-wider min-h-[2.5rem] sm:min-h-[3.25rem] flex items-center justify-center transition-all duration-150 select-none ${
+                  className={`${hanjiSizeClass} font-black tracking-wider flex items-center justify-center transition-all duration-150 select-none ${
                     displayMode === 'poj_only' || displayMode === 'pij_only' ? 'font-serif italic text-xl sm:text-3xl md:text-4xl' : ''
                   } ${
                     isNoteActive
@@ -228,7 +261,9 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
 
                 {/* Corresponding Jianpu Number below */}
                 <span
-                  className={`mt-1 text-xs sm:text-sm font-mono font-bold px-1.5 py-0.5 rounded transition-colors ${
+                  className={`mt-1 font-mono font-bold px-1.5 py-0.5 rounded transition-colors ${
+                    zoomScale >= 1.5 ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
+                  } ${
                     isNoteActive
                       ? 'bg-amber-400 text-zinc-950 ring-2 ring-amber-300 shadow-md'
                       : isPassed

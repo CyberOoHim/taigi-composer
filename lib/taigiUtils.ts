@@ -663,3 +663,201 @@ export function splitVerseTextTokens(text: string): { text: string; isPunct: boo
   flushLatin();
   return tokens;
 }
+
+/**
+ * Calculate the total beats currently inside a measure's notes
+ */
+export function calculateMeasureBeats(notes: JianpuNote[]): number {
+  if (!notes || notes.length === 0) return 0;
+  return notes.reduce((sum, n) => {
+    if (isNonNotationItem(n)) return sum;
+    let dur = typeof n.duration === 'number' ? n.duration : 1;
+    if (n.isDotted) {
+      dur = dur * 1.5;
+    }
+    return sum + dur;
+  }, 0);
+}
+
+/**
+ * Calculate expected beats per measure according to the time signature (e.g. 4/4 -> 4, 3/4 -> 3, 6/8 -> 3, 2/4 -> 2)
+ */
+export function getExpectedMeasureBeats(timeSignature: string): number {
+  if (!timeSignature) return 4;
+  const parts = timeSignature.split('/');
+  const num = parseInt(parts[0], 10) || 4;
+  const den = parseInt(parts[1], 10) || 4;
+  return num * (4 / den);
+}
+
+export interface TaigiToneInfo {
+  toneNumber: number;
+  superscript: string; // e.g. '¹', '²', '³', '⁴', '⁵', '⁷', '⁸', '⁹'
+  contour: string;     // e.g. '55', '51', '21', '32', '24', '33', '4', '55'
+  symbol: string;      // e.g. '˥', '˥˩', '˨˩', '˨', '˨˦', '˧', '˦', '˥'
+  name: string;        // e.g. '陰平', '陰上', '陰去', '陰入', '陽平', '陽去', '陽入'
+}
+
+/**
+ * Extract Taiwanese Hokkien tone number and contour for learning aids.
+ * Supports Pe̍h-ōe-jī (POJ), Tâi-lô (PIJ), and numeric tone notations.
+ */
+export function extractTaigiTone(syllable: string): TaigiToneInfo | null {
+  if (!syllable || !syllable.trim()) return null;
+  const s = syllable.trim();
+
+  // If purely punctuation or CJK characters, return null
+  if (/^[\p{P}\p{S}\s]+$/u.test(s) || /^[\u4e00-\u9fa5]+$/u.test(s)) return null;
+
+  // 1. Check explicit digit tone (1-9) inside or at end of syllable
+  const digitMatch = s.match(/([1-9])/);
+  if (digitMatch) {
+    const num = parseInt(digitMatch[1], 10);
+    return getToneInfoByNumber(num);
+  }
+
+  // 2. Decompose unicode (NFD) to check combining diacritics
+  const nfd = s.normalize('NFD');
+
+  // Tone 8: vertical line \u030D, or explicit ̍ or vertical dot / bar
+  if (nfd.includes('\u030D') || nfd.includes('\u0308') || /\|/.test(s) || /[a-z]+̍/i.test(s)) {
+    return getToneInfoByNumber(8);
+  }
+  // Tone 9: double acute \u030B
+  if (nfd.includes('\u030B')) {
+    return getToneInfoByNumber(9);
+  }
+  // Tone 2: acute \u0301 (á, é, í, ó, ú, ḿ, ńg)
+  if (nfd.includes('\u0301')) {
+    return getToneInfoByNumber(2);
+  }
+  // Tone 3: grave \u0300 (à, è, ì, ò, ù)
+  if (nfd.includes('\u0300')) {
+    return getToneInfoByNumber(3);
+  }
+  // Tone 5: circumflex \u0302 (â, ê, î, ô, û)
+  if (nfd.includes('\u0302')) {
+    return getToneInfoByNumber(5);
+  }
+  // Tone 7: macron \u0304 (ā, ē, ī, ō, ū, m̄, n̄g)
+  if (nfd.includes('\u0304')) {
+    return getToneInfoByNumber(7);
+  }
+
+  // 3. No diacritic: check coda (ends with p, t, k, h)
+  const cleanAlpha = s.replace(/[^a-zA-Z]/g, '').toLowerCase();
+  if (/[ptkh]$/.test(cleanAlpha)) {
+    return getToneInfoByNumber(4);
+  }
+
+  // If contains English letters, default unchecked tone is Tone 1 (陰平)
+  if (/[a-zA-Z]/.test(s)) {
+    return getToneInfoByNumber(1);
+  }
+
+  return null;
+}
+
+function getToneInfoByNumber(num: number): TaigiToneInfo {
+  switch (num) {
+    case 1:
+      return { toneNumber: 1, superscript: '¹', contour: '55', symbol: '˥', name: '陰平' };
+    case 2:
+      return { toneNumber: 2, superscript: '²', contour: '51', symbol: '˥˩', name: '陰上' };
+    case 3:
+      return { toneNumber: 3, superscript: '³', contour: '21', symbol: '˨˩', name: '陰去' };
+    case 4:
+      return { toneNumber: 4, superscript: '⁴', contour: '32', symbol: '˨', name: '陰入' };
+    case 5:
+      return { toneNumber: 5, superscript: '⁵', contour: '24', symbol: '˨˦', name: '陽平' };
+    case 6:
+      return { toneNumber: 6, superscript: '⁶', contour: '22', symbol: '˨', name: '陽上' };
+    case 7:
+      return { toneNumber: 7, superscript: '⁷', contour: '33', symbol: '˧', name: '陽去' };
+    case 8:
+      return { toneNumber: 8, superscript: '⁸', contour: '4', symbol: '˦', name: '陽入' };
+    case 9:
+      return { toneNumber: 9, superscript: '⁹', contour: '55', symbol: '˥', name: '高平' };
+    default:
+      return { toneNumber: num, superscript: `${num}`, contour: '', symbol: '', name: `聲調${num}` };
+  }
+}
+
+export interface DiatonicChordOption {
+  chord: string;
+  degree: string;
+  label: string;
+  colorClass: string;
+}
+
+/**
+ * Generate diatonic chords for any key signature (I, ii, iii, IV, V, vi, vii°, V7)
+ */
+export function getDiatonicChords(key: KeySignature): DiatonicChordOption[] {
+  const flatKeys: KeySignature[] = ['F', 'Bb', 'Eb', 'Ab', 'Db'];
+  const preferFlats = flatKeys.includes(key);
+
+  const getRootName = (semitone: number): string => {
+    const mod = ((semitone % 12) + 12) % 12;
+    if (preferFlats) {
+      const flatMap: Record<number, string> = {
+        0: 'C', 1: 'Db', 2: 'D', 3: 'Eb', 4: 'E', 5: 'F',
+        6: 'Gb', 7: 'G', 8: 'Ab', 9: 'A', 10: 'Bb', 11: 'B'
+      };
+      return flatMap[mod];
+    } else {
+      const sharpMap: Record<number, string> = {
+        0: 'C', 1: 'C#', 2: 'D', 3: 'D#', 4: 'E', 5: 'F',
+        6: 'F#', 7: 'G', 8: 'G#', 9: 'A', 10: 'A#', 11: 'B'
+      };
+      return sharpMap[mod];
+    }
+  };
+
+  const base = KEY_SEMITONES[key] ?? 0;
+
+  return [
+    {
+      chord: getRootName(base),
+      degree: 'I',
+      label: '主和弦 (Tonic)',
+      colorClass: 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700',
+    },
+    {
+      chord: `${getRootName(base + 2)}m`,
+      degree: 'ii',
+      label: '二級小 (Supertonic)',
+      colorClass: 'bg-blue-100 hover:bg-blue-200 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-900 dark:text-blue-300 border-blue-300 dark:border-blue-700',
+    },
+    {
+      chord: `${getRootName(base + 4)}m`,
+      degree: 'iii',
+      label: '三級小 (Mediant)',
+      colorClass: 'bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-900 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700',
+    },
+    {
+      chord: getRootName(base + 5),
+      degree: 'IV',
+      label: '下屬和弦 (Subdominant)',
+      colorClass: 'bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700',
+    },
+    {
+      chord: getRootName(base + 7),
+      degree: 'V',
+      label: '屬和弦 (Dominant)',
+      colorClass: 'bg-orange-100 hover:bg-orange-200 dark:bg-orange-950/60 dark:hover:bg-orange-900/60 text-orange-900 dark:text-orange-300 border-orange-300 dark:border-orange-700',
+    },
+    {
+      chord: `${getRootName(base + 9)}m`,
+      degree: 'vi',
+      label: '下中音小 (Submediant)',
+      colorClass: 'bg-purple-100 hover:bg-purple-200 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-900 dark:text-purple-300 border-purple-300 dark:border-purple-700',
+    },
+    {
+      chord: `${getRootName(base + 7)}7`,
+      degree: 'V7',
+      label: '屬七和弦 (Dominant 7th)',
+      colorClass: 'bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-900 dark:text-rose-300 border-rose-300 dark:border-rose-700',
+    },
+  ];
+}

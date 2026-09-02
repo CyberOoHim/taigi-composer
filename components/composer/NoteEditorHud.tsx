@@ -104,6 +104,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   }, []);
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  const [isPianoCollapsed, setIsPianoCollapsed] = useState<boolean>(false);
 
   const durationInfo = getDurationChineseInfo(currentNote.duration);
 
@@ -526,19 +527,56 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
           {/* TAB 2: PIANO ROLL */}
           {activeTab === 'piano' && (
             <div className="flex flex-col gap-2">
-              <PianoKeyboard
-                keySignature={keySignature}
-                currentNote={currentNote}
-                onSelectPitch={(pitch, octave, accidental) => {
-                  onUpdateSelectedNote(n => ({
-                    ...n,
-                    pitch,
-                    octave,
-                    accidental: accidental || '',
-                  }));
-                }}
-                audioEngine={audioEngine}
-              />
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
+                  <Music className="w-3.5 h-3.5 text-amber-500" />
+                  <span>互動鋼琴鍵盤 (Piano Roll)</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsPianoCollapsed(prev => !prev)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+                  title={isPianoCollapsed ? '展開鋼琴琴鍵' : '收合鋼琴琴鍵'}
+                >
+                  {isPianoCollapsed ? (
+                    <>
+                      <ChevronDown className="w-3.5 h-3.5 text-amber-500" />
+                      <span>展開鋼琴</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronUp className="w-3.5 h-3.5 text-amber-500" />
+                      <span>收合鋼琴</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {!isPianoCollapsed ? (
+                <PianoKeyboard
+                  keySignature={keySignature}
+                  currentNote={currentNote}
+                  onSelectPitch={(pitch, octave, accidental) => {
+                    onUpdateSelectedNote(n => ({
+                      ...n,
+                      pitch,
+                      octave,
+                      accidental: accidental || '',
+                    }));
+                  }}
+                  audioEngine={audioEngine}
+                />
+              ) : (
+                <div
+                  onClick={() => setIsPianoCollapsed(false)}
+                  className="p-3 rounded-xl border border-dashed border-amber-300/80 dark:border-zinc-700 bg-amber-50/50 dark:bg-zinc-800/40 text-center cursor-pointer hover:bg-amber-100/60 dark:hover:bg-zinc-800/70 transition-colors"
+                >
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 flex items-center justify-center gap-1.5 font-medium">
+                    <Music className="w-3.5 h-3.5 text-amber-500" />
+                    <span>鋼琴琴鍵已收合（點擊此處或右上角按鈕即可展開）</span>
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

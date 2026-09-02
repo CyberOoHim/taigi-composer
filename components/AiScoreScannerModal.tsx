@@ -22,6 +22,7 @@ import {
   verifyGeminiPasscode,
 } from '@/lib/geminiAuth';
 import { exportSongToJson, exportSongToText } from '@/lib/songParser';
+import { calculateMeasureBeats, getExpectedMeasureBeats } from '@/lib/taigiUtils';
 import {
   AlertCircle,
   ArrowLeftRight,
@@ -33,6 +34,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Columns,
   Copy,
   Cpu,
   FileMusic,
@@ -43,6 +45,7 @@ import {
   Loader2,
   Lock,
   LogOut,
+  Maximize2,
   Music,
   Plus,
   RefreshCw,
@@ -55,6 +58,8 @@ import {
   X,
   EyeOff,
   Eye,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 
 interface AiScoreScannerModalProps {
@@ -122,7 +127,9 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
   const [isScanning, setIsScanning] = useState(false);
   const [scanStepMessage, setScanStepMessage] = useState<string>('');
   const [scanResult, setScanResult] = useState<AiScoreExtractionResult | null>(null);
-  const [activePreviewTab, setActivePreviewTab] = useState<'score' | 'images' | 'lyrics'>('score');
+  const [activePreviewTab, setActivePreviewTab] = useState<'split' | 'score' | 'images' | 'lyrics'>('split');
+  const [splitImageZoom, setSplitImageZoom] = useState<number>(1.0);
+  const [highlightedMeasureIdx, setHighlightedMeasureIdx] = useState<number | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [copiedText, setCopiedText] = useState(false);
 
@@ -247,7 +254,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
 
       setScanResult(result);
       if (result.success) {
-        setActivePreviewTab(mode === 'lyrics_only' ? 'lyrics' : 'score');
+        setActivePreviewTab(mode === 'lyrics_only' ? 'lyrics' : (images.length > 0 ? 'split' : 'score'));
       } else if (result.error) {
         setUploadError(result.error);
       }
@@ -843,6 +850,21 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
 
               {/* Preview Navigation Tabs */}
               <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-1 text-xs font-bold">
+                {scanResult.song && images.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActivePreviewTab('split')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                      activePreviewTab === 'split'
+                        ? 'bg-amber-500 text-zinc-950 font-bold'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <Columns className="w-3.5 h-3.5" />
+                    <span>左右對照分割檢視 (Split Inspector)</span>
+                  </button>
+                )}
+
                 {scanResult.song && (
                   <button
                     type="button"
@@ -886,6 +908,187 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                   </button>
                 )}
               </div>
+
+              {/* TAB 0: SIDE-BY-SIDE OCR SPLIT INSPECTOR */}
+              {activePreviewTab === 'split' && scanResult.song && images.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 p-3 bg-zinc-50 dark:bg-zinc-950 rounded-xl border border-zinc-200 dark:border-zinc-800 animate-in fade-in duration-150">
+                  {/* Left Column: Pinned Original Score Image */}
+                  <div className="flex flex-col gap-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-amber-500" />
+                        <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                          原始樂譜原圖 (Source Score)
+                        </span>
+                      </div>
+
+                      {/* Image Zoom Toolbar */}
+                      <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-lg text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setSplitImageZoom(z => Math.max(0.6, z - 0.2))}
+                          className="p-1 text-zinc-600 dark:text-zinc-300 hover:text-amber-500 cursor-pointer"
+                          title="縮小圖片"
+                        >
+                          <ZoomOut className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="font-mono text-[11px] font-bold text-zinc-600 dark:text-zinc-300 px-1">
+                          {Math.round(splitImageZoom * 100)}%
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSplitImageZoom(z => Math.min(3.0, z + 0.2))}
+                          className="p-1 text-zinc-600 dark:text-zinc-300 hover:text-amber-500 cursor-pointer"
+                          title="放大圖片"
+                        >
+                          <ZoomIn className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSplitImageZoom(1.0)}
+                          className="px-1.5 py-0.5 text-[10px] font-mono font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-100 cursor-pointer"
+                          title="重設縮放"
+                        >
+                          100%
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Multi-page switcher tabs */}
+                    {images.length > 1 && (
+                      <div className="flex items-center gap-1.5 pb-1">
+                        {images.map((img, i) => (
+                          <button
+                            key={img.id}
+                            type="button"
+                            onClick={() => setSelectedImageIndex(i)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                              selectedImageIndex === i
+                                ? 'bg-amber-500 text-zinc-950 shadow-2xs'
+                                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                            }`}
+                          >
+                            第 {i + 1} 頁
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Pannable/Scrollable Image Viewport */}
+                    <div className="h-80 sm:h-96 overflow-auto rounded-lg bg-zinc-950 flex items-start justify-center p-2 border border-zinc-800/80">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={images[selectedImageIndex]?.previewUrl}
+                        alt={`Source Score Page ${selectedImageIndex + 1}`}
+                        style={{ transform: `scale(${splitImageZoom})`, transformOrigin: 'top center', transition: 'transform 0.15s ease' }}
+                        className="max-w-none w-full object-contain rounded shadow-lg"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column: Extracted Jianpu Measures */}
+                  <div className="flex flex-col gap-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
+                      <div className="flex items-center gap-2">
+                        <FileMusic className="w-4 h-4 text-amber-500" />
+                        <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                          轉錄小節比對 ({scanResult.song.measures.length} 小節)
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-zinc-500 font-mono">
+                        1={scanResult.song.key} · {scanResult.song.timeSignature}
+                      </span>
+                    </div>
+
+                    {/* Scrollable list of measures */}
+                    <div className="h-80 sm:h-96 overflow-y-auto pr-1 flex flex-col gap-2">
+                      {scanResult.song.measures.map((m, mIdx) => {
+                        const beats = calculateMeasureBeats(m.notes);
+                        const expected = getExpectedMeasureBeats(m.timeSignature || scanResult.song?.timeSignature || '4/4');
+                        const isBeatsMatched = Math.abs(beats - expected) < 0.01;
+                        const isHighlighted = highlightedMeasureIdx === mIdx;
+
+                        return (
+                          <div
+                            key={m.id || mIdx}
+                            onClick={() => setHighlightedMeasureIdx(mIdx)}
+                            className={`p-2.5 rounded-lg border transition-all cursor-pointer ${
+                              isHighlighted
+                                ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
+                                : 'bg-zinc-50/70 dark:bg-zinc-800/50 border-zinc-200/80 dark:border-zinc-700/60 hover:border-amber-400/80'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between text-xs pb-1 mb-1 border-b border-zinc-200/50 dark:border-zinc-700/40">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                                  #{m.measureNumber}
+                                </span>
+                                {m.section && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300">
+                                    {m.section}
+                                  </span>
+                                )}
+                                {m.chord && (
+                                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200">
+                                    {m.chord}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Smart Beat Badge */}
+                              <span
+                                className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                                  isBeatsMatched
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                    : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
+                                }`}
+                              >
+                                {beats}/{expected} 拍 {isBeatsMatched ? '✓' : '⚠️'}
+                              </span>
+                            </div>
+
+                            {/* Note chips row */}
+                            <div className="flex flex-wrap gap-1.5 items-end">
+                              {m.notes.map((n, nIdx) => (
+                                <div
+                                  key={n.id || nIdx}
+                                  className="flex flex-col items-center px-1.5 py-1 rounded bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-700/70 text-xs min-w-[28px] shadow-2xs"
+                                >
+                                  {n.octave > 0 && (
+                                    <span className="text-amber-500 font-black leading-none text-[10px]">
+                                      {n.octave === 2 ? '••' : '•'}
+                                    </span>
+                                  )}
+                                  <span className="font-mono font-bold text-xs text-zinc-900 dark:text-zinc-100">
+                                    {n.accidental}
+                                    {n.pitch === 'empty' ? '—' : n.pitch}
+                                    {n.isDotted ? '·' : ''}
+                                  </span>
+                                  {n.octave < 0 && (
+                                    <span className="text-amber-500 font-black leading-none text-[10px]">
+                                      {n.octave === -2 ? '••' : '•'}
+                                    </span>
+                                  )}
+                                  {n.lyric.hanji && (
+                                    <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 mt-0.5">
+                                      {n.lyric.hanji}
+                                    </span>
+                                  )}
+                                  {(n.lyric.poj || n.lyric.pij) && (
+                                    <span className="text-[9px] font-serif italic text-emerald-600 dark:text-emerald-400">
+                                      {n.lyric.poj || n.lyric.pij}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* TAB 1: MEASURES PREVIEW */}
               {activePreviewTab === 'score' && scanResult.song && (

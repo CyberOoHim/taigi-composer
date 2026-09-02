@@ -331,23 +331,23 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   );
 
   // Change octave
-  const handleSetOctave = (delta: number) => {
+  const handleSetOctave = useCallback((delta: number) => {
     updateSelectedNote(n => {
       const newOctave = Math.max(-2, Math.min(2, n.octave + delta));
       const updated = { ...n, octave: newOctave };
       audioEngine.previewNote(song.key, updated);
       return updated;
     });
-  };
+  }, [updateSelectedNote, audioEngine, song.key]);
 
   // Change accidental
-  const handleSetAccidental = (acc: '' | '#' | 'b') => {
+  const handleSetAccidental = useCallback((acc: '' | '#' | 'b') => {
     updateSelectedNote(n => {
       const updated = { ...n, accidental: n.accidental === acc ? '' : acc };
       audioEngine.previewNote(song.key, updated);
       return updated;
     });
-  };
+  }, [updateSelectedNote, audioEngine, song.key]);
 
   // Change duration
   const handleSetDuration = (duration: NoteDuration) => {
@@ -364,7 +364,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   };
 
   // Toggle dotted
-  const handleToggleDotted = () => {
+  const handleToggleDotted = useCallback(() => {
     updateSelectedNote(n => {
       let newDur = n.duration;
       let newDotted = !n.isDotted;
@@ -383,12 +383,40 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       }
       return { ...n, duration: newDur, isDotted: newDotted };
     });
-  };
+  }, [updateSelectedNote]);
 
   // Toggle tie
-  const handleToggleTie = () => {
+  const handleToggleTie = useCallback(() => {
     updateSelectedNote(n => ({ ...n, isTied: !n.isTied }));
-  };
+  }, [updateSelectedNote]);
+
+  // Halve note duration (e.g. 1 -> 0.5 -> 0.25 -> 0.125)
+  const handleHalveDuration = useCallback(() => {
+    updateSelectedNote(n => {
+      let newDur: NoteDuration = 0.5;
+      if (n.duration >= 4) newDur = 2;
+      else if (n.duration >= 2) newDur = 1;
+      else if (n.duration >= 1) newDur = 0.5;
+      else if (n.duration >= 0.5) newDur = 0.25;
+      else newDur = 0.125;
+      showNotice(`已減半時值：${newDur} 拍 (/)`);
+      return { ...n, duration: newDur };
+    });
+  }, [updateSelectedNote, showNotice]);
+
+  // Double note duration (e.g. 0.125 -> 0.25 -> 0.5 -> 1 -> 2 -> 4)
+  const handleDoubleDuration = useCallback(() => {
+    updateSelectedNote(n => {
+      let newDur: NoteDuration = 1;
+      if (n.duration <= 0.125) newDur = 0.25;
+      else if (n.duration <= 0.25) newDur = 0.5;
+      else if (n.duration <= 0.5) newDur = 1;
+      else if (n.duration <= 1) newDur = 2;
+      else newDur = 4;
+      showNotice(`已加倍時值：${newDur} 拍 (*)`);
+      return { ...n, duration: newDur };
+    });
+  }, [updateSelectedNote, showNotice]);
 
   // Update lyric text on a specific note
   const handleUpdateLyricAt = (
@@ -798,13 +826,50 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       if (isTyping) return;
       if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
 
-      if (['1', '2', '3', '4', '5', '6', '7', '0'].includes(e.key)) {
+      // 1-7 or 0 (Numpad or number row): Pitch input
+      if (
+        ['1', '2', '3', '4', '5', '6', '7', '0'].includes(e.key) ||
+        (e.code && /^Numpad[0-7]$/.test(e.code))
+      ) {
         e.preventDefault();
-        const p = parseInt(e.key, 10) as PitchNumber;
+        const digitStr = e.code && /^Numpad[0-7]$/.test(e.code) ? e.code.replace('Numpad', '') : e.key;
+        const p = parseInt(digitStr, 10) as PitchNumber;
         handleSetPitch(p);
       } else if (['e', 'E', '_', 'x', 'X', 'Backspace', 'Delete'].includes(e.key)) {
         e.preventDefault();
         handleSetPitch('empty');
+      } else if (e.key === '/' || e.code === 'NumpadDivide') {
+        // Halve duration: / or NumpadDivide
+        e.preventDefault();
+        handleHalveDuration();
+      } else if (e.key === '*' || e.code === 'NumpadMultiply') {
+        // Double duration: * or NumpadMultiply
+        e.preventDefault();
+        handleDoubleDuration();
+      } else if (e.key === '-' || e.code === 'NumpadSubtract') {
+        // Octave down
+        e.preventDefault();
+        handleSetOctave(-1);
+      } else if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+        // Octave up
+        e.preventDefault();
+        handleSetOctave(1);
+      } else if (e.key === '.' || e.code === 'NumpadDecimal') {
+        // Toggle dotted note
+        e.preventDefault();
+        handleToggleDotted();
+      } else if (e.key === 't' || e.key === 'T') {
+        // Toggle tie / slur
+        e.preventDefault();
+        handleToggleTie();
+      } else if (e.key === '#') {
+        // Toggle sharp accidental
+        e.preventDefault();
+        handleSetAccidental('#');
+      } else if (e.key === 'b') {
+        // Toggle flat accidental
+        e.preventDefault();
+        handleSetAccidental('b');
       } else if (['，', '。', '！', '？', '、', '—', '…', '「', '」', ','].includes(e.key)) {
         e.preventDefault();
         const mark = e.key === ',' ? '，' : e.key;
@@ -834,6 +899,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     audioEngine,
     song.key,
     handleSetPitch,
+    handleHalveDuration,
+    handleDoubleDuration,
+    handleSetOctave,
+    handleToggleDotted,
+    handleToggleTie,
+    handleSetAccidental,
     handleNavigateNextNote,
     handleNavigatePrevNote,
     handleInsertPunctuationToNote,

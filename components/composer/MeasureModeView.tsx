@@ -4,9 +4,10 @@ import React from 'react';
 import { JianpuNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, Song } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import { scrollToCardElement } from '@/lib/utils';
+import { calculateMeasureBeats, getExpectedMeasureBeats, getDiatonicChords } from '@/lib/taigiUtils';
 import { NoteCell } from './NoteCell';
 import { NoteEditorHud } from './NoteEditorHud';
-import { Play, Square, Plus, Copy, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Square, Plus, Copy, Trash2, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface MeasureModeViewProps {
   song: Song;
@@ -97,6 +98,14 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
         const isSelectedMeasure = selectedMeasureIndex === mIdx;
         const isPlayingThisMeasure = playingMeasureIdx === mIdx;
 
+        const currentBeats = calculateMeasureBeats(measure.notes);
+        const expectedBeats = getExpectedMeasureBeats(measure.timeSignature || song.timeSignature || '4/4');
+        const beatDiff = Math.round((currentBeats - expectedBeats) * 1000) / 1000;
+        const isFullBeat = Math.abs(beatDiff) < 0.001;
+        const isOverBeat = beatDiff > 0;
+        const isUnderBeat = beatDiff < 0;
+        const diatonicChords = getDiatonicChords(keySignature);
+
         return (
           <div
             key={measure.id}
@@ -110,7 +119,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
             }`}
           >
             {/* Measure Header Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-4 border-b border-zinc-200/80 dark:border-zinc-800 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-2 border-b border-zinc-200/80 dark:border-zinc-800 text-xs">
               {/* Left: Dedicated Play Button & Measure Info */}
               <div className="flex items-center gap-2.5 flex-wrap">
                 <button
@@ -175,6 +184,37 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
+                </div>
+
+                {/* Smart Measure Beat-Count Badge */}
+                <div
+                  id={`measure-beat-badge-${mIdx}`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold border shadow-2xs select-none transition-all ${
+                    isFullBeat
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
+                      : isUnderBeat
+                      ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800 ring-1 ring-amber-400/60'
+                      : 'bg-rose-50 text-rose-900 border-rose-300 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800 ring-1 ring-rose-400/60'
+                  }`}
+                  title={
+                    isFullBeat
+                      ? `拍數完整 (${currentBeats}/${expectedBeats} 拍)`
+                      : isUnderBeat
+                      ? `小節不足拍：目前 ${currentBeats} 拍，缺少 ${Math.abs(beatDiff)} 拍`
+                      : `小節超拍：目前 ${currentBeats} 拍，超出 ${beatDiff} 拍`
+                  }
+                >
+                  {isFullBeat ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <AlertCircle className={`w-3.5 h-3.5 ${isUnderBeat ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`} />
+                  )}
+                  <span>{currentBeats}/{expectedBeats}拍</span>
+                  {!isFullBeat && (
+                    <span className="text-[10px] font-sans font-medium opacity-80">
+                      {isUnderBeat ? `(少${Math.abs(beatDiff)})` : `(多${beatDiff})`}
+                    </span>
+                  )}
                 </div>
 
                 {/* Section Selector */}
@@ -246,11 +286,52 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                   id={`measure-delete-btn-${mIdx}`}
                   type="button"
                   onClick={() => onDeleteMeasure(mIdx)}
-                  className="p-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-400 rounded-xl border border-rose-200 dark:border-rose-900 transition-colors cursor-pointer touch-manipulation min-h-[40px] min-w-[40px] flex items-center justify-center"
+                  className="p-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-400 rounded-xl border border-rose-200 dark:border-rose-900/50 transition-colors cursor-pointer touch-manipulation min-h-[40px] min-w-[40px] flex items-center justify-center"
                   title="刪除此小節"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
+              </div>
+            </div>
+
+            {/* One-Tap Diatonic Chord Palette */}
+            <div className="flex items-center gap-1.5 flex-wrap px-2 py-1.5 mb-3 bg-zinc-50/90 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/70 dark:border-zinc-800/70">
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold shrink-0 ml-1">
+                {keySignature} 調順階和弦:
+              </span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {diatonicChords.map(c => {
+                  const isCurrentChord = measure.chord === c.chord;
+                  return (
+                    <button
+                      key={c.chord}
+                      type="button"
+                      onClick={() => {
+                        onUpdateMeasureChord(mIdx, c.chord);
+                        audioEngine.previewChord(c.chord);
+                      }}
+                      className={`px-2 py-1 rounded-lg text-xs font-mono font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                        isCurrentChord
+                          ? 'bg-amber-500 text-zinc-950 border-amber-600 ring-2 ring-amber-400 font-black'
+                          : c.colorClass
+                      }`}
+                      title={`${c.label} (${c.degree}) - 點擊套用並試聽`}
+                    >
+                      <span>{c.chord}</span>
+                      <span className="text-[9px] opacity-75 ml-0.5 font-normal">({c.degree})</span>
+                    </button>
+                  );
+                })}
+                {measure.chord && (
+                  <button
+                    type="button"
+                    onClick={() => onUpdateMeasureChord(mIdx, '')}
+                    className="px-2 py-1 rounded-lg text-[10px] text-zinc-500 hover:text-rose-600 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 cursor-pointer transition-colors shadow-2xs font-semibold"
+                    title="清除此小節和弦"
+                  >
+                    清除
+                  </button>
+                )}
               </div>
             </div>
 

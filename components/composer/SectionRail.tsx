@@ -111,7 +111,7 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
               key={sec.id}
               type="button"
               onClick={() => onSelectMeasure(sec.startMeasureIndex)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 cursor-pointer touch-manipulation min-h-[38px] ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 cursor-pointer touch-manipulation min-h-[42px] ${
                 isPlaying
                   ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 font-black animate-pulse shadow-xs'
                   : isSelected

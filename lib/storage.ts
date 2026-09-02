@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   TRANSPOSE: 'taigi_composer_transpose',
   TEMPO_MULTIPLIER: 'taigi_composer_tempo_multiplier',
   SHOW_MIXER: 'taigi_composer_show_mixer',
+  STAGE_MODE_ZOOM: 'taigi_composer_stage_zoom',
   EDITOR_EDIT_MODE: 'taigi_composer_editor_edit_mode',
   AUTO_STEP_ADVANCE: 'taigi_composer_auto_step_advance',
   DECK_TAB: 'taigi_composer_deck_tab',
@@ -250,6 +251,19 @@ export function getStoredShowMixer(defaultVal = false): boolean {
 
 export function setStoredShowMixer(show: boolean): void {
   safeSetItem(STORAGE_KEYS.SHOW_MIXER, String(show));
+}
+
+export function getStoredStageZoom(defaultVal = 1.0): number {
+  const val = safeGetItem(STORAGE_KEYS.STAGE_MODE_ZOOM);
+  if (val !== null) {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 1.0 && num <= 2.0) return num;
+  }
+  return defaultVal;
+}
+
+export function setStoredStageZoom(zoom: number): void {
+  safeSetItem(STORAGE_KEYS.STAGE_MODE_ZOOM, String(zoom));
 }
 
 // ============================================================================
