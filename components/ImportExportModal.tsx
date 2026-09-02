@@ -50,17 +50,11 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   const [exportFormat, setExportFormat] = useState<'json' | 'text'>('json');
   const [copied, setCopied] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  // Refresh custom songs when opening modal or performing actions
   const [customSongs, setCustomSongs] = useState<Song[]>(() => {
     if (typeof window !== 'undefined') return getStoredCustomLibrary();
     return [];
   });
-
-  // Refresh custom songs when opening
-  React.useEffect(() => {
-    if (isOpen && typeof window !== 'undefined') {
-      setCustomSongs(getStoredCustomLibrary());
-    }
-  }, [isOpen]);
 
   const handleSaveToCustomLibrary = () => {
     const updated = saveSongToCustomLibrary(currentSong);

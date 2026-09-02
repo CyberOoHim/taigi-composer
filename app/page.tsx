@@ -50,8 +50,14 @@ export default function Home() {
   } = usePowerSaveMode();
 
   // Default to 'split' (雙視窗) as requested
-  const [activeTab, setActiveTabState] = useState<ActiveTabMode>('split');
-  const [displayMode, setDisplayModeState] = useState<LyricDisplayMode>('all');
+  const [activeTab, setActiveTabState] = useState<ActiveTabMode>(() => {
+    if (typeof window !== 'undefined') return getStoredActiveTab();
+    return 'split';
+  });
+  const [displayMode, setDisplayModeState] = useState<LyricDisplayMode>(() => {
+    if (typeof window !== 'undefined') return getStoredDisplayMode();
+    return 'all';
+  });
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isAlignerOpen, setIsAlignerOpen] = useState(false);
   const [isGeminiAuthOpen, setIsGeminiAuthOpen] = useState(false);
@@ -59,18 +65,8 @@ export default function Home() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [targetMeasureIndex, setTargetMeasureIndex] = useState<number | null>(null);
 
-  // Load persisted user UI selections from localStorage on mount
+  // Load persisted current song from localStorage on mount
   useEffect(() => {
-    const savedTab = getStoredActiveTab();
-    if (savedTab) {
-      setActiveTabState(savedTab);
-    }
-
-    const savedMode = getStoredDisplayMode();
-    if (savedMode) {
-      setDisplayModeState(savedMode);
-    }
-
     const savedSong = getStoredCurrentSong();
     if (savedSong && (savedSong.id !== PRESET_SONGS[0].id || savedSong.title !== PRESET_SONGS[0].title)) {
       loadNewSong(savedSong);
@@ -116,14 +112,14 @@ export default function Home() {
       setActiveTab('editor');
     }
     setTargetMeasureIndex(measureIndex);
-  }, [activeTab]);
+  }, [activeTab, setActiveTab]);
 
   const handleEditSection = useCallback((section: KaraokeSection) => {
     if (activeTab === 'karaoke') {
       setActiveTab('editor');
     }
     setTargetMeasureIndex(section.startMeasureIndex);
-  }, [activeTab]);
+  }, [activeTab, setActiveTab]);
 
   const handleTogglePlay = useCallback(() => {
     if (!audioEngine) return;
