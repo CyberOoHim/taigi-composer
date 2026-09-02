@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { JianpuNote, LyricDisplayMode } from '@/types/song';
-import { getDurationChineseInfo, isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
+import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
 
 interface NoteCellProps {
   note: JianpuNote;
@@ -74,19 +74,7 @@ export const NoteCell: React.FC<NoteCellProps> = ({
           : 'border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/80 hover:border-amber-300 dark:hover:border-amber-700'
       }`}
     >
-      {/* Note Duration & Index Badge */}
-      <div className="w-full flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 font-mono mb-1">
-        <span>
-          {isNonNotation
-            ? note.annotation
-              ? '註解'
-              : isPunctuationOrSpacer(hanji || custom)
-              ? '標點'
-              : '空白'
-            : getDurationChineseInfo(note.duration).jianpuSymbol}
-        </span>
-        <span className="font-semibold text-[9px]">{isNonNotation ? '0拍 (非音符)' : `${note.duration}拍`}</span>
-      </div>
+
 
       {/* Jianpu Musical Pitch Number Container */}
       <div className="flex items-center justify-center relative min-h-[46px] my-1">
