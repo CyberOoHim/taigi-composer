@@ -26,7 +26,7 @@ interface SectionJumpBarProps {
   sectionScrollRef: React.RefObject<HTMLDivElement | null>;
 }
 
-export const SectionJumpBar: React.FC<SectionJumpBarProps> = ({
+export const SectionJumpBar: React.FC<SectionJumpBarProps> = React.memo(({
   songSections,
   activeSection,
   onJumpToSection,
@@ -105,4 +105,6 @@ export const SectionJumpBar: React.FC<SectionJumpBarProps> = ({
       </div>
     </div>
   );
-};
+});
+
+SectionJumpBar.displayName = 'SectionJumpBar';

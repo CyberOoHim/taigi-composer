@@ -20,6 +20,7 @@ export interface AudioEngineOptions {
   transpose?: number;       // Semitones (-12 to +12)
   tempoMultiplier?: number; // 0.5 to 2.0
   loopMeasure?: number | null; // index of measure to loop, or null
+  targetFps?: number;       // Target frame rate for UI updates (e.g. 30 normal, 20 eco)
 }
 
 export class AudioEngine {
@@ -38,6 +39,7 @@ export class AudioEngine {
     transpose: 0,
     tempoMultiplier: 1.0,
     loopMeasure: null,
+    targetFps: 30,
   };
 
   private isPlaying = false;
@@ -47,6 +49,7 @@ export class AudioEngine {
   private animationFrameId: number | null = null;
   private scheduledTimeoutIds: number[] = [];
   private activeOscillators: OscillatorNode[] = [];
+  private idleSuspendTimer: NodeJS.Timeout | null = null;
 
   // Listeners
   private stateListeners: ((state: PlaybackState) => void)[] = [];
@@ -90,10 +93,51 @@ export class AudioEngine {
 
   constructor() {
     // AudioContext will be initialized on first user interaction
+    if (typeof window !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          // If page is hidden and audio is not actively playing, suspend AudioContext immediately to save battery
+          if (!this.isPlaying && this.ctx && this.ctx.state === 'running') {
+            this.ctx.suspend().catch(() => {});
+          }
+        } else {
+          // If page became visible again and was playing, ensure AudioContext is active
+          if (this.isPlaying && this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+          }
+        }
+      });
+    }
+  }
+
+  /**
+   * Schedule automatic AudioContext suspension after inactivity (e.g. 3000ms)
+   * Prevents mobile/iPad audio DSP hardware from draining battery when idle.
+   */
+  public scheduleAutoSuspend(delayMs = 3000) {
+    this.cancelAutoSuspend();
+    if (typeof window === 'undefined') return;
+    this.idleSuspendTimer = setTimeout(() => {
+      if (!this.isPlaying && this.ctx && this.ctx.state === 'running') {
+        this.ctx.suspend().catch(() => {});
+      }
+    }, delayMs);
+  }
+
+  /**
+   * Cancel pending auto-suspension timer
+   */
+  public cancelAutoSuspend() {
+    if (this.idleSuspendTimer) {
+      clearTimeout(this.idleSuspendTimer);
+      this.idleSuspendTimer = null;
+    }
   }
 
   private initContext() {
     if (typeof window === 'undefined') return;
+    this.cancelAutoSuspend();
+
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
@@ -117,7 +161,7 @@ export class AudioEngine {
     }
 
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
   }
 
@@ -147,14 +191,18 @@ export class AudioEngine {
 
     const effectiveBpm = 80 * this.options.tempoMultiplier;
     const durationSec = (note.duration * (60 / effectiveBpm));
+    const playDuration = Math.min(durationSec, 1.2);
 
     this.playTone(
       freq,
       this.ctx.currentTime,
-      Math.min(durationSec, 1.2),
+      playDuration,
       this.melodyGain,
       this.options.instrument
     );
+
+    // Auto suspend AudioContext after preview note finishes to power down audio hardware
+    this.scheduleAutoSuspend(Math.round((playDuration + 2.0) * 1000));
   }
 
   private registerOscillator(osc: OscillatorNode) {
@@ -719,8 +767,11 @@ export class AudioEngine {
     }[]
   ) {
     let lastActiveEventIdx = -1;
+    let lastEmitTime = 0;
+    const targetFps = this.options.targetFps || 30;
+    const frameIntervalMs = 1000 / targetFps;
 
-    const tick = () => {
+    const tick = (timestamp: number) => {
       if (!this.isPlaying || !this.ctx) return;
 
       const currentSongTime = this.ctx.currentTime - this.startAudioTime;
@@ -742,9 +793,11 @@ export class AudioEngine {
       }
 
       const activeEvent = timelineEvents[activeIdx];
+      let isEventChanged = false;
 
       if (activeIdx !== lastActiveEventIdx && activeEvent) {
         lastActiveEventIdx = activeIdx;
+        isEventChanged = true;
         if (this.onNoteStart) {
           this.onNoteStart(
             activeEvent.measureIndex,
@@ -758,18 +811,24 @@ export class AudioEngine {
         }
       }
 
-      const progressPercent = Math.min(100, (currentSongTime / totalDuration) * 100);
+      // Frame budgeting: throttle continuous UI time updates to target FPS (e.g. 30 normal, 20 eco),
+      // but always dispatch immediately on note/measure transitions so visual sync is instant.
+      const now = typeof performance !== 'undefined' ? performance.now() : timestamp || Date.now();
+      if (isEventChanged || now - lastEmitTime >= frameIntervalMs || lastEmitTime === 0) {
+        lastEmitTime = now;
+        const progressPercent = Math.min(100, (currentSongTime / totalDuration) * 100);
 
-      this.notifyState({
-        isPlaying: true,
-        isPaused: false,
-        currentMeasureIndex: activeEvent ? activeEvent.measureIndex : 0,
-        currentNoteIndex: activeEvent ? activeEvent.noteIndex : 0,
-        currentNoteId: activeEvent ? activeEvent.note.id : null,
-        currentTime: Math.max(0, currentSongTime),
-        totalDuration,
-        progressPercent,
-      });
+        this.notifyState({
+          isPlaying: true,
+          isPaused: false,
+          currentMeasureIndex: activeEvent ? activeEvent.measureIndex : 0,
+          currentNoteIndex: activeEvent ? activeEvent.noteIndex : 0,
+          currentNoteId: activeEvent ? activeEvent.note.id : null,
+          currentTime: Math.max(0, currentSongTime),
+          totalDuration,
+          progressPercent,
+        });
+      }
 
       this.animationFrameId = requestAnimationFrame(tick);
     };
@@ -798,6 +857,7 @@ export class AudioEngine {
       totalDuration: duration,
       progressPercent: duration > 0 ? (this.pausedSongTime / duration) * 100 : 0,
     });
+    this.scheduleAutoSuspend(2000);
   }
 
   public resume() {
@@ -829,6 +889,7 @@ export class AudioEngine {
       totalDuration: duration,
       progressPercent: 0,
     });
+    this.scheduleAutoSuspend(1500);
   }
 
   /**

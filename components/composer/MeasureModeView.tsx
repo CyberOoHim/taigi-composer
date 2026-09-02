@@ -27,7 +27,7 @@ interface MeasureModeViewProps {
   onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom') => void;
 }
 
-export const MeasureModeView: React.FC<MeasureModeViewProps> = ({
+export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   song,
   selectedMeasureIndex,
   selectedNoteIndex,
@@ -240,4 +240,6 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = ({
       })}
     </div>
   );
-};
+});
+
+MeasureModeView.displayName = 'MeasureModeView';

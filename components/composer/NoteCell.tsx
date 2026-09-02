@@ -18,7 +18,7 @@ interface NoteCellProps {
   keyPrefix?: string;
 }
 
-export const NoteCell: React.FC<NoteCellProps> = ({
+export const NoteCell: React.FC<NoteCellProps> = React.memo(({
   note,
   mIdx,
   nIdx,
@@ -308,4 +308,6 @@ export const NoteCell: React.FC<NoteCellProps> = ({
       </div>
     </div>
   );
-};
+});
+
+NoteCell.displayName = 'NoteCell';

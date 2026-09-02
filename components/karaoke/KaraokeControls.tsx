@@ -51,7 +51,7 @@ interface KaraokeControlsProps {
   formatTime: (seconds: number) => string;
 }
 
-export const KaraokeControls: React.FC<KaraokeControlsProps> = ({
+export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
   playbackState,
   songSections,
   activeSection,
@@ -431,4 +431,6 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = ({
       )}
     </div>
   );
-};
+});
+
+KaraokeControls.displayName = 'KaraokeControls';

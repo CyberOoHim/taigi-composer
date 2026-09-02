@@ -1,2 +1,57 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+
+/* =========================================================================
+   POWER SAVING & HARDWARE OPTIMIZATION FOR ALL DEVICES & IPADS
+   ========================================================================= */
+
+/* Optimization for Touch / Mobile Safari */
+html, body {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Eco Mode / Low Power Mode Rules */
+.eco-mode {
+  /* Disable expensive GPU backdrop filters and switch to solid backgrounds */
+  --tw-backdrop-blur: none !important;
+  --tw-backdrop-filter: none !important;
+}
+
+.eco-mode header,
+.eco-mode aside,
+.eco-mode div[class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Hide GPU-heavy ambient background blur orbs */
+.eco-mode .eco-hide-ambient {
+  display: none !important;
+}
+
+/* Disable continuous looping non-essential animations in Eco Mode */
+.eco-mode .animate-spin,
+.eco-mode .animate-ping,
+.eco-mode .animate-bounce,
+.eco-mode .animate-pulse {
+  animation: none !important;
+}
+
+/* Flatten heavy drop shadows in Eco Mode to cut GPU rasterization costs */
+.eco-mode .eco-flat-shadow {
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+/* Respect system prefers-reduced-motion automatically */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

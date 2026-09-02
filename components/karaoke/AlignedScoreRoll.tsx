@@ -19,7 +19,7 @@ interface AlignedScoreRollProps {
   onEditSection?: (section: KaraokeSection) => void;
 }
 
-export const AlignedScoreRoll: React.FC<AlignedScoreRollProps> = ({
+export const AlignedScoreRoll: React.FC<AlignedScoreRollProps> = React.memo(({
   song,
   playbackState,
   displayMode,
@@ -142,4 +142,6 @@ export const AlignedScoreRoll: React.FC<AlignedScoreRollProps> = ({
       </div>
     </div>
   );
-};
+});
+
+AlignedScoreRoll.displayName = 'AlignedScoreRoll';

@@ -7,6 +7,7 @@ import { KaraokeSection, SectionJumpBar } from './karaoke/SectionJumpBar';
 import { KaraokeStage } from './karaoke/KaraokeStage';
 import { AlignedScoreRoll } from './karaoke/AlignedScoreRoll';
 import { KaraokeControls } from './karaoke/KaraokeControls';
+import { wakeLockManager } from '@/lib/wakeLock';
 import confetti from 'canvas-confetti';
 import {
   Radio,
@@ -24,6 +25,7 @@ interface KaraokeViewProps {
   onSelectMeasure?: (measureIndex: number) => void;
   onEditSection?: (section: KaraokeSection) => void;
   onEditMeasure?: (measureIndex: number) => void;
+  isEcoMode?: boolean;
 }
 
 export const KaraokeView: React.FC<KaraokeViewProps> = ({
@@ -34,6 +36,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   onSelectMeasure,
   onEditSection,
   onEditMeasure,
+  isEcoMode = false,
 }) => {
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
     isPlaying: false,
@@ -64,6 +67,18 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   const sheetScrollRef = useRef<HTMLDivElement>(null);
   const sectionScrollRef = useRef<HTMLDivElement>(null);
 
+  // Screen Wake Lock lifecycle management
+  useEffect(() => {
+    if (playbackState.isPlaying) {
+      wakeLockManager.request();
+    } else {
+      wakeLockManager.release();
+    }
+    return () => {
+      wakeLockManager.release();
+    };
+  }, [playbackState.isPlaying]);
+
   // Sync state with AudioEngine
   useEffect(() => {
     const unsubState = audioEngine.subscribeState(state => {
@@ -71,11 +86,11 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     });
 
     const unsubEnded = audioEngine.subscribeEnded(() => {
-      // Trigger confetti celebration on Karaoke finish
+      // Trigger confetti celebration on Karaoke finish (skip or lightweight in eco mode)
       try {
         confetti({
-          particleCount: 100,
-          spread: 70,
+          particleCount: isEcoMode ? 15 : 75,
+          spread: isEcoMode ? 40 : 70,
           origin: { y: 0.6 },
         });
       } catch {
@@ -87,7 +102,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       unsubState();
       unsubEnded();
     };
-  }, [audioEngine]);
+  }, [audioEngine, isEcoMode]);
 
   // Clean up debounce timer on unmount
   useEffect(() => {
@@ -107,9 +122,25 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       metronomeVolume,
       transpose,
       tempoMultiplier,
+      targetFps: isEcoMode ? 20 : 30,
+    });
+  }, [
+    audioEngine,
+    instrument,
+    melodyVolume,
+    backingVolume,
+    metronomeVolume,
+    transpose,
+    tempoMultiplier,
+    isEcoMode,
+  ]);
+
+  // Update loop measure setting when looping is toggled or active measure changes
+  useEffect(() => {
+    audioEngine.setOptions({
       loopMeasure: isLoopingMeasure ? playbackState.currentMeasureIndex : null,
     });
-  }, [audioEngine, instrument, melodyVolume, backingVolume, metronomeVolume, transpose, tempoMultiplier, isLoopingMeasure, playbackState.currentMeasureIndex]);
+  }, [audioEngine, isLoopingMeasure, playbackState.currentMeasureIndex]);
 
   // Auto-scroll active measure into view during playback
   useEffect(() => {
@@ -501,6 +532,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         playbackState={playbackState}
         displayMode={displayMode}
         onJumpToSection={handleJumpToSection}
+        isEcoMode={isEcoMode}
       />
 
       {/* Section Quick Jump Bar */}

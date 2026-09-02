@@ -14,6 +14,10 @@ import {
   Redo2,
   Keyboard,
   X,
+  Leaf,
+  Battery,
+  BatteryCharging,
+  BatteryLow,
 } from 'lucide-react';
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -32,6 +36,10 @@ interface HeaderBarProps {
   canRedo?: boolean;
   pastCount?: number;
   futureCount?: number;
+  isEcoMode?: boolean;
+  onToggleEcoMode?: () => void;
+  batteryLevel?: number | null;
+  isCharging?: boolean | null;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -48,6 +56,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   canRedo = false,
   pastCount = 0,
   futureCount = 0,
+  isEcoMode = false,
+  onToggleEcoMode,
+  batteryLevel,
+  isCharging,
 }) => {
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
 
@@ -204,6 +216,40 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               </>
             )}
           </button>
+
+          {/* Eco / Power Saving Mode Toggle */}
+          {onToggleEcoMode && (
+            <button
+              id="header-toggle-eco-mode-btn"
+              type="button"
+              onClick={onToggleEcoMode}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[36px] ${
+                isEcoMode
+                  ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/50 shadow-xs'
+                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 border-zinc-200/80 dark:border-zinc-700'
+              }`}
+              title={
+                isEcoMode
+                  ? `省電模式已開啟 (降低幀率與GPU特效)${batteryLevel !== null ? ` · 電量 ${Math.round(batteryLevel * 100)}%` : ''}`
+                  : `開啟省電模式 (Eco Mode - 適合 iPad / 手機省電)${batteryLevel !== null ? ` · 電量 ${Math.round(batteryLevel * 100)}%` : ''}`
+              }
+            >
+              <Leaf className={`w-3.5 h-3.5 ${isEcoMode ? 'text-emerald-500 fill-emerald-500' : 'text-zinc-400'}`} />
+              <span className="hidden sm:inline">{isEcoMode ? '省電中' : '省電'}</span>
+              {batteryLevel !== null && (
+                <span className="text-[10px] font-mono hidden md:inline-flex items-center gap-0.5 text-zinc-500">
+                  {isCharging ? (
+                    <BatteryCharging className="w-3 h-3 text-emerald-500" />
+                  ) : batteryLevel <= 0.2 ? (
+                    <BatteryLow className="w-3 h-3 text-rose-500" />
+                  ) : (
+                    <Battery className="w-3 h-3" />
+                  )}
+                  {Math.round(batteryLevel * 100)}%
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Import / Export & Library Modal */}
           <button

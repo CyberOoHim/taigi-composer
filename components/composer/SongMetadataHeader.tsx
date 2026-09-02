@@ -12,7 +12,7 @@ interface SongMetadataHeaderProps {
   onOpenAligner: () => void;
 }
 
-export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = ({
+export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(({
   song,
   onUpdateSong,
   displayMode,
@@ -240,4 +240,6 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = ({
       )}
     </div>
   );
-};
+});
+
+SongMetadataHeader.displayName = 'SongMetadataHeader';

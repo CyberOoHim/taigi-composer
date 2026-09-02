@@ -22,7 +22,7 @@ interface SectionItem {
   noteCount: number;
 }
 
-export const SectionRail: React.FC<SectionRailProps> = ({
+export const SectionRail: React.FC<SectionRailProps> = React.memo(({
   song,
   selectedMeasureIndex,
   onSelectMeasure,
@@ -141,4 +141,6 @@ export const SectionRail: React.FC<SectionRailProps> = ({
       </div>
     </div>
   );
-};
+});
+
+SectionRail.displayName = 'SectionRail';

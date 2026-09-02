@@ -16,7 +16,7 @@ interface JianpuNoteComponentProps {
   isKaraokeMode?: boolean;
 }
 
-export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = ({
+export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.memo(({
   note,
   isSelected = false,
   isActive = false,
@@ -303,4 +303,6 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = ({
       </div>
     </div>
   );
-};
+});
+
+JianpuNoteComponent.displayName = 'JianpuNoteComponent';

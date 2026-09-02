@@ -24,7 +24,7 @@ interface VerseModeViewProps {
   onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom') => void;
 }
 
-export const VerseModeView: React.FC<VerseModeViewProps> = ({
+export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   verses,
   selectedMeasureIndex,
   selectedNoteIndex,
@@ -228,4 +228,6 @@ export const VerseModeView: React.FC<VerseModeViewProps> = ({
       })}
     </div>
   );
-};
+});
+
+VerseModeView.displayName = 'VerseModeView';

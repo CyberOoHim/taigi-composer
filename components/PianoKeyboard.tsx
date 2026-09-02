@@ -29,7 +29,7 @@ interface KeyDefinition {
   leftPercent?: number; // for black keys positioning
 }
 
-export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
+export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
   keySignature,
   currentNote,
   onSelectPitch,
@@ -585,4 +585,6 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
       </div>
     </div>
   );
-};
+});
+
+PianoKeyboard.displayName = 'PianoKeyboard';

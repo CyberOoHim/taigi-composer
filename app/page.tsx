@@ -10,6 +10,7 @@ import { ComposerEditor } from '@/components/ComposerEditor';
 import { ImportExportModal } from '@/components/ImportExportModal';
 import { QuickLyricAlignerModal } from '@/components/QuickLyricAlignerModal';
 import { useSongHistory } from '@/hooks/useSongHistory';
+import { usePowerSaveMode } from '@/hooks/usePowerSaveMode';
 import {
   Mic2,
   Music,
@@ -30,6 +31,13 @@ export default function Home() {
     pastCount,
     futureCount,
   } = useSongHistory(PRESET_SONGS[0]);
+
+  const {
+    isEcoMode,
+    toggleEcoMode,
+    batteryLevel,
+    isCharging,
+  } = usePowerSaveMode();
 
   const [activeTab, setActiveTab] = useState<ActiveTabMode>('karaoke');
   const [displayMode, setDisplayMode] = useState<LyricDisplayMode>('all');
@@ -132,6 +140,10 @@ export default function Home() {
         canRedo={canRedo}
         pastCount={pastCount}
         futureCount={futureCount}
+        isEcoMode={isEcoMode}
+        onToggleEcoMode={toggleEcoMode}
+        batteryLevel={batteryLevel}
+        isCharging={isCharging}
       />
 
       {/* Main Body Canvas */}
@@ -147,6 +159,7 @@ export default function Home() {
               onSelectMeasure={() => {}}
               onEditMeasure={handleEditMeasure}
               onEditSection={handleEditSection}
+              isEcoMode={isEcoMode}
             />
 
             {/* Quick Switch to Editor CTA */}
@@ -210,6 +223,7 @@ export default function Home() {
                 setDisplayMode={setDisplayMode}
                 onEditMeasure={handleEditMeasure}
                 onEditSection={handleEditSection}
+                isEcoMode={isEcoMode}
               />
             </div>
 

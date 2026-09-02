@@ -20,21 +20,27 @@ interface KaraokeStageProps {
   playbackState: PlaybackState;
   displayMode: LyricDisplayMode;
   onJumpToSection: (section: KaraokeSection) => void;
+  isEcoMode?: boolean;
 }
 
-export const KaraokeStage: React.FC<KaraokeStageProps> = ({
+export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   currentLine,
   nextLine,
   activeSection,
   playbackState,
   displayMode,
   onJumpToSection,
+  isEcoMode = false,
 }) => {
   return (
     <div className="relative flex flex-col items-center justify-center p-6 sm:p-10 min-h-[280px] bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900 border-b border-zinc-800/80 select-none overflow-hidden">
-      {/* Background Ambience / Disco Glow */}
-      <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-rose-500/10 blur-3xl pointer-events-none" />
+      {/* Background Ambience / Disco Glow (Omitted in Eco Mode to save GPU power) */}
+      {!isEcoMode && (
+        <>
+          <div className="eco-hide-ambient absolute -top-24 -left-24 w-80 h-80 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+          <div className="eco-hide-ambient absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-rose-500/10 blur-3xl pointer-events-none" />
+        </>
+      )}
 
       {/* Current Active Section Badge */}
       {activeSection && (
@@ -102,6 +108,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = ({
               className={`relative flex flex-col items-center transition-transform duration-150 min-w-[32px] ${
                 isNoteActive ? 'scale-115 -translate-y-1' : ''
               }`}
+              style={{ transform: isNoteActive ? 'translate3d(0, -4px, 0) scale(1.15)' : 'translate3d(0, 0, 0)' }}
             >
               {/* Annotation pill if present */}
               {item.note.annotation && (
@@ -115,7 +122,9 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = ({
                 <span
                   className={`text-xs sm:text-sm font-serif italic mb-0.5 min-h-[1.25rem] transition-colors select-none ${
                     isNoteActive
-                      ? 'text-amber-300 font-bold drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]'
+                      ? isEcoMode
+                        ? 'text-amber-300 font-bold'
+                        : 'text-amber-300 font-bold drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]'
                       : isPassed
                       ? 'text-amber-500/80'
                       : 'text-zinc-400'
@@ -131,7 +140,9 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = ({
                   displayMode === 'poj_only' || displayMode === 'pij_only' ? 'font-serif italic text-xl sm:text-3xl' : ''
                 } ${
                   isNoteActive
-                    ? 'text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 scale-105 drop-shadow-[0_0_16px_rgba(245,158,11,0.9)]'
+                    ? isEcoMode
+                      ? 'text-amber-300 font-black scale-105'
+                      : 'text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 scale-105 drop-shadow-[0_0_16px_rgba(245,158,11,0.9)]'
                     : isPassed
                     ? 'text-amber-400'
                     : 'text-zinc-300'
@@ -179,4 +190,6 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = ({
       )}
     </div>
   );
-};
+});
+
+KaraokeStage.displayName = 'KaraokeStage';
