@@ -446,10 +446,26 @@ export function isPunctuationOrSpacer(str?: string): boolean {
 }
 
 /**
- * Check if a note is a verse separator (punctuation or space/rest pause)
+ * Check if a note is a verse separator (punctuation, delimiter, or space/rest pause)
  */
 export function isVerseBreakNote(note: JianpuNote): boolean {
   if (isNonNotationItem(note)) return true;
+
+  // Check if note lyrics contain punctuation marks or newline delimiters
+  const hanji = note.lyric?.hanji?.trim() || '';
+  const custom = note.lyric?.custom?.trim() || '';
+  const poj = note.lyric?.poj?.trim() || '';
+  const pij = note.lyric?.pij?.trim() || '';
+
+  const delimPattern = /[，。！？、；：\n—…]/;
+  if (
+    delimPattern.test(hanji) ||
+    delimPattern.test(custom) ||
+    delimPattern.test(poj) ||
+    delimPattern.test(pij)
+  ) {
+    return true;
+  }
 
   // Rest note with empty or dash lyric
   if (

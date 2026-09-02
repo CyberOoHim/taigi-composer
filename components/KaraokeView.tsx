@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { InstrumentType, JianpuNote, LyricDisplayMode, Measure, Song } from '@/types/song';
+import { InstrumentType, JianpuNote, LyricDisplayMode, Measure, Song, VerseItem } from '@/types/song';
 import { AudioEngine, PlaybackState } from '@/lib/audioEngine';
+import { groupSongIntoVerses } from '@/lib/taigiUtils';
 import { KaraokeSection, SectionJumpBar } from './karaoke/SectionJumpBar';
 import { KaraokeStage } from './karaoke/KaraokeStage';
 import { AlignedScoreRoll } from './karaoke/AlignedScoreRoll';
@@ -340,48 +341,34 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     }
   }, [activeSection, playbackState.isPlaying, songSections]);
 
-  // Group song measures into Lyric lines
-  const lyricLines = useMemo(() => {
-    const lines: {
-      lineIndex: number;
-      measures: Measure[];
-      measureIndices: number[];
-      notes: { note: JianpuNote; measureIdx: number; noteIdx: number }[];
-    }[] = [];
-
-    const measuresPerLine = song.notesPerLine || 2;
-    for (let i = 0; i < song.measures.length; i += measuresPerLine) {
-      const slice = song.measures.slice(i, i + measuresPerLine);
-      const mIndices = slice.map((_, idx) => i + idx);
-      const notesList: { note: JianpuNote; measureIdx: number; noteIdx: number }[] = [];
-
-      slice.forEach((m, mOffset) => {
-        m.notes.forEach((n, nIdx) => {
-          notesList.push({
-            note: n,
-            measureIdx: i + mOffset,
-            noteIdx: nIdx,
-          });
-        });
-      });
-
-      lines.push({
-        lineIndex: lines.length,
-        measures: slice,
-        measureIndices: mIndices,
-        notes: notesList,
-      });
-    }
-    return lines;
+  // Group song into natural musical verses (split by delimiters, punctuation, pauses, sections)
+  const songVerses = useMemo(() => {
+    return groupSongIntoVerses(song);
   }, [song]);
 
-  // Find active line index
-  const activeLineIndex = useMemo(() => {
-    return lyricLines.findIndex(line => line.measureIndices.includes(playbackState.currentMeasureIndex));
-  }, [lyricLines, playbackState.currentMeasureIndex]);
+  // Find active verse index based on currently playing note and measure
+  const activeVerseIndex = useMemo(() => {
+    if (!songVerses.length) return 0;
+    const currentM = playbackState.currentMeasureIndex;
+    const currentN = playbackState.currentNoteIndex;
 
-  const currentLine = lyricLines[activeLineIndex !== -1 ? activeLineIndex : 0];
-  const nextLine = lyricLines[(activeLineIndex !== -1 ? activeLineIndex : 0) + 1] || null;
+    // 1. Precise note match
+    const idx = songVerses.findIndex(verse =>
+      verse.notes.some(n => n.measureIndex === currentM && n.noteIndex === currentN)
+    );
+    if (idx !== -1) return idx;
+
+    // 2. Measure fallback match
+    const mIdx = songVerses.findIndex(verse =>
+      verse.notes.some(n => n.measureIndex === currentM)
+    );
+    if (mIdx !== -1) return mIdx;
+
+    return 0;
+  }, [songVerses, playbackState.currentMeasureIndex, playbackState.currentNoteIndex]);
+
+  const currentVerse = songVerses[activeVerseIndex] || songVerses[0] || null;
+  const nextVerse = songVerses[activeVerseIndex + 1] || null;
 
   // Jump to specific section handler (instant touch jump)
   const handleJumpToSection = useCallback((section: KaraokeSection) => {
@@ -610,10 +597,10 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         </div>
       </div>
 
-      {/* Main KTV Stage Arena */}
+      {/* Main KTV Stage Arena (Always 2 Verses: Next on top, Current in center) */}
       <KaraokeStage
-        currentLine={currentLine}
-        nextLine={nextLine}
+        currentVerse={currentVerse}
+        nextVerse={nextVerse}
         activeSection={activeSection}
         playbackState={playbackState}
         displayMode={displayMode}
