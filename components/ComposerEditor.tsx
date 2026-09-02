@@ -18,6 +18,7 @@ import {
   groupSongIntoVerses,
   splitVerseTextTokens,
   isPunctuationOrSpacer,
+  isNonNotationItem,
 } from '@/lib/taigiUtils';
 import { SongMetadataHeader } from './composer/SongMetadataHeader';
 import { NoteEditorHud } from './composer/NoteEditorHud';
@@ -116,18 +117,34 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       // Smooth scroll and select corresponding note
       const timer = setTimeout(() => {
-        setSelectedCoord([validMeasureIdx, 0]);
+        // Find the first pitched/content note in this measure, defaulting to note 0
+        const m = song.measures[validMeasureIdx];
+        let targetNoteIdx = 0;
+        if (m && m.notes.length > 0) {
+          const firstPitchedIdx = m.notes.findIndex(
+            n => !isNonNotationItem(n) && (typeof n.pitch === 'number' && n.pitch > 0 || Boolean(n.lyric.hanji && !isPunctuationOrSpacer(n.lyric.hanji)))
+          );
+          targetNoteIdx = firstPitchedIdx !== -1 ? firstPitchedIdx : 0;
+        }
 
-        // Preview the first note of this section/measure
-        const note = song.measures[validMeasureIdx]?.notes[0];
+        setSelectedCoord([validMeasureIdx, targetNoteIdx]);
+
+        // Preview the target note of this section/measure
+        const note = song.measures[validMeasureIdx]?.notes[targetNoteIdx] || song.measures[validMeasureIdx]?.notes[0];
         if (note) {
           audioEngine.previewNote(song.key, note);
         }
 
         if (editMode === 'verse') {
-          const vIdx = verses.findIndex(v =>
-            v.notes.some(n => n.measureIndex === validMeasureIdx)
+          // Find the verse containing this measure and note, or starting in this measure
+          let vIdx = verses.findIndex(v =>
+            v.notes.some(n => n.measureIndex === validMeasureIdx && n.noteIndex === targetNoteIdx)
           );
+          if (vIdx === -1) {
+            vIdx = verses.findIndex(v =>
+              v.notes.some(n => n.measureIndex === validMeasureIdx)
+            );
+          }
           if (vIdx !== -1) {
             const el = document.getElementById(`verse-card-${vIdx}`);
             if (el) {
@@ -697,13 +714,27 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
   // Jump to specific measure from SectionRail
   const handleJumpToMeasure = useCallback((mIdx: number) => {
-    setSelectedCoord([mIdx, 0]);
-    const note = song.measures[mIdx]?.notes[0];
+    const m = song.measures[mIdx];
+    let targetNoteIdx = 0;
+    if (m && m.notes.length > 0) {
+      const firstPitchedIdx = m.notes.findIndex(
+        n => !isNonNotationItem(n) && (typeof n.pitch === 'number' && n.pitch > 0 || Boolean(n.lyric.hanji && !isPunctuationOrSpacer(n.lyric.hanji)))
+      );
+      targetNoteIdx = firstPitchedIdx !== -1 ? firstPitchedIdx : 0;
+    }
+
+    setSelectedCoord([mIdx, targetNoteIdx]);
+    const note = song.measures[mIdx]?.notes[targetNoteIdx] || song.measures[mIdx]?.notes[0];
     if (note) {
       audioEngine.previewNote(song.key, note);
     }
     if (editMode === 'verse') {
-      const vIdx = verses.findIndex(v => v.notes.some(n => n.measureIndex === mIdx));
+      let vIdx = verses.findIndex(v =>
+        v.notes.some(n => n.measureIndex === mIdx && n.noteIndex === targetNoteIdx)
+      );
+      if (vIdx === -1) {
+        vIdx = verses.findIndex(v => v.notes.some(n => n.measureIndex === mIdx));
+      }
       if (vIdx !== -1) {
         const el = document.getElementById(`verse-card-${vIdx}`);
         if (el) {

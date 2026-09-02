@@ -145,10 +145,6 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
                       e.stopPropagation();
                       onJumpToSection(sec);
                     }}
-                    onTouchStart={(e) => {
-                      e.stopPropagation();
-                      onJumpToSection(sec);
-                    }}
                     className="group/mark relative flex flex-col items-center justify-center p-2 focus:outline-hidden cursor-pointer touch-manipulation transition-transform active:scale-90"
                     title={`段落標記: ${sec.name} (${formatTime(sec.startTimeSec)} · #${sec.startMeasureNumber}小節) - 點擊立即跳轉`}
                   >

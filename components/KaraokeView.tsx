@@ -156,26 +156,11 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   const songSections = useMemo<KaraokeSection[]>(() => {
     if (!song.measures || song.measures.length === 0) return [];
 
-    const effectiveBpm = song.bpm * tempoMultiplier;
-    const secPerBeat = 60 / effectiveBpm;
-
-    // 1. Calculate measure start times
-    const measureStartTimes: number[] = [];
-    let runningTime = 0;
-
-    for (let i = 0; i < song.measures.length; i++) {
-      measureStartTimes.push(runningTime);
-      let measureBeats = 0;
-      for (const note of song.measures[i].notes) {
-        if (note.pitch !== 'empty' && note.pitch !== 0 && !note.annotation) {
-          measureBeats += note.duration;
-        } else if (note.pitch === 0 || (typeof note.pitch === 'number' && note.pitch > 0)) {
-          measureBeats += note.duration;
-        }
-      }
-      runningTime += measureBeats * secPerBeat;
-    }
-    const totalDuration = runningTime || audioEngine.calculateSongDuration(song) || 1;
+    // 1. Calculate measure start times using audioEngine to guarantee 100% precision with playback engine
+    const measureStartTimes: number[] = song.measures.map((_, i) =>
+      audioEngine.getMeasureStartTime(song, i)
+    );
+    const totalDuration = audioEngine.calculateSongDuration(song) || 1;
 
     // 2. Detect section boundaries from measure.section properties
     const sectionStartIndices: { index: number; name: string }[] = [];
@@ -264,6 +249,19 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     );
   }, [songSections, playbackState.currentMeasureIndex]);
 
+  // Auto-scroll section card into view in carousel when active section changes
+  useEffect(() => {
+    if (playbackState.isPlaying && sectionScrollRef.current && activeSection) {
+      const sIdx = songSections.findIndex(s => s.id === activeSection.id);
+      if (sIdx !== -1) {
+        const secEl = sectionScrollRef.current.querySelector(`#ktv-section-jump-btn-${sIdx}`);
+        if (secEl) {
+          secEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+      }
+    }
+  }, [activeSection?.id, playbackState.isPlaying, songSections]);
+
   // Group song measures into Lyric lines
   const lyricLines = useMemo(() => {
     const lines: {
@@ -320,7 +318,17 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       }
     }
-  }, [audioEngine, song, onSelectMeasure]);
+    // Scroll section jump bar carousel to active section
+    if (sectionScrollRef.current) {
+      const sIdx = songSections.findIndex(s => s.id === section.id);
+      if (sIdx !== -1) {
+        const secEl = sectionScrollRef.current.querySelector(`#ktv-section-jump-btn-${sIdx}`);
+        if (secEl) {
+          secEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+      }
+    }
+  }, [audioEngine, song, onSelectMeasure, songSections]);
 
   // Skip to previous or next section
   const handleJumpPrevSection = () => {

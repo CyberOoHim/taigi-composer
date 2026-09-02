@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { LyricDisplayMode, VerseItem, VerseNoteRef } from '@/types/song';
+import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
 import { NoteCell } from './NoteCell';
 import { Play, Square, Plus, MessageSquareQuote } from 'lucide-react';
 
@@ -56,7 +57,15 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
           <div
             key={`verse-card-${verse.id}-${vIdx}`}
             id={`verse-card-${vIdx}`}
-            className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs ${
+            onClick={() => {
+              const firstContentNote = verse.notes.find(
+                n => !isNonNotationItem(n.note) && (typeof n.note.pitch === 'number' && n.note.pitch > 0 || Boolean(n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji)))
+              ) || verse.notes[0];
+              if (firstContentNote) {
+                onSelectNote(firstContentNote.measureIndex, firstContentNote.noteIndex);
+              }
+            }}
+            className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs cursor-pointer ${
               isPlayingThisVerse
                 ? 'border-amber-500 ring-2 ring-amber-400 bg-amber-50/60 dark:bg-amber-950/40 shadow-md'
                 : hasSelectedNoteInVerse

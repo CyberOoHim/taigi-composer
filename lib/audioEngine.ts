@@ -774,7 +774,11 @@ export class AudioEngine {
     const tick = (timestamp: number) => {
       if (!this.isPlaying || !this.ctx) return;
 
-      const currentSongTime = this.ctx.currentTime - this.startAudioTime;
+      const rawSongTime = this.ctx.currentTime - this.startAudioTime;
+      // Before startAudioTime (e.g. during the 80ms lookahead audio lead-in), cursor sits at the intended start time
+      const currentSongTime = this.ctx.currentTime < this.startAudioTime
+        ? Math.max(0, this.pausedSongTime || 0)
+        : Math.max(0, rawSongTime);
 
       if (currentSongTime >= totalDuration) {
         this.stop();
@@ -782,10 +786,10 @@ export class AudioEngine {
         return;
       }
 
-      // Find current active note in timeline
+      // Find current active note in timeline with 1ms float tolerance
       let activeIdx = 0;
       for (let i = 0; i < timelineEvents.length; i++) {
-        if (timelineEvents[i].time <= currentSongTime) {
+        if (timelineEvents[i].time <= currentSongTime + 0.001) {
           activeIdx = i;
         } else {
           break;
@@ -928,18 +932,22 @@ export class AudioEngine {
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
     const secPerBeat = 60 / effectiveBpm;
     let accumulatedTime = 0;
+    const EPSILON = 0.001; // 1ms tolerance to avoid float boundary overshoots
 
     for (let mIdx = 0; mIdx < song.measures.length; mIdx++) {
       const measure = song.measures[mIdx];
+      const isLastMeasure = mIdx === song.measures.length - 1;
+
       for (let nIdx = 0; nIdx < measure.notes.length; nIdx++) {
         const note = measure.notes[nIdx];
         const isNonNotation = isNonNotationItem(note);
         const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
+        const isLastNote = isLastMeasure && nIdx === measure.notes.length - 1;
 
-        // If targetTime falls within this note or at the end of the song
+        // If targetTime falls within this note's window or at the end of the song
         if (
-          accumulatedTime + noteDurationSec > targetTimeSec ||
-          (mIdx === song.measures.length - 1 && nIdx === measure.notes.length - 1)
+          isLastNote ||
+          (noteDurationSec > 0 && targetTimeSec < accumulatedTime + noteDurationSec - EPSILON)
         ) {
           return {
             measureIndex: mIdx,
@@ -947,6 +955,7 @@ export class AudioEngine {
             noteId: note.id,
           };
         }
+
         accumulatedTime += noteDurationSec;
       }
     }
