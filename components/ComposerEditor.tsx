@@ -26,6 +26,7 @@ import {
   getRestDurationsForDeficit,
   getNoteBeatDuration,
   getMeasureChords,
+  isVerseBreakNote,
 } from '@/lib/taigiUtils';
 import { scrollToCardElement } from '@/lib/utils';
 import {
@@ -663,35 +664,91 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     const text = (measureBatchTexts[mIdx] || '').trim();
     if (!text) return;
 
-    const syllables = splitTaigiLyricSyllables(text);
-    if (syllables.length === 0) return;
+    const tokens = splitVerseTextTokens(text);
+    if (tokens.length === 0) return;
 
+    let appendedCount = 0;
     const newMeasures = song.measures.map((m, idx) => {
       if (idx !== mIdx) return m;
-      const newNotes = m.notes.map((note, nIdx) => {
-        const syl = syllables[nIdx];
-        if (!syl) return note;
 
-        const isHan = /[\u4e00-\u9fa5]/.test(syl);
-        const isPunct = isPunctuationOrSpacer(syl) || syl === '\n' || syl === '↵';
-        return {
-          ...note,
-          pitch: isPunct ? 'empty' : note.pitch,
-          duration: isPunct ? 0 : note.duration,
-          lyric: {
-            ...note.lyric,
-            hanji: isHan || isPunct ? syl : note.lyric.hanji || '',
-            poj: !isHan && !isPunct ? syl : note.lyric.poj || '',
-            pij: !isHan && !isPunct ? syl : note.lyric.pij || '',
-            custom: syl,
-          },
+      const newNotes: JianpuNote[] = [];
+      let tokenIdx = 0;
+
+      for (let nIdx = 0; nIdx < m.notes.length; nIdx++) {
+        const note = { ...m.notes[nIdx], lyric: { ...m.notes[nIdx].lyric } };
+        if (tokenIdx >= tokens.length) {
+          newNotes.push(note);
+          continue;
+        }
+
+        const tok = tokens[tokenIdx];
+        const tokStr = tok.text;
+        const isPunct = tok.isPunct || isPunctuationOrSpacer(tokStr) || tokStr === '\n' || tokStr === '↵';
+        const isTargetNonNotation = isNonNotationItem(note);
+
+        // If target note on score is already a non-notation delimiter/spacer and incoming token is a sung syllable,
+        // skip it so the syllable aligns to a pitched note
+        if (isTargetNonNotation && !isPunct) {
+          newNotes.push(note);
+          continue;
+        }
+
+        const isHan = /[\u4e00-\u9fa5]/.test(tokStr);
+        note.pitch = isPunct ? 'empty' : note.pitch;
+        note.duration = isPunct ? (0 as NoteDuration) : note.duration;
+        note.lyric = {
+          ...note.lyric,
+          hanji: isHan || isPunct ? tokStr : note.lyric.hanji || '',
+          poj: !isHan && !isPunct ? tokStr : note.lyric.poj || '',
+          pij: !isHan && !isPunct ? tokStr : note.lyric.pij || '',
+          custom: tokStr,
         };
-      });
+        newNotes.push(note);
+        tokenIdx++;
+      }
+
+      // If input is longer than existing notes in measure, append empty notes
+      if (tokenIdx < tokens.length) {
+        // Find if measure ends with trailing verse break note(s) (e.g. ↵)
+        let insertIdx = newNotes.length;
+        while (insertIdx > 0 && isVerseBreakNote(newNotes[insertIdx - 1])) {
+          insertIdx--;
+        }
+
+        const extraNotes: JianpuNote[] = [];
+        while (tokenIdx < tokens.length) {
+          const tok = tokens[tokenIdx];
+          const tokStr = tok.text;
+          const isPunct = tok.isPunct || isPunctuationOrSpacer(tokStr) || tokStr === '\n' || tokStr === '↵';
+          const isHan = /[\u4e00-\u9fa5]/.test(tokStr);
+
+          extraNotes.push({
+            id: generateId('n'),
+            pitch: 'empty',
+            duration: 0 as NoteDuration,
+            octave: 0,
+            lyric: {
+              hanji: isHan || isPunct ? tokStr : '',
+              poj: !isHan && !isPunct ? tokStr : '',
+              pij: !isHan && !isPunct ? tokStr : '',
+              custom: tokStr,
+            },
+          });
+          tokenIdx++;
+        }
+        appendedCount = extraNotes.length;
+        newNotes.splice(insertIdx, 0, ...extraNotes);
+      }
+
       return { ...m, notes: newNotes };
     });
 
     onUpdateSong(normalizeSongDurations({ ...song, measures: newMeasures }));
-    showNotice(`Distributed "${text}" across notes in Measure ${mIdx + 1}!`);
+    if (appendedCount > 0) {
+      showNotice(`Distributed "${text}" across Measure ${mIdx + 1} (appended ${appendedCount} empty note${appendedCount > 1 ? 's' : ''})!`);
+    } else {
+      showNotice(`Distributed "${text}" across notes in Measure ${mIdx + 1}!`);
+    }
     setMeasureBatchTexts(prev => ({ ...prev, [mIdx]: '' }));
   };
 
@@ -741,8 +798,79 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       tokenIdx++;
     });
 
+    let appendedCount = 0;
+    // If input is longer than existing notes in verse, append empty notes instead of truncating
+    if (tokenIdx < tokens.length) {
+      let targetMeasureIdx = 0;
+      let targetInsertIdx = 0;
+
+      if (verse.notes.length === 0) {
+        if (newMeasures.length === 0) {
+          newMeasures.push({
+            id: generateId('m'),
+            measureNumber: 1,
+            notes: [],
+          });
+        }
+        targetMeasureIdx = newMeasures.length - 1;
+        targetInsertIdx = newMeasures[targetMeasureIdx].notes.length;
+      } else {
+        // Find the first trailing verse break note in verse.notes, if any
+        let firstTrailingBreakIdx = verse.notes.length;
+        while (
+          firstTrailingBreakIdx > 0 &&
+          isVerseBreakNote(verse.notes[firstTrailingBreakIdx - 1].note)
+        ) {
+          firstTrailingBreakIdx--;
+        }
+
+        if (firstTrailingBreakIdx < verse.notes.length) {
+          // Insert right BEFORE the first trailing verse break note
+          const breakRef = verse.notes[firstTrailingBreakIdx];
+          targetMeasureIdx = breakRef.measureIndex;
+          const foundIdx = newMeasures[targetMeasureIdx].notes.findIndex(n => n.id === breakRef.note.id);
+          targetInsertIdx = foundIdx !== -1 ? foundIdx : breakRef.noteIndex;
+        } else {
+          // No trailing verse break note; insert right after the last note of this verse
+          const lastRef = verse.notes[verse.notes.length - 1];
+          targetMeasureIdx = lastRef.measureIndex;
+          const foundIdx = newMeasures[targetMeasureIdx].notes.findIndex(n => n.id === lastRef.note.id);
+          targetInsertIdx = (foundIdx !== -1 ? foundIdx : lastRef.noteIndex) + 1;
+        }
+      }
+
+      const extraNotes: JianpuNote[] = [];
+      while (tokenIdx < tokens.length) {
+        const tok = tokens[tokenIdx];
+        const tokStr = tok.text;
+        const isPunct = tok.isPunct || isPunctuationOrSpacer(tokStr) || tokStr === '\n' || tokStr === '↵';
+        const isHan = /[\u4e00-\u9fa5]/.test(tokStr);
+
+        extraNotes.push({
+          id: generateId('n'),
+          pitch: 'empty',
+          duration: 0 as NoteDuration,
+          octave: 0,
+          lyric: {
+            hanji: isHan || isPunct ? tokStr : '',
+            poj: !isHan && !isPunct ? tokStr : '',
+            pij: !isHan && !isPunct ? tokStr : '',
+            custom: tokStr,
+          },
+        });
+        tokenIdx++;
+      }
+
+      appendedCount = extraNotes.length;
+      newMeasures[targetMeasureIdx].notes.splice(targetInsertIdx, 0, ...extraNotes);
+    }
+
     onUpdateSong(normalizeSongDurations({ ...song, measures: newMeasures }));
-    showNotice(`Distributed "${text}" across notes in Verse ${vIdx + 1}!`);
+    if (appendedCount > 0) {
+      showNotice(`Distributed "${text}" across Verse ${vIdx + 1} (appended ${appendedCount} empty note${appendedCount > 1 ? 's' : ''})!`);
+    } else {
+      showNotice(`Distributed "${text}" across notes in Verse ${vIdx + 1}!`);
+    }
     if (overrideText === undefined) {
       setVerseBatchTexts(prev => ({ ...prev, [vIdx]: '' }));
     }
@@ -754,8 +882,22 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       handleAddMeasure();
       return;
     }
-    const lastNoteRef = verse.notes[verse.notes.length - 1];
-    handleInsertNoteAt(lastNoteRef.measureIndex, lastNoteRef.noteIndex);
+    // If verse ends with verse break note(s), insert before the first trailing break note
+    let firstTrailingBreakIdx = verse.notes.length;
+    while (
+      firstTrailingBreakIdx > 0 &&
+      isVerseBreakNote(verse.notes[firstTrailingBreakIdx - 1].note)
+    ) {
+      firstTrailingBreakIdx--;
+    }
+
+    if (firstTrailingBreakIdx < verse.notes.length) {
+      const breakRef = verse.notes[firstTrailingBreakIdx];
+      handleInsertNoteAt(breakRef.measureIndex, breakRef.noteIndex - 1);
+    } else {
+      const lastNoteRef = verse.notes[verse.notes.length - 1];
+      handleInsertNoteAt(lastNoteRef.measureIndex, lastNoteRef.noteIndex);
+    }
   };
 
   // Note management: Insert Note after specific note
