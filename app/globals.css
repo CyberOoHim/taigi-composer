@@ -58,3 +58,13 @@ html, body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Hide scrollbar for clean touch-scrollable toolbars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

@@ -70,8 +70,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 shadow-xs transition-colors select-none">
-      <div className="w-full max-w-7xl mx-auto px-2 sm:px-3 lg:px-6 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-2">
+    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 shadow-xs transition-colors select-none pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
+      <div className="w-full max-w-7xl mx-auto px-2 sm:px-3 lg:px-6 h-14 sm:h-16 flex items-center justify-between gap-1 sm:gap-2">
         {/* Logo & App Brand */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <div className="flex items-center justify-center w-8 sm:w-9 h-8 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-zinc-950 font-black shadow-md shadow-amber-500/20 ring-1 ring-amber-400/40 shrink-0">
@@ -81,7 +81,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <h1 className="text-xs sm:text-sm font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 whitespace-nowrap">
               <span className="hidden xl:inline">台語簡譜創作與卡拉OK</span>
               <span className="xl:hidden">台語簡譜</span>
-              <span className="hidden md:inline text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 font-mono font-bold border border-amber-300/50 dark:border-amber-700/50">
+              <span className="hidden 2xl:inline text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 font-mono font-bold border border-amber-300/50 dark:border-amber-700/50">
                 Taigi Studio
               </span>
             </h1>
@@ -97,7 +97,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             id="tab-btn-karaoke"
             type="button"
             onClick={() => setActiveTab('karaoke')}
-            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[32px] sm:min-h-[34px] whitespace-nowrap shrink-0 ${
+            className={`flex items-center gap-1 px-1.5 sm:px-2 md:px-2.5 py-1 sm:py-1.5 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[32px] sm:min-h-[34px] whitespace-nowrap shrink-0 ${
               activeTab === 'karaoke'
                 ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
@@ -112,7 +112,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             id="tab-btn-editor"
             type="button"
             onClick={() => setActiveTab('editor')}
-            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[32px] sm:min-h-[34px] whitespace-nowrap shrink-0 ${
+            className={`flex items-center gap-1 px-1.5 sm:px-2 md:px-2.5 py-1 sm:py-1.5 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[32px] sm:min-h-[34px] whitespace-nowrap shrink-0 ${
               activeTab === 'editor'
                 ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
@@ -128,7 +128,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             id="tab-btn-split"
             type="button"
             onClick={() => setActiveTab('split')}
-            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[32px] sm:min-h-[34px] whitespace-nowrap shrink-0 ${
+            className={`flex items-center gap-1 px-1.5 sm:px-2 md:px-2.5 py-1 sm:py-1.5 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[32px] sm:min-h-[34px] whitespace-nowrap shrink-0 ${
               activeTab === 'split'
                 ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
@@ -141,7 +141,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </div>
 
         {/* Right Action Tools: Preset Song Selector, Undo/Redo, Quick Play, Import/Export */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink min-w-0 overflow-x-auto no-scrollbar py-0.5">
           {/* Preset Song Quick Picker */}
           <select
             id="header-preset-song-select"
@@ -218,12 +218,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             {isPlaying ? (
               <>
                 <Pause className="w-3.5 h-3.5 fill-current shrink-0" />
-                <span className="hidden md:inline whitespace-nowrap">暫停</span>
+                <span className="hidden xl:inline whitespace-nowrap">暫停</span>
               </>
             ) : (
               <>
                 <Play className="w-3.5 h-3.5 fill-current ml-0.5 shrink-0" />
-                <span className="hidden md:inline whitespace-nowrap">播放</span>
+                <span className="hidden xl:inline whitespace-nowrap">播放</span>
               </>
             )}
           </button>
@@ -272,8 +272,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               title="AI 圖片識譜 (多頁樂譜與歌詞轉錄)"
             >
               <ScanLine className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-              <span className="hidden xl:inline 2xl:hidden whitespace-nowrap">AI 識譜</span>
-              <span className="hidden 2xl:inline whitespace-nowrap">AI 圖片識譜</span>
+              <span className="hidden 2xl:inline whitespace-nowrap">AI 識譜</span>
             </button>
           )}
 
@@ -286,8 +285,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             title="曲庫與匯入匯出"
           >
             <Library className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            <span className="hidden 2xl:inline whitespace-nowrap">曲庫/匯入匯出</span>
-            <span className="hidden xl:inline 2xl:hidden whitespace-nowrap">曲庫</span>
+            <span className="hidden 2xl:inline whitespace-nowrap">曲庫</span>
           </button>
 
           {/* Gemini AI Passcode Auth Modal Trigger */}
