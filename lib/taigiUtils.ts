@@ -1,4 +1,4 @@
-import { JianpuNote, KeySignature, PitchNumber, Song, VerseItem, VerseNoteRef } from '@/types/song';
+import { JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, VerseItem, VerseNoteRef } from '@/types/song';
 
 // Semitones relative to C4 (MIDI note 60)
 export const KEY_SEMITONES: Record<KeySignature, number> = {
@@ -157,6 +157,7 @@ export const PUNCTUATION_MARKS = [
   { label: '」', char: '」', desc: '後引號 (Right Quote)' },
   { label: 'V', char: 'V', desc: '換氣記號 (Breath Mark)' },
   { label: ' ', char: ' ', desc: '空白留白 (Space)' },
+  { label: '↵ 換行', char: '\n', desc: '換行標記 (Line Break)' },
 ];
 
 // Musical & Vocal Performance Annotations (註解 / 演奏與演唱標記)
@@ -275,6 +276,8 @@ export function formatDurationName(duration: number): string {
       return '16th Note (1/4)';
     case 0.125:
       return '32nd Note (1/8)';
+    case 0:
+      return '0 beats (不占拍)';
     default:
       return `${duration} beats`;
   }
@@ -291,6 +294,15 @@ export interface DurationChineseInfo {
 
 export function getDurationChineseInfo(duration: number): DurationChineseInfo {
   switch (duration) {
+    case 0:
+      return {
+        name: '不占拍 (0 拍)',
+        fractionLabel: '0 拍 (留白/標點/換行)',
+        beatsLabel: '0 拍',
+        jianpuSymbol: '—',
+        description: '無時間長度：純文字留白、標點符號或換行標記，不消耗小節拍數',
+        isDotted: false,
+      };
     case 1.5:
       return {
         name: '附點四分音符',
@@ -394,24 +406,27 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
 }
 
 /**
- * Check if a note is punctuation (標點), an annotation (註解), or whitespace/blank spacer (空白).
- * Punctuation, annotations, and whitespace are NOT treated as musical notation
+ * Check if a note is punctuation (標點), an annotation (註解), a newline (換行), or whitespace/blank spacer (空白).
+ * Punctuation, annotations, newlines, and whitespace are NOT treated as musical notation
  * and do NOT occupy any time duration when playing (0 duration).
  */
 export function isNonNotationItem(note: JianpuNote | null | undefined): boolean {
   if (!note) return false;
 
-  // 1. Explicit 'empty' pitch (blank notation / spacer for punctuation/annotation)
+  // 1. Explicit 0 or negative duration
+  if (typeof note.duration === 'number' && note.duration <= 0) return true;
+
+  // 2. Explicit 'empty' pitch (blank notation / spacer for punctuation/annotation/newline)
   if (note.pitch === 'empty') return true;
 
   const isMusicalPitch = typeof note.pitch === 'number' && note.pitch > 0;
 
-  // 2. Note has an annotation and has no active musical pitch (1-7)
+  // 3. Note has an annotation and has no active musical pitch (1-7)
   if (note.annotation && !isMusicalPitch) {
     return true;
   }
 
-  // 3. Note contains punctuation in lyrics and does not have a pitched melody note (1-7)
+  // 4. Note contains punctuation or newline in lyrics and does not have a pitched melody note (1-7)
   const hanji = note.lyric?.hanji?.trim() || '';
   const custom = note.lyric?.custom?.trim() || '';
   const poj = note.lyric?.poj?.trim() || '';
@@ -436,13 +451,23 @@ export function isNonNotationItem(note: JianpuNote | null | undefined): boolean 
 }
 
 /**
- * Check if a character or string is a punctuation mark or spacer
+ * Check if a character or string is a punctuation mark, newline, or spacer
  */
 export function isPunctuationOrSpacer(str?: string): boolean {
   if (!str) return false;
   const trimmed = str.trim();
-  if (trimmed === '' || trimmed === '—' || trimmed === '…' || trimmed === 'V') return true;
-  return /^[，。！？、；：""''（）()「」,.!?;:\s—…]+$/.test(trimmed);
+  if (
+    trimmed === '' ||
+    trimmed === '—' ||
+    trimmed === '…' ||
+    trimmed === 'V' ||
+    trimmed === '↵' ||
+    trimmed === '\n' ||
+    trimmed === '\r'
+  ) {
+    return true;
+  }
+  return /^[，。！？、；：""''（）()「」,.!?;:\s—…\n\r↵]+$/.test(trimmed);
 }
 
 /**
@@ -457,7 +482,7 @@ export function isVerseBreakNote(note: JianpuNote): boolean {
   const poj = note.lyric?.poj?.trim() || '';
   const pij = note.lyric?.pij?.trim() || '';
 
-  const delimPattern = /[，。！？、；：\n—…]/;
+  const delimPattern = /[，。！？、；：\n\r↵—…]/;
   if (
     delimPattern.test(hanji) ||
     delimPattern.test(custom) ||
@@ -662,4 +687,321 @@ export function splitVerseTextTokens(text: string): { text: string; isPunct: boo
 
   flushLatin();
   return tokens;
+}
+
+/**
+ * Get effective beat duration of a note without double scaling.
+ * Returns 0 for non-notation items (punctuation, annotations, blank spaces, newlines).
+ */
+export function getNoteBeatDuration(note: JianpuNote | null | undefined): number {
+  if (!note || isNonNotationItem(note) || note.pitch === 'empty') return 0;
+  const dur = typeof note.duration === 'number' ? note.duration : 1;
+  if (dur <= 0) return 0;
+  // If duration is already a dotted value (1.5, 0.75, 3, 0.375, 1.75), do not scale again
+  if (note.isDotted && (dur === 1 || dur === 0.5 || dur === 2 || dur === 0.25 || dur === 4)) {
+    return Math.round(dur * 1.5 * 1000) / 1000;
+  }
+  return dur;
+}
+
+/**
+ * Normalizes a note so that non-notation items (punctuation, annotations, newlines, empty pitches)
+ * strictly have duration: 0 and pitch: 'empty', with no unnecessary time duration activated.
+ */
+export function normalizeNoteDuration(note: JianpuNote): JianpuNote {
+  if (
+    isNonNotationItem(note) ||
+    note.pitch === 'empty' ||
+    (typeof note.duration === 'number' && note.duration <= 0)
+  ) {
+    return {
+      ...note,
+      pitch: 'empty',
+      duration: 0 as NoteDuration,
+      isDotted: false,
+      isTied: false,
+      accidental: '',
+      octave: 0,
+    };
+  }
+  return note;
+}
+
+/**
+ * Normalizes all notes across all measures of a song to ensure zero-duration rules are strictly enforced.
+ */
+export function normalizeSongDurations(song: Song): Song {
+  return {
+    ...song,
+    measures: song.measures.map(m => ({
+      ...m,
+      notes: m.notes.map(normalizeNoteDuration),
+    })),
+  };
+}
+
+/**
+ * Calculate the total beats currently inside a measure's notes
+ */
+export function calculateMeasureBeats(notes: JianpuNote[]): number {
+  if (!notes || notes.length === 0) return 0;
+  const total = notes.reduce((sum, n) => sum + getNoteBeatDuration(n), 0);
+  return Math.round(total * 1000) / 1000;
+}
+
+/**
+ * Calculate expected beats per measure according to the time signature (e.g. 4/4 -> 4, 3/4 -> 3, 6/8 -> 3, 2/4 -> 2)
+ */
+export function getExpectedMeasureBeats(timeSignature: string): number {
+  if (!timeSignature) return 4;
+  const parts = timeSignature.split('/');
+  const num = parseInt(parts[0], 10) || 4;
+  const den = parseInt(parts[1], 10) || 4;
+  return Math.round(num * (4 / den) * 1000) / 1000;
+}
+
+export interface MeasureRhythmReport {
+  currentBeats: number;
+  expectedBeats: number;
+  beatDiff: number; // positive = over-beat, negative = under-beat
+  absDiff: number;
+  isFull: boolean;
+  isUnder: boolean;
+  isOver: boolean;
+  percentage: number; // 0 to 100+
+}
+
+/**
+ * Comprehensive rhythm health check for a measure
+ */
+export function getMeasureRhythmReport(measure: Measure, fallbackTimeSignature = '4/4'): MeasureRhythmReport {
+  const currentBeats = calculateMeasureBeats(measure?.notes || []);
+  const timeSig = measure?.timeSignature || fallbackTimeSignature;
+  const expectedBeats = getExpectedMeasureBeats(timeSig);
+  const rawDiff = currentBeats - expectedBeats;
+  const beatDiff = Math.round(rawDiff * 1000) / 1000;
+  const absDiff = Math.abs(beatDiff);
+  const isFull = absDiff < 0.001;
+  const isUnder = beatDiff < -0.001;
+  const isOver = beatDiff > 0.001;
+  const percentage = expectedBeats > 0 ? Math.min(200, Math.round((currentBeats / expectedBeats) * 100)) : 100;
+
+  return {
+    currentBeats,
+    expectedBeats,
+    beatDiff,
+    absDiff,
+    isFull,
+    isUnder,
+    isOver,
+    percentage,
+  };
+}
+
+/**
+ * Decompose a deficit in beats into a clean set of standard rest note durations
+ * E.g. 1 -> [1], 0.5 -> [0.5], 1.5 -> [1, 0.5] or [1.5], 2 -> [2], 3 -> [2, 1] or [3]
+ */
+export function getRestDurationsForDeficit(deficit: number): NoteDuration[] {
+  let remaining = Math.round(Math.abs(deficit) * 1000) / 1000;
+  if (remaining <= 0) return [];
+
+  // Match exact single rest values first
+  const exactSupported: NoteDuration[] = [4, 3, 2, 1.5, 1, 0.75, 0.5, 0.375, 0.25, 0.125];
+  if (exactSupported.includes(remaining)) {
+    return [remaining];
+  }
+
+  const results: NoteDuration[] = [];
+  const standardBeats = [4, 2, 1, 0.5, 0.25, 0.125];
+
+  while (remaining >= 0.12) {
+    let chosen: number | null = null;
+    for (const b of standardBeats) {
+      if (remaining >= b - 0.001) {
+        chosen = b;
+        break;
+      }
+    }
+    if (chosen !== null) {
+      results.push(chosen);
+      remaining = Math.round((remaining - chosen) * 1000) / 1000;
+    } else {
+      break;
+    }
+  }
+
+  return results.length > 0 ? results : [1];
+}
+
+export interface TaigiToneInfo {
+  toneNumber: number;
+  superscript: string; // e.g. '¹', '²', '³', '⁴', '⁵', '⁷', '⁸', '⁹'
+  contour: string;     // e.g. '55', '51', '21', '32', '24', '33', '4', '55'
+  symbol: string;      // e.g. '˥', '˥˩', '˨˩', '˨', '˨˦', '˧', '˦', '˥'
+  name: string;        // e.g. '陰平', '陰上', '陰去', '陰入', '陽平', '陽去', '陽入'
+}
+
+/**
+ * Extract Taiwanese Hokkien tone number and contour for learning aids.
+ * Supports Pe̍h-ōe-jī (POJ), Tâi-lô (PIJ), and numeric tone notations.
+ */
+export function extractTaigiTone(syllable: string): TaigiToneInfo | null {
+  if (!syllable || !syllable.trim()) return null;
+  const s = syllable.trim();
+
+  // If purely punctuation or CJK characters, return null
+  if (/^[\p{P}\p{S}\s]+$/u.test(s) || /^[\u4e00-\u9fa5]+$/u.test(s)) return null;
+
+  // 1. Check explicit digit tone (1-9) inside or at end of syllable
+  const digitMatch = s.match(/([1-9])/);
+  if (digitMatch) {
+    const num = parseInt(digitMatch[1], 10);
+    return getToneInfoByNumber(num);
+  }
+
+  // 2. Decompose unicode (NFD) to check combining diacritics
+  const nfd = s.normalize('NFD');
+
+  // Tone 8: vertical line \u030D, or explicit ̍ or vertical dot / bar
+  if (nfd.includes('\u030D') || nfd.includes('\u0308') || /\|/.test(s) || /[a-z]+̍/i.test(s)) {
+    return getToneInfoByNumber(8);
+  }
+  // Tone 9: double acute \u030B
+  if (nfd.includes('\u030B')) {
+    return getToneInfoByNumber(9);
+  }
+  // Tone 2: acute \u0301 (á, é, í, ó, ú, ḿ, ńg)
+  if (nfd.includes('\u0301')) {
+    return getToneInfoByNumber(2);
+  }
+  // Tone 3: grave \u0300 (à, è, ì, ò, ù)
+  if (nfd.includes('\u0300')) {
+    return getToneInfoByNumber(3);
+  }
+  // Tone 5: circumflex \u0302 (â, ê, î, ô, û)
+  if (nfd.includes('\u0302')) {
+    return getToneInfoByNumber(5);
+  }
+  // Tone 7: macron \u0304 (ā, ē, ī, ō, ū, m̄, n̄g)
+  if (nfd.includes('\u0304')) {
+    return getToneInfoByNumber(7);
+  }
+
+  // 3. No diacritic: check coda (ends with p, t, k, h)
+  const cleanAlpha = s.replace(/[^a-zA-Z]/g, '').toLowerCase();
+  if (/[ptkh]$/.test(cleanAlpha)) {
+    return getToneInfoByNumber(4);
+  }
+
+  // If contains English letters, default unchecked tone is Tone 1 (陰平)
+  if (/[a-zA-Z]/.test(s)) {
+    return getToneInfoByNumber(1);
+  }
+
+  return null;
+}
+
+function getToneInfoByNumber(num: number): TaigiToneInfo {
+  switch (num) {
+    case 1:
+      return { toneNumber: 1, superscript: '¹', contour: '55', symbol: '˥', name: '陰平' };
+    case 2:
+      return { toneNumber: 2, superscript: '²', contour: '51', symbol: '˥˩', name: '陰上' };
+    case 3:
+      return { toneNumber: 3, superscript: '³', contour: '21', symbol: '˨˩', name: '陰去' };
+    case 4:
+      return { toneNumber: 4, superscript: '⁴', contour: '32', symbol: '˨', name: '陰入' };
+    case 5:
+      return { toneNumber: 5, superscript: '⁵', contour: '24', symbol: '˨˦', name: '陽平' };
+    case 6:
+      return { toneNumber: 6, superscript: '⁶', contour: '22', symbol: '˨', name: '陽上' };
+    case 7:
+      return { toneNumber: 7, superscript: '⁷', contour: '33', symbol: '˧', name: '陽去' };
+    case 8:
+      return { toneNumber: 8, superscript: '⁸', contour: '4', symbol: '˦', name: '陽入' };
+    case 9:
+      return { toneNumber: 9, superscript: '⁹', contour: '55', symbol: '˥', name: '高平' };
+    default:
+      return { toneNumber: num, superscript: `${num}`, contour: '', symbol: '', name: `聲調${num}` };
+  }
+}
+
+export interface DiatonicChordOption {
+  chord: string;
+  degree: string;
+  label: string;
+  colorClass: string;
+}
+
+/**
+ * Generate diatonic chords for any key signature (I, ii, iii, IV, V, vi, vii°, V7)
+ */
+export function getDiatonicChords(key: KeySignature): DiatonicChordOption[] {
+  const flatKeys: KeySignature[] = ['F', 'Bb', 'Eb', 'Ab', 'Db'];
+  const preferFlats = flatKeys.includes(key);
+
+  const getRootName = (semitone: number): string => {
+    const mod = ((semitone % 12) + 12) % 12;
+    if (preferFlats) {
+      const flatMap: Record<number, string> = {
+        0: 'C', 1: 'Db', 2: 'D', 3: 'Eb', 4: 'E', 5: 'F',
+        6: 'Gb', 7: 'G', 8: 'Ab', 9: 'A', 10: 'Bb', 11: 'B'
+      };
+      return flatMap[mod];
+    } else {
+      const sharpMap: Record<number, string> = {
+        0: 'C', 1: 'C#', 2: 'D', 3: 'D#', 4: 'E', 5: 'F',
+        6: 'F#', 7: 'G', 8: 'G#', 9: 'A', 10: 'A#', 11: 'B'
+      };
+      return sharpMap[mod];
+    }
+  };
+
+  const base = KEY_SEMITONES[key] ?? 0;
+
+  return [
+    {
+      chord: getRootName(base),
+      degree: 'I',
+      label: '主和弦 (Tonic)',
+      colorClass: 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700',
+    },
+    {
+      chord: `${getRootName(base + 2)}m`,
+      degree: 'ii',
+      label: '二級小 (Supertonic)',
+      colorClass: 'bg-blue-100 hover:bg-blue-200 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-900 dark:text-blue-300 border-blue-300 dark:border-blue-700',
+    },
+    {
+      chord: `${getRootName(base + 4)}m`,
+      degree: 'iii',
+      label: '三級小 (Mediant)',
+      colorClass: 'bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-900 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700',
+    },
+    {
+      chord: getRootName(base + 5),
+      degree: 'IV',
+      label: '下屬和弦 (Subdominant)',
+      colorClass: 'bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700',
+    },
+    {
+      chord: getRootName(base + 7),
+      degree: 'V',
+      label: '屬和弦 (Dominant)',
+      colorClass: 'bg-orange-100 hover:bg-orange-200 dark:bg-orange-950/60 dark:hover:bg-orange-900/60 text-orange-900 dark:text-orange-300 border-orange-300 dark:border-orange-700',
+    },
+    {
+      chord: `${getRootName(base + 9)}m`,
+      degree: 'vi',
+      label: '下中音小 (Submediant)',
+      colorClass: 'bg-purple-100 hover:bg-purple-200 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-900 dark:text-purple-300 border-purple-300 dark:border-purple-700',
+    },
+    {
+      chord: `${getRootName(base + 7)}7`,
+      degree: 'V7',
+      label: '屬七和弦 (Dominant 7th)',
+      colorClass: 'bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-900 dark:text-rose-300 border-rose-300 dark:border-rose-700',
+    },
+  ];
 }

@@ -8,6 +8,7 @@ import { KaraokeSection, SectionJumpBar } from './karaoke/SectionJumpBar';
 import { KaraokeStage } from './karaoke/KaraokeStage';
 import { AlignedScoreRoll } from './karaoke/AlignedScoreRoll';
 import { KaraokeControls } from './karaoke/KaraokeControls';
+import { AbLoopRehearsalBar, AbLoopState } from './karaoke/AbLoopRehearsalBar';
 import { wakeLockManager } from '@/lib/wakeLock';
 import {
   getStoredInstrument,
@@ -24,12 +25,18 @@ import {
   setStoredTempoMultiplier,
   getStoredShowMixer,
   setStoredShowMixer,
+  getStoredStageZoom,
+  setStoredStageZoom,
+  getStoredLeadInEnabled,
+  setStoredLeadInEnabled,
 } from '@/lib/storage';
+import { computeVersesTiming, getKaraokeStageSequenceState } from '@/lib/karaokeSequencer';
 import confetti from 'canvas-confetti';
 import {
   Radio,
   Maximize2,
   Minimize2,
+  ZoomIn,
 } from 'lucide-react';
 
 export type { KaraokeSection } from './karaoke/SectionJumpBar';
@@ -91,11 +98,40 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     return 1.0;
   });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isStageMode, setIsStageMode] = useState<boolean>(false);
+  const [stageZoom, setStageZoomState] = useState<number>(() => {
+    if (typeof window !== 'undefined') return getStoredStageZoom(1.0);
+    return 1.0;
+  });
   const [isLoopingMeasure, setIsLoopingMeasure] = useState<boolean>(false);
+  const [abLoop, setAbLoop] = useState<AbLoopState>({
+    enabled: false,
+    startMeasure: 0,
+    endMeasure: 1,
+    loopTarget: 0,
+    currentIteration: 0,
+    tempoTrainer: false,
+    tempoStepPercent: 5,
+    baseTempoMultiplier: 1.0,
+    maxTempoMultiplier: 1.25,
+    countInEnabled: true,
+  });
   const [showMixer, setShowMixerState] = useState<boolean>(() => {
     if (typeof window !== 'undefined') return getStoredShowMixer(false);
     return false;
   });
+  const [leadInEnabled, setLeadInEnabledState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return getStoredLeadInEnabled(true);
+    return true;
+  });
+
+  const toggleLeadInEnabled = useCallback(() => {
+    setLeadInEnabledState(prev => {
+      const next = !prev;
+      setStoredLeadInEnabled(next);
+      return next;
+    });
+  }, []);
 
   const setInstrument = useCallback((inst: InstrumentType) => {
     setInstrumentState(inst);
@@ -125,9 +161,12 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     });
   }, []);
 
-  const setTempoMultiplier = useCallback((mul: number) => {
-    setTempoMultiplierState(mul);
-    setStoredTempoMultiplier(mul);
+  const setTempoMultiplier = useCallback((mul: number | ((prev: number) => number)) => {
+    setTempoMultiplierState(prev => {
+      const next = typeof mul === 'function' ? mul(prev) : mul;
+      setStoredTempoMultiplier(next);
+      return next;
+    });
   }, []);
 
   const setShowMixer = useCallback((show: boolean | ((prev: boolean) => boolean)) => {
@@ -214,12 +253,60 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     isEcoMode,
   ]);
 
-  // Update loop measure setting when looping is toggled or active measure changes
+  // Update loop measure or A-B loop setting when looping options change
   useEffect(() => {
-    audioEngine.setOptions({
-      loopMeasure: isLoopingMeasure ? playbackState.currentMeasureIndex : null,
+    if (abLoop.enabled) {
+      audioEngine.setOptions({
+        loopMeasure: null,
+        loopRange: {
+          startMeasure: abLoop.startMeasure,
+          endMeasure: abLoop.endMeasure,
+        },
+      });
+    } else {
+      audioEngine.setOptions({
+        loopMeasure: isLoopingMeasure ? playbackState.currentMeasureIndex : null,
+        loopRange: null,
+      });
+    }
+  }, [
+    audioEngine,
+    abLoop.enabled,
+    abLoop.startMeasure,
+    abLoop.endMeasure,
+    isLoopingMeasure,
+    playbackState.currentMeasureIndex,
+  ]);
+
+  // Hook into loop iteration for A-B rehearsal trainer & loop count targets
+  useEffect(() => {
+    audioEngine.setLoopIterationListener((iterationCount: number) => {
+      setAbLoop(prev => {
+        if (!prev.enabled) return prev;
+
+        // Check if reached loop target
+        if (prev.loopTarget > 0 && iterationCount >= prev.loopTarget) {
+          audioEngine.stop();
+          return { ...prev, currentIteration: iterationCount };
+        }
+
+        // If tempo trainer is active, speed up!
+        if (prev.tempoTrainer) {
+          const stepMultiplier = prev.tempoStepPercent / 100;
+          setTempoMultiplier(current => {
+            const next = Math.min(prev.maxTempoMultiplier, Math.round((current + stepMultiplier) * 100) / 100);
+            return next;
+          });
+        }
+
+        return { ...prev, currentIteration: iterationCount };
+      });
     });
-  }, [audioEngine, isLoopingMeasure, playbackState.currentMeasureIndex]);
+
+    return () => {
+      audioEngine.setLoopIterationListener(undefined);
+    };
+  }, [audioEngine, setTempoMultiplier]);
 
   // Auto-scroll active measure into view during playback
   useEffect(() => {
@@ -346,29 +433,24 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     return groupSongIntoVerses(song);
   }, [song]);
 
-  // Find active verse index based on currently playing note and measure
-  const activeVerseIndex = useMemo(() => {
-    if (!songVerses.length) return 0;
-    const currentM = playbackState.currentMeasureIndex;
-    const currentN = playbackState.currentNoteIndex;
+  // Compute verses timeline with tempoMultiplier
+  const verseTimings = useMemo(() => {
+    return computeVersesTiming(song, songVerses, tempoMultiplier);
+  }, [song, songVerses, tempoMultiplier]);
 
-    // 1. Precise note match
-    const idx = songVerses.findIndex(verse =>
-      verse.notes.some(n => n.measureIndex === currentM && n.noteIndex === currentN)
+  // Enhanced Stage sequence state: manages seamless transitions, preview lead-in, and rhythmic countdown
+  const stageSequence = useMemo(() => {
+    return getKaraokeStageSequenceState(
+      verseTimings,
+      playbackState.currentTime,
+      song,
+      tempoMultiplier,
+      leadInEnabled
     );
-    if (idx !== -1) return idx;
+  }, [verseTimings, playbackState.currentTime, song, tempoMultiplier, leadInEnabled]);
 
-    // 2. Measure fallback match
-    const mIdx = songVerses.findIndex(verse =>
-      verse.notes.some(n => n.measureIndex === currentM)
-    );
-    if (mIdx !== -1) return mIdx;
-
-    return 0;
-  }, [songVerses, playbackState.currentMeasureIndex, playbackState.currentNoteIndex]);
-
-  const currentVerse = songVerses[activeVerseIndex] || songVerses[0] || null;
-  const nextVerse = songVerses[activeVerseIndex + 1] || null;
+  const currentVerse = stageSequence.activeVerse || songVerses[0] || null;
+  const nextVerse = stageSequence.nextVerse;
 
   // Jump to specific section handler (instant touch jump)
   const handleJumpToSection = useCallback((section: KaraokeSection) => {
@@ -429,6 +511,31 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     audioEngine.play(song, 0);
   };
 
+  const handleStartAbRehearsal = () => {
+    const startTime = audioEngine.getMeasureStartTime(song, abLoop.startMeasure);
+    setAbLoop(prev => ({ ...prev, currentIteration: 0 }));
+
+    if (abLoop.countInEnabled) {
+      audioEngine.playCountIn(
+        song,
+        () => {},
+        () => {
+          audioEngine.play(song, startTime);
+        }
+      );
+    } else {
+      audioEngine.play(song, startTime);
+    }
+  };
+
+  const handleStopAbRehearsal = () => {
+    audioEngine.stop();
+  };
+
+  const handleResetTempo = () => {
+    setTempoMultiplier(1.0);
+  };
+
   const totalDuration = playbackState.totalDuration || audioEngine.calculateSongDuration(song);
   const currentDisplayPercent = sliderDraggingPercent !== null ? sliderDraggingPercent : (playbackState.progressPercent || 0);
   const currentDisplayTime = sliderDraggingPercent !== null
@@ -467,14 +574,59 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     setTranspose(prev => Math.max(-12, Math.min(12, prev + delta)));
   };
 
-  const toggleFullscreen = () => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+  const cycleZoom = useCallback(() => {
+    setStageZoomState(prev => {
+      let next = 1.0;
+      if (prev < 1.2) next = 1.25;
+      else if (prev < 1.45) next = 1.5;
+      else if (prev < 1.7) next = 1.75;
+      else next = 1.0;
+      setStoredStageZoom(next);
+      return next;
+    });
+  }, []);
+
+  const toggleStageMode = useCallback(() => {
+    setIsStageMode(prev => {
+      const next = !prev;
+      if (next) {
+        if (containerRef.current && typeof containerRef.current.requestFullscreen === 'function') {
+          containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+        }
+      } else {
+        if (typeof document !== 'undefined' && document.fullscreenElement && typeof document.exitFullscreen === 'function') {
+          document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+        } else {
+          setIsFullscreen(false);
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  // Lock body scrolling during Stage Mode
+  useEffect(() => {
+    if (isStageMode) {
+      const origOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('stage-mode-active');
+      return () => {
+        document.body.style.overflow = origOverflow;
+        document.body.classList.remove('stage-mode-active');
+      };
     }
-  };
+  }, [isStageMode]);
+
+  // Escape key to leave stage mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isStageMode) {
+        toggleStageMode();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isStageMode, toggleStageMode]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -493,7 +645,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     <div
       ref={containerRef}
       className={`flex flex-col bg-zinc-950 text-white rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl transition-all duration-300 ${
-        isFullscreen ? 'fixed inset-0 z-50 rounded-none h-screen w-screen' : 'w-full'
+        isStageMode || isFullscreen ? 'fixed inset-0 z-50 rounded-none h-dvh w-screen overflow-y-auto safe-pb safe-pt overscroll-none' : 'w-full'
       }`}
     >
       {/* Karaoke Top Status Bar */}
@@ -584,15 +736,32 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
             </button>
           </div>
 
-          {/* Fullscreen Button */}
+          {/* 1-Tap Zoom Toggle */}
           <button
-            id="ktv-fullscreen-toggle-btn"
+            id="ktv-header-zoom-btn"
             type="button"
-            onClick={toggleFullscreen}
-            className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Karaoke Fullscreen Stage'}
+            onClick={cycleZoom}
+            className="flex items-center gap-1.5 px-3 py-1.5 min-h-[38px] rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-amber-300 border border-zinc-700/60 transition-all active:scale-95 touch-manipulation cursor-pointer"
+            title={`譜架縮放 (Zoom Scale): 目前 ${Math.round(stageZoom * 100)}% - 點擊循環切換 (100%~175%)`}
           >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            <ZoomIn className="w-3.5 h-3.5 text-amber-400" />
+            <span>{Math.round(stageZoom * 100)}%</span>
+          </button>
+
+          {/* Fullscreen / Stage Mode Button */}
+          <button
+            id="ktv-stage-mode-toggle-btn"
+            type="button"
+            onClick={toggleStageMode}
+            className={`flex items-center gap-1.5 px-3 py-1.5 min-h-[38px] rounded-xl text-xs font-bold transition-all active:scale-95 touch-manipulation cursor-pointer ${
+              isStageMode || isFullscreen
+                ? 'bg-amber-500 text-zinc-950 font-bold border border-amber-400 shadow-md'
+                : 'bg-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-700 border border-zinc-700/60'
+            }`}
+            title={isStageMode || isFullscreen ? '離開譜架/舞台模式 (ESC)' : '進入譜架/舞台專注模式 (Stage Mode)'}
+          >
+            {isStageMode || isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4 text-amber-400" />}
+            <span className="hidden sm:inline">{isStageMode || isFullscreen ? '離開譜架' : '譜架模式'}</span>
           </button>
         </div>
       </div>
@@ -601,11 +770,16 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       <KaraokeStage
         currentVerse={currentVerse}
         nextVerse={nextVerse}
+        activeVerseTiming={stageSequence.activeVerseTiming}
+        nextVerseTiming={stageSequence.nextVerseTiming}
+        isAwaitingVocal={stageSequence.isAwaitingVocal}
+        isVerseCompleted={stageSequence.isVerseCompleted}
         activeSection={activeSection}
         playbackState={playbackState}
         displayMode={displayMode}
         onJumpToSection={handleJumpToSection}
         isEcoMode={isEcoMode}
+        zoomScale={stageZoom}
       />
 
       {/* Section Quick Jump Bar */}
@@ -617,6 +791,20 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         sectionScrollRef={sectionScrollRef}
       />
 
+      {/* A-B Phrase Loop Rehearsal Bar */}
+      <AbLoopRehearsalBar
+        song={song}
+        abLoop={abLoop}
+        onUpdateAbLoop={setAbLoop}
+        activeSection={activeSection}
+        currentMeasureIndex={playbackState.currentMeasureIndex}
+        isPlaying={playbackState.isPlaying}
+        tempoMultiplier={tempoMultiplier}
+        onStartAbRehearsal={handleStartAbRehearsal}
+        onStopAbRehearsal={handleStopAbRehearsal}
+        onResetTempo={handleResetTempo}
+      />
+
       {/* Aligned Jianpu Score Roll */}
       <AlignedScoreRoll
         song={song}
@@ -625,6 +813,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         songSections={songSections}
         audioEngine={audioEngine}
         sheetScrollRef={sheetScrollRef}
+        loopRange={abLoop.enabled ? { startMeasure: abLoop.startMeasure, endMeasure: abLoop.endMeasure } : null}
         onSelectMeasure={onSelectMeasure}
         onEditMeasure={onEditMeasure}
         onEditSection={onEditSection}
@@ -648,6 +837,10 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         isLoopingMeasure={isLoopingMeasure}
         showMixer={showMixer}
         song={song}
+        isStageMode={isStageMode}
+        onToggleStageMode={toggleStageMode}
+        zoomScale={stageZoom}
+        onCycleZoom={cycleZoom}
         onSliderChange={handleSliderChange}
         onSliderPointerUp={handleSliderPointerUp}
         onJumpToSection={handleJumpToSection}

@@ -46,6 +46,7 @@ interface VerseModeViewProps {
   autoStepAdvance?: boolean;
   onToggleAutoStepAdvance?: () => void;
   showNotice: (msg: string) => void;
+  onSplitMeasureAtNote?: (mIdx: number, splitAtIndex: number) => void;
 }
 
 export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
@@ -85,6 +86,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   autoStepAdvance,
   onToggleAutoStepAdvance,
   showNotice,
+  onSplitMeasureAtNote,
 }) => {
   return (
     <div id="verse-mode-container" className="flex flex-col gap-6">
@@ -284,6 +286,9 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   onSetAnnotation={onSetAnnotation}
                   onInsertNoteAt={onInsertNoteAt}
                   onDeleteNoteAt={onDeleteNoteAt}
+                  onSplitMeasureBeforeNote={(m, n) => {
+                    if (onSplitMeasureAtNote) onSplitMeasureAtNote(m, n);
+                  }}
                   onNavigateNextNote={onNavigateNextNote}
                   onNavigatePrevNote={onNavigatePrevNote}
                   autoStepAdvance={autoStepAdvance}

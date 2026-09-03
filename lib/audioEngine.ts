@@ -12,6 +12,11 @@ export interface PlaybackState {
   progressPercent: number;
 }
 
+export interface LoopRange {
+  startMeasure: number;
+  endMeasure: number;
+}
+
 export interface AudioEngineOptions {
   instrument?: InstrumentType;
   melodyVolume?: number;    // 0 to 1
@@ -20,6 +25,7 @@ export interface AudioEngineOptions {
   transpose?: number;       // Semitones (-12 to +12)
   tempoMultiplier?: number; // 0.5 to 2.0
   loopMeasure?: number | null; // index of measure to loop, or null
+  loopRange?: LoopRange | null; // A-B loop range, or null
   targetFps?: number;       // Target frame rate for UI updates (e.g. 30 normal, 20 eco)
 }
 
@@ -39,6 +45,7 @@ export class AudioEngine {
     transpose: 0,
     tempoMultiplier: 1.0,
     loopMeasure: null,
+    loopRange: null,
     targetFps: 30,
   };
 
@@ -56,6 +63,8 @@ export class AudioEngine {
   private endedListeners: (() => void)[] = [];
   public onNoteStart?: (measureIndex: number, noteIndex: number, note: JianpuNote, durationSec: number) => void;
   public onMeasureStart?: (measureIndex: number) => void;
+  public onLoopIteration?: (iterationCount: number) => void;
+  private currentLoopIteration = 0;
 
   public getIsPlaying(): boolean {
     return this.isPlaying;
@@ -81,6 +90,10 @@ export class AudioEngine {
     return () => {
       this.endedListeners = this.endedListeners.filter(l => l !== listener);
     };
+  }
+
+  public setLoopIterationListener(callback?: (iterationCount: number) => void) {
+    this.onLoopIteration = callback;
   }
 
   private notifyState(state: PlaybackState) {
@@ -203,6 +216,18 @@ export class AudioEngine {
 
     // Auto suspend AudioContext after preview note finishes to power down audio hardware
     this.scheduleAutoSuspend(Math.round((playDuration + 2.0) * 1000));
+  }
+
+  /**
+   * Preview a chord sound instantly when selecting from the chord palette
+   */
+  public previewChord(chordName: string) {
+    if (!chordName) return;
+    this.initContext();
+    if (!this.ctx || !this.backingGain) return;
+    const now = this.ctx.currentTime;
+    this.playChordBeat(chordName, now, 0.7, true);
+    this.scheduleAutoSuspend(2500);
   }
 
   private registerOscillator(osc: OscillatorNode) {
@@ -429,8 +454,8 @@ export class AudioEngine {
     for (const measure of song.measures) {
       let measureBeats = 0;
       for (const note of measure.notes) {
-        // Punctuation, annotations, and blank whitespace do not occupy any time duration when playing
-        if (!isNonNotationItem(note)) {
+        // Punctuation, annotations, newlines, and blank whitespace do not occupy any time duration when playing
+        if (!isNonNotationItem(note) && note.duration > 0 && note.pitch !== 'empty') {
           measureBeats += note.duration;
         }
       }
@@ -460,7 +485,7 @@ export class AudioEngine {
 
     let measureBeats = 0;
     for (const note of targetMeasure.notes) {
-      if (!isNonNotationItem(note)) {
+      if (!isNonNotationItem(note) && note.duration > 0 && note.pitch !== 'empty') {
         measureBeats += note.duration;
       }
     }
@@ -482,11 +507,11 @@ export class AudioEngine {
 
     let noteTime = 0;
     targetMeasure.notes.forEach((note, nIdx) => {
-      const isNonNotation = isNonNotationItem(note);
+      const isNonNotation = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
       const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
       const scheduleAt = audioStart + noteTime;
 
-      if (!isNonNotation) {
+      if (!isNonNotation && note.duration > 0) {
         const freq = getPitchFrequency(
           song.key,
           note.pitch,
@@ -568,7 +593,7 @@ export class AudioEngine {
 
     let totalVerseBeats = 0;
     for (const item of verseNotes) {
-      if (!isNonNotationItem(item.note)) {
+      if (!isNonNotationItem(item.note) && item.note.duration > 0 && item.note.pitch !== 'empty') {
         totalVerseBeats += item.note.duration;
       }
     }
@@ -590,11 +615,11 @@ export class AudioEngine {
 
     verseNotes.forEach(item => {
       const { note, measureIdx, noteIdx } = item;
-      const isNonNotation = isNonNotationItem(note);
+      const isNonNotation = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
       const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
       const scheduleAt = audioStart + noteTime;
 
-      if (!isNonNotation) {
+      if (!isNonNotation && note.duration > 0) {
         const freq = getPitchFrequency(
           song.key,
           note.pitch,
@@ -649,6 +674,66 @@ export class AudioEngine {
   }
 
   /**
+   * Play a 1-measure preparatory count-in (1, 2, 3, 4) with audible metronome clicks
+   * and visual beat callbacks before song starts.
+   */
+  public playCountIn(
+    song: Song,
+    onBeat: (currentBeat: number, totalBeats: number) => void,
+    onFinished: () => void
+  ) {
+    this.initContext();
+    this.stop();
+
+    if (!this.ctx) {
+      onFinished();
+      return;
+    }
+
+    const tsParts = (song.measures[0]?.timeSignature || song.timeSignature || '4/4').split('/');
+    const beatsPerBar = parseInt(tsParts[0], 10) || 4;
+    const effectiveBpm = song.bpm * this.options.tempoMultiplier;
+    const secPerBeat = 60 / effectiveBpm;
+
+    const audioStart = this.ctx.currentTime + 0.05;
+
+    for (let b = 0; b < beatsPerBar; b++) {
+      const scheduleAt = audioStart + b * secPerBeat;
+      // Synthesize audible metronome beep (high pitch for beat 1, e.g. 1500Hz, 1000Hz for other beats)
+      const osc = this.ctx.createOscillator();
+      this.registerOscillator(osc);
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(b === 0 ? 1500 : 1000, scheduleAt);
+
+      gain.gain.setValueAtTime(0.001, scheduleAt);
+      gain.gain.linearRampToValueAtTime(0.65, scheduleAt + 0.003);
+      gain.gain.exponentialRampToValueAtTime(0.0001, scheduleAt + 0.06);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+
+      osc.start(scheduleAt);
+      osc.stop(scheduleAt + 0.07);
+
+      // Schedule UI callback for visual flashing dot
+      const delayMs = Math.max(0, (scheduleAt - this.ctx.currentTime) * 1000);
+      const timerId = setTimeout(() => {
+        onBeat(b + 1, beatsPerBar);
+      }, delayMs);
+      this.scheduledTimeoutIds.push(timerId as unknown as number);
+    }
+
+    // Schedule finish callback right when count-in measure completes
+    const totalLeadInSec = beatsPerBar * secPerBeat;
+    const finishTimer = setTimeout(() => {
+      onFinished();
+    }, totalLeadInSec * 1000);
+    this.scheduledTimeoutIds.push(finishTimer as unknown as number);
+  }
+
+  /**
    * Start song playback from specified time or beginning
    */
   public play(song: Song, startFromSec: number = 0) {
@@ -688,12 +773,12 @@ export class AudioEngine {
       const beatsPerBar = parseInt(tsParts[0], 10) || 4;
 
       measure.notes.forEach((note, nIdx) => {
-        const isNonNotation = isNonNotationItem(note);
+        const isNonNotation = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
         const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
         const noteStartTime = measureTime;
 
         // Schedule melody note if it starts at or after our playback cursor
-        if (!isNonNotation) {
+        if (!isNonNotation && note.duration > 0) {
           if (noteStartTime + noteDurationSec >= startFromSec) {
             const scheduleAt = this.startAudioTime + noteStartTime;
             if (scheduleAt >= this.ctx!.currentTime) {
@@ -726,7 +811,7 @@ export class AudioEngine {
           durationSec: noteDurationSec,
         });
 
-        if (!isNonNotation) {
+        if (!isNonNotation && note.duration > 0) {
           measureTime += noteDurationSec;
           measureBeatsCount += note.duration;
         }
@@ -784,6 +869,35 @@ export class AudioEngine {
         this.stop();
         this.notifyEnded();
         return;
+      }
+
+      // Check for single measure loop or A-B loop range
+      if (this.currentSong) {
+        if (this.options.loopRange) {
+          const { startMeasure, endMeasure } = this.options.loopRange;
+          const rangeStart = this.getMeasureStartTime(this.currentSong, startMeasure);
+          const rangeEnd = this.getMeasureEndTime(this.currentSong, endMeasure);
+          if (currentSongTime >= rangeEnd - 0.03) {
+            this.currentLoopIteration++;
+            if (this.onLoopIteration) {
+              this.onLoopIteration(this.currentLoopIteration);
+            }
+            this.seek(this.currentSong, rangeStart);
+            return;
+          }
+        } else if (this.options.loopMeasure !== null) {
+          const mIdx = this.options.loopMeasure;
+          const mStart = this.getMeasureStartTime(this.currentSong, mIdx);
+          const mEnd = this.getMeasureEndTime(this.currentSong, mIdx);
+          if (currentSongTime >= mEnd - 0.03) {
+            this.currentLoopIteration++;
+            if (this.onLoopIteration) {
+              this.onLoopIteration(this.currentLoopIteration);
+            }
+            this.seek(this.currentSong, mStart);
+            return;
+          }
+        }
       }
 
       // Find current active note in timeline with 1ms float tolerance
@@ -908,13 +1022,20 @@ export class AudioEngine {
     for (let i = 0; i < limit; i++) {
       let measureBeats = 0;
       for (const note of song.measures[i].notes) {
-        if (!isNonNotationItem(note)) {
+        if (!isNonNotationItem(note) && note.duration > 0 && note.pitch !== 'empty') {
           measureBeats += note.duration;
         }
       }
       accumulatedTime += measureBeats * secPerBeat;
     }
     return accumulatedTime;
+  }
+
+  /**
+   * Get the end time of a specific measure in seconds
+   */
+  public getMeasureEndTime(song: Song, measureIndex: number): number {
+    return this.getMeasureStartTime(song, measureIndex + 1);
   }
 
   /**
@@ -940,7 +1061,7 @@ export class AudioEngine {
 
       for (let nIdx = 0; nIdx < measure.notes.length; nIdx++) {
         const note = measure.notes[nIdx];
-        const isNonNotation = isNonNotationItem(note);
+        const isNonNotation = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
         const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
         const isLastNote = isLastMeasure && nIdx === measure.notes.length - 1;
 

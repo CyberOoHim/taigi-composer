@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { JianpuNote, LyricDisplayMode } from '@/types/song';
-import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
+import { isNonNotationItem, isPunctuationOrSpacer, extractTaigiTone } from '@/lib/taigiUtils';
+import { Volume2 } from 'lucide-react';
 
 interface NoteCellProps {
   note: JianpuNote;
@@ -16,6 +17,7 @@ interface NoteCellProps {
   onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom') => void;
   onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom') => void;
   keyPrefix?: string;
+  showToneOverlay?: boolean;
 }
 
 export const NoteCell: React.FC<NoteCellProps> = React.memo(({
@@ -30,6 +32,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
   onGoToNextNote,
   onGoToPrevNote,
   keyPrefix = '',
+  showToneOverlay = true,
 }) => {
   const [focusedField, setFocusedField] = useState<'hanji' | 'poj' | 'pij' | 'custom' | null>(null);
 
@@ -39,6 +42,9 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
   const octaveBottomDots = isPitched && note.octave < 0 ? Math.abs(note.octave) : 0;
   const isEighth = !isNonNotation && (note.duration === 0.5 || note.duration === 0.75);
   const isSixteenth = !isNonNotation && (note.duration <= 0.25 || note.duration === 0.375);
+
+  const pojTone = extractTaigiTone(note.lyric?.poj || '');
+  const pijTone = extractTaigiTone(note.lyric?.pij || '');
   const showDot =
     !isNonNotation &&
     (note.isDotted ||
@@ -144,9 +150,11 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
               {isNonNotation
                 ? note.annotation
                   ? ''
+                  : hanji === '\n' || hanji === '↵' || custom === '\n' || custom === '↵'
+                  ? '↵'
                   : isPunctuationOrSpacer(hanji || custom)
-                ? hanji || custom
-                : '␣'
+                  ? hanji || custom
+                  : '␣'
                 : note.pitch}
             </span>
             {showDot && (
@@ -183,6 +191,21 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
               <div className="w-full h-[2px] rounded-full bg-zinc-900 dark:bg-zinc-200" />
             </div>
           )}
+
+          {/* Audition Pitch Floating Indicator */}
+          {isPitched && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectNote(mIdx, nIdx);
+              }}
+              className="absolute -top-1.5 -right-3.5 p-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 opacity-0 group-hover:opacity-100 hover:scale-110 transition-all cursor-pointer"
+              title="點擊試聽此音高 (Preview Pitch)"
+            >
+              <Volume2 className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -192,7 +215,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
         {(displayMode === 'all' ||
           displayMode === 'hanji_poj' ||
           displayMode === 'poj_only') && (
-          <div className="w-full flex flex-col">
+          <div className="w-full flex flex-col gap-0.5">
             <input
               id={`lyric-input-${mIdx}-${nIdx}-poj`}
               type="text"
@@ -206,7 +229,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                 onUpdateLyric(mIdx, nIdx, 'poj', e.target.value)
               }
               onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === 'Tab') {
+                if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ' || e.key === '-') {
                   if (!e.shiftKey) {
                     e.preventDefault();
                     onGoToNextNote(mIdx, nIdx, 'poj');
@@ -218,8 +241,17 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
               }}
               placeholder="POJ"
               className="w-full text-center font-serif italic text-xs font-semibold px-1 py-1 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800"
-              title="白話字 (POJ)"
+              title="白話字 (POJ) - 按空白鍵、連字號或 Tab 跳轉下一字"
             />
+            {showToneOverlay && pojTone && (
+              <div
+                className="flex items-center justify-center gap-0.5 text-[9px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/60 px-1 rounded-xs select-none border border-emerald-300/40"
+                title={`${pojTone.name} (調值 ${pojTone.contour} ${pojTone.symbol})`}
+              >
+                <span>{pojTone.superscript}</span>
+                <span className="text-[8px] opacity-75">{pojTone.symbol}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -242,7 +274,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                 onUpdateLyric(mIdx, nIdx, 'hanji', e.target.value)
               }
               onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === 'Tab') {
+                if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ') {
                   if (!e.shiftKey) {
                     e.preventDefault();
                     onGoToNextNote(mIdx, nIdx, 'hanji');
@@ -254,14 +286,14 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
               }}
               placeholder="字"
               className="w-full text-center font-bold text-sm px-1 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-800/90 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800"
-              title="漢字 (Hanji)"
+              title="漢字 (Hanji) - 按空白鍵或 Tab 跳轉下一字"
             />
           </div>
         )}
 
         {/* PIJ (臺羅拼音) Lyric Input */}
         {(displayMode === 'all' || displayMode === 'hanji_pij') && (
-          <div className="w-full flex flex-col">
+          <div className="w-full flex flex-col gap-0.5">
             <input
               id={`lyric-input-${mIdx}-${nIdx}-pij`}
               type="text"
@@ -275,7 +307,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                 onUpdateLyric(mIdx, nIdx, 'pij', e.target.value)
               }
               onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === 'Tab') {
+                if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ' || e.key === '-') {
                   if (!e.shiftKey) {
                     e.preventDefault();
                     onGoToNextNote(mIdx, nIdx, 'pij');
@@ -287,8 +319,17 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
               }}
               placeholder="臺羅"
               className="w-full text-center font-serif text-[11px] px-1 py-1 rounded-lg bg-cyan-50/60 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800/60 text-cyan-800 dark:text-cyan-300 focus:outline-hidden focus:ring-2 focus:ring-cyan-500 focus:bg-white dark:focus:bg-zinc-800"
-              title="臺羅拼音 (PIJ)"
+              title="臺羅拼音 (PIJ) - 按空白鍵、連字號或 Tab 跳轉下一字"
             />
+            {showToneOverlay && pijTone && (
+              <div
+                className="flex items-center justify-center gap-0.5 text-[9px] font-mono font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-100/70 dark:bg-cyan-950/60 px-1 rounded-xs select-none border border-cyan-300/40"
+                title={`${pijTone.name} (調值 ${pijTone.contour} ${pijTone.symbol})`}
+              >
+                <span>{pijTone.superscript}</span>
+                <span className="text-[8px] opacity-75">{pijTone.symbol}</span>
+              </div>
+            )}
           </div>
         )}
 
