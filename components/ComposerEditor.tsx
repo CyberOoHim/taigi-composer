@@ -457,13 +457,29 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         ...n.lyric,
         [type]: val,
       };
-      const text = updatedLyric.hanji || updatedLyric.custom || '';
-      const isPunct = isPunctuationOrSpacer(text) || text === '\n' || text === '↵';
+      const rawHanji = updatedLyric.hanji ?? '';
+      const rawCustom = updatedLyric.custom ?? '';
+      const rawPoj = updatedLyric.poj ?? '';
+      const rawPij = updatedLyric.pij ?? '';
+
+      const hasAnyLyric =
+        rawHanji.length > 0 ||
+        rawCustom.length > 0 ||
+        rawPoj.length > 0 ||
+        rawPij.length > 0;
+
+      const isPurePunct =
+        hasAnyLyric &&
+        (!rawHanji || isPunctuationOrSpacer(rawHanji)) &&
+        (!rawCustom || isPunctuationOrSpacer(rawCustom)) &&
+        (!rawPoj || isPunctuationOrSpacer(rawPoj)) &&
+        (!rawPij || isPunctuationOrSpacer(rawPij));
+
       return {
         ...n,
         lyric: updatedLyric,
-        pitch: isPunct ? 'empty' : n.pitch,
-        duration: isPunct ? (0 as NoteDuration) : n.duration,
+        pitch: isPurePunct ? 'empty' : n.pitch,
+        duration: isPurePunct ? (0 as NoteDuration) : n.duration,
       };
     });
   };
@@ -484,8 +500,14 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           custom: punct,
         },
       }));
-      const label = punct === '\n' ? '↵ newline' : punct;
-      showNotice(`Inserted punctuation "${label}" with 0 beats`);
+      const isNewline = punct === '\n' || punct === '\r' || punct === '↵';
+      if (isNewline) {
+        showNotice('Inserted newline verse break "↵" (0 beats)');
+      } else if (punct === ' ') {
+        showNotice('Inserted space spacer "␣" (0 beats, no verse split)');
+      } else {
+        showNotice(`Inserted delimiter "${punct}" (0 beats, no verse split)`);
+      }
     },
     [selectedMeasureIndex, selectedNoteIndex, updateSelectedNote, showNotice]
   );
@@ -636,8 +658,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const targetNote = newMeasures[ref.measureIndex]?.notes[ref.noteIndex];
       if (!targetNote) return;
 
-      const isHan = /[\u4e00-\u9fa5]/.test(tokStr);
       const isPunct = tok.isPunct || isPunctuationOrSpacer(tokStr) || tokStr === '\n' || tokStr === '↵';
+
+      // If target note on score is already a non-notation delimiter/spacer (e.g. comma, newline)
+      // and incoming token is a sung syllable, skip it so the syllable aligns to a pitched note
+      const isTargetNonNotation = isNonNotationItem(targetNote);
+      if (isTargetNonNotation && !isPunct) {
+        return;
+      }
+
+      const isHan = /[\u4e00-\u9fa5]/.test(tokStr);
 
       targetNote.lyric = {
         ...targetNote.lyric,

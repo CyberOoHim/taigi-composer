@@ -349,19 +349,33 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                 </button>
               </div>
 
-              {/* Quick Punctuation Break chips */}
+              {/* Quick Punctuation & Verse Break chips */}
               <div className="flex items-center gap-1.5 text-xs text-zinc-500 shrink-0 flex-wrap">
-                <span className="text-[11px] font-medium hidden sm:inline">Punctuation:</span>
-                {['，', '。', '！', '？', '、', '—', '…'].map(p => (
+                <span className="text-[11px] font-medium hidden sm:inline">Punctuation & Break:</span>
+                {[
+                  { label: '↵ Break', char: '\n', title: 'Line break (splits verse, 0 beats)' },
+                  { label: '␣', char: ' ', title: 'Space spacer (0 beats, no verse split)' },
+                  { label: '，', char: '，', title: 'Comma (0 beats, no verse split)' },
+                  { label: '。', char: '。', title: 'Period (0 beats, no verse split)' },
+                  { label: '！', char: '！', title: 'Exclamation (0 beats, no verse split)' },
+                  { label: '？', char: '？', title: 'Question mark (0 beats, no verse split)' },
+                  { label: '、', char: '、', title: 'Enumeration comma (0 beats, no verse split)' },
+                  { label: '—', char: '—', title: 'Em dash (0 beats, no verse split)' },
+                  { label: '…', char: '…', title: 'Ellipsis (0 beats, no verse split)' },
+                ].map(p => (
                   <button
-                    key={p}
+                    key={p.label}
                     type="button"
-                    onClick={() => onInsertPunctuationToNote(p)}
+                    onClick={() => onInsertPunctuationToNote(p.char)}
                     disabled={selectedMeasureIndex === null || selectedNoteIndex === null}
-                    className="w-7 h-7 flex items-center justify-center bg-zinc-100 hover:bg-amber-100 dark:bg-zinc-800 dark:hover:bg-amber-950/70 text-zinc-800 dark:text-zinc-200 hover:text-amber-800 dark:hover:text-amber-200 rounded-lg font-mono font-bold border border-zinc-200 dark:border-zinc-700 transition-colors disabled:opacity-30 cursor-pointer touch-manipulation active:scale-95"
-                    title={`Insert punctuation "${p}" to selected note`}
+                    className={`h-7 px-2 flex items-center justify-center rounded-lg font-mono font-bold text-xs border transition-colors disabled:opacity-30 cursor-pointer touch-manipulation active:scale-95 ${
+                      p.char === '\n'
+                        ? 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700 shadow-2xs'
+                        : 'bg-zinc-100 hover:bg-amber-100 dark:bg-zinc-800 dark:hover:bg-amber-950/70 text-zinc-800 dark:text-zinc-200 hover:text-amber-800 dark:hover:text-amber-200 border-zinc-200 dark:border-zinc-700'
+                    }`}
+                    title={p.title}
                   >
-                    {p}
+                    {p.label}
                   </button>
                 ))}
               </div>

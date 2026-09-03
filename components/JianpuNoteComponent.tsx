@@ -241,7 +241,15 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
                   : 'text-zinc-900 dark:text-zinc-100'
               )}
             >
-              {isNonNotation ? (annotation ? '' : isPunctuationOrSpacer(hanji || custom) ? (hanji || custom) : '␣') : note.pitch}
+              {isNonNotation
+                ? annotation
+                  ? ''
+                  : hanji === '\n' || hanji === '↵' || hanji === '\r' || custom === '\n' || custom === '↵' || custom === '\r'
+                  ? '↵'
+                  : isPunctuationOrSpacer(hanji || custom)
+                  ? hanji || custom
+                  : '␣'
+                : note.pitch}
             </span>
             {showDot && (
               <span className="text-sm font-black text-amber-600 dark:text-amber-400 ml-0.5">·</span>

@@ -637,9 +637,13 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                       type="button"
                       onClick={() => onInsertPunctuation(p.char)}
                       title={`Insert punctuation ${p.label} (${p.desc})`}
-                      className="min-w-[44px] h-11 px-2.5 rounded-xl bg-zinc-100 hover:bg-amber-100 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono font-black text-sm border border-zinc-200/90 dark:border-zinc-700/80 transition-all active:scale-95 flex items-center justify-center shadow-2xs cursor-pointer touch-manipulation"
+                      className={`min-w-[44px] h-11 px-2.5 rounded-xl font-mono font-black text-sm border transition-all active:scale-95 flex items-center justify-center shadow-2xs cursor-pointer touch-manipulation ${
+                        p.char === '\n'
+                          ? 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700'
+                          : 'bg-zinc-100 hover:bg-amber-100 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-200/90 dark:border-zinc-700/80'
+                      }`}
                     >
-                      {p.label === ' ' ? '␣ Space' : p.label}
+                      {p.label}
                     </button>
                   ))}
                 </div>

@@ -146,18 +146,18 @@ export const TAIGI_TONE_CHARS = [
 
 // Common Punctuation Marks for Numbered Notation sheet lyrics and notations
 export const PUNCTUATION_MARKS = [
-  { label: '，', char: '，', desc: 'Comma' },
-  { label: '。', char: '。', desc: 'Period' },
-  { label: '、', char: '、', desc: 'Enumeration comma' },
-  { label: '！', char: '！', desc: 'Exclamation' },
-  { label: '？', char: '？', desc: 'Question mark' },
-  { label: '—', char: '—', desc: 'Em Dash' },
-  { label: '…', char: '…', desc: 'Ellipsis' },
-  { label: '「', char: '「', desc: 'Left Quote' },
-  { label: '」', char: '」', desc: 'Right Quote' },
-  { label: 'V', char: 'V', desc: 'Breath Mark' },
-  { label: ' ', char: ' ', desc: 'Space' },
-  { label: '↵ Break', char: '\n', desc: 'Line Break' },
+  { label: '↵ Break', char: '\n', desc: 'Line Break (splits verse, 0 beats)' },
+  { label: '␣ Space', char: ' ', desc: 'Space spacer (0 beats, no verse split)' },
+  { label: '，', char: '，', desc: 'Comma (0 beats, no verse split)' },
+  { label: '。', char: '。', desc: 'Period (0 beats, no verse split)' },
+  { label: '、', char: '、', desc: 'Enumeration comma (0 beats, no verse split)' },
+  { label: '！', char: '！', desc: 'Exclamation (0 beats, no verse split)' },
+  { label: '？', char: '？', desc: 'Question mark (0 beats, no verse split)' },
+  { label: '—', char: '—', desc: 'Em Dash (0 beats, no verse split)' },
+  { label: '…', char: '…', desc: 'Ellipsis (0 beats, no verse split)' },
+  { label: '「', char: '「', desc: 'Left Quote (0 beats, no verse split)' },
+  { label: '」', char: '」', desc: 'Right Quote (0 beats, no verse split)' },
+  { label: 'V', char: 'V', desc: 'Breath Mark (0 beats, no verse split)' },
 ];
 
 // Musical & Vocal Performance Annotations
@@ -425,24 +425,27 @@ export function isNonNotationItem(note: JianpuNote | null | undefined): boolean 
     return true;
   }
 
-  // 4. Note contains punctuation or newline in lyrics and does not have a pitched melody note (1-7)
-  const hanji = note.lyric?.hanji?.trim() || '';
-  const custom = note.lyric?.custom?.trim() || '';
-  const poj = note.lyric?.poj?.trim() || '';
-  const pij = note.lyric?.pij?.trim() || '';
+  // 4. Note contains punctuation, delimiter, space, or newline in lyrics
+  // All delimiters, spaces, and newlines strictly maintain a time value of zero
+  const rawHanji = note.lyric?.hanji ?? '';
+  const rawCustom = note.lyric?.custom ?? '';
+  const rawPoj = note.lyric?.poj ?? '';
+  const rawPij = note.lyric?.pij ?? '';
 
-  const isHanjiPunct = isPunctuationOrSpacer(hanji);
-  const isCustomPunct = isPunctuationOrSpacer(custom);
-  const isPojPunct = isPunctuationOrSpacer(poj);
-  const isPijPunct = isPunctuationOrSpacer(pij);
+  const hasAnyLyric =
+    rawHanji.length > 0 ||
+    rawCustom.length > 0 ||
+    rawPoj.length > 0 ||
+    rawPij.length > 0;
 
   const isPurePunctuationLyric =
-    (hanji ? isHanjiPunct : false) ||
-    (custom ? isCustomPunct : false) ||
-    (poj ? isPojPunct : false) ||
-    (pij ? isPijPunct : false);
+    hasAnyLyric &&
+    (!rawHanji || isPunctuationOrSpacer(rawHanji)) &&
+    (!rawCustom || isPunctuationOrSpacer(rawCustom)) &&
+    (!rawPoj || isPunctuationOrSpacer(rawPoj)) &&
+    (!rawPij || isPunctuationOrSpacer(rawPij));
 
-  if (isPurePunctuationLyric && !isMusicalPitch) {
+  if (isPurePunctuationLyric) {
     return true;
   }
 
@@ -470,41 +473,41 @@ export function isPunctuationOrSpacer(str?: string): boolean {
 }
 
 /**
- * Check if a note is a verse separator (punctuation, delimiter, or space/rest pause)
+ * Check if a string contains newline / line break characters (\n, \r, ↵)
  */
-export function isVerseBreakNote(note: JianpuNote): boolean {
-  if (isNonNotationItem(note)) return true;
-
-  // Check if note lyrics contain punctuation marks or newline delimiters
-  const hanji = note.lyric?.hanji?.trim() || '';
-  const custom = note.lyric?.custom?.trim() || '';
-  const poj = note.lyric?.poj?.trim() || '';
-  const pij = note.lyric?.pij?.trim() || '';
-
-  const delimPattern = /[，。！？、；：\n\r↵—…]/;
-  if (
-    delimPattern.test(hanji) ||
-    delimPattern.test(custom) ||
-    delimPattern.test(poj) ||
-    delimPattern.test(pij)
-  ) {
-    return true;
-  }
-
-  // Rest note with empty or dash lyric
-  if (
-    note.pitch === 0 &&
-    (!note.lyric.hanji || isPunctuationOrSpacer(note.lyric.hanji)) &&
-    (!note.lyric.poj || isPunctuationOrSpacer(note.lyric.poj))
-  ) {
-    return true;
-  }
-
-  return false;
+export function isNewlineBreak(str?: string): boolean {
+  if (!str) return false;
+  return /[\n\r↵]/.test(str);
 }
 
 /**
- * Group song into Verses sectioned by punctuation or whitespace/rest
+ * Check if a note is an explicit verse separator.
+ * ONLY newlines (\n, \r, ↵) split verses.
+ * All other delimiters (commas, periods, exclamation marks, question marks, dashes, etc.)
+ * nor spaces nor rests split verses.
+ */
+export function isVerseBreakNote(note: JianpuNote | null | undefined): boolean {
+  if (!note) return false;
+
+  const hanji = note.lyric?.hanji || '';
+  const custom = note.lyric?.custom || '';
+  const poj = note.lyric?.poj || '';
+  const pij = note.lyric?.pij || '';
+  const annot = note.annotation || '';
+
+  return (
+    isNewlineBreak(hanji) ||
+    isNewlineBreak(custom) ||
+    isNewlineBreak(poj) ||
+    isNewlineBreak(pij) ||
+    isNewlineBreak(annot)
+  );
+}
+
+/**
+ * Group song into Verses sectioned by newlines or measure section headers.
+ * Delimiters and spaces do not split verses.
+ * Consecutive newlines act as a single verse separator.
  */
 export function groupSongIntoVerses(song: Song): VerseItem[] {
   const verses: VerseItem[] = [];
@@ -527,10 +530,14 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
     const customParts: string[] = [];
 
     currentNotes.forEach(n => {
-      if (n.note.lyric.hanji) hanjiParts.push(n.note.lyric.hanji);
-      if (n.note.lyric.poj) pojParts.push(n.note.lyric.poj);
-      if (n.note.lyric.pij) pijParts.push(n.note.lyric.pij);
-      if (n.note.lyric.custom) customParts.push(n.note.lyric.custom);
+      const h = n.note.lyric.hanji;
+      const p = n.note.lyric.poj;
+      const tl = n.note.lyric.pij;
+      const c = n.note.lyric.custom;
+      if (h && !isNewlineBreak(h)) hanjiParts.push(h);
+      if (p && !isNewlineBreak(p)) pojParts.push(p);
+      if (tl && !isNewlineBreak(tl)) pijParts.push(tl);
+      if (c && !isNewlineBreak(c)) customParts.push(c);
     });
 
     const verseIndex = verses.length;
@@ -577,9 +584,7 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
         isFirstInMeasure,
       };
 
-      currentNotes.push(noteRef);
-
-      // Check if this note acts as a phrase / verse ending separator
+      // Check if this note acts as a phrase / verse ending separator (ONLY newlines)
       const isSeparator = isVerseBreakNote(note);
 
       if (isSeparator) {
@@ -589,9 +594,20 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
         );
 
         if (hasContent) {
+          // Normal case: conclude current verse with this newline separator
+          currentNotes.push(noteRef);
           pushCurrentVerse();
           currentSection = undefined;
+        } else if (verses.length > 0 && currentNotes.length === 0) {
+          // Consecutive newline! Consecutive newlines act as a single one:
+          // Absorb into the previously closed verse without creating an empty verse
+          verses[verses.length - 1].notes.push(noteRef);
+        } else {
+          // Leading newline before content: keep in currentNotes until content arrives
+          currentNotes.push(noteRef);
         }
+      } else {
+        currentNotes.push(noteRef);
       }
     });
   });
@@ -628,10 +644,10 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
         section: song.measures[0]?.section,
         chords: Array.from(new Set(allNotes.map(n => n.chord).filter(Boolean) as string[])),
         lyricSummary: {
-          hanji: allNotes.map(n => n.note.lyric.hanji || '').join(''),
-          poj: allNotes.map(n => n.note.lyric.poj || '').join(' '),
-          pij: allNotes.map(n => n.note.lyric.pij || '').join(' '),
-          custom: allNotes.map(n => n.note.lyric.custom || '').join(' '),
+          hanji: allNotes.map(n => n.note.lyric.hanji || '').filter(h => !isNewlineBreak(h)).join(''),
+          poj: allNotes.map(n => n.note.lyric.poj || '').filter(p => !isNewlineBreak(p)).join(' '),
+          pij: allNotes.map(n => n.note.lyric.pij || '').filter(tl => !isNewlineBreak(tl)).join(' '),
+          custom: allNotes.map(n => n.note.lyric.custom || '').filter(c => !isNewlineBreak(c)).join(' '),
         },
       });
     }
@@ -641,7 +657,8 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
 }
 
 /**
- * Tokenize verse text into syllables while preserving or recognizing punctuation marks
+ * Tokenize verse text into syllables while preserving or recognizing punctuation marks.
+ * Consecutive newlines act as a single verse separator.
  */
 export function splitVerseTextTokens(text: string): { text: string; isPunct: boolean }[] {
   if (!text) return [];
@@ -662,7 +679,12 @@ export function splitVerseTextTokens(text: string): { text: string; isPunct: boo
 
     if (isPunct) {
       flushLatin();
-      if (char.trim()) {
+      if (char === '\n' || char === '\r' || char === '↵') {
+        const lastTok = tokens[tokens.length - 1];
+        if (!lastTok || lastTok.text !== '↵') {
+          tokens.push({ text: '↵', isPunct: true });
+        }
+      } else if (char.trim()) {
         tokens.push({ text: char, isPunct: true });
       }
       continue;
