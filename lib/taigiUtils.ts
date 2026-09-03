@@ -1,4 +1,4 @@
-import { ArticulationType, GraceNote, JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, VerseItem, VerseNoteRef } from '@/types/song';
+import { ArticulationType, GraceNote, InstrumentType, JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, VerseItem, VerseNoteRef } from '@/types/song';
 
 // Semitones relative to C4 (MIDI note 60)
 export const KEY_SEMITONES: Record<KeySignature, number> = {
@@ -624,9 +624,16 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
     const startMNum = currentNotes[0].measureNumber;
     const endMNum = currentNotes[currentNotes.length - 1].measureNumber;
 
-    const chords = Array.from(
-      new Set(currentNotes.map(n => n.chord).filter(Boolean) as string[])
-    );
+    const verseChordsList: string[] = [];
+    currentNotes.forEach(n => {
+      const chordsForNote = n.chord ? getMeasureChords({ chord: n.chord }) : [];
+      chordsForNote.forEach(c => {
+        if (c && !verseChordsList.includes(c)) {
+          verseChordsList.push(c);
+        }
+      });
+    });
+    const chords = verseChordsList;
 
     const hanjiParts: string[] = [];
     const pojParts: string[] = [];
@@ -1130,3 +1137,49 @@ export function getDiatonicChords(key: KeySignature): DiatonicChordOption[] {
     },
   ];
 }
+
+// Instrument labels and options with bilingual Chinese / English descriptions
+export const INSTRUMENT_LABELS: Record<InstrumentType, { en: string; zh: string }> = {
+  piano: { en: 'Grand Piano', zh: '鋼琴' },
+  flute: { en: 'Bamboo Flute', zh: '竹笛' },
+  whistle: { en: 'Whistle', zh: '口笛' },
+  guitar: { en: 'Acoustic Guitar', zh: '吉他' },
+  synth: { en: '80s Synth', zh: '合成器' },
+  bell: { en: 'Glockenspiel', zh: '鐘琴' },
+};
+
+export const INSTRUMENT_OPTIONS: { value: InstrumentType; labelZh: string; labelEn: string }[] = [
+  { value: 'whistle', labelZh: '口笛', labelEn: 'Whistle (口笛)' },
+  { value: 'flute', labelZh: '竹笛', labelEn: 'Bamboo Flute (竹笛)' },
+  { value: 'piano', labelZh: '鋼琴', labelEn: 'Grand Piano (鋼琴)' },
+  { value: 'guitar', labelZh: '吉他', labelEn: 'Acoustic Guitar (吉他)' },
+  { value: 'synth', labelZh: '合成器', labelEn: '80s Synth (合成器)' },
+  { value: 'bell', labelZh: '鐘琴', labelEn: 'Glockenspiel (鐘琴)' },
+];
+
+/**
+ * Extract all chords from a measure, supporting both measure.chords array and measure.chord string
+ * (space-, dash-, pipe-, or comma-separated, e.g. "Bb F", "Bb - F", "C | G", "Dm, G7")
+ */
+export function getMeasureChords(measure?: Partial<Measure> | { chord?: string; chords?: string[] } | null): string[] {
+  if (!measure) return [];
+  if (Array.isArray(measure.chords) && measure.chords.length > 0) {
+    const list = measure.chords.map(c => c.trim()).filter(Boolean);
+    if (list.length > 0) return list;
+  }
+  if (measure.chord && typeof measure.chord === 'string') {
+    return measure.chord
+      .split(/[\s,\-|]+/)
+      .map(c => c.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+/**
+ * Format an array of chords for measure.chord string storage and clean display
+ */
+export function formatMeasureChords(chords: string[]): string {
+  return chords.map(c => c.trim()).filter(Boolean).join(' ');
+}
+

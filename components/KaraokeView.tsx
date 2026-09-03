@@ -532,6 +532,24 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     audioEngine.stop();
   };
 
+  const handleToggleAbLoop = useCallback(() => {
+    setAbLoop(prev => ({
+      ...prev,
+      enabled: !prev.enabled,
+      currentIteration: 0,
+      startMeasure: !prev.enabled
+        ? activeSection
+          ? activeSection.startMeasureIndex
+          : Math.max(0, playbackState.currentMeasureIndex)
+        : prev.startMeasure,
+      endMeasure: !prev.enabled
+        ? activeSection
+          ? activeSection.endMeasureIndex
+          : Math.min(song.measures.length - 1, playbackState.currentMeasureIndex + 3)
+        : prev.endMeasure,
+    }));
+  }, [activeSection, playbackState.currentMeasureIndex, song.measures.length]);
+
   const handleResetTempo = () => {
     setTempoMultiplier(1.0);
   };
@@ -782,44 +800,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         zoomScale={stageZoom}
       />
 
-      {/* Section Quick Jump Bar */}
-      <SectionJumpBar
-        songSections={songSections}
-        activeSection={activeSection}
-        onJumpToSection={handleJumpToSection}
-        formatTime={formatTime}
-        sectionScrollRef={sectionScrollRef}
-      />
-
-      {/* A-B Phrase Loop Rehearsal Bar */}
-      <AbLoopRehearsalBar
-        song={song}
-        abLoop={abLoop}
-        onUpdateAbLoop={setAbLoop}
-        activeSection={activeSection}
-        currentMeasureIndex={playbackState.currentMeasureIndex}
-        isPlaying={playbackState.isPlaying}
-        tempoMultiplier={tempoMultiplier}
-        onStartAbRehearsal={handleStartAbRehearsal}
-        onStopAbRehearsal={handleStopAbRehearsal}
-        onResetTempo={handleResetTempo}
-      />
-
-      {/* Aligned Numbered Notation Score Roll */}
-      <AlignedScoreRoll
-        song={song}
-        playbackState={playbackState}
-        displayMode={displayMode}
-        songSections={songSections}
-        audioEngine={audioEngine}
-        sheetScrollRef={sheetScrollRef}
-        loopRange={abLoop.enabled ? { startMeasure: abLoop.startMeasure, endMeasure: abLoop.endMeasure } : null}
-        onSelectMeasure={onSelectMeasure}
-        onEditMeasure={onEditMeasure}
-        onEditSection={onEditSection}
-      />
-
-      {/* Primary Karaoke Controls Bar */}
+      {/* Primary Karaoke Controls Bar (Moved directly under the lyric area) */}
       <KaraokeControls
         playbackState={playbackState}
         songSections={songSections}
@@ -837,6 +818,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         isLoopingMeasure={isLoopingMeasure}
         showMixer={showMixer}
         song={song}
+        abLoop={abLoop}
+        onToggleAbLoop={handleToggleAbLoop}
         isStageMode={isStageMode}
         onToggleStageMode={toggleStageMode}
         zoomScale={stageZoom}
@@ -858,6 +841,45 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         onSetMetronomeVolume={setMetronomeVolume}
         onSetTempoMultiplier={setTempoMultiplier}
         formatTime={formatTime}
+      />
+
+      {/* A-B Phrase Loop Rehearsal Bar (Expands directly below player deck when enabled) */}
+      {abLoop.enabled && (
+        <AbLoopRehearsalBar
+          song={song}
+          abLoop={abLoop}
+          onUpdateAbLoop={setAbLoop}
+          activeSection={activeSection}
+          currentMeasureIndex={playbackState.currentMeasureIndex}
+          isPlaying={playbackState.isPlaying}
+          tempoMultiplier={tempoMultiplier}
+          onStartAbRehearsal={handleStartAbRehearsal}
+          onStopAbRehearsal={handleStopAbRehearsal}
+          onResetTempo={handleResetTempo}
+        />
+      )}
+
+      {/* Section Quick Jump Bar */}
+      <SectionJumpBar
+        songSections={songSections}
+        activeSection={activeSection}
+        onJumpToSection={handleJumpToSection}
+        formatTime={formatTime}
+        sectionScrollRef={sectionScrollRef}
+      />
+
+      {/* Aligned Numbered Notation Score Roll */}
+      <AlignedScoreRoll
+        song={song}
+        playbackState={playbackState}
+        displayMode={displayMode}
+        songSections={songSections}
+        audioEngine={audioEngine}
+        sheetScrollRef={sheetScrollRef}
+        loopRange={abLoop.enabled ? { startMeasure: abLoop.startMeasure, endMeasure: abLoop.endMeasure } : null}
+        onSelectMeasure={onSelectMeasure}
+        onEditMeasure={onEditMeasure}
+        onEditSection={onEditSection}
       />
     </div>
   );

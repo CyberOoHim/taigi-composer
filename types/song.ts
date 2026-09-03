@@ -39,6 +39,7 @@ export interface JianpuNote {
   articulation?: ArticulationType; // Performance articulation (e.g. staccato, fermata, accent, etc.)
   lyric: LyricSyllable;     // Aligned lyric or punctuation
   annotation?: string;      // Optional musical / vocal annotation (e.g., 漸慢, 合唱, 間奏, rit., V, etc.)
+  instrument?: InstrumentType; // Individual note sound source override
 }
 
 export type NumberedNotationNote = JianpuNote;
@@ -48,7 +49,8 @@ export type BarlineType = 'single' | 'double' | 'end' | 'repeat_start' | 'repeat
 export interface Measure {
   id: string;
   measureNumber: number;
-  chord?: string;           // e.g. "F", "C7", "Am", "Dm", "G"
+  chord?: string;           // e.g. "F", "C7", "Am", "Dm", "G", "Bb F"
+  chords?: string[];        // Multiple chords array e.g. ["Bb", "F"]
   timeSignature?: TimeSignature; // If measure changes time signature
   section?: string;         // e.g. "Intro", "Verse 1", "Chorus", "Bridge"
   notes: JianpuNote[];
@@ -72,7 +74,7 @@ export interface Song {
 
 export type LyricDisplayMode = 'all' | 'hanji_poj' | 'hanji_pij' | 'hanji_only' | 'poj_only' | 'pij_only' | 'custom_only';
 
-export type InstrumentType = 'piano' | 'flute' | 'guitar' | 'synth' | 'bell';
+export type InstrumentType = 'piano' | 'flute' | 'whistle' | 'guitar' | 'synth' | 'bell';
 
 export type EditorEditMode = 'verse' | 'measure';
 

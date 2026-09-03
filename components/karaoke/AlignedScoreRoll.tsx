@@ -6,6 +6,7 @@ import { AudioEngine, PlaybackState } from '@/lib/audioEngine';
 import { JianpuNoteComponent } from '../JianpuNoteComponent';
 import { KaraokeSection } from './SectionJumpBar';
 import { Music, Pencil } from 'lucide-react';
+import { getMeasureChords } from '@/lib/taigiUtils';
 
 interface AlignedScoreRollProps {
   song: Song;
@@ -95,11 +96,14 @@ export const AlignedScoreRoll: React.FC<AlignedScoreRollProps> = React.memo(({
                       {measure.section}
                     </span>
                   )}
-                  {measure.chord && (
-                    <span className="font-bold text-amber-400 bg-amber-950/40 px-1.5 py-0.2 rounded border border-amber-800/50">
-                      {measure.chord}
+                  {getMeasureChords(measure).map((ch, cIdx) => (
+                    <span
+                      key={`${ch}-${cIdx}`}
+                      className="font-bold text-amber-400 bg-amber-950/40 px-1.5 py-0.2 rounded border border-amber-800/50"
+                    >
+                      {ch}
                     </span>
-                  )}
+                  ))}
                 </div>
 
                 {/* Edit Icon in Measure Card */}

@@ -25,6 +25,7 @@ import {
   getMeasureRhythmReport,
   getRestDurationsForDeficit,
   getNoteBeatDuration,
+  getMeasureChords,
 } from '@/lib/taigiUtils';
 import { scrollToCardElement } from '@/lib/utils';
 import {
@@ -868,7 +869,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const handleUpdateMeasureChord = (mIdx: number, chord: string) => {
     const newMeasures = song.measures.map((m, idx) => {
       if (idx !== mIdx) return m;
-      return { ...m, chord };
+      const chords = getMeasureChords({ chord });
+      return { ...m, chord, chords };
     });
     onUpdateSong({ ...song, measures: newMeasures });
   };

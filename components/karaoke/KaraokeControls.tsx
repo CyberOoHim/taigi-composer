@@ -4,6 +4,7 @@ import React from 'react';
 import { InstrumentType, Song } from '@/types/song';
 import { PlaybackState } from '@/lib/audioEngine';
 import { KaraokeSection } from './SectionJumpBar';
+import { AbLoopState } from './AbLoopRehearsalBar';
 import {
   Play,
   Pause,
@@ -35,6 +36,8 @@ interface KaraokeControlsProps {
   isLoopingMeasure: boolean;
   showMixer: boolean;
   song: Song;
+  abLoop?: AbLoopState;
+  onToggleAbLoop?: () => void;
   isStageMode?: boolean;
   onToggleStageMode?: () => void;
   zoomScale?: number;
@@ -75,6 +78,8 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
   isLoopingMeasure,
   showMixer,
   song,
+  abLoop,
+  onToggleAbLoop,
   isStageMode = false,
   onToggleStageMode,
   zoomScale = 1.0,
@@ -297,6 +302,24 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
           >
             <Repeat className="w-4.5 h-4.5" />
           </button>
+
+          {/* A-B Rehearsal Loop Toggle Button */}
+          {onToggleAbLoop && (
+            <button
+              id="ktv-deck-ab-loop-btn"
+              type="button"
+              onClick={onToggleAbLoop}
+              className={`min-h-[44px] px-3 py-2 rounded-xl border text-xs font-bold transition-all active:scale-95 touch-manipulation flex items-center gap-1.5 cursor-pointer ${
+                abLoop?.enabled
+                  ? 'bg-amber-500 text-zinc-950 border-amber-400 ring-2 ring-amber-400 font-black shadow-md'
+                  : 'bg-[#0a0c10] border-zinc-800 text-zinc-400 hover:text-white'
+              }`}
+              title={abLoop?.enabled ? 'A-B Loop Active (Click to disable)' : 'Enable A-B Loop'}
+            >
+              <Repeat className={`w-4 h-4 ${abLoop?.enabled ? 'animate-spin-slow' : ''}`} />
+              <span>{abLoop?.enabled ? 'A–B Loop On' : 'A–B Loop'}</span>
+            </button>
+          )}
         </div>
 
         {/* Key Changer (Transpose) Controls */}
@@ -347,11 +370,12 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
             onChange={e => onSetInstrument(e.target.value as InstrumentType)}
             className="bg-[#141720] text-zinc-200 font-medium px-2.5 py-1.5 min-h-[36px] rounded-lg border border-zinc-700/80 focus:outline-hidden focus:border-amber-400 cursor-pointer touch-manipulation"
           >
-            <option value="piano">Grand Piano</option>
-            <option value="flute">Traditional Flute</option>
-            <option value="guitar">Acoustic Guitar</option>
-            <option value="synth">80s Synth</option>
-            <option value="bell">Glockenspiel</option>
+            <option value="piano">Grand Piano (鋼琴)</option>
+            <option value="flute">Traditional Flute (竹笛)</option>
+            <option value="whistle">Whistle (口笛)</option>
+            <option value="guitar">Acoustic Guitar (吉他)</option>
+            <option value="synth">80s Synth (合成器)</option>
+            <option value="bell">Glockenspiel (鐘琴)</option>
           </select>
         </div>
 

@@ -189,7 +189,7 @@ export function deleteSongFromCustomLibrary(songId: string): Song[] {
 // ============================================================================
 export function getStoredInstrument(): InstrumentType {
   const val = safeGetItem(STORAGE_KEYS.INSTRUMENT);
-  if (val === 'piano' || val === 'flute' || val === 'guitar' || val === 'synth' || val === 'bell') {
+  if (val === 'piano' || val === 'flute' || val === 'whistle' || val === 'guitar' || val === 'synth' || val === 'bell') {
     return val;
   }
   return 'piano';

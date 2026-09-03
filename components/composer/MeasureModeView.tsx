@@ -10,6 +10,8 @@ import {
   getDiatonicChords,
   getMeasureRhythmReport,
   getNoteBeatDuration,
+  getMeasureChords,
+  formatMeasureChords,
 } from '@/lib/taigiUtils';
 import { NoteCell } from './NoteCell';
 import { NoteEditorHud } from './NoteEditorHud';
@@ -155,6 +157,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   onTrimExcessNotes,
 }) => {
   const [hoveredSplitIndex, setHoveredSplitIndex] = useState<string | null>(null);
+  const [chordMode, setChordMode] = useState<'append' | 'replace'>('append');
 
   const cycleBarline = (mIdx: number, current: BarlineType = 'single') => {
     if (!onUpdateBarlineType) return;
@@ -377,19 +380,86 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     <option value="Outro">Outro</option>
                   </select>
 
-                  {/* Chord Selector */}
-                  <div className="flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-1 text-xs min-h-[36px]">
-                    <span className="text-zinc-600 dark:text-zinc-400 font-medium">Chord:</span>
+                  {/* Multi-Chord Selector & Chips Editor */}
+                  <div className="flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-1 text-xs min-h-[36px] flex-wrap">
+                    <span className="text-zinc-600 dark:text-zinc-400 font-medium shrink-0">Chord:</span>
+                    
+                    {/* Current Chords Badges */}
+                    {getMeasureChords(measure).map((ch, chIdx) => (
+                      <span
+                        key={`${ch}-${chIdx}`}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 font-mono font-bold text-xs shadow-2xs"
+                      >
+                        <span>{ch}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const current = getMeasureChords(measure);
+                            const updated = current.filter((_, i) => i !== chIdx);
+                            onUpdateMeasureChord(mIdx, formatMeasureChords(updated));
+                          }}
+                          className="text-zinc-400 hover:text-rose-500 ml-0.5 text-xs font-black cursor-pointer leading-none"
+                          title={`Remove ${ch}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+
+                    {/* Quick Input to type or append multiple chords */}
+                    <input
+                      id={`measure-chord-input-${mIdx}`}
+                      type="text"
+                      placeholder={getMeasureChords(measure).length === 0 ? "e.g. Bb F" : "+ Chord"}
+                      defaultValue=""
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = (e.currentTarget.value || '').trim();
+                          if (val) {
+                            const newTokens = getMeasureChords({ chord: val });
+                            const current = getMeasureChords(measure);
+                            const combined = [...current, ...newTokens];
+                            onUpdateMeasureChord(mIdx, formatMeasureChords(combined));
+                            e.currentTarget.value = '';
+                          }
+                        }
+                      }}
+                      onBlur={e => {
+                        const val = (e.currentTarget.value || '').trim();
+                        if (val) {
+                          const newTokens = getMeasureChords({ chord: val });
+                          const current = getMeasureChords(measure);
+                          const combined = [...current, ...newTokens];
+                          onUpdateMeasureChord(mIdx, formatMeasureChords(combined));
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                      className="bg-transparent font-bold text-xs text-amber-600 dark:text-amber-400 focus:outline-hidden w-16 sm:w-20 placeholder:text-zinc-400 placeholder:font-normal"
+                      title="Type chord(s) and press Enter to add"
+                    />
+
+                    {/* Quick Add from Common Chords Dropdown */}
                     <select
                       id={`measure-chord-select-${mIdx}`}
-                      value={measure.chord || ''}
-                      onChange={e => onUpdateMeasureChord(mIdx, e.target.value)}
-                      className="bg-transparent font-bold text-amber-600 dark:text-amber-400 focus:outline-hidden text-xs cursor-pointer"
+                      value=""
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val) {
+                          const current = getMeasureChords(measure);
+                          const combined = chordMode === 'append' ? [...current, val] : [val];
+                          onUpdateMeasureChord(mIdx, formatMeasureChords(combined));
+                          audioEngine.previewChord(val);
+                        }
+                      }}
+                      className="bg-transparent font-bold text-zinc-500 dark:text-zinc-400 focus:outline-hidden text-xs cursor-pointer w-4 overflow-hidden"
+                      title="Quick add chord from list"
                     >
-                      <option value="">No Chord</option>
-                      {['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim', 'G7', 'C7', 'Fm', 'A', 'D', 'E', 'Bb'].map(
+                      <option value="">+ Add Chord</option>
+                      {['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim', 'G7', 'C7', 'Fm', 'A', 'D', 'E', 'Bb', 'Eb', 'Ab'].map(
                         c => (
-                          <option key={c} value={c}>
+                          <option key={c} value={c} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
                             {c}
                           </option>
                         )
@@ -524,15 +594,34 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                 <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold shrink-0 ml-1">
                   {keySignature} Diatonic Chords:
                 </span>
+
+                {/* Append / Replace Mode Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setChordMode(m => m === 'append' ? 'replace' : 'append')}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${
+                    chordMode === 'append'
+                      ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-400/50 shadow-2xs'
+                      : 'bg-zinc-200/80 dark:bg-zinc-700/80 text-zinc-600 dark:text-zinc-300 border-zinc-300 dark:border-zinc-600'
+                  }`}
+                  title={chordMode === 'append' ? 'Mode: Click adds chord to measure' : 'Mode: Click replaces chord in measure'}
+                >
+                  {chordMode === 'append' ? '+ Append' : 'Replace'}
+                </button>
+
                 <div className="flex items-center gap-1 flex-wrap">
                   {diatonicChords.map(c => {
-                    const isCurrentChord = measure.chord === c.chord;
+                    const currentMeasureChords = getMeasureChords(measure);
+                    const isCurrentChord = currentMeasureChords.includes(c.chord);
                     return (
                       <button
                         key={c.chord}
                         type="button"
                         onClick={() => {
-                          onUpdateMeasureChord(mIdx, c.chord);
+                          const updated = chordMode === 'append'
+                            ? [...currentMeasureChords, c.chord]
+                            : [c.chord];
+                          onUpdateMeasureChord(mIdx, formatMeasureChords(updated));
                           audioEngine.previewChord(c.chord);
                         }}
                         className={`px-2 py-1 rounded-lg text-xs font-mono font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${
@@ -540,19 +629,19 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                             ? 'bg-amber-500 text-zinc-950 border-amber-600 ring-2 ring-amber-400 font-black'
                             : c.colorClass
                         }`}
-                        title={`${c.label} (${c.degree}) - Click to apply and preview`}
+                        title={`${c.label} (${c.degree}) - Click to ${chordMode === 'append' ? 'append' : 'set'} and preview`}
                       >
                         <span>{c.chord}</span>
                         <span className="text-[9px] opacity-75 ml-0.5 font-normal">({c.degree})</span>
                       </button>
                     );
                   })}
-                  {measure.chord && (
+                  {getMeasureChords(measure).length > 0 && (
                     <button
                       type="button"
                       onClick={() => onUpdateMeasureChord(mIdx, '')}
                       className="px-2 py-1 rounded-lg text-[10px] text-zinc-500 hover:text-rose-600 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 cursor-pointer transition-colors shadow-2xs font-semibold"
-                      title="Clear measure chord"
+                      title="Clear all chords in measure"
                     >
                       Clear
                     </button>

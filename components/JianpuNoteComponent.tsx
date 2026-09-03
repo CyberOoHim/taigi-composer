@@ -3,7 +3,7 @@
 import React from 'react';
 import { JianpuNote, LyricDisplayMode } from '@/types/song';
 import { cn } from '@/lib/utils';
-import { isMelismaContinuation, isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
+import { isMelismaContinuation, isNonNotationItem, isPunctuationOrSpacer, INSTRUMENT_LABELS } from '@/lib/taigiUtils';
 
 interface JianpuNoteComponentProps {
   note: JianpuNote;
@@ -250,6 +250,16 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
         )}
 
         <div className="flex flex-col items-center">
+          {/* Note-Specific Sound Source Override Pill */}
+          {note.instrument && !isNonNotation && (
+            <span
+              className="text-[9px] font-sans font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-1.5 py-0.2 rounded border border-amber-500/30 whitespace-nowrap mb-0.5 leading-none shadow-2xs"
+              title={`Instrument: ${INSTRUMENT_LABELS[note.instrument]?.en || note.instrument}`}
+            >
+              {INSTRUMENT_LABELS[note.instrument]?.zh || note.instrument}
+            </span>
+          )}
+
           {/* Top Octave Dots */}
           {octaveTopDots > 0 && (
             <div className="flex gap-0.5 mb-[-2px]">

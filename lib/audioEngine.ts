@@ -1,5 +1,5 @@
 import { ArticulationType, GraceNote, InstrumentType, JianpuNote, KeySignature, Measure, Song } from '@/types/song';
-import { getChordNotes, getPitchFrequency, isNonNotationItem, isSamePitch, isSlurActive, isTieActive } from './taigiUtils';
+import { getChordNotes, getMeasureChords, getPitchFrequency, isNonNotationItem, isSamePitch, isSlurActive, isTieActive } from './taigiUtils';
 
 export interface PlaybackState {
   isPlaying: boolean;
@@ -212,7 +212,7 @@ export class AudioEngine {
       this.ctx.currentTime,
       playDuration,
       this.melodyGain,
-      this.options.instrument,
+      note.instrument || this.options.instrument,
       { isPreview: true }
     );
 
@@ -444,6 +444,43 @@ export class AudioEngine {
         const fluteAttack = isLegato ? 0.02 : 0.06;
         gain.gain.linearRampToValueAtTime(0.7 * volMul, startTime + fluteAttack);
         gain.gain.setValueAtTime(0.65 * volMul, startTime + effectiveDuration * 0.85);
+        gain.gain.linearRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        break;
+      }
+      case 'whistle': {
+        // Expressive Traditional Chinese Koudi / Whistle (口笛)
+        osc.type = 'sine';
+        if (!options?.glideFromFreq) {
+          osc.frequency.setValueAtTime(freq, startTime);
+        }
+
+        // Gentle whistle vibrato LFO (5.8 Hz)
+        const lfo = this.ctx.createOscillator();
+        this.registerOscillator(lfo);
+        const lfoGain = this.ctx.createGain();
+        lfo.frequency.setValueAtTime(5.8, startTime);
+        lfoGain.gain.setValueAtTime(freq * 0.012, startTime);
+        lfo.connect(osc.frequency);
+        lfo.start(startTime + 0.08);
+        lfo.stop(startTime + effectiveDuration);
+
+        // Breath / air overtone for authentic whistle timbre
+        const breath = this.ctx.createOscillator();
+        this.registerOscillator(breath);
+        const breathGain = this.ctx.createGain();
+        breath.type = 'sine';
+        breath.frequency.setValueAtTime(freq * 2, startTime);
+        breathGain.gain.setValueAtTime(0.04 * volMul, startTime);
+        breathGain.gain.exponentialRampToValueAtTime(0.001, startTime + effectiveDuration);
+        breath.connect(breathGain);
+        breathGain.connect(gain);
+        breath.start(startTime);
+        breath.stop(startTime + effectiveDuration);
+
+        gain.gain.setValueAtTime(0.0001, startTime);
+        const whistleAttack = isLegato ? 0.02 : 0.04;
+        gain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + whistleAttack);
+        gain.gain.setValueAtTime(0.75 * volMul, startTime + effectiveDuration * 0.82);
         gain.gain.linearRampToValueAtTime(0.0001, startTime + effectiveDuration);
         break;
       }
@@ -685,7 +722,7 @@ export class AudioEngine {
             scheduleAt,
             soundDuration,
             this.melodyGain!,
-            this.options.instrument,
+            note.instrument || this.options.instrument,
             { isLegato: isSlurred }
           );
         }
@@ -706,12 +743,18 @@ export class AudioEngine {
     });
 
     // Schedule chord backing & metronome for this measure
-    const chordName = targetMeasure.chord || '';
+    const measureChords = getMeasureChords(targetMeasure);
     for (let b = 0; b < beatsPerBar; b++) {
       const beatTime = audioStart + b * secPerBeat;
       this.playMetronomeClick(beatTime, b === 0);
-      if (chordName) {
-        this.playChordBeat(chordName, beatTime, secPerBeat, b === 0);
+      if (measureChords.length > 0) {
+        const chordIdx = Math.min(
+          measureChords.length - 1,
+          Math.floor((b / beatsPerBar) * measureChords.length)
+        );
+        const currentChord = measureChords[chordIdx];
+        const isChordChange = b === 0 || chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length);
+        this.playChordBeat(currentChord, beatTime, secPerBeat, isChordChange);
       }
     }
 
@@ -813,15 +856,25 @@ export class AudioEngine {
             scheduleAt,
             soundDuration,
             this.melodyGain!,
-            this.options.instrument,
+            note.instrument || this.options.instrument,
             { isLegato: isSlurred }
           );
         }
 
         const m = song.measures[measureIdx];
-        if (m?.chord && m.chord !== lastChord) {
-          this.playChordBeat(m.chord, scheduleAt, Math.min(secPerBeat, noteDurationSec), true);
-          lastChord = m.chord;
+        const mChords = getMeasureChords(m);
+        if (mChords.length > 0) {
+          const beatsInMeasure = (m.timeSignature || song.timeSignature) ? parseInt(m.timeSignature || song.timeSignature) || 4 : 4;
+          const noteBeatInMeasure = (noteTime / secPerBeat) % beatsInMeasure;
+          const chordIdx = Math.min(
+            mChords.length - 1,
+            Math.floor((noteBeatInMeasure / beatsInMeasure) * mChords.length)
+          );
+          const currentChord = mChords[chordIdx];
+          if (currentChord && currentChord !== lastChord) {
+            this.playChordBeat(currentChord, scheduleAt, Math.min(secPerBeat, noteDurationSec), true);
+            lastChord = currentChord;
+          }
         }
       }
 
@@ -1025,7 +1078,7 @@ export class AudioEngine {
                   scheduleAt,
                   soundDuration,
                   this.melodyGain!,
-                  this.options.instrument,
+                  note.instrument || this.options.instrument,
                   { isLegato: isSlurred }
                 );
               }
@@ -1048,7 +1101,7 @@ export class AudioEngine {
       });
 
       // Schedule chord backing and metronome per beat of this measure
-      const chordName = measure.chord || '';
+      const measureChords = getMeasureChords(measure);
       for (let b = 0; b < beatsPerBar; b++) {
         const beatTime = accumulatedSongTime + b * secPerBeat;
         if (beatTime >= startFromSec) {
@@ -1057,8 +1110,14 @@ export class AudioEngine {
             // Metronome
             this.playMetronomeClick(scheduleAt, b === 0);
             // Chord backing
-            if (chordName) {
-              this.playChordBeat(chordName, scheduleAt, secPerBeat, b === 0);
+            if (measureChords.length > 0) {
+              const chordIdx = Math.min(
+                measureChords.length - 1,
+                Math.floor((b / beatsPerBar) * measureChords.length)
+              );
+              const currentChord = measureChords[chordIdx];
+              const isChordChange = b === 0 || chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length);
+              this.playChordBeat(currentChord, scheduleAt, secPerBeat, isChordChange);
             }
           }
         }

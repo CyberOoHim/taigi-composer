@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArticulationType, GraceNote, JianpuNote, KeySignature, NoteDuration, PitchNumber } from '@/types/song';
+import { ArticulationType, GraceNote, InstrumentType, JianpuNote, KeySignature, NoteDuration, PitchNumber } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import {
   getDurationChineseInfo,
   PUNCTUATION_MARKS,
   ANNOTATION_MARKS,
   formatGraceNotes,
+  INSTRUMENT_OPTIONS,
+  INSTRUMENT_LABELS,
 } from '@/lib/taigiUtils';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { getStoredDeckTab, setStoredDeckTab } from '@/lib/storage';
@@ -30,6 +32,7 @@ import {
   Scissors,
   Sliders,
   Wand2,
+  Disc,
 } from 'lucide-react';
 
 export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
@@ -277,13 +280,43 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             <span>#{selectedMeasureIndex + 1}.{(selectedNoteIndex ?? 0) + 1}</span>
           </span>
 
-          <div className="flex items-center gap-2 font-bold text-zinc-900 dark:text-zinc-100">
+          <div className="flex items-center gap-2 font-bold text-zinc-900 dark:text-zinc-100 flex-wrap">
             <span className="daw-lcd text-sm px-3 py-1 rounded-lg font-mono font-bold shadow-xs">
               {pitchLabel}
             </span>
             <span className="text-zinc-600 dark:text-zinc-300 font-medium">
               {durationInfo.beatsLabel} ({durationInfo.name})
             </span>
+
+            {/* Note Sound Source Override Selector (Matching Screenshot 2) */}
+            <div className="flex items-center gap-1 bg-zinc-200/90 dark:bg-zinc-800/90 px-2 py-1 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs">
+              <Disc className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <select
+                id={`hud-note-instrument-select-${selectedMeasureIndex}-${selectedNoteIndex}`}
+                value={currentNote.instrument || ''}
+                onChange={e => {
+                  const val = (e.target.value as InstrumentType) || undefined;
+                  onUpdateSelectedNote(prev => ({
+                    ...prev,
+                    instrument: val,
+                  }));
+                  if (val) {
+                    audioEngine.previewNote(keySignature, { ...currentNote, instrument: val });
+                  }
+                }}
+                className="bg-transparent font-bold text-xs text-amber-600 dark:text-amber-400 focus:outline-hidden cursor-pointer"
+                title="音色覆蓋 (Sound Source Override - Overrides primary song tone)"
+              >
+                <option value="" className="bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300">
+                  預設 (Default)
+                </option>
+                {INSTRUMENT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                    {opt.labelZh} ({opt.value})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {(currentNote.tieToNext || (currentNote.isTied && !currentNote.slurToNext)) && (
@@ -953,6 +986,63 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                   <Volume2 className="w-3.5 h-3.5" />
                   <span>試聽效果</span>
                 </button>
+              </div>
+
+              {/* Note Sound Source Override Section */}
+              <div className="flex flex-col gap-2 p-3 bg-zinc-100/70 dark:bg-[#0c0e14]/70 rounded-xl border border-zinc-200/80 dark:border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                    <Disc className="w-4 h-4 text-amber-500" />
+                    <span>音色音源覆蓋 (Note Sound Source Override)</span>
+                  </span>
+                  {currentNote.instrument && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdateSelectedNote(prev => ({ ...prev, instrument: undefined }));
+                      }}
+                      className="text-[11px] text-zinc-500 hover:text-rose-500 underline cursor-pointer"
+                    >
+                      重設為預設 (Reset)
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateSelectedNote(prev => ({ ...prev, instrument: undefined }));
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer ${
+                      !currentNote.instrument
+                        ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs font-black'
+                        : 'bg-white dark:bg-[#141720] border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-amber-400'
+                    }`}
+                  >
+                    預設 (Default)
+                  </button>
+                  {INSTRUMENT_OPTIONS.map(opt => {
+                    const isSelected = currentNote.instrument === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          onUpdateSelectedNote(prev => ({ ...prev, instrument: opt.value }));
+                          audioEngine.previewNote(keySignature, { ...currentNote, instrument: opt.value });
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs ring-2 ring-amber-400 font-black'
+                            : 'bg-white dark:bg-[#141720] border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-amber-400'
+                        }`}
+                        title={opt.labelEn}
+                      >
+                        {opt.labelZh}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* 經典唱腔裝飾音範本 (One-Tap Presets) */}
