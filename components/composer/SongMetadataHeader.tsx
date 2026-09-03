@@ -13,6 +13,7 @@ import {
   FileEdit,
   Mic2,
   Play,
+  Square,
 } from 'lucide-react';
 
 interface SongMetadataHeaderProps {
@@ -25,6 +26,8 @@ interface SongMetadataHeaderProps {
   onStartFreshSong?: () => void;
   onOpenOrganizer?: () => void;
   onPlayKaraoke?: (startMeasureIndex?: number) => void;
+  isPlaying?: boolean;
+  onStopPlayback?: () => void;
   incompleteMeasuresCount?: number;
 }
 
@@ -38,6 +41,8 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   onStartFreshSong,
   onOpenOrganizer,
   onPlayKaraoke,
+  isPlaying = false,
+  onStopPlayback,
   incompleteMeasuresCount = 0,
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -125,8 +130,19 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
 
         {/* Right: Quick Actions & Settings Toggle (Touch Targets >= 40px) */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Karaoke Play Trigger (Directly jump to Karaoke Stage & play) */}
-          {onPlayKaraoke && (
+          {/* Karaoke Play / Stop Playback Trigger */}
+          {isPlaying && onStopPlayback ? (
+            <button
+              id="composer-meta-stop-btn"
+              type="button"
+              onClick={onStopPlayback}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px] animate-pulse"
+              title="Stop audio playback"
+            >
+              <Square className="w-3.5 h-3.5 fill-current text-white" />
+              <span>Stop Playback</span>
+            </button>
+          ) : onPlayKaraoke ? (
             <button
               id="composer-meta-karaoke-play-btn"
               type="button"
@@ -138,7 +154,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               <Play className="w-3.5 h-3.5 fill-current text-zinc-950" />
               <span>Karaoke Play</span>
             </button>
-          )}
+          ) : null}
 
           {/* Start Fresh Song Trigger */}
           {onStartFreshSong && (

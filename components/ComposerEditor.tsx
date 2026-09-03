@@ -53,6 +53,7 @@ import {
   Wand2,
   Mic2,
   Play,
+  Square,
 } from 'lucide-react';
 
 interface ComposerEditorProps {
@@ -150,9 +151,19 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   // Compute segmented verses based on punctuation or whitespace/rest pause
   const verses = useMemo(() => groupSongIntoVerses(song), [song]);
 
+  const [isSongPlaying, setIsSongPlaying] = useState<boolean>(() => (audioEngine ? audioEngine.getIsPlaying() : false));
+
+  // Handle stop audio playback directly from score editor deck
+  const handleStopAudio = useCallback(() => {
+    if (audioEngine) {
+      audioEngine.stop();
+    }
+  }, [audioEngine]);
+
   // Subscribe to audio engine playback state
   useEffect(() => {
     const unsub = audioEngine.subscribeState(state => {
+      setIsSongPlaying(state.isPlaying);
       setActivePlaybackNoteId(state.isPlaying ? state.currentNoteId : null);
       if (!state.isPlaying) {
         setPlayingMeasureIdx(null);
@@ -1684,6 +1695,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         onStartFreshSong={onStartFreshSong}
         onOpenOrganizer={() => setIsOrganizerOpen(true)}
         onPlayKaraoke={onPlayKaraoke}
+        isPlaying={isSongPlaying}
+        onStopPlayback={handleStopAudio}
         incompleteMeasuresCount={incompleteMeasuresCount}
       />
 
@@ -1705,8 +1718,19 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           </h2>
 
           <div className="flex items-center gap-2 text-xs flex-wrap">
-            {/* Karaoke Play in Score Header (Direct jump to Karaoke deck & play) */}
-            {onPlayKaraoke && (
+            {/* Karaoke Play / Stop Playback in Score Header */}
+            {isSongPlaying ? (
+              <button
+                id="composer-score-stop-btn"
+                type="button"
+                onClick={handleStopAudio}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] animate-pulse"
+                title="Stop current audio playback"
+              >
+                <Square className="w-3.5 h-3.5 fill-current text-white" />
+                <span>Stop Playback</span>
+              </button>
+            ) : onPlayKaraoke ? (
               <div
                 id="composer-score-karaoke-play-group"
                 className="flex items-center bg-amber-500/15 dark:bg-amber-500/20 p-0.5 rounded-xl border border-amber-400/80 dark:border-amber-600/80 shadow-2xs"
@@ -1734,7 +1758,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                   </button>
                 )}
               </div>
-            )}
+            ) : null}
             {/* Undo / Redo in Score Header */}
             {onUndo && onRedo && (
               <div

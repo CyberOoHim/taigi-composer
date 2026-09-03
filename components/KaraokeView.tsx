@@ -501,6 +501,21 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     }
   };
 
+  // Stop playback when jumping to edit a measure or section in Score Editor
+  const handleEditMeasureInternal = useCallback((mIdx: number) => {
+    audioEngine.stop();
+    if (onEditMeasure) {
+      onEditMeasure(mIdx);
+    }
+  }, [audioEngine, onEditMeasure]);
+
+  const handleEditSectionInternal = useCallback((section: KaraokeSection) => {
+    audioEngine.stop();
+    if (onEditSection) {
+      onEditSection(section);
+    }
+  }, [audioEngine, onEditSection]);
+
   // Playback control handlers
   const handleTogglePlay = () => {
     if (playbackState.isPlaying) {
@@ -883,8 +898,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         sheetScrollRef={sheetScrollRef}
         loopRange={abLoop.enabled ? { startMeasure: abLoop.startMeasure, endMeasure: abLoop.endMeasure } : null}
         onSelectMeasure={onSelectMeasure}
-        onEditMeasure={onEditMeasure}
-        onEditSection={onEditSection}
+        onEditMeasure={handleEditMeasureInternal}
+        onEditSection={handleEditSectionInternal}
       />
     </div>
   );

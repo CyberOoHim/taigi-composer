@@ -78,6 +78,9 @@ export default function Home() {
   }, [loadNewSong]);
 
   const setActiveTab = useCallback((tab: ActiveTabMode) => {
+    if (tab === 'editor' && audioEngine) {
+      audioEngine.stop();
+    }
     setActiveTabState(tab);
     setStoredActiveTab(tab);
   }, []);
@@ -132,6 +135,9 @@ export default function Home() {
   );
 
   const handleEditMeasure = useCallback((measureIndex: number) => {
+    if (audioEngine) {
+      audioEngine.stop();
+    }
     if (activeTab === 'karaoke') {
       setActiveTab('editor');
     }
@@ -139,6 +145,9 @@ export default function Home() {
   }, [activeTab, setActiveTab]);
 
   const handleEditSection = useCallback((section: KaraokeSection) => {
+    if (audioEngine) {
+      audioEngine.stop();
+    }
     if (activeTab === 'karaoke') {
       setActiveTab('editor');
     }
