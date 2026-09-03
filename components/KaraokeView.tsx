@@ -27,7 +27,10 @@ import {
   setStoredShowMixer,
   getStoredStageZoom,
   setStoredStageZoom,
+  getStoredLeadInEnabled,
+  setStoredLeadInEnabled,
 } from '@/lib/storage';
+import { computeVersesTiming, getKaraokeStageSequenceState } from '@/lib/karaokeSequencer';
 import confetti from 'canvas-confetti';
 import {
   Radio,
@@ -117,6 +120,18 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     if (typeof window !== 'undefined') return getStoredShowMixer(false);
     return false;
   });
+  const [leadInEnabled, setLeadInEnabledState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return getStoredLeadInEnabled(true);
+    return true;
+  });
+
+  const toggleLeadInEnabled = useCallback(() => {
+    setLeadInEnabledState(prev => {
+      const next = !prev;
+      setStoredLeadInEnabled(next);
+      return next;
+    });
+  }, []);
 
   const setInstrument = useCallback((inst: InstrumentType) => {
     setInstrumentState(inst);
@@ -418,29 +433,24 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     return groupSongIntoVerses(song);
   }, [song]);
 
-  // Find active verse index based on currently playing note and measure
-  const activeVerseIndex = useMemo(() => {
-    if (!songVerses.length) return 0;
-    const currentM = playbackState.currentMeasureIndex;
-    const currentN = playbackState.currentNoteIndex;
+  // Compute verses timeline with tempoMultiplier
+  const verseTimings = useMemo(() => {
+    return computeVersesTiming(song, songVerses, tempoMultiplier);
+  }, [song, songVerses, tempoMultiplier]);
 
-    // 1. Precise note match
-    const idx = songVerses.findIndex(verse =>
-      verse.notes.some(n => n.measureIndex === currentM && n.noteIndex === currentN)
+  // Enhanced Stage sequence state: manages seamless transitions, preview lead-in, and rhythmic countdown
+  const stageSequence = useMemo(() => {
+    return getKaraokeStageSequenceState(
+      verseTimings,
+      playbackState.currentTime,
+      song,
+      tempoMultiplier,
+      leadInEnabled
     );
-    if (idx !== -1) return idx;
+  }, [verseTimings, playbackState.currentTime, song, tempoMultiplier, leadInEnabled]);
 
-    // 2. Measure fallback match
-    const mIdx = songVerses.findIndex(verse =>
-      verse.notes.some(n => n.measureIndex === currentM)
-    );
-    if (mIdx !== -1) return mIdx;
-
-    return 0;
-  }, [songVerses, playbackState.currentMeasureIndex, playbackState.currentNoteIndex]);
-
-  const currentVerse = songVerses[activeVerseIndex] || songVerses[0] || null;
-  const nextVerse = songVerses[activeVerseIndex + 1] || null;
+  const currentVerse = stageSequence.activeVerse || songVerses[0] || null;
+  const nextVerse = stageSequence.nextVerse;
 
   // Jump to specific section handler (instant touch jump)
   const handleJumpToSection = useCallback((section: KaraokeSection) => {
@@ -760,6 +770,10 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       <KaraokeStage
         currentVerse={currentVerse}
         nextVerse={nextVerse}
+        activeVerseTiming={stageSequence.activeVerseTiming}
+        nextVerseTiming={stageSequence.nextVerseTiming}
+        isAwaitingVocal={stageSequence.isAwaitingVocal}
+        isVerseCompleted={stageSequence.isVerseCompleted}
         activeSection={activeSection}
         playbackState={playbackState}
         displayMode={displayMode}

@@ -150,9 +150,11 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
               {isNonNotation
                 ? note.annotation
                   ? ''
+                  : hanji === '\n' || hanji === '↵' || custom === '\n' || custom === '↵'
+                  ? '↵'
                   : isPunctuationOrSpacer(hanji || custom)
-                ? hanji || custom
-                : '␣'
+                  ? hanji || custom
+                  : '␣'
                 : note.pitch}
             </span>
             {showDot && (

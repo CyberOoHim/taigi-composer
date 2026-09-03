@@ -1,6 +1,6 @@
 'use client';
 
-import { Song, LyricDisplayMode, InstrumentType, EditorEditMode } from '@/types/song';
+import { Song, LyricDisplayMode, InstrumentType, EditorEditMode, Measure, JianpuNote } from '@/types/song';
 import { PRESET_SONGS } from '@/lib/presets';
 
 export const STORAGE_KEYS = {
@@ -17,6 +17,7 @@ export const STORAGE_KEYS = {
   TEMPO_MULTIPLIER: 'taigi_composer_tempo_multiplier',
   SHOW_MIXER: 'taigi_composer_show_mixer',
   STAGE_MODE_ZOOM: 'taigi_composer_stage_zoom',
+  KARAOKE_LEAD_IN_ENABLED: 'taigi_karaoke_lead_in_enabled',
   EDITOR_EDIT_MODE: 'taigi_composer_editor_edit_mode',
   AUTO_STEP_ADVANCE: 'taigi_composer_auto_step_advance',
   DECK_TAB: 'taigi_composer_deck_tab',
@@ -99,9 +100,22 @@ export function getStoredCurrentSong(): Song {
     try {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.id && Array.isArray(parsed.measures) && parsed.measures.length > 0) {
-        // If the user had the previous default ('bang-chhun-hong') or old 'u-ia-hoe' (key 'G' or fewer measures),
-        // refresh to the new default 'u-ia-hoe' (key 'Bb').
-        if (parsed.id === 'bang-chhun-hong' || (parsed.id === 'u-ia-hoe' && (parsed.key !== 'Bb' || parsed.measures.length < 20))) {
+        // If the user had the previous default ('bang-chhun-hong') or old/dirty 'u-ia-hoe',
+        // refresh to the new cleaned default 'u-ia-hoe' (key 'Bb').
+        const hasDirtyPunct =
+          parsed.id === 'u-ia-hoe' &&
+          (parsed.subtitle?.includes('范炎燁') ||
+            parsed.measures.some((m: Measure) =>
+              m.notes?.some(
+                (n: JianpuNote) =>
+                  n.lyric?.hanji === '—' || n.lyric?.hanji === '，' || n.lyric?.hanji === '。'
+              )
+            ));
+
+        if (
+          parsed.id === 'bang-chhun-hong' ||
+          (parsed.id === 'u-ia-hoe' && (parsed.key !== 'Bb' || parsed.measures.length < 20 || hasDirtyPunct))
+        ) {
           return PRESET_SONGS[0];
         }
         return parsed as Song;
@@ -302,4 +316,14 @@ export function getStoredDeckTab(): DeckTabMode {
 
 export function setStoredDeckTab(tab: DeckTabMode): void {
   safeSetItem(STORAGE_KEYS.DECK_TAB, tab);
+}
+
+export function getStoredLeadInEnabled(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.KARAOKE_LEAD_IN_ENABLED);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredLeadInEnabled(enabled: boolean): void {
+  safeSetItem(STORAGE_KEYS.KARAOKE_LEAD_IN_ENABLED, String(enabled));
 }

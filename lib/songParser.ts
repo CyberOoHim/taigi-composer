@@ -1,10 +1,11 @@
 import { JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
+import { isPunctuationOrSpacer, normalizeSongDurations } from './taigiUtils';
 
 /**
  * Export song to JSON string
  */
 export function exportSongToJson(song: Song): string {
-  return JSON.stringify(song, null, 2);
+  return JSON.stringify(normalizeSongDurations(song), null, 2);
 }
 
 /**
@@ -15,7 +16,7 @@ export function importSongFromJson(jsonString: string): Song {
   if (!parsed.title || !parsed.measures || !Array.isArray(parsed.measures)) {
     throw new Error('Invalid song format: missing title or measures.');
   }
-  return {
+  const song: Song = {
     id: parsed.id || `song-${Date.now()}`,
     title: parsed.title || 'Untitled Song',
     subtitle: parsed.subtitle || '',
@@ -28,6 +29,7 @@ export function importSongFromJson(jsonString: string): Song {
     notesPerLine: parsed.notesPerLine || 4,
     description: parsed.description || '',
   };
+  return normalizeSongDurations(song);
 }
 
 /**
@@ -35,18 +37,24 @@ export function importSongFromJson(jsonString: string): Song {
  * e.g., 5 with octave 1 = 5̇, octave -1 = 5̣, duration 0.5 = 5_, duration 2 = 5 -
  */
 export function formatNoteToJianpuString(note: JianpuNote): string {
-  let p = note.pitch === 'empty' ? '_' : `${note.pitch}`;
-  if (note.accidental && note.pitch !== 'empty') p = `${note.accidental}${p}`;
+  if (note.pitch === 'empty' || (typeof note.duration === 'number' && note.duration <= 0)) {
+    const hanji = note.lyric.hanji || note.lyric.custom || '';
+    if (hanji === '\n' || hanji === '↵') return '↵';
+    if (hanji && isPunctuationOrSpacer(hanji)) return hanji;
+    return '_';
+  }
+
+  let p = `${note.pitch}`;
+  if (note.accidental) p = `${note.accidental}${p}`;
 
   // Octave representation
-  if (note.pitch !== 'empty') {
-    if (note.octave > 0) p = `${p}${'+'.repeat(note.octave)}`;
-    if (note.octave < 0) p = `${p}${'-'.repeat(Math.abs(note.octave))}`;
-  }
+  if (note.octave > 0) p = `${p}${'+'.repeat(note.octave)}`;
+  if (note.octave < 0) p = `${p}${'-'.repeat(Math.abs(note.octave))}`;
 
   // Duration representation
   if (note.duration === 0.5) p = `${p}_`;
   else if (note.duration === 0.25) p = `${p}__`;
+  else if (note.duration === 0.125) p = `${p}___`;
   else if (note.duration === 1.5) p = `${p}.`;
   else if (note.duration === 2) p = `${p}-`;
   else if (note.duration === 3) p = `${p}--`;
@@ -185,7 +193,7 @@ export function importSongFromText(text: string): Song {
     throw new Error('No valid measures found in text file.');
   }
 
-  return song;
+  return normalizeSongDurations(song);
 }
 
 function parseJianpuToken(token: string, id: string): JianpuNote {
@@ -196,6 +204,27 @@ function parseJianpuToken(token: string, id: string): JianpuNote {
   let isDotted = false;
 
   let clean = token.trim();
+
+  // If token is explicitly a spacer, newline, or punctuation
+  if (
+    clean === '_' ||
+    clean === '↵' ||
+    clean === '空' ||
+    clean === 'empty' ||
+    clean === 'V' ||
+    isPunctuationOrSpacer(clean)
+  ) {
+    return {
+      id,
+      pitch: 'empty',
+      octave: 0,
+      accidental: '',
+      duration: 0 as NoteDuration,
+      isDotted: false,
+      isTied: false,
+      lyric: clean === '_' ? {} : { hanji: clean, custom: clean },
+    };
+  }
 
   // Accidental
   if (clean.startsWith('#')) {
@@ -208,14 +237,21 @@ function parseJianpuToken(token: string, id: string): JianpuNote {
 
   // Pitch number (0 to 7) or empty '_' / 'x' / '空'
   if (clean.startsWith('_') || clean.startsWith('空') || clean.startsWith('empty')) {
-    pitch = 'empty';
+    return {
+      id,
+      pitch: 'empty',
+      octave: 0,
+      accidental: '',
+      duration: 0 as NoteDuration,
+      isDotted: false,
+      lyric: {},
+    };
+  }
+
+  const pitchMatch = clean.match(/^([0-7])/);
+  if (pitchMatch) {
+    pitch = parseInt(pitchMatch[1], 10) as PitchNumber;
     clean = clean.substring(1);
-  } else {
-    const pitchMatch = clean.match(/^([0-7])/);
-    if (pitchMatch) {
-      pitch = parseInt(pitchMatch[1], 10) as PitchNumber;
-      clean = clean.substring(1);
-    }
   }
 
   // Octave indicators (+ or - or dots)

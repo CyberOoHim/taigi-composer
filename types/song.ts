@@ -25,6 +25,8 @@ export interface JianpuNote {
   annotation?: string;      // Optional musical / vocal annotation (e.g., 漸慢, 合唱, 間奏, rit., V, etc.)
 }
 
+export type BarlineType = 'single' | 'double' | 'end' | 'repeat_start' | 'repeat_end';
+
 export interface Measure {
   id: string;
   measureNumber: number;
@@ -32,6 +34,8 @@ export interface Measure {
   timeSignature?: TimeSignature; // If measure changes time signature
   section?: string;         // e.g. "Intro", "Verse 1", "Chorus", "Bridge"
   notes: JianpuNote[];
+  barlineType?: BarlineType; // Custom barline style at end of measure ('single' | 'double' | 'end' | 'repeat_start' | 'repeat_end')
+  isLineBreak?: boolean;    // True if this measure marks the end of a line / forces a system break
 }
 
 export interface Song {

@@ -1,8 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { LyricSyllable, Song } from '@/types/song';
-import { splitTaigiLyricSyllables, groupSongIntoVerses } from '@/lib/taigiUtils';
+import { LyricSyllable, NoteDuration, Song } from '@/types/song';
+import {
+  splitTaigiLyricSyllables,
+  groupSongIntoVerses,
+  isNonNotationItem,
+  isPunctuationOrSpacer,
+  normalizeSongDurations,
+} from '@/lib/taigiUtils';
 import {
   convertTaigiLyricsByVersesWithAi,
   convertTaigiLyricsWithAi,
@@ -313,7 +319,16 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           const note = newMeasures[noteRef.measureIndex]?.notes[noteRef.noteIndex];
           if (!note) continue;
 
-          const tok = vp.tokens[tokIdx++];
+          // If note is an explicit non-notation break or spacer, don't overwrite with sung lyric unless token is also punctuation
+          const isNoteNonNotation = isNonNotationItem(note);
+          const tok = vp.tokens[tokIdx];
+          const isTokenPunct = isPunctuationOrSpacer(tok.hanji || tok.custom || '');
+
+          if (isNoteNonNotation && !isTokenPunct) {
+            continue; // Skip non-notation note so syllable aligns with sung pitch
+          }
+
+          tokIdx++;
           note.lyric = {
             ...note.lyric,
             ...(tok.hanji !== undefined ? { hanji: tok.hanji } : {}),
@@ -321,6 +336,11 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             ...(tok.pij !== undefined ? { pij: tok.pij } : {}),
             ...(tok.custom !== undefined ? { custom: tok.custom } : {}),
           };
+
+          if (isTokenPunct) {
+            note.pitch = 'empty';
+            note.duration = 0 as NoteDuration;
+          }
         }
       });
     } else {
@@ -330,7 +350,15 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
       newMeasures.forEach(m => {
         m.notes.forEach(note => {
           if (tokenIdx < flatTokens.length) {
-            const tok = flatTokens[tokenIdx++];
+            const isNoteNonNotation = isNonNotationItem(note);
+            const tok = flatTokens[tokenIdx];
+            const isTokenPunct = isPunctuationOrSpacer(tok.hanji || tok.custom || '');
+
+            if (isNoteNonNotation && !isTokenPunct) {
+              return; // Skip non-notation note
+            }
+
+            tokenIdx++;
             note.lyric = {
               ...note.lyric,
               ...(tok.hanji !== undefined ? { hanji: tok.hanji } : {}),
@@ -338,15 +366,22 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               ...(tok.pij !== undefined ? { pij: tok.pij } : {}),
               ...(tok.custom !== undefined ? { custom: tok.custom } : {}),
             };
+
+            if (isTokenPunct) {
+              note.pitch = 'empty';
+              note.duration = 0 as NoteDuration;
+            }
           }
         });
       });
     }
 
-    onApplyLyrics({
-      ...song,
-      measures: newMeasures,
-    });
+    onApplyLyrics(
+      normalizeSongDurations({
+        ...song,
+        measures: newMeasures,
+      })
+    );
 
     onClose();
   };

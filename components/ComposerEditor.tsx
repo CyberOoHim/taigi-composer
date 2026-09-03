@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
+  BarlineType,
   EditorEditMode,
   JianpuNote,
   LyricDisplayMode,
@@ -19,6 +20,10 @@ import {
   splitVerseTextTokens,
   isPunctuationOrSpacer,
   isNonNotationItem,
+  normalizeSongDurations,
+  getMeasureRhythmReport,
+  getRestDurationsForDeficit,
+  getNoteBeatDuration,
 } from '@/lib/taigiUtils';
 import { scrollToCardElement } from '@/lib/utils';
 import {
@@ -32,6 +37,7 @@ import { NoteEditorHud } from './composer/NoteEditorHud';
 import { SectionRail } from './composer/SectionRail';
 import { VerseModeView } from './composer/VerseModeView';
 import { MeasureModeView } from './composer/MeasureModeView';
+import { MeasureOrganizerModal } from './composer/MeasureOrganizerModal';
 import {
   Plus,
   Music2,
@@ -40,6 +46,8 @@ import {
   AlignLeft,
   Layers,
   Sparkles,
+  SlidersHorizontal,
+  Wand2,
 } from 'lucide-react';
 
 interface ComposerEditorProps {
@@ -113,6 +121,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const [activePlaybackNoteId, setActivePlaybackNoteId] = useState<string | null>(null);
   const [measureBatchTexts, setMeasureBatchTexts] = useState<{ [mIdx: number]: string }>({});
   const [verseBatchTexts, setVerseBatchTexts] = useState<{ [vIdx: number]: string }>({});
+  const [isOrganizerOpen, setIsOrganizerOpen] = useState<boolean>(false);
+
+  // Incomplete / Over-beat measures count for whole song
+  const incompleteMeasuresCount = useMemo(() => {
+    return song.measures.filter(m => !getMeasureRhythmReport(m, song.timeSignature || '4/4').isFull).length;
+  }, [song.measures, song.timeSignature]);
 
   const showNotice = useCallback((msg: string) => {
     setNotification(msg);
@@ -316,8 +330,15 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const handleSetPitch = useCallback(
     (pitch: PitchNumber) => {
       updateSelectedNote(n => {
-        const updated = { ...n, pitch };
-        audioEngine.previewNote(song.key, updated);
+        const isEmpty = pitch === 'empty';
+        const updated = {
+          ...n,
+          pitch,
+          duration: isEmpty ? (0 as NoteDuration) : (n.duration <= 0 ? (1 as NoteDuration) : n.duration),
+        };
+        if (pitch !== 0 && pitch !== 'empty') {
+          audioEngine.previewNote(song.key, updated);
+        }
         return updated;
       });
 
@@ -354,6 +375,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     updateSelectedNote(n => ({
       ...n,
       duration,
+      pitch: duration === 0 ? 'empty' : (n.pitch === 'empty' ? 1 : n.pitch),
       isDotted:
         duration === 1.5 ||
         duration === 0.75 ||
@@ -425,29 +447,40 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     type: 'hanji' | 'poj' | 'pij' | 'custom',
     val: string
   ) => {
-    updateNoteAt(mIdx, nIdx, n => ({
-      ...n,
-      lyric: {
+    updateNoteAt(mIdx, nIdx, n => {
+      const updatedLyric = {
         ...n.lyric,
         [type]: val,
-      },
-    }));
+      };
+      const text = updatedLyric.hanji || updatedLyric.custom || '';
+      const isPunct = isPunctuationOrSpacer(text) || text === '\n' || text === '↵';
+      return {
+        ...n,
+        lyric: updatedLyric,
+        pitch: isPunct ? 'empty' : n.pitch,
+        duration: isPunct ? (0 as NoteDuration) : n.duration,
+      };
+    });
   };
 
-  // Quick insert punctuation to note (setting pitch to empty spacer)
+  // Quick insert punctuation to note (setting pitch to empty spacer and duration to 0)
   const handleInsertPunctuationToNote = useCallback(
     (punct: string) => {
       if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
       updateSelectedNote(n => ({
         ...n,
         pitch: 'empty',
+        duration: 0 as NoteDuration,
+        isDotted: false,
+        isTied: false,
         lyric: {
           ...n.lyric,
           hanji: punct,
           custom: punct,
         },
       }));
-      showNotice(`已填入標點「${punct}」並將音高設為留白 (Empty)`);
+      const label = punct === '\n' ? '↵ 換行' : punct;
+      showNotice(`已填入標點「${label}」並將時值設為 0 拍`);
     },
     [selectedMeasureIndex, selectedNoteIndex, updateSelectedNote, showNotice]
   );
@@ -458,6 +491,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     updateSelectedNote(n => ({
       ...n,
       pitch: 'empty',
+      duration: 0 as NoteDuration,
+      isDotted: false,
+      isTied: false,
       annotation: annot,
       lyric: {
         ...n.lyric,
@@ -465,7 +501,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         custom: annot,
       },
     }));
-    showNotice(`已填入樂曲/演唱註解「${annot}」`);
+    showNotice(`已填入樂曲/演唱註解「${annot}」(0 拍不佔時值)`);
   };
 
   // Set custom annotation text on selected note
@@ -552,13 +588,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         if (!syl) return note;
 
         const isHan = /[\u4e00-\u9fa5]/.test(syl);
+        const isPunct = isPunctuationOrSpacer(syl) || syl === '\n' || syl === '↵';
         return {
           ...note,
+          pitch: isPunct ? 'empty' : note.pitch,
+          duration: isPunct ? 0 : note.duration,
           lyric: {
             ...note.lyric,
-            hanji: isHan ? syl : note.lyric.hanji || '',
-            poj: !isHan ? syl : note.lyric.poj || '',
-            pij: !isHan ? syl : note.lyric.pij || '',
+            hanji: isHan || isPunct ? syl : note.lyric.hanji || '',
+            poj: !isHan && !isPunct ? syl : note.lyric.poj || '',
+            pij: !isHan && !isPunct ? syl : note.lyric.pij || '',
             custom: syl,
           },
         };
@@ -566,7 +605,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       return { ...m, notes: newNotes };
     });
 
-    onUpdateSong({ ...song, measures: newMeasures });
+    onUpdateSong(normalizeSongDurations({ ...song, measures: newMeasures }));
     showNotice(`已將「${text}」分配至第 ${mIdx + 1} 小節各音符！`);
     setMeasureBatchTexts(prev => ({ ...prev, [mIdx]: '' }));
   };
@@ -593,7 +632,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       if (!targetNote) return;
 
       const isHan = /[\u4e00-\u9fa5]/.test(tokStr);
-      const isPunct = tok.isPunct || isPunctuationOrSpacer(tokStr);
+      const isPunct = tok.isPunct || isPunctuationOrSpacer(tokStr) || tokStr === '\n' || tokStr === '↵';
 
       targetNote.lyric = {
         ...targetNote.lyric,
@@ -602,10 +641,14 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         pij: !isHan && !isPunct ? tokStr : targetNote.lyric.pij || '',
         custom: tokStr,
       };
+      if (isPunct) {
+        targetNote.pitch = 'empty';
+        targetNote.duration = 0;
+      }
       tokenIdx++;
     });
 
-    onUpdateSong({ ...song, measures: newMeasures });
+    onUpdateSong(normalizeSongDurations({ ...song, measures: newMeasures }));
     showNotice(`已將「${text}」分配至第 ${vIdx + 1} 句各音符！`);
     setVerseBatchTexts(prev => ({ ...prev, [vIdx]: '' }));
   };
@@ -748,6 +791,277 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     });
     onUpdateSong({ ...song, measures: newMeasures });
   };
+
+  // Split Measure at specific note index
+  const handleSplitMeasureAtNote = useCallback(
+    (mIdx: number, splitAtIndex: number) => {
+      const targetM = song.measures[mIdx];
+      if (!targetM || splitAtIndex <= 0 || splitAtIndex >= targetM.notes.length) return;
+
+      const firstPartNotes = targetM.notes.slice(0, splitAtIndex);
+      const secondPartNotes = targetM.notes.slice(splitAtIndex);
+
+      const firstMeasure: Measure = {
+        ...targetM,
+        notes: firstPartNotes,
+      };
+
+      const secondMeasure: Measure = {
+        id: generateId('m'),
+        measureNumber: targetM.measureNumber + 1,
+        chord: targetM.chord,
+        section: undefined,
+        notes: secondPartNotes,
+        barlineType: targetM.barlineType || 'single',
+      };
+
+      firstMeasure.barlineType = 'single';
+
+      const newMeasures = [...song.measures];
+      newMeasures.splice(mIdx, 1, firstMeasure, secondMeasure);
+      newMeasures.forEach((m, idx) => {
+        m.measureNumber = idx + 1;
+      });
+
+      onUpdateSong({ ...song, measures: newMeasures });
+      setSelectedCoord([mIdx + 1, 0]);
+      showNotice(`已在此音符處插入小節線，拆分為第 ${mIdx + 1} 與第 ${mIdx + 2} 小節`);
+    },
+    [song, onUpdateSong, showNotice]
+  );
+
+  // Merge Measure with next measure
+  const handleMergeWithNextMeasure = useCallback(
+    (mIdx: number) => {
+      if (mIdx >= song.measures.length - 1) return;
+      const currentM = song.measures[mIdx];
+      const nextM = song.measures[mIdx + 1];
+      if (!currentM || !nextM) return;
+
+      const mergedMeasure: Measure = {
+        ...currentM,
+        notes: [...currentM.notes, ...nextM.notes],
+        barlineType: nextM.barlineType || currentM.barlineType || 'single',
+      };
+
+      const newMeasures = [...song.measures];
+      newMeasures.splice(mIdx, 2, mergedMeasure);
+      newMeasures.forEach((m, idx) => {
+        m.measureNumber = idx + 1;
+      });
+
+      onUpdateSong({ ...song, measures: newMeasures });
+      setSelectedCoord([mIdx, currentM.notes.length]);
+      showNotice(`已將第 ${mIdx + 1} 與第 ${mIdx + 2} 小節合併為一小節`);
+    },
+    [song, onUpdateSong, showNotice]
+  );
+
+  // Shift last note of measure to next measure
+  const handleShiftNoteToNextMeasure = useCallback(
+    (mIdx: number) => {
+      const currentM = song.measures[mIdx];
+      if (!currentM || currentM.notes.length <= 1) {
+        showNotice('小節內至少需保留一個音符');
+        return;
+      }
+
+      const noteToShift = currentM.notes[currentM.notes.length - 1];
+      const newCurrentNotes = currentM.notes.slice(0, currentM.notes.length - 1);
+
+      const newMeasures = [...song.measures];
+
+      if (mIdx < song.measures.length - 1) {
+        const nextM = song.measures[mIdx + 1];
+        const newNextNotes = [noteToShift, ...nextM.notes];
+        newMeasures[mIdx] = { ...currentM, notes: newCurrentNotes };
+        newMeasures[mIdx + 1] = { ...nextM, notes: newNextNotes };
+      } else {
+        const newMeasure: Measure = {
+          id: generateId('m'),
+          measureNumber: song.measures.length + 1,
+          chord: currentM.chord,
+          notes: [noteToShift],
+        };
+        newMeasures[mIdx] = { ...currentM, notes: newCurrentNotes };
+        newMeasures.push(newMeasure);
+      }
+
+      newMeasures.forEach((m, idx) => {
+        m.measureNumber = idx + 1;
+      });
+
+      onUpdateSong({ ...song, measures: newMeasures });
+      setSelectedCoord([mIdx + 1, 0]);
+      showNotice(`已將末音移入第 ${mIdx + 2} 小節`);
+    },
+    [song, onUpdateSong, showNotice]
+  );
+
+  // Pull first note from next measure into current measure
+  const handlePullNoteFromNextMeasure = useCallback(
+    (mIdx: number) => {
+      if (mIdx >= song.measures.length - 1) return;
+      const currentM = song.measures[mIdx];
+      const nextM = song.measures[mIdx + 1];
+      if (!currentM || !nextM || nextM.notes.length === 0) return;
+
+      const noteToPull = nextM.notes[0];
+      const newCurrentNotes = [...currentM.notes, noteToPull];
+      const newNextNotes = nextM.notes.slice(1);
+
+      const newMeasures = [...song.measures];
+
+      if (newNextNotes.length === 0) {
+        newMeasures.splice(mIdx, 2, { ...currentM, notes: newCurrentNotes });
+      } else {
+        newMeasures[mIdx] = { ...currentM, notes: newCurrentNotes };
+        newMeasures[mIdx + 1] = { ...nextM, notes: newNextNotes };
+      }
+
+      newMeasures.forEach((m, idx) => {
+        m.measureNumber = idx + 1;
+      });
+
+      onUpdateSong({ ...song, measures: newMeasures });
+      setSelectedCoord([mIdx, newCurrentNotes.length - 1]);
+      showNotice(`已從第 ${mIdx + 2} 小節借入首音`);
+    },
+    [song, onUpdateSong, showNotice]
+  );
+
+  // Move measure order (reordering relative location)
+  const handleMoveMeasureOrder = useCallback(
+    (fromIdx: number, toIdx: number) => {
+      if (fromIdx < 0 || fromIdx >= song.measures.length || toIdx < 0 || toIdx >= song.measures.length || fromIdx === toIdx) return;
+
+      const newMeasures = [...song.measures];
+      const [moved] = newMeasures.splice(fromIdx, 1);
+      newMeasures.splice(toIdx, 0, moved);
+
+      newMeasures.forEach((m, idx) => {
+        m.measureNumber = idx + 1;
+      });
+
+      onUpdateSong({ ...song, measures: newMeasures });
+      setSelectedCoord([toIdx, 0]);
+      showNotice(`已將第 ${fromIdx + 1} 小節移動至第 ${toIdx + 1} 小節位置`);
+    },
+    [song, onUpdateSong, showNotice]
+  );
+
+  // Toggle measure line break
+  const handleToggleMeasureLineBreak = useCallback(
+    (mIdx: number) => {
+      const newMeasures = song.measures.map((m, idx) => {
+        if (idx !== mIdx) return m;
+        return { ...m, isLineBreak: !m.isLineBreak };
+      });
+      onUpdateSong({ ...song, measures: newMeasures });
+      const willBreak = !song.measures[mIdx]?.isLineBreak;
+      showNotice(willBreak ? `已設定第 ${mIdx + 1} 小節後換行` : `已取消第 ${mIdx + 1} 小節後換行`);
+    },
+    [song, onUpdateSong, showNotice]
+  );
+
+  // Update barline type
+  const handleUpdateBarlineType = useCallback(
+    (mIdx: number, barlineType: BarlineType) => {
+      const newMeasures = song.measures.map((m, idx) => {
+        if (idx !== mIdx) return m;
+        return { ...m, barlineType };
+      });
+      onUpdateSong({ ...song, measures: newMeasures });
+    },
+    [song, onUpdateSong]
+  );
+
+  // Auto-fill rest note for under-beat measure
+  const handleAutoFillMeasureRest = useCallback(
+    (mIdx: number) => {
+      const targetM = song.measures[mIdx];
+      if (!targetM) return;
+      const report = getMeasureRhythmReport(targetM, song.timeSignature || '4/4');
+      if (!report.isUnder) return;
+
+      const restDurations = getRestDurationsForDeficit(report.absDiff);
+      const newRestNotes: JianpuNote[] = restDurations.map(dur => ({
+        id: generateId('n'),
+        pitch: 0,
+        octave: 0,
+        duration: dur,
+        lyric: {},
+      }));
+
+      const newMeasures = song.measures.map((m, idx) => {
+        if (idx !== mIdx) return m;
+        return {
+          ...m,
+          notes: [...m.notes, ...newRestNotes],
+        };
+      });
+
+      onUpdateSong({ ...song, measures: newMeasures });
+      showNotice(`已為第 ${mIdx + 1} 小節補滿 ${report.absDiff} 拍休止符 (0)`);
+    },
+    [song, onUpdateSong, showNotice]
+  );
+
+  // Trim excess notes into next measure
+  const handleTrimExcessNotes = useCallback(
+    (mIdx: number) => {
+      const targetM = song.measures[mIdx];
+      if (!targetM) return;
+      const report = getMeasureRhythmReport(targetM, song.timeSignature || '4/4');
+      if (!report.isOver) return;
+
+      let accumulated = 0;
+      let splitIdx = targetM.notes.length - 1;
+
+      for (let i = 0; i < targetM.notes.length; i++) {
+        accumulated += getNoteBeatDuration(targetM.notes[i]);
+        if (accumulated >= report.expectedBeats && i < targetM.notes.length - 1) {
+          splitIdx = i + 1;
+          break;
+        }
+      }
+
+      handleSplitMeasureAtNote(mIdx, splitIdx);
+    },
+    [song, handleSplitMeasureAtNote]
+  );
+
+  // Batch fix all under-beat measures in whole song
+  const handleBatchFixAllIncompleteMeasures = useCallback(() => {
+    let fixedCount = 0;
+    const newMeasures = song.measures.map((m) => {
+      const report = getMeasureRhythmReport(m, song.timeSignature || '4/4');
+      if (report.isUnder) {
+        fixedCount++;
+        const restDurations = getRestDurationsForDeficit(report.absDiff);
+        const newRestNotes: JianpuNote[] = restDurations.map(dur => ({
+          id: generateId('n'),
+          pitch: 0,
+          octave: 0,
+          duration: dur,
+          lyric: {},
+        }));
+        return {
+          ...m,
+          notes: [...m.notes, ...newRestNotes],
+        };
+      }
+      return m;
+    });
+
+    if (fixedCount === 0) {
+      showNotice('全曲小節拍數皆已完整，無需補充！');
+      return;
+    }
+
+    onUpdateSong({ ...song, measures: newMeasures });
+    showNotice(`已自動為全曲 ${fixedCount} 個不足拍小節補滿休止符！`);
+  }, [song, onUpdateSong, showNotice]);
 
   // Undo / Redo triggers with user feedback
   const handleUndo = useCallback(() => {
@@ -940,6 +1254,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         setDisplayMode={setDisplayMode}
         onOpenAligner={onOpenAligner}
         onOpenScanner={onOpenScanner}
+        onOpenOrganizer={() => setIsOrganizerOpen(true)}
+        incompleteMeasuresCount={incompleteMeasuresCount}
       />
 
       {/* Persistent Section Navigation Rail (Quick Section Jump) */}
@@ -1003,6 +1319,23 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                 </button>
               </div>
             )}
+
+            {/* Measure Organizer & Rhythm Health Inspector Trigger */}
+            <button
+              id="composer-open-organizer-btn"
+              type="button"
+              onClick={() => setIsOrganizerOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+              title="小節總覽、拍數檢查與順序排版"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>小節總覽編排</span>
+              {incompleteMeasuresCount > 0 && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono font-black" title={`${incompleteMeasuresCount} 個小節拍數未滿或超拍`}>
+                  {incompleteMeasuresCount}
+                </span>
+              )}
+            </button>
 
             <button
               type="button"
@@ -1113,6 +1446,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             autoStepAdvance={autoStepAdvance}
             onToggleAutoStepAdvance={() => setAutoStepAdvance(prev => !prev)}
             showNotice={showNotice}
+            onSplitMeasureAtNote={handleSplitMeasureAtNote}
           />
         ) : (
           <MeasureModeView
@@ -1155,6 +1489,15 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             autoStepAdvance={autoStepAdvance}
             onToggleAutoStepAdvance={() => setAutoStepAdvance(prev => !prev)}
             showNotice={showNotice}
+            onSplitMeasureAtNote={handleSplitMeasureAtNote}
+            onMergeWithNextMeasure={handleMergeWithNextMeasure}
+            onShiftNoteToNextMeasure={handleShiftNoteToNextMeasure}
+            onPullNoteFromNextMeasure={handlePullNoteFromNextMeasure}
+            onMoveMeasureOrder={handleMoveMeasureOrder}
+            onToggleLineBreak={handleToggleMeasureLineBreak}
+            onUpdateBarlineType={handleUpdateBarlineType}
+            onAutoFillRest={handleAutoFillMeasureRest}
+            onTrimExcessNotes={handleTrimExcessNotes}
           />
         )}
 
@@ -1171,6 +1514,21 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Measure Organizer & Layout Inspector Modal */}
+      <MeasureOrganizerModal
+        isOpen={isOrganizerOpen}
+        onClose={() => setIsOrganizerOpen(false)}
+        song={song}
+        onMoveMeasure={handleMoveMeasureOrder}
+        onSelectMeasure={handleJumpToMeasure}
+        onToggleLineBreak={handleToggleMeasureLineBreak}
+        onUpdateBarlineType={handleUpdateBarlineType}
+        onAutoFillRest={handleAutoFillMeasureRest}
+        onBatchAutoFillAllRests={handleBatchFixAllIncompleteMeasures}
+        onDeleteMeasure={handleDeleteMeasure}
+        onAddMeasure={handleAddMeasure}
+      />
     </div>
   );
 };

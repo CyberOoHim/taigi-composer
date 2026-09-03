@@ -2,7 +2,8 @@
 
 import React, { useMemo } from 'react';
 import { Song } from '@/types/song';
-import { Bookmark } from 'lucide-react';
+import { getMeasureRhythmReport } from '@/lib/taigiUtils';
+import { Bookmark, AlertCircle } from 'lucide-react';
 
 interface SectionRailProps {
   song: Song;
@@ -20,6 +21,7 @@ interface SectionItem {
   endMeasureNumber: number;
   chord?: string;
   noteCount: number;
+  hasIncompleteMeasures: boolean;
 }
 
 export const SectionRail: React.FC<SectionRailProps> = React.memo(({
@@ -62,8 +64,16 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
       const endMeasureIndex = next ? next.index - 1 : song.measures.length - 1;
 
       let noteCount = 0;
+      let hasIncompleteMeasures = false;
       for (let m = startMeasureIndex; m <= endMeasureIndex; m++) {
-        noteCount += song.measures[m]?.notes.length || 0;
+        const curM = song.measures[m];
+        if (curM) {
+          noteCount += curM.notes.length || 0;
+          const report = getMeasureRhythmReport(curM, song.timeSignature || '4/4');
+          if (!report.isFull) {
+            hasIncompleteMeasures = true;
+          }
+        }
       }
 
       return {
@@ -75,6 +85,7 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
         endMeasureNumber: song.measures[endMeasureIndex]?.measureNumber || endMeasureIndex + 1,
         chord: song.measures[startMeasureIndex]?.chord,
         noteCount,
+        hasIncompleteMeasures,
       };
     });
   }, [song]);
@@ -133,6 +144,11 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
               {sec.chord && (
                 <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold hidden md:inline">
                   [{sec.chord}]
+                </span>
+              )}
+              {sec.hasIncompleteMeasures && (
+                <span className="shrink-0 flex items-center" title="此段落中有小節拍數未滿或超拍">
+                  <AlertCircle className="w-3 h-3 text-amber-500" />
                 </span>
               )}
             </button>

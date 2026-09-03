@@ -11,6 +11,8 @@ interface SongMetadataHeaderProps {
   setDisplayMode: (mode: LyricDisplayMode) => void;
   onOpenAligner: () => void;
   onOpenScanner?: () => void;
+  onOpenOrganizer?: () => void;
+  incompleteMeasuresCount?: number;
 }
 
 export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(({
@@ -20,6 +22,8 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   setDisplayMode,
   onOpenAligner,
   onOpenScanner,
+  onOpenOrganizer,
+  incompleteMeasuresCount = 0,
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
@@ -77,11 +81,31 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
             id="composer-open-aligner-btn"
             type="button"
             onClick={onOpenAligner}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+            title="歌詞對齊匯入"
           >
-            <AlignLeft className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">歌詞對齊匯入</span>
+            <AlignLeft className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
+            <span className="hidden sm:inline">歌詞對齊</span>
           </button>
+
+          {/* Measure Organizer & Rhythm Health Trigger */}
+          {onOpenOrganizer && (
+            <button
+              id="composer-meta-organizer-btn"
+              type="button"
+              onClick={onOpenOrganizer}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+              title="小節總覽、拍數檢查與版面排版"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">小節排版</span>
+              {incompleteMeasuresCount > 0 && (
+                <span className="text-[10px] px-1.5 py-0.2 bg-rose-600 text-white rounded-full font-mono font-black" title={`${incompleteMeasuresCount} 個小節拍數未滿或超拍`}>
+                  {incompleteMeasuresCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Expand Settings Toggle */}
           <button

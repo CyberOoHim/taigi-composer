@@ -1,4 +1,4 @@
-import { JianpuNote, KeySignature, PitchNumber, Song, VerseItem, VerseNoteRef } from '@/types/song';
+import { JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, VerseItem, VerseNoteRef } from '@/types/song';
 
 // Semitones relative to C4 (MIDI note 60)
 export const KEY_SEMITONES: Record<KeySignature, number> = {
@@ -157,6 +157,7 @@ export const PUNCTUATION_MARKS = [
   { label: '」', char: '」', desc: '後引號 (Right Quote)' },
   { label: 'V', char: 'V', desc: '換氣記號 (Breath Mark)' },
   { label: ' ', char: ' ', desc: '空白留白 (Space)' },
+  { label: '↵ 換行', char: '\n', desc: '換行標記 (Line Break)' },
 ];
 
 // Musical & Vocal Performance Annotations (註解 / 演奏與演唱標記)
@@ -275,6 +276,8 @@ export function formatDurationName(duration: number): string {
       return '16th Note (1/4)';
     case 0.125:
       return '32nd Note (1/8)';
+    case 0:
+      return '0 beats (不占拍)';
     default:
       return `${duration} beats`;
   }
@@ -291,6 +294,15 @@ export interface DurationChineseInfo {
 
 export function getDurationChineseInfo(duration: number): DurationChineseInfo {
   switch (duration) {
+    case 0:
+      return {
+        name: '不占拍 (0 拍)',
+        fractionLabel: '0 拍 (留白/標點/換行)',
+        beatsLabel: '0 拍',
+        jianpuSymbol: '—',
+        description: '無時間長度：純文字留白、標點符號或換行標記，不消耗小節拍數',
+        isDotted: false,
+      };
     case 1.5:
       return {
         name: '附點四分音符',
@@ -394,24 +406,27 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
 }
 
 /**
- * Check if a note is punctuation (標點), an annotation (註解), or whitespace/blank spacer (空白).
- * Punctuation, annotations, and whitespace are NOT treated as musical notation
+ * Check if a note is punctuation (標點), an annotation (註解), a newline (換行), or whitespace/blank spacer (空白).
+ * Punctuation, annotations, newlines, and whitespace are NOT treated as musical notation
  * and do NOT occupy any time duration when playing (0 duration).
  */
 export function isNonNotationItem(note: JianpuNote | null | undefined): boolean {
   if (!note) return false;
 
-  // 1. Explicit 'empty' pitch (blank notation / spacer for punctuation/annotation)
+  // 1. Explicit 0 or negative duration
+  if (typeof note.duration === 'number' && note.duration <= 0) return true;
+
+  // 2. Explicit 'empty' pitch (blank notation / spacer for punctuation/annotation/newline)
   if (note.pitch === 'empty') return true;
 
   const isMusicalPitch = typeof note.pitch === 'number' && note.pitch > 0;
 
-  // 2. Note has an annotation and has no active musical pitch (1-7)
+  // 3. Note has an annotation and has no active musical pitch (1-7)
   if (note.annotation && !isMusicalPitch) {
     return true;
   }
 
-  // 3. Note contains punctuation in lyrics and does not have a pitched melody note (1-7)
+  // 4. Note contains punctuation or newline in lyrics and does not have a pitched melody note (1-7)
   const hanji = note.lyric?.hanji?.trim() || '';
   const custom = note.lyric?.custom?.trim() || '';
   const poj = note.lyric?.poj?.trim() || '';
@@ -436,13 +451,23 @@ export function isNonNotationItem(note: JianpuNote | null | undefined): boolean 
 }
 
 /**
- * Check if a character or string is a punctuation mark or spacer
+ * Check if a character or string is a punctuation mark, newline, or spacer
  */
 export function isPunctuationOrSpacer(str?: string): boolean {
   if (!str) return false;
   const trimmed = str.trim();
-  if (trimmed === '' || trimmed === '—' || trimmed === '…' || trimmed === 'V') return true;
-  return /^[，。！？、；：""''（）()「」,.!?;:\s—…]+$/.test(trimmed);
+  if (
+    trimmed === '' ||
+    trimmed === '—' ||
+    trimmed === '…' ||
+    trimmed === 'V' ||
+    trimmed === '↵' ||
+    trimmed === '\n' ||
+    trimmed === '\r'
+  ) {
+    return true;
+  }
+  return /^[，。！？、；：""''（）()「」,.!?;:\s—…\n\r↵]+$/.test(trimmed);
 }
 
 /**
@@ -457,7 +482,7 @@ export function isVerseBreakNote(note: JianpuNote): boolean {
   const poj = note.lyric?.poj?.trim() || '';
   const pij = note.lyric?.pij?.trim() || '';
 
-  const delimPattern = /[，。！？、；：\n—…]/;
+  const delimPattern = /[，。！？、；：\n\r↵—…]/;
   if (
     delimPattern.test(hanji) ||
     delimPattern.test(custom) ||
@@ -665,18 +690,63 @@ export function splitVerseTextTokens(text: string): { text: string; isPunct: boo
 }
 
 /**
+ * Get effective beat duration of a note without double scaling.
+ * Returns 0 for non-notation items (punctuation, annotations, blank spaces, newlines).
+ */
+export function getNoteBeatDuration(note: JianpuNote | null | undefined): number {
+  if (!note || isNonNotationItem(note) || note.pitch === 'empty') return 0;
+  const dur = typeof note.duration === 'number' ? note.duration : 1;
+  if (dur <= 0) return 0;
+  // If duration is already a dotted value (1.5, 0.75, 3, 0.375, 1.75), do not scale again
+  if (note.isDotted && (dur === 1 || dur === 0.5 || dur === 2 || dur === 0.25 || dur === 4)) {
+    return Math.round(dur * 1.5 * 1000) / 1000;
+  }
+  return dur;
+}
+
+/**
+ * Normalizes a note so that non-notation items (punctuation, annotations, newlines, empty pitches)
+ * strictly have duration: 0 and pitch: 'empty', with no unnecessary time duration activated.
+ */
+export function normalizeNoteDuration(note: JianpuNote): JianpuNote {
+  if (
+    isNonNotationItem(note) ||
+    note.pitch === 'empty' ||
+    (typeof note.duration === 'number' && note.duration <= 0)
+  ) {
+    return {
+      ...note,
+      pitch: 'empty',
+      duration: 0 as NoteDuration,
+      isDotted: false,
+      isTied: false,
+      accidental: '',
+      octave: 0,
+    };
+  }
+  return note;
+}
+
+/**
+ * Normalizes all notes across all measures of a song to ensure zero-duration rules are strictly enforced.
+ */
+export function normalizeSongDurations(song: Song): Song {
+  return {
+    ...song,
+    measures: song.measures.map(m => ({
+      ...m,
+      notes: m.notes.map(normalizeNoteDuration),
+    })),
+  };
+}
+
+/**
  * Calculate the total beats currently inside a measure's notes
  */
 export function calculateMeasureBeats(notes: JianpuNote[]): number {
   if (!notes || notes.length === 0) return 0;
-  return notes.reduce((sum, n) => {
-    if (isNonNotationItem(n)) return sum;
-    let dur = typeof n.duration === 'number' ? n.duration : 1;
-    if (n.isDotted) {
-      dur = dur * 1.5;
-    }
-    return sum + dur;
-  }, 0);
+  const total = notes.reduce((sum, n) => sum + getNoteBeatDuration(n), 0);
+  return Math.round(total * 1000) / 1000;
 }
 
 /**
@@ -687,7 +757,81 @@ export function getExpectedMeasureBeats(timeSignature: string): number {
   const parts = timeSignature.split('/');
   const num = parseInt(parts[0], 10) || 4;
   const den = parseInt(parts[1], 10) || 4;
-  return num * (4 / den);
+  return Math.round(num * (4 / den) * 1000) / 1000;
+}
+
+export interface MeasureRhythmReport {
+  currentBeats: number;
+  expectedBeats: number;
+  beatDiff: number; // positive = over-beat, negative = under-beat
+  absDiff: number;
+  isFull: boolean;
+  isUnder: boolean;
+  isOver: boolean;
+  percentage: number; // 0 to 100+
+}
+
+/**
+ * Comprehensive rhythm health check for a measure
+ */
+export function getMeasureRhythmReport(measure: Measure, fallbackTimeSignature = '4/4'): MeasureRhythmReport {
+  const currentBeats = calculateMeasureBeats(measure?.notes || []);
+  const timeSig = measure?.timeSignature || fallbackTimeSignature;
+  const expectedBeats = getExpectedMeasureBeats(timeSig);
+  const rawDiff = currentBeats - expectedBeats;
+  const beatDiff = Math.round(rawDiff * 1000) / 1000;
+  const absDiff = Math.abs(beatDiff);
+  const isFull = absDiff < 0.001;
+  const isUnder = beatDiff < -0.001;
+  const isOver = beatDiff > 0.001;
+  const percentage = expectedBeats > 0 ? Math.min(200, Math.round((currentBeats / expectedBeats) * 100)) : 100;
+
+  return {
+    currentBeats,
+    expectedBeats,
+    beatDiff,
+    absDiff,
+    isFull,
+    isUnder,
+    isOver,
+    percentage,
+  };
+}
+
+/**
+ * Decompose a deficit in beats into a clean set of standard rest note durations
+ * E.g. 1 -> [1], 0.5 -> [0.5], 1.5 -> [1, 0.5] or [1.5], 2 -> [2], 3 -> [2, 1] or [3]
+ */
+export function getRestDurationsForDeficit(deficit: number): NoteDuration[] {
+  let remaining = Math.round(Math.abs(deficit) * 1000) / 1000;
+  if (remaining <= 0) return [];
+
+  // Match exact single rest values first
+  const exactSupported: NoteDuration[] = [4, 3, 2, 1.5, 1, 0.75, 0.5, 0.375, 0.25, 0.125];
+  if (exactSupported.includes(remaining)) {
+    return [remaining];
+  }
+
+  const results: NoteDuration[] = [];
+  const standardBeats = [4, 2, 1, 0.5, 0.25, 0.125];
+
+  while (remaining >= 0.12) {
+    let chosen: number | null = null;
+    for (const b of standardBeats) {
+      if (remaining >= b - 0.001) {
+        chosen = b;
+        break;
+      }
+    }
+    if (chosen !== null) {
+      results.push(chosen);
+      remaining = Math.round((remaining - chosen) * 1000) / 1000;
+    } else {
+      break;
+    }
+  }
+
+  return results.length > 0 ? results : [1];
 }
 
 export interface TaigiToneInfo {

@@ -454,8 +454,8 @@ export class AudioEngine {
     for (const measure of song.measures) {
       let measureBeats = 0;
       for (const note of measure.notes) {
-        // Punctuation, annotations, and blank whitespace do not occupy any time duration when playing
-        if (!isNonNotationItem(note)) {
+        // Punctuation, annotations, newlines, and blank whitespace do not occupy any time duration when playing
+        if (!isNonNotationItem(note) && note.duration > 0 && note.pitch !== 'empty') {
           measureBeats += note.duration;
         }
       }
@@ -485,7 +485,7 @@ export class AudioEngine {
 
     let measureBeats = 0;
     for (const note of targetMeasure.notes) {
-      if (!isNonNotationItem(note)) {
+      if (!isNonNotationItem(note) && note.duration > 0 && note.pitch !== 'empty') {
         measureBeats += note.duration;
       }
     }
@@ -507,11 +507,11 @@ export class AudioEngine {
 
     let noteTime = 0;
     targetMeasure.notes.forEach((note, nIdx) => {
-      const isNonNotation = isNonNotationItem(note);
+      const isNonNotation = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
       const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
       const scheduleAt = audioStart + noteTime;
 
-      if (!isNonNotation) {
+      if (!isNonNotation && note.duration > 0) {
         const freq = getPitchFrequency(
           song.key,
           note.pitch,
@@ -593,7 +593,7 @@ export class AudioEngine {
 
     let totalVerseBeats = 0;
     for (const item of verseNotes) {
-      if (!isNonNotationItem(item.note)) {
+      if (!isNonNotationItem(item.note) && item.note.duration > 0 && item.note.pitch !== 'empty') {
         totalVerseBeats += item.note.duration;
       }
     }
@@ -615,11 +615,11 @@ export class AudioEngine {
 
     verseNotes.forEach(item => {
       const { note, measureIdx, noteIdx } = item;
-      const isNonNotation = isNonNotationItem(note);
+      const isNonNotation = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
       const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
       const scheduleAt = audioStart + noteTime;
 
-      if (!isNonNotation) {
+      if (!isNonNotation && note.duration > 0) {
         const freq = getPitchFrequency(
           song.key,
           note.pitch,
@@ -773,12 +773,12 @@ export class AudioEngine {
       const beatsPerBar = parseInt(tsParts[0], 10) || 4;
 
       measure.notes.forEach((note, nIdx) => {
-        const isNonNotation = isNonNotationItem(note);
+        const isNonNotation = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
         const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
         const noteStartTime = measureTime;
 
         // Schedule melody note if it starts at or after our playback cursor
-        if (!isNonNotation) {
+        if (!isNonNotation && note.duration > 0) {
           if (noteStartTime + noteDurationSec >= startFromSec) {
             const scheduleAt = this.startAudioTime + noteStartTime;
             if (scheduleAt >= this.ctx!.currentTime) {
@@ -811,7 +811,7 @@ export class AudioEngine {
           durationSec: noteDurationSec,
         });
 
-        if (!isNonNotation) {
+        if (!isNonNotation && note.duration > 0) {
           measureTime += noteDurationSec;
           measureBeatsCount += note.duration;
         }
@@ -1022,7 +1022,7 @@ export class AudioEngine {
     for (let i = 0; i < limit; i++) {
       let measureBeats = 0;
       for (const note of song.measures[i].notes) {
-        if (!isNonNotationItem(note)) {
+        if (!isNonNotationItem(note) && note.duration > 0 && note.pitch !== 'empty') {
           measureBeats += note.duration;
         }
       }
@@ -1061,7 +1061,7 @@ export class AudioEngine {
 
       for (let nIdx = 0; nIdx < measure.notes.length; nIdx++) {
         const note = measure.notes[nIdx];
-        const isNonNotation = isNonNotationItem(note);
+        const isNonNotation = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
         const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
         const isLastNote = isLastMeasure && nIdx === measure.notes.length - 1;
 

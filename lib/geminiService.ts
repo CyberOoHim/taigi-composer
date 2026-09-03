@@ -1,6 +1,6 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
-import { KeySignature, LyricSyllable, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
-import { splitTaigiLyricSyllables } from './taigiUtils';
+import { JianpuNote, KeySignature, LyricSyllable, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
+import { normalizeNoteDuration, normalizeSongDurations, splitTaigiLyricSyllables } from './taigiUtils';
 import { getActiveGeminiApiKey } from './geminiAuth';
 
 export type GeminiModelChoice = 'gemini-3.7-flash' | 'gemini-3.7-flash-lite';
@@ -412,10 +412,11 @@ Rules for Jianpu & Taiwanese Music Transcription:
    - "chord": Harmonic chord symbol above the measure if present (e.g., "F", "C7", "Am", "Dm", "Gm", "Bb", "C", "G").
    - "section": Optional section tag (e.g., "前奏", "主歌", "副歌", "尾奏", "Verse 1", "Chorus") if visible.
    - "notes": Array of notes in the measure. For each note:
-     * "pitch": 1, 2, 3, 4, 5, 6, 7 (scale degrees), 0 (rest), or 'empty' (blank space / pause).
+     * "pitch": 1, 2, 3, 4, 5, 6, 7 (scale degrees), 0 (rest), or 'empty' (blank space / pause / punctuation / newline).
      * "octave": 0 (middle octave), 1 (one dot above: high pitch), 2 (two dots above), -1 (one dot below: low pitch), -2 (two dots below).
      * "accidental": "" (natural), "#" (sharp), "b" (flat).
      * "duration": Note duration in beats:
+       - 0 = non-notation items (punctuation like ，。！？, breath marks V, annotations, line breaks \n). These non-singing spacer items MUST have "pitch": "empty" and "duration": 0 so that no time duration is activated.
        - 4 = whole note (e.g. 5 - - - )
        - 3 = dotted half note (e.g. 5 - - )
        - 2 = half note (e.g. 5 - )
@@ -529,7 +530,7 @@ Return strictly valid JSON matching this schema:
           const pitch = normalizePitch(n.pitch);
           const octave = typeof n.octave === 'number' && [-2, -1, 0, 1, 2].includes(n.octave) ? n.octave : 0;
           const accidental = n.accidental === '#' || n.accidental === 'b' ? n.accidental : '';
-          const duration = typeof n.duration === 'number' && n.duration > 0 ? (n.duration as NoteDuration) : 1;
+          const duration = typeof n.duration === 'number' && n.duration >= 0 ? (n.duration as NoteDuration) : 1;
           const isDotted = Boolean(n.isDotted);
           const isTied = Boolean(n.isTied);
 
@@ -541,7 +542,7 @@ Return strictly valid JSON matching this schema:
             custom: typeof rawLyric.custom === 'string' ? rawLyric.custom : undefined,
           };
 
-          notes.push({
+          const rawNote: JianpuNote = {
             id: noteId,
             pitch,
             octave,
@@ -550,7 +551,10 @@ Return strictly valid JSON matching this schema:
             isDotted,
             isTied,
             lyric,
-          });
+            annotation: typeof n.annotation === 'string' ? n.annotation : undefined,
+          };
+
+          notes.push(normalizeNoteDuration(rawNote));
         });
 
         // Ensure measure has at least 1 note
@@ -581,7 +585,7 @@ Return strictly valid JSON matching this schema:
       };
     }
 
-    const constructedSong: Song = {
+    const constructedSong: Song = normalizeSongDurations({
       id: songId,
       title,
       composer: typeof parsed.composer === 'string' ? parsed.composer : undefined,
@@ -592,7 +596,7 @@ Return strictly valid JSON matching this schema:
       measures,
       notesPerLine: 4,
       description: `透過 Gemini AI 多模態識譜自 ${images.length} 頁樂譜圖片自動轉錄`,
-    };
+    });
 
     return {
       success: true,
