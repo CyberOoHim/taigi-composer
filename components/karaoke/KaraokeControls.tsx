@@ -206,7 +206,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
         </div>
 
         {/* Section Names Below Slider Track */}
-        <div className="relative w-full h-5 hidden sm:block text-[10px] text-zinc-500 select-none overflow-hidden">
+        <div className="relative w-full h-5 text-[10px] text-zinc-500 select-none overflow-hidden">
           {songSections.map((sec, sIdx) => {
             const isSectionActive = activeSection?.id === sec.id;
             return (

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { InstrumentType, JianpuNote, LyricDisplayMode, Measure, Song, VerseItem } from '@/types/song';
 import { AudioEngine, PlaybackState } from '@/lib/audioEngine';
 import { groupSongIntoVerses } from '@/lib/taigiUtils';
-import { KaraokeSection, SectionJumpBar } from './karaoke/SectionJumpBar';
+import { KaraokeSection } from './karaoke/SectionJumpBar';
 import { KaraokeStage } from './karaoke/KaraokeStage';
 import { AlignedScoreRoll } from './karaoke/AlignedScoreRoll';
 import { KaraokeControls } from './karaoke/KaraokeControls';
@@ -188,7 +188,6 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const sheetScrollRef = useRef<HTMLDivElement>(null);
-  const sectionScrollRef = useRef<HTMLDivElement>(null);
 
   // Screen Wake Lock lifecycle management
   useEffect(() => {
@@ -420,18 +419,6 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     );
   }, [songSections, playbackState.currentMeasureIndex]);
 
-  // Auto-scroll section card into view in carousel when active section changes
-  useEffect(() => {
-    if (playbackState.isPlaying && sectionScrollRef.current && activeSection) {
-      const sIdx = songSections.findIndex(s => s.id === activeSection.id);
-      if (sIdx !== -1) {
-        const secEl = sectionScrollRef.current.querySelector(`#ktv-section-jump-btn-${sIdx}`);
-        if (secEl) {
-          secEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-        }
-      }
-    }
-  }, [activeSection, playbackState.isPlaying, songSections]);
 
   // Group song into natural musical verses (split by delimiters, punctuation, pauses, sections)
   const songVerses = useMemo(() => {
@@ -470,17 +457,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       }
     }
-    // Scroll section jump bar carousel to active section
-    if (sectionScrollRef.current) {
-      const sIdx = songSections.findIndex(s => s.id === section.id);
-      if (sIdx !== -1) {
-        const secEl = sectionScrollRef.current.querySelector(`#ktv-section-jump-btn-${sIdx}`);
-        if (secEl) {
-          secEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-        }
-      }
-    }
-  }, [audioEngine, song, onSelectMeasure, songSections]);
+  }, [audioEngine, song, onSelectMeasure]);
 
   // Skip to previous or next section
   const handleJumpPrevSection = () => {
@@ -879,14 +856,6 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         />
       )}
 
-      {/* Section Quick Jump Bar */}
-      <SectionJumpBar
-        songSections={songSections}
-        activeSection={activeSection}
-        onJumpToSection={handleJumpToSection}
-        formatTime={formatTime}
-        sectionScrollRef={sectionScrollRef}
-      />
 
       {/* Aligned Numbered Notation Score Roll */}
       <AlignedScoreRoll
