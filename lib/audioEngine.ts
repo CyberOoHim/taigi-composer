@@ -66,6 +66,21 @@ export class AudioEngine {
   public onLoopIteration?: (iterationCount: number) => void;
   private currentLoopIteration = 0;
 
+  private currentState: PlaybackState = {
+    isPlaying: false,
+    isPaused: false,
+    currentMeasureIndex: 0,
+    currentNoteIndex: 0,
+    currentNoteId: null,
+    currentTime: 0,
+    totalDuration: 0,
+    progressPercent: 0,
+  };
+
+  public getState(): PlaybackState {
+    return this.currentState;
+  }
+
   public getIsPlaying(): boolean {
     return this.isPlaying;
   }
@@ -80,6 +95,9 @@ export class AudioEngine {
 
   public subscribeState(listener: (state: PlaybackState) => void): () => void {
     this.stateListeners.push(listener);
+    if (this.isPlaying || this.isPaused) {
+      listener(this.currentState);
+    }
     return () => {
       this.stateListeners = this.stateListeners.filter(l => l !== listener);
     };
@@ -97,6 +115,7 @@ export class AudioEngine {
   }
 
   private notifyState(state: PlaybackState) {
+    this.currentState = state;
     this.stateListeners.forEach(l => l(state));
   }
 

@@ -11,6 +11,8 @@ import {
   ScanLine,
   FilePlus2,
   FileEdit,
+  Mic2,
+  Play,
 } from 'lucide-react';
 
 interface SongMetadataHeaderProps {
@@ -22,6 +24,7 @@ interface SongMetadataHeaderProps {
   onOpenScanner?: () => void;
   onStartFreshSong?: () => void;
   onOpenOrganizer?: () => void;
+  onPlayKaraoke?: (startMeasureIndex?: number) => void;
   incompleteMeasuresCount?: number;
 }
 
@@ -34,6 +37,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   onOpenScanner,
   onStartFreshSong,
   onOpenOrganizer,
+  onPlayKaraoke,
   incompleteMeasuresCount = 0,
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -121,6 +125,21 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
 
         {/* Right: Quick Actions & Settings Toggle (Touch Targets >= 40px) */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Karaoke Play Trigger (Directly jump to Karaoke Stage & play) */}
+          {onPlayKaraoke && (
+            <button
+              id="composer-meta-karaoke-play-btn"
+              type="button"
+              onClick={() => onPlayKaraoke()}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
+              title="Directly jump to Karaoke Stage and play"
+            >
+              <Mic2 className="w-4 h-4 text-zinc-950" />
+              <Play className="w-3.5 h-3.5 fill-current text-zinc-950" />
+              <span>Karaoke Play</span>
+            </button>
+          )}
+
           {/* Start Fresh Song Trigger */}
           {onStartFreshSong && (
             <button

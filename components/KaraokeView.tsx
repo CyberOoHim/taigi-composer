@@ -62,15 +62,20 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   onEditMeasure,
   isEcoMode = false,
 }) => {
-  const [playbackState, setPlaybackState] = useState<PlaybackState>({
-    isPlaying: false,
-    isPaused: false,
-    currentMeasureIndex: 0,
-    currentNoteIndex: 0,
-    currentNoteId: null,
-    currentTime: 0,
-    totalDuration: 0,
-    progressPercent: 0,
+  const [playbackState, setPlaybackState] = useState<PlaybackState>(() => {
+    if (audioEngine && typeof audioEngine.getState === 'function') {
+      return audioEngine.getState();
+    }
+    return {
+      isPlaying: false,
+      isPaused: false,
+      currentMeasureIndex: 0,
+      currentNoteIndex: 0,
+      currentNoteId: null,
+      currentTime: 0,
+      totalDuration: 0,
+      progressPercent: 0,
+    };
   });
 
   const [instrument, setInstrumentState] = useState<InstrumentType>(() => {

@@ -29,6 +29,7 @@ import {
   Sparkles,
   Layers,
   ArrowRight,
+  Play,
 } from 'lucide-react';
 
 export default function Home() {
@@ -154,6 +155,19 @@ export default function Home() {
       audioEngine.play(song, 0);
     }
   }, [isPlaying, song]);
+
+  const handlePlayKaraoke = useCallback((startMeasure?: number) => {
+    setActiveTab('karaoke');
+    const startSec =
+      startMeasure !== undefined && startMeasure > 0
+        ? audioEngine.getMeasureStartTime(song, startMeasure)
+        : 0;
+    audioEngine.stop();
+    audioEngine.play(song, startSec);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [setActiveTab, song]);
 
   const handleSelectSong = useCallback((newSong: Song) => {
     if (audioEngine) {
@@ -290,6 +304,7 @@ export default function Home() {
               onOpenAligner={() => setIsAlignerOpen(true)}
               onOpenScanner={() => setIsScannerOpen(true)}
               onStartFreshSong={handleStartFreshSong}
+              onPlayKaraoke={handlePlayKaraoke}
               targetMeasureIndex={targetMeasureIndex}
               onTargetMeasureHandled={() => setTargetMeasureIndex(null)}
               onUndo={undo}
@@ -299,6 +314,33 @@ export default function Home() {
               pastCount={pastCount}
               futureCount={futureCount}
             />
+
+            {/* Quick Switch to Karaoke Stage CTA Rack */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-5 bg-white dark:bg-[#141720] border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl shadow-xs gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shrink-0 border border-amber-500/20">
+                  <Mic2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    Ready to sing or rehearse this song?
+                  </h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                    Jump directly to Karaoke Stage to rehearse with real-time Romanization, lyrics countdown, and multi-instrument accompaniment.
+                  </p>
+                </div>
+              </div>
+              <button
+                id="composer-cta-karaoke-play-btn"
+                type="button"
+                onClick={() => handlePlayKaraoke()}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] shrink-0 w-full sm:w-auto"
+              >
+                <Mic2 className="w-4 h-4" />
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Karaoke Play</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -342,6 +384,7 @@ export default function Home() {
                 onOpenAligner={() => setIsAlignerOpen(true)}
                 onOpenScanner={() => setIsScannerOpen(true)}
                 onStartFreshSong={handleStartFreshSong}
+                onPlayKaraoke={handlePlayKaraoke}
                 targetMeasureIndex={targetMeasureIndex}
                 onTargetMeasureHandled={() => setTargetMeasureIndex(null)}
                 onUndo={undo}

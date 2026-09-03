@@ -51,6 +51,8 @@ import {
   Sparkles,
   SlidersHorizontal,
   Wand2,
+  Mic2,
+  Play,
 } from 'lucide-react';
 
 interface ComposerEditorProps {
@@ -62,6 +64,7 @@ interface ComposerEditorProps {
   onOpenAligner: () => void;
   onOpenScanner?: () => void;
   onStartFreshSong?: () => void;
+  onPlayKaraoke?: (startMeasureIndex?: number) => void;
   targetMeasureIndex?: number | null;
   onTargetMeasureHandled?: () => void;
   onUndo?: () => boolean;
@@ -90,6 +93,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   onOpenAligner,
   onOpenScanner,
   onStartFreshSong,
+  onPlayKaraoke,
   targetMeasureIndex,
   onTargetMeasureHandled,
   onUndo,
@@ -1679,6 +1683,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         onOpenScanner={onOpenScanner}
         onStartFreshSong={onStartFreshSong}
         onOpenOrganizer={() => setIsOrganizerOpen(true)}
+        onPlayKaraoke={onPlayKaraoke}
         incompleteMeasuresCount={incompleteMeasuresCount}
       />
 
@@ -1699,7 +1704,37 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             <span>Numbered Notation Score Editor</span>
           </h2>
 
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 text-xs flex-wrap">
+            {/* Karaoke Play in Score Header (Direct jump to Karaoke deck & play) */}
+            {onPlayKaraoke && (
+              <div
+                id="composer-score-karaoke-play-group"
+                className="flex items-center bg-amber-500/15 dark:bg-amber-500/20 p-0.5 rounded-xl border border-amber-400/80 dark:border-amber-600/80 shadow-2xs"
+              >
+                <button
+                  id="composer-score-karaoke-play-btn"
+                  type="button"
+                  onClick={() => onPlayKaraoke()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+                  title="Directly jump to Karaoke deck and play from beginning"
+                >
+                  <Mic2 className="w-3.5 h-3.5 text-zinc-950" />
+                  <Play className="w-3 h-3 fill-current text-zinc-950" />
+                  <span>Karaoke Play</span>
+                </button>
+                {selectedMeasureIndex !== null && selectedMeasureIndex > 0 && (
+                  <button
+                    id="composer-score-karaoke-play-from-measure-btn"
+                    type="button"
+                    onClick={() => onPlayKaraoke(selectedMeasureIndex)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-900 dark:text-amber-200 hover:bg-amber-500/20 transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+                    title={`Jump to Karaoke deck and play starting from Measure ${selectedMeasureIndex + 1}`}
+                  >
+                    <span>From M.{selectedMeasureIndex + 1}</span>
+                  </button>
+                )}
+              </div>
+            )}
             {/* Undo / Redo in Score Header */}
             {onUndo && onRedo && (
               <div
