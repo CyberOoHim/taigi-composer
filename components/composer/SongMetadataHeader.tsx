@@ -161,17 +161,17 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
             <span className="hidden sm:inline">Lyric Aligner</span>
           </button>
 
-          {/* Measure Organizer & Rhythm Health Trigger */}
+          {/* Verse & Measure Organizer and Layout Trigger */}
           {onOpenOrganizer && (
             <button
               id="composer-meta-organizer-btn"
               type="button"
               onClick={onOpenOrganizer}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-              title="Measure overview, rhythm check, and layout"
+              title="Open Verse & Measure Organizer and Layout Inspector"
             >
               <SlidersHorizontal className="w-4 h-4" />
-              <span className="hidden sm:inline">Organizer</span>
+              <span className="hidden sm:inline">Organizer &amp; Layout</span>
               {incompleteMeasuresCount > 0 && (
                 <span className="text-[10px] px-1.5 py-0.2 bg-rose-600 text-white rounded-full font-mono font-black shadow-xs" title={`${incompleteMeasuresCount} measure(s) under or over beat limit`}>
                   {incompleteMeasuresCount}

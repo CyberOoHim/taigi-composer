@@ -615,9 +615,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     setMeasureBatchTexts(prev => ({ ...prev, [mIdx]: '' }));
   };
 
-  // Quick whole-verse lyric distributor (Verse Mode)
-  const handleDistributeVerseLyrics = (verse: VerseItem, vIdx: number) => {
-    const text = (verseBatchTexts[vIdx] || '').trim();
+  // Quick whole-verse lyric distributor (Verse Mode & Verse Organizer)
+  const handleDistributeVerseLyrics = (verse: VerseItem, vIdx: number, overrideText?: string) => {
+    const text = (overrideText !== undefined ? overrideText : (verseBatchTexts[vIdx] || '')).trim();
     if (!text) return;
 
     const tokens = splitVerseTextTokens(text);
@@ -655,7 +655,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
     onUpdateSong(normalizeSongDurations({ ...song, measures: newMeasures }));
     showNotice(`Distributed "${text}" across notes in Verse ${vIdx + 1}!`);
-    setVerseBatchTexts(prev => ({ ...prev, [vIdx]: '' }));
+    if (overrideText === undefined) {
+      setVerseBatchTexts(prev => ({ ...prev, [vIdx]: '' }));
+    }
   };
 
   // Add note to the end of a verse
@@ -785,13 +787,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   };
 
   // Measure Section change
-  const handleUpdateMeasureSection = (mIdx: number, section: string) => {
-    const newMeasures = song.measures.map((m, idx) => {
-      if (idx !== mIdx) return m;
-      return { ...m, section };
-    });
-    onUpdateSong({ ...song, measures: newMeasures });
-  };
+  const handleUpdateMeasureSection = useCallback(
+    (mIdx: number, section: string) => {
+      const newMeasures = song.measures.map((m, idx) => {
+        if (idx !== mIdx) return m;
+        return { ...m, section };
+      });
+      onUpdateSong({ ...song, measures: newMeasures });
+    },
+    [song, onUpdateSong]
+  );
 
   // Split Measure at specific note index
   const handleSplitMeasureAtNote = useCallback(
@@ -1054,6 +1059,214 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     showNotice(`Automatically padded ${fixedCount} incomplete measure(s) with rests!`);
   }, [song, onUpdateSong, showNotice]);
 
+  // Move verse order (reorder entire block of measures for a verse)
+  const handleMoveVerseOrder = useCallback(
+    (fromVerseIdx: number, toVerseIdx: number) => {
+      if (
+        fromVerseIdx < 0 ||
+        fromVerseIdx >= verses.length ||
+        toVerseIdx < 0 ||
+        toVerseIdx >= verses.length ||
+        fromVerseIdx === toVerseIdx
+      )
+        return;
+
+      const fromVerse = verses[fromVerseIdx];
+      const toVerse = verses[toVerseIdx];
+
+      const fromIndices = Array.from(new Set(fromVerse.notes.map(n => n.measureIndex))).sort((a, b) => a - b);
+      const toIndices = Array.from(new Set(toVerse.notes.map(n => n.measureIndex))).sort((a, b) => a - b);
+
+      if (fromIndices.length === 0 || toIndices.length === 0) return;
+
+      // Check for measure overlap
+      const hasOverlap = fromIndices.some(idx => toIndices.includes(idx));
+      if (hasOverlap) {
+        showNotice('Cannot reorder verses that share the same measure. Please split the measure first.');
+        return;
+      }
+
+      const minFrom = fromIndices[0];
+      const maxFrom = fromIndices[fromIndices.length - 1];
+      const minTo = toIndices[0];
+      const maxTo = toIndices[toIndices.length - 1];
+
+      const currentMeasures = song.measures;
+      let newMeasures: Measure[] = [];
+
+      if (fromVerseIdx > toVerseIdx) {
+        // Moving up: from block placed before to block
+        const beforeTo = currentMeasures.slice(0, minTo);
+        const fromBlock = currentMeasures.slice(minFrom, maxFrom + 1);
+        const betweenToAndFrom = currentMeasures.slice(minTo, minFrom);
+        const afterFrom = currentMeasures.slice(maxFrom + 1);
+        newMeasures = [...beforeTo, ...fromBlock, ...betweenToAndFrom, ...afterFrom];
+      } else {
+        // Moving down: from block placed after to block
+        const beforeFrom = currentMeasures.slice(0, minFrom);
+        const betweenFromAndTo = currentMeasures.slice(maxFrom + 1, maxTo + 1);
+        const fromBlock = currentMeasures.slice(minFrom, maxFrom + 1);
+        const afterTo = currentMeasures.slice(maxTo + 1);
+        newMeasures = [...beforeFrom, ...betweenFromAndTo, ...fromBlock, ...afterTo];
+      }
+
+      const renumbered = renumberMeasures(newMeasures);
+      onUpdateSong({ ...song, measures: renumbered });
+      showNotice(`Moved Verse #${fromVerseIdx + 1} to position #${toVerseIdx + 1}`);
+    },
+    [verses, song, onUpdateSong, showNotice]
+  );
+
+  // Jump to edit verse in score editor
+  const handleJumpToVerse = useCallback(
+    (verse: VerseItem) => {
+      if (verse.notes.length === 0) return;
+      setEditMode('verse');
+      const firstNote =
+        verse.notes.find(
+          n =>
+            !isNonNotationItem(n.note) &&
+            ((typeof n.note.pitch === 'number' && n.note.pitch > 0) ||
+              Boolean(n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji)))
+        ) || verse.notes[0];
+
+      handleSelectNote(firstNote.measureIndex, firstNote.noteIndex);
+      setTimeout(() => {
+        scrollToCardElement(`verse-card-${verse.verseIndex}`);
+      }, 100);
+    },
+    [handleSelectNote, setEditMode]
+  );
+
+  // Toggle verse line break (sets isLineBreak on the last measure of the verse)
+  const handleToggleVerseLineBreak = useCallback(
+    (verse: VerseItem) => {
+      const mIndices = Array.from(new Set(verse.notes.map(n => n.measureIndex))).sort((a, b) => a - b);
+      if (mIndices.length === 0) return;
+      const lastMIdx = mIndices[mIndices.length - 1];
+      handleToggleMeasureLineBreak(lastMIdx);
+    },
+    [handleToggleMeasureLineBreak]
+  );
+
+  // Update verse section name on its starting measure
+  const handleUpdateVerseSection = useCallback(
+    (verse: VerseItem, section: string) => {
+      const mIndices = Array.from(new Set(verse.notes.map(n => n.measureIndex))).sort((a, b) => a - b);
+      if (mIndices.length === 0) return;
+      const firstMIdx = mIndices[0];
+      handleUpdateMeasureSection(firstMIdx, section);
+    },
+    [handleUpdateMeasureSection]
+  );
+
+  // Auto-fill missing rests in all under-beat measures of a verse
+  const handleAutoFillVerseRests = useCallback(
+    (verse: VerseItem) => {
+      const mIndices = Array.from(new Set(verse.notes.map(n => n.measureIndex))).sort((a, b) => a - b);
+      if (mIndices.length === 0) return;
+
+      let paddedCount = 0;
+      const updatedMeasures = song.measures.map((m, idx) => {
+        if (!mIndices.includes(idx)) return m;
+        const report = getMeasureRhythmReport(m, song.timeSignature || '4/4');
+        if (!report.isUnder || report.absDiff <= 0) return m;
+
+        paddedCount++;
+        const restDurations = getRestDurationsForDeficit(report.absDiff);
+        const newRestNotes: JianpuNote[] = restDurations.map(dur => ({
+          id: generateId('n'),
+          pitch: 0,
+          octave: 0,
+          duration: dur,
+          lyric: {},
+        }));
+        return {
+          ...m,
+          notes: [...m.notes, ...newRestNotes],
+        };
+      });
+
+      if (paddedCount > 0) {
+        onUpdateSong({ ...song, measures: updatedMeasures });
+        showNotice(`Auto-padded ${paddedCount} measure(s) in Verse #${verse.verseIndex + 1}`);
+      } else {
+        showNotice(`All measures in Verse #${verse.verseIndex + 1} already have full beats.`);
+      }
+    },
+    [song, onUpdateSong, showNotice]
+  );
+
+  // Duplicate entire verse
+  const handleDuplicateVerse = useCallback(
+    (verse: VerseItem) => {
+      const mIndices = Array.from(new Set(verse.notes.map(n => n.measureIndex))).sort((a, b) => a - b);
+      if (mIndices.length === 0) return;
+
+      const maxMIdx = mIndices[mIndices.length - 1];
+      const targetMeasures = mIndices.map(idx => song.measures[idx]).filter(Boolean);
+
+      const clonedMeasures: Measure[] = targetMeasures.map((m, i) => ({
+        ...m,
+        id: generateId('m'),
+        section: i === 0 && m.section ? `${m.section} (Copy)` : m.section,
+        notes: m.notes.map(n => ({
+          ...n,
+          id: generateId('n'),
+          lyric: { ...n.lyric },
+        })),
+      }));
+
+      const newMeasures = [
+        ...song.measures.slice(0, maxMIdx + 1),
+        ...clonedMeasures,
+        ...song.measures.slice(maxMIdx + 1),
+      ];
+
+      const renumbered = renumberMeasures(newMeasures);
+      onUpdateSong({ ...song, measures: renumbered });
+      showNotice(`Duplicated Verse #${verse.verseIndex + 1} (${clonedMeasures.length} measures)`);
+    },
+    [song, onUpdateSong, showNotice]
+  );
+
+  // Delete entire verse
+  const handleDeleteVerse = useCallback(
+    (verse: VerseItem) => {
+      const mIndices = new Set(verse.notes.map(n => n.measureIndex));
+      if (song.measures.length - mIndices.size < 1) {
+        showNotice('Cannot delete verse: the song must have at least one measure.');
+        return;
+      }
+
+      const newMeasures = song.measures.filter((_, idx) => !mIndices.has(idx));
+      const renumbered = renumberMeasures(newMeasures);
+      onUpdateSong({ ...song, measures: renumbered });
+      showNotice(`Deleted Verse #${verse.verseIndex + 1}`);
+    },
+    [song, onUpdateSong, showNotice]
+  );
+
+  // Add new verse (phrase) with 4 empty measures
+  const handleAddVerse = useCallback(() => {
+    const nextVerseNum = verses.length + 1;
+    const newMeasures: Measure[] = Array.from({ length: 4 }).map((_, i) => ({
+      id: generateId('m'),
+      measureNumber: song.measures.length + i + 1,
+      section: i === 0 ? `Verse ${nextVerseNum}` : undefined,
+      notes: [
+        { id: generateId('n'), pitch: 1, octave: 0, duration: 1, lyric: {} },
+        { id: generateId('n'), pitch: 2, octave: 0, duration: 1, lyric: {} },
+        { id: generateId('n'), pitch: 3, octave: 0, duration: 1, lyric: {} },
+        { id: generateId('n'), pitch: 5, octave: 0, duration: 1, lyric: {} },
+      ],
+    }));
+
+    const renumbered = renumberMeasures([...song.measures, ...newMeasures]);
+    onUpdateSong({ ...song, measures: renumbered });
+    showNotice(`Added new Verse #${nextVerseNum} (4 measures)`);
+  }, [verses.length, song, onUpdateSong, showNotice]);
+
   // Undo / Redo triggers with user feedback
   const handleUndo = useCallback(() => {
     if (!onUndo) return false;
@@ -1295,16 +1508,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
               </div>
             )}
 
-            {/* Measure Organizer & Rhythm Health Inspector Trigger */}
+            {/* Verse & Measure Organizer and Layout Trigger */}
             <button
               id="composer-open-organizer-btn"
               type="button"
               onClick={() => setIsOrganizerOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-              title="Measure overview, rhythm check, and layout"
+              title="Verse & Measure Organizer, rhythm health, and layout"
             >
               <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>Measure Organizer</span>
+              <span>Organizer &amp; Layout</span>
               {incompleteMeasuresCount > 0 && (
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono font-black" title={`${incompleteMeasuresCount} measure(s) under or over beat limit`}>
                   {incompleteMeasuresCount}
@@ -1502,7 +1715,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         </div>
       </div>
 
-      {/* Measure Organizer & Layout Inspector Modal */}
+      {/* Consolidated Organizer & Layout Inspector Modal (Verses & Measures) */}
       <MeasureOrganizerModal
         isOpen={isOrganizerOpen}
         onClose={() => setIsOrganizerOpen(false)}
@@ -1515,6 +1728,19 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         onBatchAutoFillAllRests={handleBatchFixAllIncompleteMeasures}
         onDeleteMeasure={handleDeleteMeasure}
         onAddMeasure={handleAddMeasure}
+        initialTab={editMode}
+        verses={verses}
+        playingVerseIdx={playingVerseIdx}
+        onTogglePlayVerse={handleTogglePlayVerse}
+        onMoveVerse={handleMoveVerseOrder}
+        onSelectVerse={handleJumpToVerse}
+        onToggleVerseLineBreak={handleToggleVerseLineBreak}
+        onUpdateVerseSection={handleUpdateVerseSection}
+        onAutoFillVerseRests={handleAutoFillVerseRests}
+        onDistributeVerseLyrics={handleDistributeVerseLyrics}
+        onDuplicateVerse={handleDuplicateVerse}
+        onDeleteVerse={handleDeleteVerse}
+        onAddVerse={handleAddVerse}
       />
     </div>
   );
