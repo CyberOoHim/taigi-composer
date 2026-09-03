@@ -99,12 +99,12 @@ export function getChordNotes(chordName: string, transposeSemitones: number = 0)
 // Special Taigi (POJ and Tâi-lô / PIJ) characters and tone diacritics
 export const TAIGI_TONE_CHARS = [
   // Tone marks for vowels
-  { label: 'á', char: 'á', desc: 'Tone 2 (陰上)' },
-  { label: 'à', char: 'à', desc: 'Tone 3 (陰去)' },
-  { label: 'â', char: 'â', desc: 'Tone 5 (陽平)' },
-  { label: 'ā', char: 'ā', desc: 'Tone 7 (陽去)' },
-  { label: 'a̍', char: 'a̍', desc: 'Tone 8 (陽入 / vertical dot)' },
-  { label: 'a̋', char: 'a̋', desc: 'Tone 9 (高平)' },
+  { label: 'á', char: 'á', desc: 'Tone 2 (Rising)' },
+  { label: 'à', char: 'à', desc: 'Tone 3 (Low Falling)' },
+  { label: 'â', char: 'â', desc: 'Tone 5 (High Rising)' },
+  { label: 'ā', char: 'ā', desc: 'Tone 7 (Mid Level)' },
+  { label: 'a̍', char: 'a̍', desc: 'Tone 8 (High Checked / vertical dot)' },
+  { label: 'a̋', char: 'a̋', desc: 'Tone 9 (High Level)' },
   { label: 'é', char: 'é', desc: 'Tone 2' },
   { label: 'è', char: 'è', desc: 'Tone 3' },
   { label: 'ê', char: 'ê', desc: 'Tone 5 / POJ e-circumflex' },
@@ -137,48 +137,47 @@ export const TAIGI_TONE_CHARS = [
   { label: 'ńg', char: 'ńg', desc: 'Syllabic ng Tone 2' },
   { label: 'n̂g', char: 'n̂g', desc: 'Syllabic ng Tone 5' },
   { label: 'n̄g', char: 'n̄g', desc: 'Syllabic ng Tone 7' },
-  { label: 'ê', char: 'ê', desc: 'ê (的/之)' },
-  { label: 'tio̍h', char: 'tio̍h', desc: '著/應' },
-  { label: 'bô', char: 'bô', desc: '無' },
-  { label: 'hó', char: 'hó', desc: '好' },
-  { label: 'kui', char: 'kui', desc: '歸' },
+  { label: 'ê', char: 'ê', desc: 'ê (of / possessive)' },
+  { label: 'tio̍h', char: 'tio̍h', desc: 'tio̍h (must / should)' },
+  { label: 'bô', char: 'bô', desc: 'bô (not / none)' },
+  { label: 'hó', char: 'hó', desc: 'hó (good / well)' },
+  { label: 'kui', char: 'kui', desc: 'kui (whole / return)' },
 ];
 
 // Common Punctuation Marks for Jianpu sheet lyrics and notations
 export const PUNCTUATION_MARKS = [
-  { label: '，', char: '，', desc: '逗號 (Comma)' },
-  { label: '。', char: '。', desc: '句號 (Period)' },
-  { label: '、', char: '、', desc: '頓號 (Pause / Enumeration)' },
-  { label: '！', char: '！', desc: '驚嘆號 (Exclamation)' },
-  { label: '？', char: '？', desc: '問號 (Question mark)' },
-  { label: '—', char: '—', desc: '破折號 (Em Dash)' },
-  { label: '…', char: '…', desc: '省略號 (Ellipsis)' },
-  { label: '「', char: '「', desc: '前引號 (Left Quote)' },
-  { label: '」', char: '」', desc: '後引號 (Right Quote)' },
-  { label: 'V', char: 'V', desc: '換氣記號 (Breath Mark)' },
-  { label: ' ', char: ' ', desc: '空白留白 (Space)' },
-  { label: '↵ 換行', char: '\n', desc: '換行標記 (Line Break)' },
+  { label: '，', char: '，', desc: 'Comma' },
+  { label: '。', char: '。', desc: 'Period' },
+  { label: '、', char: '、', desc: 'Enumeration comma' },
+  { label: '！', char: '！', desc: 'Exclamation' },
+  { label: '？', char: '？', desc: 'Question mark' },
+  { label: '—', char: '—', desc: 'Em Dash' },
+  { label: '…', char: '…', desc: 'Ellipsis' },
+  { label: '「', char: '「', desc: 'Left Quote' },
+  { label: '」', char: '」', desc: 'Right Quote' },
+  { label: 'V', char: 'V', desc: 'Breath Mark' },
+  { label: ' ', char: ' ', desc: 'Space' },
+  { label: '↵ Break', char: '\n', desc: 'Line Break' },
 ];
 
-// Musical & Vocal Performance Annotations (註解 / 演奏與演唱標記)
+// Musical & Vocal Performance Annotations
 export const ANNOTATION_MARKS = [
-  { label: '(漸慢)', text: '(漸慢)', desc: 'rit. / 速度漸慢' },
-  { label: '(合唱)', text: '(合唱)', desc: '眾人合唱' },
-  { label: '(副歌)', text: '(副歌)', desc: '副歌段落' },
-  { label: '(主歌)', text: '(主歌)', desc: '主歌段落' },
-  { label: '(伴奏)', text: '(伴奏)', desc: '樂器伴奏段' },
-  { label: '(獨唱)', text: '(獨唱)', desc: '單人獨唱' },
-  { label: '(男)', text: '(男)', desc: '男聲演唱' },
-  { label: '(女)', text: '(女)', desc: '女聲演唱' },
-  { label: '(口白)', text: '(口白)', desc: '朗誦/口白' },
-  { label: '[間奏]', text: '[間奏]', desc: '間奏段' },
-  { label: '[尾奏]', text: '[尾奏]', desc: '尾奏結尾' },
-  { label: 'rit.', text: 'rit.', desc: 'Ritardando (漸慢)' },
-  { label: 'fine', text: 'fine', desc: 'Fine (曲終)' },
-  { label: 'f', text: 'f', desc: 'Forte (強)' },
-  { label: 'p', text: 'p', desc: 'Piano (弱)' },
-  { label: 'mp', text: 'mp', desc: 'Mezzo-piano (中弱)' },
-  { label: 'mf', text: 'mf', desc: 'Mezzo-forte (中強)' },
+  { label: 'rit.', text: 'rit.', desc: 'Ritardando (slowing down)' },
+  { label: '(Chorus)', text: '(Chorus)', desc: 'Choir / Chorus' },
+  { label: '(Refrain)', text: '(Refrain)', desc: 'Refrain section' },
+  { label: '(Verse)', text: '(Verse)', desc: 'Verse section' },
+  { label: '(Inst.)', text: '(Inst.)', desc: 'Instrumental passage' },
+  { label: '(Solo)', text: '(Solo)', desc: 'Solo voice' },
+  { label: '(Male)', text: '(Male)', desc: 'Male voice' },
+  { label: '(Female)', text: '(Female)', desc: 'Female voice' },
+  { label: '(Spoken)', text: '(Spoken)', desc: 'Spoken / Recitation' },
+  { label: '[Interlude]', text: '[Interlude]', desc: 'Interlude section' },
+  { label: '[Outro]', text: '[Outro]', desc: 'Outro ending' },
+  { label: 'fine', text: 'fine', desc: 'Fine (end)' },
+  { label: 'f', text: 'f', desc: 'Forte (loud)' },
+  { label: 'p', text: 'p', desc: 'Piano (soft)' },
+  { label: 'mp', text: 'mp', desc: 'Mezzo-piano (medium soft)' },
+  { label: 'mf', text: 'mf', desc: 'Mezzo-forte (medium loud)' },
 ];
 
 /**
@@ -277,7 +276,7 @@ export function formatDurationName(duration: number): string {
     case 0.125:
       return '32nd Note (1/8)';
     case 0:
-      return '0 beats (不占拍)';
+      return '0 beats (Empty)';
     default:
       return `${duration} beats`;
   }
@@ -296,119 +295,119 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
   switch (duration) {
     case 0:
       return {
-        name: '不占拍 (0 拍)',
-        fractionLabel: '0 拍 (留白/標點/換行)',
-        beatsLabel: '0 拍',
+        name: '0 beats (Empty)',
+        fractionLabel: '0 beats (Empty / Punctuation)',
+        beatsLabel: '0 beats',
         jianpuSymbol: '—',
-        description: '無時間長度：純文字留白、標點符號或換行標記，不消耗小節拍數',
+        description: 'Zero duration: pure spacer, punctuation, or line break with no beat value',
         isDotted: false,
       };
     case 1.5:
       return {
-        name: '附點四分音符',
-        fractionLabel: '一又二分之一拍 (1½ 拍)',
-        beatsLabel: '1.5 拍',
+        name: 'Dotted Quarter Note',
+        fractionLabel: '1½ beats',
+        beatsLabel: '1.5 beats',
         jianpuSymbol: '5·',
-        description: '四分音符 (1拍) + 附點 (0.5拍) = 1.5拍',
+        description: 'Quarter note (1 beat) + dot (0.5 beats) = 1.5 beats',
         isDotted: true,
       };
     case 0.75:
       return {
-        name: '附點八分音符',
-        fractionLabel: '四分之三拍 (¾ 拍)',
-        beatsLabel: '0.75 拍',
-        jianpuSymbol: '5· (下一線)',
-        description: '八分音符 (0.5拍) + 附點 (0.25拍) = 0.75拍',
+        name: 'Dotted 8th Note',
+        fractionLabel: '¾ beat',
+        beatsLabel: '0.75 beats',
+        jianpuSymbol: '5· (1 underline)',
+        description: '8th note (0.5 beats) + dot (0.25 beats) = 0.75 beats',
         isDotted: true,
       };
     case 1:
       return {
-        name: '四分音符',
-        fractionLabel: '一拍 (1 拍)',
-        beatsLabel: '1 拍',
+        name: 'Quarter Note',
+        fractionLabel: '1 beat',
+        beatsLabel: '1 beat',
         jianpuSymbol: '5',
-        description: '標準單拍音符 (1拍)',
+        description: 'Standard quarter note (1 beat)',
         isDotted: false,
       };
     case 0.5:
       return {
-        name: '八分音符',
-        fractionLabel: '半拍 / 二分之一拍 (½ 拍)',
-        beatsLabel: '0.5 拍',
-        jianpuSymbol: '5 (下一線)',
-        description: '半拍 (0.5拍)',
+        name: '8th Note',
+        fractionLabel: '½ beat',
+        beatsLabel: '0.5 beats',
+        jianpuSymbol: '5 (1 underline)',
+        description: 'Half beat (0.5 beats)',
         isDotted: false,
       };
     case 0.25:
       return {
-        name: '十六分音符',
-        fractionLabel: '四分之一拍 (¼ 拍)',
-        beatsLabel: '0.25 拍',
-        jianpuSymbol: '5 (下兩線)',
-        description: '四分之一拍 (0.25拍)',
+        name: '16th Note',
+        fractionLabel: '¼ beat',
+        beatsLabel: '0.25 beats',
+        jianpuSymbol: '5 (2 underlines)',
+        description: 'Quarter beat (0.25 beats)',
         isDotted: false,
       };
     case 2:
       return {
-        name: '二分音符',
-        fractionLabel: '兩拍 (2 拍)',
-        beatsLabel: '2 拍',
+        name: 'Half Note',
+        fractionLabel: '2 beats',
+        beatsLabel: '2 beats',
         jianpuSymbol: '5 -',
-        description: '兩拍 (2拍，右側一條增時線)',
+        description: 'Half note (2 beats, 1 dash to the right)',
         isDotted: false,
       };
     case 3:
       return {
-        name: '附點二分音符',
-        fractionLabel: '三拍 (3 拍)',
-        beatsLabel: '3 拍',
+        name: 'Dotted Half Note',
+        fractionLabel: '3 beats',
+        beatsLabel: '3 beats',
         jianpuSymbol: '5 - -',
-        description: '二分音符 (2拍) + 附點 (1拍) = 3拍',
+        description: 'Half note (2 beats) + dot (1 beat) = 3 beats',
         isDotted: true,
       };
     case 4:
       return {
-        name: '全音符',
-        fractionLabel: '四拍 (4 拍)',
-        beatsLabel: '4 拍',
+        name: 'Whole Note',
+        fractionLabel: '4 beats',
+        beatsLabel: '4 beats',
         jianpuSymbol: '5 - - -',
-        description: '四拍 (4拍，右側三條增時線)',
+        description: 'Whole note (4 beats, 3 dashes to the right)',
         isDotted: false,
       };
     case 0.375:
       return {
-        name: '附點十六分音符',
-        fractionLabel: '八分之三拍 (⅜ 拍)',
-        beatsLabel: '0.375 拍',
-        jianpuSymbol: '5· (下兩線)',
-        description: '十六分音符 (0.25拍) + 附點 (0.125拍) = 0.375拍',
+        name: 'Dotted 16th Note',
+        fractionLabel: '⅜ beat',
+        beatsLabel: '0.375 beats',
+        jianpuSymbol: '5· (2 underlines)',
+        description: '16th note (0.25 beats) + dot (0.125 beats) = 0.375 beats',
         isDotted: true,
       };
     case 1.75:
       return {
-        name: '複附點四分音符',
-        fractionLabel: '一又四分之三拍 (1¾ 拍)',
-        beatsLabel: '1.75 拍',
+        name: 'Double Dotted Quarter Note',
+        fractionLabel: '1¾ beats',
+        beatsLabel: '1.75 beats',
         jianpuSymbol: '5··',
-        description: '四分音符 (1拍) + 雙附點 (0.75拍) = 1.75拍',
+        description: 'Quarter note (1 beat) + double dots (0.75 beats) = 1.75 beats',
         isDotted: true,
       };
     default:
       return {
-        name: `自訂音長 (${duration} 拍)`,
-        fractionLabel: `${duration} 拍`,
-        beatsLabel: `${duration} 拍`,
-        jianpuSymbol: `${duration} 拍`,
-        description: `自訂節奏長度: ${duration} 拍`,
+        name: `Custom Duration (${duration} beats)`,
+        fractionLabel: `${duration} beats`,
+        beatsLabel: `${duration} beats`,
+        jianpuSymbol: `${duration} beats`,
+        description: `Custom rhythm duration: ${duration} beats`,
         isDotted: duration % 1 !== 0 && duration !== 0.5 && duration !== 0.25,
       };
   }
 }
 
 /**
- * Check if a note is punctuation (標點), an annotation (註解), a newline (換行), or whitespace/blank spacer (空白).
+ * Check if a note is punctuation, an annotation, a newline, or whitespace/blank spacer.
  * Punctuation, annotations, newlines, and whitespace are NOT treated as musical notation
- * and do NOT occupy any time duration when playing (0 duration).
+ * and do not consume beats in a measure.
  */
 export function isNonNotationItem(note: JianpuNote | null | undefined): boolean {
   if (!note) return false;
@@ -505,7 +504,7 @@ export function isVerseBreakNote(note: JianpuNote): boolean {
 }
 
 /**
- * Group song into Verses (句 / 樂句) sectioned by punctuation (標點) or whitespace/rest (空白)
+ * Group song into Verses sectioned by punctuation or whitespace/rest
  */
 export function groupSongIntoVerses(song: Song): VerseItem[] {
   const verses: VerseItem[] = [];
@@ -839,7 +838,7 @@ export interface TaigiToneInfo {
   superscript: string; // e.g. '¹', '²', '³', '⁴', '⁵', '⁷', '⁸', '⁹'
   contour: string;     // e.g. '55', '51', '21', '32', '24', '33', '4', '55'
   symbol: string;      // e.g. '˥', '˥˩', '˨˩', '˨', '˨˦', '˧', '˦', '˥'
-  name: string;        // e.g. '陰平', '陰上', '陰去', '陰入', '陽平', '陽去', '陽入'
+  name: string;        // e.g. 'Tone 1', 'Tone 2', 'Tone 3', etc.
 }
 
 /**
@@ -894,7 +893,7 @@ export function extractTaigiTone(syllable: string): TaigiToneInfo | null {
     return getToneInfoByNumber(4);
   }
 
-  // If contains English letters, default unchecked tone is Tone 1 (陰平)
+  // If contains English letters, default unchecked tone is Tone 1
   if (/[a-zA-Z]/.test(s)) {
     return getToneInfoByNumber(1);
   }
@@ -905,25 +904,25 @@ export function extractTaigiTone(syllable: string): TaigiToneInfo | null {
 function getToneInfoByNumber(num: number): TaigiToneInfo {
   switch (num) {
     case 1:
-      return { toneNumber: 1, superscript: '¹', contour: '55', symbol: '˥', name: '陰平' };
+      return { toneNumber: 1, superscript: '¹', contour: '55', symbol: '˥', name: 'Tone 1' };
     case 2:
-      return { toneNumber: 2, superscript: '²', contour: '51', symbol: '˥˩', name: '陰上' };
+      return { toneNumber: 2, superscript: '²', contour: '51', symbol: '˥˩', name: 'Tone 2' };
     case 3:
-      return { toneNumber: 3, superscript: '³', contour: '21', symbol: '˨˩', name: '陰去' };
+      return { toneNumber: 3, superscript: '³', contour: '21', symbol: '˨˩', name: 'Tone 3' };
     case 4:
-      return { toneNumber: 4, superscript: '⁴', contour: '32', symbol: '˨', name: '陰入' };
+      return { toneNumber: 4, superscript: '⁴', contour: '32', symbol: '˨', name: 'Tone 4' };
     case 5:
-      return { toneNumber: 5, superscript: '⁵', contour: '24', symbol: '˨˦', name: '陽平' };
+      return { toneNumber: 5, superscript: '⁵', contour: '24', symbol: '˨˦', name: 'Tone 5' };
     case 6:
-      return { toneNumber: 6, superscript: '⁶', contour: '22', symbol: '˨', name: '陽上' };
+      return { toneNumber: 6, superscript: '⁶', contour: '22', symbol: '˨', name: 'Tone 6' };
     case 7:
-      return { toneNumber: 7, superscript: '⁷', contour: '33', symbol: '˧', name: '陽去' };
+      return { toneNumber: 7, superscript: '⁷', contour: '33', symbol: '˧', name: 'Tone 7' };
     case 8:
-      return { toneNumber: 8, superscript: '⁸', contour: '4', symbol: '˦', name: '陽入' };
+      return { toneNumber: 8, superscript: '⁸', contour: '4', symbol: '˦', name: 'Tone 8' };
     case 9:
-      return { toneNumber: 9, superscript: '⁹', contour: '55', symbol: '˥', name: '高平' };
+      return { toneNumber: 9, superscript: '⁹', contour: '55', symbol: '˥', name: 'Tone 9' };
     default:
-      return { toneNumber: num, superscript: `${num}`, contour: '', symbol: '', name: `聲調${num}` };
+      return { toneNumber: num, superscript: `${num}`, contour: '', symbol: '', name: `Tone ${num}` };
   }
 }
 
@@ -964,43 +963,43 @@ export function getDiatonicChords(key: KeySignature): DiatonicChordOption[] {
     {
       chord: getRootName(base),
       degree: 'I',
-      label: '主和弦 (Tonic)',
+      label: 'Tonic (I)',
       colorClass: 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700',
     },
     {
       chord: `${getRootName(base + 2)}m`,
       degree: 'ii',
-      label: '二級小 (Supertonic)',
+      label: 'Supertonic (ii)',
       colorClass: 'bg-blue-100 hover:bg-blue-200 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-900 dark:text-blue-300 border-blue-300 dark:border-blue-700',
     },
     {
       chord: `${getRootName(base + 4)}m`,
       degree: 'iii',
-      label: '三級小 (Mediant)',
+      label: 'Mediant (iii)',
       colorClass: 'bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-900 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700',
     },
     {
       chord: getRootName(base + 5),
       degree: 'IV',
-      label: '下屬和弦 (Subdominant)',
+      label: 'Subdominant (IV)',
       colorClass: 'bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700',
     },
     {
       chord: getRootName(base + 7),
       degree: 'V',
-      label: '屬和弦 (Dominant)',
+      label: 'Dominant (V)',
       colorClass: 'bg-orange-100 hover:bg-orange-200 dark:bg-orange-950/60 dark:hover:bg-orange-900/60 text-orange-900 dark:text-orange-300 border-orange-300 dark:border-orange-700',
     },
     {
       chord: `${getRootName(base + 9)}m`,
       degree: 'vi',
-      label: '下中音小 (Submediant)',
+      label: 'Submediant (vi)',
       colorClass: 'bg-purple-100 hover:bg-purple-200 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-900 dark:text-purple-300 border-purple-300 dark:border-purple-700',
     },
     {
       chord: `${getRootName(base + 7)}7`,
       degree: 'V7',
-      label: '屬七和弦 (Dominant 7th)',
+      label: 'Dominant 7th (V7)',
       colorClass: 'bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-900 dark:text-rose-300 border-rose-300 dark:border-rose-700',
     },
   ];

@@ -208,8 +208,8 @@ export default function Home() {
   }, [undo, redo, handleTogglePlay]);
 
   return (
-    <div className="min-h-screen bg-zinc-100/70 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col antialiased">
-      {/* Top Header */}
+    <div className="min-h-screen bg-zinc-100 dark:bg-[#0c0e14] text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-amber-500/30">
+      {/* Top DAW Master Transport Console */}
       <HeaderBar
         song={song}
         onSelectSong={handleSelectSong}
@@ -233,8 +233,8 @@ export default function Home() {
         isCharging={isCharging}
       />
 
-      {/* Main Body Canvas */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-8 flex flex-col gap-6">
+      {/* Main Studio Canvas */}
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-3 sm:px-5 lg:px-8 py-4 sm:py-6 flex flex-col gap-6 safe-px">
         {/* Dynamic View Mode Container */}
         {activeTab === 'karaoke' && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-200">
@@ -249,27 +249,27 @@ export default function Home() {
               isEcoMode={isEcoMode}
             />
 
-            {/* Quick Switch to Editor CTA */}
-            <div className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold">
+            {/* Quick Switch to Editor CTA Rack */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-5 bg-white dark:bg-[#141720] border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl shadow-xs gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shrink-0 border border-amber-500/20">
                   <Music className="w-5 h-5" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    想修改這首歌的旋律、音符或台語歌詞嗎？
+                    Want to edit this song's melody, notes, or lyrics?
                   </h4>
-                  <p className="text-xs text-zinc-500">
-                    切換至簡譜編寫模式，隨時調整簡譜 1-7 音符、調號、和弦與漢字/白話字/臺羅歌詞。支援完整的復原 (Undo) 與重做 (Redo)。
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                    Switch to Score Editor mode to adjust numbered notes 1-7, key signatures, chords, and Hanji/POJ/PIJ lyrics. Full Undo and Redo supported.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setActiveTab('editor')}
-                className="flex items-center gap-1.5 px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold text-xs rounded-xl hover:opacity-90 transition-opacity cursor-pointer touch-manipulation min-h-[38px]"
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] shrink-0 w-full sm:w-auto"
               >
-                <span>前往編寫器 (Open Editor)</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <span>Open Editor</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -299,12 +299,16 @@ export default function Home() {
         )}
 
         {activeTab === 'split' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-200">
-            <div className="lg:col-span-6 flex flex-col gap-4">
-              <h3 className="font-bold text-sm text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                <Mic2 className="w-4 h-4 text-amber-500" />
-                <span>卡拉OK即時動態演奏 (Karaoke Player)</span>
-              </h3>
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 animate-in fade-in duration-200">
+            {/* Left Channel Rack: Live Vocal Stage */}
+            <div className="xl:col-span-6 flex flex-col gap-3">
+              <div className="flex items-center justify-between px-1 py-0.5">
+                <h3 className="font-bold text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block animate-pulse" />
+                  <Mic2 className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Live Karaoke Player</span>
+                </h3>
+              </div>
               <KaraokeView
                 song={song}
                 audioEngine={audioEngine}
@@ -316,11 +320,15 @@ export default function Home() {
               />
             </div>
 
-            <div className="lg:col-span-6 flex flex-col gap-4">
-              <h3 className="font-bold text-sm text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                <Music className="w-4 h-4 text-amber-500" />
-                <span>簡譜即時編寫 (Score Composer)</span>
-              </h3>
+            {/* Right Channel Rack: Score Composer Deck */}
+            <div className="xl:col-span-6 flex flex-col gap-3">
+              <div className="flex items-center justify-between px-1 py-0.5">
+                <h3 className="font-bold text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                  <Music className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Score Composer</span>
+                </h3>
+              </div>
               <ComposerEditor
                 song={song}
                 onUpdateSong={setSong}
@@ -343,35 +351,35 @@ export default function Home() {
           </div>
         )}
 
-        {/* Feature Explanatory Footer Guide */}
-        <div className="mt-4 p-5 bg-white/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs text-zinc-600 dark:text-zinc-400 grid grid-cols-1 md:grid-cols-3 gap-6 shadow-xs">
-          <div className="flex flex-col gap-1.5">
-            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+        {/* Studio Hardware Specs & Explanatory Rack Strip */}
+        <div className="mt-2 p-5 bg-white/90 dark:bg-[#141720]/90 border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl text-xs text-zinc-600 dark:text-zinc-400 grid grid-cols-1 md:grid-cols-3 gap-6 shadow-xs">
+          <div className="flex flex-col gap-2">
+            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 text-xs uppercase tracking-wider">
               <Sparkles className="w-4 h-4 text-amber-500" />
-              <span>多格式台語歌詞支援 (Hanji / POJ / PIJ)</span>
+              <span>Multi-format Lyrics Support (Hanji / POJ / PIJ)</span>
             </h4>
-            <p className="leading-relaxed">
-              支援漢字 (Hanji)、白話字 (Pe̍h-ōe-jī)、臺灣閩南語羅馬字拼音方案 (臺羅 / PIJ) 以及漢羅合用 (Han-lô)。每個音符精確對齊對應的音節與演唱註解。
+            <p className="leading-relaxed text-zinc-500 dark:text-zinc-400">
+              Supports Hanji (漢字), Pe̍h-ōe-jī (POJ), Tâi-lô (PIJ), and Han-lô mixed orthography. Each note precisely aligns with corresponding syllables and vocal annotations.
             </p>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+          <div className="flex flex-col gap-2">
+            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 text-xs uppercase tracking-wider">
               <Mic2 className="w-4 h-4 text-amber-500" />
-              <span>專業卡拉OK動態引擎 (Karaoke Engine)</span>
+              <span>Karaoke Engine</span>
             </h4>
-            <p className="leading-relaxed">
-              內建 Web Audio API 多樂器音源（鋼琴、臺灣竹笛、古典吉他、80年代合成器、八音鐘），支援即時移調升降 Key (±12半音)、自訂速度 BPM、和弦伴奏與節拍器。
+            <p className="leading-relaxed text-zinc-500 dark:text-zinc-400">
+              Built-in Web Audio API multi-instrument soundfonts (Grand Piano, Bamboo Flute, Classical Guitar, 80s Synth, Glockenspiel), real-time transpose (±12 semitones), custom BPM, chord accompaniment, and metronome.
             </p>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+          <div className="flex flex-col gap-2">
+            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 text-xs uppercase tracking-wider">
               <Layers className="w-4 h-4 text-amber-500" />
-              <span>樂曲匯入、匯出與分享 (Import & Export)</span>
+              <span>Import, Export & Share</span>
             </h4>
-            <p className="leading-relaxed">
-              支援標準 JSON 樂譜檔 (.taigi.json) 及人類可讀的純文字簡譜格式 (.txt) 一鍵複製或下載。隨附《望春風》、《雨夜花》、《愛拚才會贏》等經典範例。
+            <p className="leading-relaxed text-zinc-500 dark:text-zinc-400">
+              Supports standard JSON score files (.taigi.json) and human-readable plain text Jianpu formats (.txt) for one-click copying or downloading. Includes presets for classical compositions.
             </p>
           </div>
         </div>

@@ -320,14 +320,14 @@ export function getKaraokeStageSequenceState(
   let statusMessage = '';
   if (leadInState) {
     if (leadInState.isBreathCue) {
-      statusMessage = '吸氣換氣 · 準備切入';
+      statusMessage = 'Breathe in · Get ready';
     } else if (leadInState.isIntro) {
-      statusMessage = `前奏導引 · 倒數 ${leadInState.beatsRemaining} 拍`;
+      statusMessage = `Intro count-in · ${leadInState.beatsRemaining} beat(s)`;
     } else {
-      statusMessage = `間奏導引 · 倒數 ${leadInState.beatsRemaining} 拍`;
+      statusMessage = `Interlude count-in · ${leadInState.beatsRemaining} beat(s)`;
     }
   } else if (isVerseCompleted) {
-    statusMessage = '樂句唱畢';
+    statusMessage = 'Phrase complete';
   }
 
   return {

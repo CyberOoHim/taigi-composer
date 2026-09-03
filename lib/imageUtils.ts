@@ -46,7 +46,7 @@ export function validateImageFiles(
 
   for (const file of files) {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase()) && !/\.(jpe?g|png|webp|gif|bmp|tiff)$/i.test(file.name)) {
-      errorMsg = `不支援的檔案格式「${file.name}」，請上傳 JPG、PNG 或 WebP 圖片。`;
+      errorMsg = `Unsupported file format "${file.name}". Please upload JPG, PNG, or WebP images.`;
       continue;
     }
     validFiles.push(file);
@@ -57,7 +57,7 @@ export function validateImageFiles(
     const trimmed = validFiles.slice(0, allowedToAdd);
     return {
       validFiles: trimmed,
-      error: `一次最多支援上傳 ${maxCount} 頁樂譜圖片（已自動選取前 ${allowedToAdd} 張）。`,
+      error: `A maximum of ${maxCount} score images can be uploaded at once (automatically selected first ${allowedToAdd} pages).`,
     };
   }
 
@@ -76,17 +76,17 @@ export async function compressAndPrepareImage(
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onerror = () => reject(new Error(`無法讀取圖片檔案「${file.name}」`));
+    reader.onerror = () => reject(new Error(`Failed to read image file "${file.name}"`));
 
     reader.onload = (e) => {
       const srcUrl = e.target?.result as string;
       if (!srcUrl) {
-        reject(new Error(`檔案資料為空「${file.name}」`));
+        reject(new Error(`File data is empty "${file.name}"`));
         return;
       }
 
       const img = new Image();
-      img.onerror = () => reject(new Error(`圖片解析失敗「${file.name}」`));
+      img.onerror = () => reject(new Error(`Failed to parse image "${file.name}"`));
 
       img.onload = () => {
         let width = img.naturalWidth || img.width;

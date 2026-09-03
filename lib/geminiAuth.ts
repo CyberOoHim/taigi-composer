@@ -52,7 +52,7 @@ export function verifyGeminiPasscode(input: string): GeminiAuthResult {
   if (!trimmed) {
     return {
       success: false,
-      message: '請輸入通行密碼或 Gemini API Key (Please enter passcode or API key)',
+      message: 'Please enter a passcode or Gemini API Key',
     };
   }
 
@@ -66,7 +66,7 @@ export function verifyGeminiPasscode(input: string): GeminiAuthResult {
     return {
       success: true,
       isApiKey: true,
-      message: 'Gemini API Key 驗證成功！已解鎖存取權限。',
+      message: 'Gemini API Key verified successfully! Access unlocked.',
     };
   }
 
@@ -80,13 +80,13 @@ export function verifyGeminiPasscode(input: string): GeminiAuthResult {
     return {
       success: true,
       isApiKey: false,
-      message: '通行密碼驗證成功！已解鎖 Gemini API 存取權限。',
+      message: 'Passcode verified successfully! Gemini API access unlocked.',
     };
   }
 
   return {
     success: false,
-    message: '通行密碼錯誤，請重新輸入 (預設提示: taigi 或填入 API Key)',
+    message: 'Incorrect passcode. Please try again (Hint: "taigi" or enter your API Key)',
   };
 }
 

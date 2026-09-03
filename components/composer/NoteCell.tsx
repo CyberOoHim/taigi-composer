@@ -78,14 +78,14 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
     <div
       key={`${keyPrefix}${note.id}-${mIdx}-${nIdx}`}
       id={`wysiwyg-note-cell-${mIdx}-${nIdx}`}
-      className={`group relative flex flex-col items-center justify-between p-2 rounded-2xl border transition-all duration-150 min-w-[76px] sm:min-w-[92px] flex-1 select-none ${
+      className={`group relative flex flex-col items-center justify-between p-2.5 rounded-2xl border transition-all duration-150 min-w-[76px] sm:min-w-[92px] flex-1 select-none ${
         isPlaybackActive
-          ? 'bg-amber-400/25 ring-3 ring-amber-500 scale-[1.03] shadow-lg border-amber-500 z-10'
+          ? 'bg-amber-500/20 ring-2 ring-amber-400 scale-[1.03] shadow-md border-amber-500 z-10'
           : isSelected
-          ? 'border-amber-500 bg-amber-50/95 dark:bg-amber-950/70 shadow-md ring-2 ring-amber-400/80 z-10'
+          ? 'border-amber-500 bg-amber-50/90 dark:bg-[#1c1a14] shadow-md ring-2 ring-amber-400/80 z-10'
           : isNonNotation
-          ? 'border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-amber-400'
-          : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 hover:border-amber-300 dark:hover:border-amber-700'
+          ? 'border-dashed border-zinc-300 dark:border-zinc-700/80 bg-zinc-50/50 dark:bg-[#0e1017]/50 hover:border-amber-400'
+          : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#141720] hover:border-amber-300 dark:hover:border-zinc-700'
       }`}
     >
       {/* Downward Anchor Pointer to In-Card Deck */}
@@ -97,7 +97,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
       <div
         onClick={() => onSelectNote(mIdx, nIdx)}
         className="w-full flex flex-col items-center justify-center cursor-pointer py-1 touch-manipulation active:scale-95 transition-transform"
-        title="點擊選取此音符並試聽"
+        title="Click to select note and preview"
       >
         {/* Slur / Tie Arc */}
         {note.isTied && !isNonNotation && (
@@ -108,7 +108,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
 
         {/* Annotation Pill */}
         {note.annotation && (
-          <span className="mb-1 text-[10px] font-sans font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/90 px-1.5 py-0.2 rounded-md border border-indigo-200 dark:border-indigo-800 whitespace-nowrap shadow-2xs">
+          <span className="mb-1 text-[10px] font-sans font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/90 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800 whitespace-nowrap shadow-2xs">
             {note.annotation}
           </span>
         )}
@@ -200,18 +200,18 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                 e.stopPropagation();
                 onSelectNote(mIdx, nIdx);
               }}
-              className="absolute -top-1.5 -right-3.5 p-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 opacity-0 group-hover:opacity-100 hover:scale-110 transition-all cursor-pointer"
-              title="點擊試聽此音高 (Preview Pitch)"
+              className="absolute -top-1.5 -right-3.5 p-1 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 opacity-0 group-hover:opacity-100 hover:scale-110 transition-all cursor-pointer touch-manipulation"
+              title="Preview pitch"
             >
-              <Volume2 className="w-3 h-3" />
+              <Volume2 className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
       </div>
 
       {/* LOWER ZONE: DIRECT IN-SCORE EDITABLE LYRIC INPUTS */}
-      <div className="w-full flex flex-col gap-1.5 mt-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-800">
-        {/* POJ (白話字) Lyric Input */}
+      <div className="w-full flex flex-col gap-1.5 mt-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-800/80">
+        {/* POJ Lyric Input */}
         {(displayMode === 'all' ||
           displayMode === 'hanji_poj' ||
           displayMode === 'poj_only') && (
@@ -240,13 +240,13 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                 }
               }}
               placeholder="POJ"
-              className="w-full text-center font-serif italic text-xs font-semibold px-1 py-1 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800"
-              title="白話字 (POJ) - 按空白鍵、連字號或 Tab 跳轉下一字"
+              className="w-full text-center font-serif italic text-xs font-semibold px-1 py-1 rounded-lg bg-emerald-50/60 dark:bg-[#0c1410] border border-emerald-200/90 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800 min-h-[32px] touch-manipulation"
+              title="POJ romanization - Space, hyphen, or Tab moves to next note"
             />
             {showToneOverlay && pojTone && (
               <div
-                className="flex items-center justify-center gap-0.5 text-[9px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/60 px-1 rounded-xs select-none border border-emerald-300/40"
-                title={`${pojTone.name} (調值 ${pojTone.contour} ${pojTone.symbol})`}
+                className="flex items-center justify-center gap-0.5 text-[9px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-xs select-none border border-emerald-300/40"
+                title={`${pojTone.name} (Pitch contour ${pojTone.contour} ${pojTone.symbol})`}
               >
                 <span>{pojTone.superscript}</span>
                 <span className="text-[8px] opacity-75">{pojTone.symbol}</span>
@@ -255,7 +255,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
           </div>
         )}
 
-        {/* Hanji (漢字) Lyric Input */}
+        {/* Hanji Lyric Input */}
         {(displayMode === 'all' ||
           displayMode === 'hanji_poj' ||
           displayMode === 'hanji_pij' ||
@@ -284,14 +284,14 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                   }
                 }
               }}
-              placeholder="字"
-              className="w-full text-center font-bold text-sm px-1 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-800/90 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800"
-              title="漢字 (Hanji) - 按空白鍵或 Tab 跳轉下一字"
+              placeholder="Hanji"
+              className="w-full text-center font-bold text-sm px-1 py-1 rounded-lg bg-zinc-50 dark:bg-[#0a0c10] border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800 min-h-[34px] touch-manipulation"
+              title="Hanji character - Space or Tab moves to next note"
             />
           </div>
         )}
 
-        {/* PIJ (臺羅拼音) Lyric Input */}
+        {/* PIJ Lyric Input */}
         {(displayMode === 'all' || displayMode === 'hanji_pij') && (
           <div className="w-full flex flex-col gap-0.5">
             <input
@@ -317,14 +317,14 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                   }
                 }
               }}
-              placeholder="臺羅"
-              className="w-full text-center font-serif text-[11px] px-1 py-1 rounded-lg bg-cyan-50/60 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800/60 text-cyan-800 dark:text-cyan-300 focus:outline-hidden focus:ring-2 focus:ring-cyan-500 focus:bg-white dark:focus:bg-zinc-800"
-              title="臺羅拼音 (PIJ) - 按空白鍵、連字號或 Tab 跳轉下一字"
+              placeholder="PIJ"
+              className="w-full text-center font-serif text-[11px] px-1 py-1 rounded-lg bg-cyan-50/60 dark:bg-[#0c1316] border border-cyan-200/90 dark:border-cyan-800/60 text-cyan-800 dark:text-cyan-300 focus:outline-hidden focus:ring-2 focus:ring-cyan-500 focus:bg-white dark:focus:bg-zinc-800 min-h-[32px] touch-manipulation"
+              title="PIJ romanization - Space, hyphen, or Tab moves to next note"
             />
             {showToneOverlay && pijTone && (
               <div
-                className="flex items-center justify-center gap-0.5 text-[9px] font-mono font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-100/70 dark:bg-cyan-950/60 px-1 rounded-xs select-none border border-cyan-300/40"
-                title={`${pijTone.name} (調值 ${pijTone.contour} ${pijTone.symbol})`}
+                className="flex items-center justify-center gap-0.5 text-[9px] font-mono font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-100/70 dark:bg-cyan-950/60 px-1.5 py-0.5 rounded-xs select-none border border-cyan-300/40"
+                title={`${pijTone.name} (Pitch contour ${pijTone.contour} ${pijTone.symbol})`}
               >
                 <span>{pijTone.superscript}</span>
                 <span className="text-[8px] opacity-75">{pijTone.symbol}</span>
@@ -333,9 +333,9 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
           </div>
         )}
 
-        {/* Quick Taigi Diacritics Ribbon (shown when an input in this note is focused) */}
+        {/* Quick Taigi Diacritics Ribbon (Touch-friendly 34px buttons for iPad) */}
         {focusedField && (focusedField === 'poj' || focusedField === 'pij') && (
-          <div className="flex items-center justify-center gap-1 mt-1 pt-1 border-t border-zinc-200 dark:border-zinc-700 overflow-x-auto">
+          <div className="flex items-center justify-center gap-1.5 mt-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-700/80 overflow-x-auto py-0.5">
             {['á', 'à', 'â', 'ā', 'a̍', 'o͘', 'ⁿ'].map(c => (
               <button
                 key={c}
@@ -344,7 +344,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                   e.preventDefault(); // prevent losing input focus
                   handleInsertDiacritic(c);
                 }}
-                className="w-5 h-5 rounded bg-zinc-200 dark:bg-zinc-700 hover:bg-amber-400 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 font-serif text-[10px] font-bold transition-colors cursor-pointer"
+                className="min-w-[34px] min-h-[34px] px-1 rounded-lg bg-zinc-200 hover:bg-amber-400 hover:text-zinc-950 dark:bg-zinc-800 dark:hover:bg-amber-500 dark:hover:text-zinc-950 text-zinc-900 dark:text-zinc-100 font-serif text-xs font-bold transition-all active:scale-95 shadow-2xs cursor-pointer touch-manipulation flex items-center justify-center"
               >
                 {c}
               </button>

@@ -114,9 +114,9 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   // Pitch formatted label
   const pitchLabel =
     currentNote.pitch === 0
-      ? '0 (休止符)'
+      ? '0 (Rest)'
       : currentNote.pitch === 'empty'
-      ? '␣ (空白/標點)'
+      ? '␣ (Empty / Punctuation)'
       : `${currentNote.accidental || ''}${currentNote.pitch}${
           currentNote.octave > 0
             ? '̇'.repeat(currentNote.octave)
@@ -131,71 +131,71 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
       onClick={e => e.stopPropagation()}
       className={`w-full transition-all duration-200 overflow-hidden ${
         inCard
-          ? 'my-3 bg-gradient-to-b from-amber-50/95 via-amber-100/30 to-amber-50/80 dark:from-zinc-800/95 dark:via-zinc-800/60 dark:to-zinc-900/90 border-2 border-amber-400 dark:border-amber-600/70 rounded-2xl shadow-md'
-          : 'sticky top-[68px] z-30 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-2 border-amber-500 rounded-2xl shadow-xl'
+          ? 'my-3.5 bg-white dark:bg-[#141720] border border-zinc-300 dark:border-zinc-700/80 rounded-2xl shadow-lg ring-1 ring-black/5 dark:ring-white/5'
+          : 'sticky top-[68px] z-30 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md border-2 border-amber-500 rounded-2xl shadow-xl'
       }`}
     >
       {/* Top Header Bar: Note Summary & Instant Action Buttons */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 bg-amber-100/70 dark:bg-amber-950/50 border-b border-amber-200 dark:border-zinc-800 text-xs">
-        {/* Selected Note Badge & Info */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="px-2.5 py-1 bg-amber-500 text-zinc-950 rounded-lg font-black font-mono text-xs shadow-2xs flex items-center gap-1">
-            <Sparkles className="w-3 h-3" />
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-4 py-3 bg-zinc-100/90 dark:bg-[#0c0e14]/90 border-b border-zinc-200/90 dark:border-zinc-800/90 text-xs">
+        {/* Selected Note Badge & LCD Readout */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="px-3 py-1.5 bg-amber-500 text-zinc-950 rounded-lg font-black font-mono text-xs shadow-2xs flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" />
             <span>#{selectedMeasureIndex + 1}.{(selectedNoteIndex ?? 0) + 1}</span>
           </span>
 
-          <div className="flex items-center gap-1.5 font-bold text-zinc-900 dark:text-zinc-100">
-            <span className="text-amber-800 dark:text-amber-200 font-mono text-sm bg-amber-200/80 dark:bg-amber-900/80 px-2.5 py-0.5 rounded-lg border border-amber-300 dark:border-amber-700">
+          <div className="flex items-center gap-2 font-bold text-zinc-900 dark:text-zinc-100">
+            <span className="daw-lcd text-sm px-3 py-1 rounded-lg font-mono font-bold shadow-xs">
               {pitchLabel}
             </span>
-            <span className="text-zinc-700 dark:text-zinc-300 font-medium">
+            <span className="text-zinc-600 dark:text-zinc-300 font-medium">
               {durationInfo.beatsLabel} ({durationInfo.name})
             </span>
           </div>
 
           {currentNote.isTied && (
-            <span className="text-[11px] bg-amber-300 dark:bg-amber-900 text-amber-950 dark:text-amber-100 px-2 py-0.5 rounded-md font-bold border border-amber-400 dark:border-amber-700">
-              延音 ⌒
+            <span className="text-xs bg-amber-400/20 text-amber-700 dark:text-amber-300 px-2.5 py-1 rounded-md font-bold border border-amber-400/40">
+              Tie ⌒
             </span>
           )}
 
           {currentNote.annotation && (
-            <span className="text-[11px] bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200 px-2 py-0.5 rounded-md font-bold border border-indigo-200 dark:border-indigo-800">
+            <span className="text-xs bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-md font-bold border border-indigo-400/30">
               {currentNote.annotation}
             </span>
           )}
         </div>
 
-        {/* Action Tools & Tabs */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+        {/* Action Tools & Navigation (Touch Targets >= 40px) */}
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Quick Audition Button */}
           <button
             type="button"
             onClick={() => audioEngine.previewNote(keySignature, currentNote)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl text-xs font-black shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-            title="試聽單音 (Play Note)"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl text-xs font-black shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
+            title="Play note"
           >
-            <Volume2 className="w-3.5 h-3.5" />
-            <span>試聽</span>
+            <Volume2 className="w-4 h-4" />
+            <span>Play</span>
           </button>
 
           {/* Prev / Next Note Quick Navigation */}
           {onNavigatePrevNote && onNavigateNextNote && (
-            <div className="flex items-center bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-0.5 shadow-2xs">
+            <div className="flex items-center bg-zinc-200/80 dark:bg-zinc-800 rounded-xl border border-zinc-300 dark:border-zinc-700 p-0.5 shadow-2xs">
               <button
                 type="button"
                 onClick={onNavigatePrevNote}
-                className="p-1.5 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer touch-manipulation min-h-[34px] min-w-[34px] flex items-center justify-center"
-                title="選取上一個音符 (←)"
+                className="p-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 active:scale-95 cursor-pointer touch-manipulation min-h-[38px] min-w-[38px] flex items-center justify-center"
+                title="Select previous note (←)"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <div className="w-[1px] h-3.5 bg-zinc-200 dark:bg-zinc-700" />
+              <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-700" />
               <button
                 type="button"
                 onClick={onNavigateNextNote}
-                className="p-1.5 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer touch-manipulation min-h-[34px] min-w-[34px] flex items-center justify-center"
-                title="選取下一個音符 (→)"
+                className="p-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 active:scale-95 cursor-pointer touch-manipulation min-h-[38px] min-w-[38px] flex items-center justify-center"
+                title="Select next note (→)"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -206,28 +206,28 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
           <button
             type="button"
             onClick={() => onInsertNoteAt(selectedMeasureIndex, selectedNoteIndex ?? 0)}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-            title="在當前音符後插入新音符"
+            className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
+            title="Insert new note after current note"
           >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">插入音符</span>
+            <PlusCircle className="w-4 h-4" />
+            <span className="hidden sm:inline">Insert Note</span>
           </button>
 
           {/* Delete Note */}
           <button
             type="button"
             onClick={() => onDeleteNoteAt(selectedMeasureIndex, selectedNoteIndex ?? 0)}
-            className="p-1.5 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950 text-rose-700 dark:text-rose-400 rounded-xl border border-rose-200 dark:border-rose-900 text-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] min-w-[36px] flex items-center justify-center"
-            title="刪除當前音符"
+            className="p-2 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 rounded-xl border border-rose-200 dark:border-rose-900/80 text-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px] min-w-[40px] flex items-center justify-center"
+            title="Delete current note"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-4 h-4" />
           </button>
 
           {/* Undo / Redo in Input Deck */}
           {(onUndo || onRedo) && (
             <div
               id="hud-undo-redo-group"
-              className="flex items-center bg-white dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs"
+              className="flex items-center bg-zinc-200/80 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs"
             >
               {onUndo && (
                 <button
@@ -235,11 +235,11 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                   type="button"
                   onClick={onUndo}
                   disabled={!canUndo}
-                  title={canUndo ? `復原 (Undo) [Ctrl+Z] · 尚有 ${pastCount} 步` : '無可復原步驟 (Undo)'}
-                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
+                  title={canUndo ? `Undo [Ctrl+Z] · ${pastCount} step(s)` : 'No steps to undo'}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px]"
                 >
-                  <Undo2 className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">復原</span>
+                  <Undo2 className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">Undo</span>
                   {canUndo && pastCount > 0 && (
                     <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
                       {pastCount}
@@ -249,7 +249,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
               )}
 
               {onUndo && onRedo && (
-                <div className="w-[1px] h-3.5 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
+                <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-700 mx-0.5" />
               )}
 
               {onRedo && (
@@ -258,11 +258,11 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                   type="button"
                   onClick={onRedo}
                   disabled={!canRedo}
-                  title={canRedo ? `重做 (Redo) [Ctrl+Y] · 尚有 ${futureCount} 步` : '無可重做步驟 (Redo)'}
-                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
+                  title={canRedo ? `Redo [Ctrl+Y] · ${futureCount} step(s)` : 'No steps to redo'}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px]"
                 >
-                  <Redo2 className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">重做</span>
+                  <Redo2 className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">Redo</span>
                   {canRedo && futureCount > 0 && (
                     <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
                       {futureCount}
@@ -279,10 +279,10 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
               type="button"
               onClick={() => onSplitMeasureBeforeNote(selectedMeasureIndex, selectedNoteIndex)}
               className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/80 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-              title="在此音符前加小節線並拆分為新小節 (Split Measure before this note)"
+              title="Insert barline before this note and split measure"
             >
               <Scissors className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span className="hidden sm:inline">加小節線拆分</span>
+              <span className="hidden sm:inline">Split Measure</span>
             </button>
           )}
 
@@ -291,17 +291,17 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             type="button"
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 dark:text-amber-200 font-bold rounded-xl border border-amber-300 dark:border-amber-700 transition-all cursor-pointer min-h-[36px]"
-            title={isCollapsed ? '展開編輯盤 (Expand Control Deck)' : '收合編輯盤 (Collapse Deck)'}
+            title={isCollapsed ? 'Expand Deck' : 'Collapse Deck'}
           >
             {isCollapsed ? (
               <>
                 <ChevronDown className="w-3.5 h-3.5" />
-                <span>展開</span>
+                <span>Expand</span>
               </>
             ) : (
               <>
                 <ChevronUp className="w-3.5 h-3.5" />
-                <span>收合</span>
+                <span>Collapse</span>
               </>
             )}
           </button>
@@ -312,46 +312,46 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
       {!isCollapsed && (
         <div className="p-3.5 flex flex-col gap-3">
           {/* Deck Mode Tabs & Auto-Step Switch */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/80 dark:border-zinc-800 pb-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
             {/* 3 Modular Tabs */}
-            <div className="flex items-center bg-white/80 dark:bg-zinc-800 p-1 rounded-xl border border-amber-200 dark:border-zinc-700 text-xs font-bold shadow-2xs">
+            <div className="flex items-center bg-zinc-100 dark:bg-[#0a0c10] p-1 rounded-xl border border-zinc-200/90 dark:border-zinc-800 text-xs font-bold shadow-2xs">
               <button
                 type="button"
                 onClick={() => setActiveTab('numpad')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer min-h-[34px] ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                   activeTab === 'numpad'
                     ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                 }`}
               >
-                <Grid className="w-3.5 h-3.5" />
-                <span>簡譜快選列 (Quick Bar)</span>
+                <Grid className="w-4 h-4" />
+                <span>Quick Bar</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('piano')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer min-h-[34px] ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                   activeTab === 'piano'
                     ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                 }`}
               >
-                <Music className="w-3.5 h-3.5" />
-                <span>鋼琴鍵盤 (Piano Roll)</span>
+                <Music className="w-4 h-4" />
+                <span>Piano Roll</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('lyrics')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer min-h-[34px] ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                   activeTab === 'lyrics'
                     ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                 }`}
               >
-                <MessageSquareQuote className="w-3.5 h-3.5" />
-                <span>標點與註解 (Lyrics/Notes)</span>
+                <MessageSquareQuote className="w-4 h-4" />
+                <span>Punctuation &amp; Annotations</span>
               </button>
             </div>
 
@@ -360,30 +360,30 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
               <button
                 type="button"
                 onClick={onToggleAutoStepAdvance}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[34px] ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                   autoStepAdvance
                     ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black shadow-xs'
-                    : 'bg-white/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-amber-200 dark:border-zinc-700'
+                    : 'bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-800'
                 }`}
-                title="自動前進模式：點選音高後自動跳到下一個音符進行連續編寫"
+                title="Auto-advance mode: automatically move to next note after selecting pitch"
               >
-                <Zap className={`w-3.5 h-3.5 ${autoStepAdvance ? 'fill-current' : ''}`} />
-                <span>連續輸入自動前進: {autoStepAdvance ? '開啟 (ON)' : '關閉 (OFF)'}</span>
+                <Zap className={`w-4 h-4 ${autoStepAdvance ? 'fill-current' : ''}`} />
+                <span>Auto Step Advance: {autoStepAdvance ? 'ON' : 'OFF'}</span>
               </button>
             )}
           </div>
 
-          {/* TAB 1: QUICK BAR (簡譜快選列) */}
+          {/* TAB 1: QUICK BAR */}
           {activeTab === 'numpad' && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3.5">
               {/* Row 1: Pitches (1-7, 0, ␣) + Octaves + Accidentals */}
               <div className="flex flex-wrap items-center gap-3">
-                {/* Pitches (1-7, 0, ␣) */}
-                <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-[280px]">
-                  <span className="text-[11px] font-extrabold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider shrink-0 w-12">
-                    音高:
+                {/* Pitches (1-7, 0, ␣) as Tactile Audio Pads */}
+                <div className="flex items-center gap-2 flex-wrap flex-1 min-w-[280px]">
+                  <span className="text-xs font-extrabold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0 w-12">
+                    Pitch:
                   </span>
-                  <div className="flex items-center gap-1 flex-wrap flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap flex-1">
                     {[1, 2, 3, 4, 5, 6, 7].map(p => {
                       const isCurrent = currentNote.pitch === p;
                       return (
@@ -391,10 +391,10 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                           key={p}
                           type="button"
                           onClick={() => onSetPitch(p as PitchNumber)}
-                          className={`flex-1 min-w-[38px] sm:min-w-[44px] h-11 rounded-xl font-mono text-lg font-black transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center ${
+                          className={`flex-1 min-w-[42px] sm:min-w-[48px] h-12 rounded-xl font-mono text-xl font-black transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center ${
                             isCurrent
                               ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md scale-105 font-black'
-                              : 'bg-white dark:bg-zinc-800 hover:bg-amber-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700 shadow-2xs'
+                              : 'bg-zinc-100 dark:bg-[#0a0c10] hover:bg-amber-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs'
                           }`}
                         >
                           {p}
@@ -406,130 +406,130 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetPitch(0)}
-                      className={`min-w-[46px] h-11 rounded-xl font-mono text-base font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center gap-1 px-2 ${
+                      className={`min-w-[50px] sm:min-w-[56px] h-12 rounded-xl font-mono text-base font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center gap-1 px-2.5 ${
                         currentNote.pitch === 0
                           ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md font-black'
-                          : 'bg-white dark:bg-zinc-800 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs'
+                          : 'bg-zinc-100 dark:bg-[#0a0c10] hover:bg-zinc-200 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs'
                       }`}
-                      title="休止符 0"
+                      title="Rest (0)"
                     >
                       <span>0</span>
-                      <span className="text-[10px] font-sans font-normal">休</span>
+                      <span className="text-[10px] font-sans font-normal">Rest</span>
                     </button>
 
                     {/* Empty ␣ */}
                     <button
                       type="button"
                       onClick={() => onSetPitch('empty')}
-                      className={`min-w-[46px] h-11 rounded-xl font-mono text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center gap-1 px-2 border-dashed ${
+                      className={`min-w-[50px] sm:min-w-[56px] h-12 rounded-xl font-mono text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center gap-1 px-2.5 border-dashed ${
                         currentNote.pitch === 'empty'
                           ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md font-black border-amber-400'
-                          : 'bg-white/80 dark:bg-zinc-800/70 text-zinc-600 dark:text-zinc-400 border-zinc-300 dark:border-zinc-600 shadow-2xs'
+                          : 'bg-zinc-100/80 dark:bg-[#0a0c10]/80 text-zinc-600 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700 shadow-2xs'
                       }`}
-                      title="空白 / 標點符號留白 (Empty)"
+                      title="Empty / Spacer"
                     >
-                      <span>␣ 空</span>
+                      <span>␣ Empty</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Octave & Accidental Controls in single line */}
+                {/* Octave & Accidental Controls */}
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Octave */}
-                  <div className="flex items-center bg-white dark:bg-zinc-800 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs text-xs">
+                  <div className="flex items-center bg-zinc-100 dark:bg-[#0a0c10] p-1 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs text-xs">
                     <button
                       type="button"
                       onClick={() => onSetOctave(-1)}
-                      className={`px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[34px] ${
+                      className={`px-3 py-2 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                         currentNote.octave === -1
                           ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
-                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
                       }`}
-                      title="低音 (下方一點 5̣)"
+                      title="Low (dot below 5̣)"
                     >
-                      低音 5̣
+                      Low 5̣
                     </button>
                     <button
                       type="button"
                       onClick={() => onUpdateSelectedNote(n => ({ ...n, octave: 0 }))}
-                      className={`px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[34px] ${
+                      className={`px-3 py-2 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                         currentNote.octave === 0
                           ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
-                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
                       }`}
-                      title="中音 (正常 5)"
+                      title="Mid (natural 5)"
                     >
-                      中音 5
+                      Mid 5
                     </button>
                     <button
                       type="button"
                       onClick={() => onSetOctave(1)}
-                      className={`px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[34px] ${
+                      className={`px-3 py-2 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                         currentNote.octave === 1
                           ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
-                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
                       }`}
-                      title="高音 (上方一點 5̇)"
+                      title="High (dot above 5̇)"
                     >
-                      高音 5̇
+                      High 5̇
                     </button>
                   </div>
 
                   {/* Accidentals */}
-                  <div className="flex items-center bg-white dark:bg-zinc-800 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs text-xs">
+                  <div className="flex items-center bg-zinc-100 dark:bg-[#0a0c10] p-1 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs text-xs">
                     <button
                       type="button"
                       onClick={() => onSetAccidental('#')}
-                      className={`px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[34px] ${
+                      className={`px-3 py-2 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                         currentNote.accidental === '#'
                           ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
-                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
                       }`}
-                      title="升音記號 ♯"
+                      title="Sharp ♯"
                     >
-                      ♯ 升
+                      ♯ Sharp
                     </button>
                     <button
                       type="button"
                       onClick={() => onSetAccidental('b')}
-                      className={`px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[34px] ${
+                      className={`px-3 py-2 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                         currentNote.accidental === 'b'
                           ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
-                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
                       }`}
-                      title="降音記號 ♭"
+                      title="Flat ♭"
                     >
-                      ♭ 降
+                      ♭ Flat
                     </button>
                   </div>
                 </div>
               </div>
 
               {/* Row 2: Duration & Articulation Row */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-extrabold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider shrink-0 w-12">
-                  拍數:
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-zinc-200/80 dark:border-zinc-800/80">
+                <span className="text-xs font-extrabold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0 w-12">
+                  Duration:
                 </span>
                 <div className="flex items-center gap-1.5 flex-wrap flex-1">
                   {[
-                    { label: '0 拍 (留白/換行)', dur: 0 },
-                    { label: '1 拍', dur: 1 },
-                    { label: '0.5 拍 (半拍)', dur: 0.5 },
-                    { label: '1.5 拍 (附點)', dur: 1.5 },
-                    { label: '0.25 拍 (¼拍)', dur: 0.25 },
-                    { label: '0.75 拍', dur: 0.75 },
-                    { label: '2 拍 (二分)', dur: 2 },
-                    { label: '3 拍 (附點二分)', dur: 3 },
-                    { label: '4 拍 (全音)', dur: 4 },
+                    { label: '0 beats (Empty)', dur: 0 },
+                    { label: '1 beat (Quarter)', dur: 1 },
+                    { label: '0.5 beats (8th)', dur: 0.5 },
+                    { label: '1.5 beats (Dotted 4th)', dur: 1.5 },
+                    { label: '0.25 beats (16th)', dur: 0.25 },
+                    { label: '0.75 beats', dur: 0.75 },
+                    { label: '2 beats (Half)', dur: 2 },
+                    { label: '3 beats (Dotted Half)', dur: 3 },
+                    { label: '4 beats (Whole)', dur: 4 },
                   ].map(d => (
                     <button
                       key={d.dur}
                       type="button"
                       onClick={() => onSetDuration(d.dur as NoteDuration)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[36px] ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                         currentNote.duration === d.dur
                           ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-2 ring-amber-400'
-                          : 'bg-white dark:bg-zinc-800 hover:bg-amber-100 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 shadow-2xs'
+                          : 'bg-zinc-100 dark:bg-[#0a0c10] hover:bg-amber-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs'
                       }`}
                     >
                       {d.label}
@@ -540,26 +540,26 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                   <button
                     type="button"
                     onClick={onToggleDotted}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[36px] ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                       currentNote.isDotted
-                        ? 'bg-amber-500 text-zinc-950 border-amber-500 ring-2 ring-amber-400 font-black'
-                        : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 shadow-2xs'
+                        ? 'bg-amber-500 text-zinc-950 border-amber-500 ring-2 ring-amber-400 font-black shadow-xs'
+                        : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs'
                     }`}
                   >
-                    · 附點 (Dot)
+                    · Dotted
                   </button>
 
                   {/* Toggle Tie */}
                   <button
                     type="button"
                     onClick={onToggleTie}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[36px] ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                       currentNote.isTied
-                        ? 'bg-amber-500 text-zinc-950 border-amber-500 ring-2 ring-amber-400 font-black'
-                        : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 shadow-2xs'
+                        ? 'bg-amber-500 text-zinc-950 border-amber-500 ring-2 ring-amber-400 font-black shadow-xs'
+                        : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs'
                     }`}
                   >
-                    ⌒ 延音線 (Tie)
+                    ⌒ Tie
                   </button>
                 </div>
               </div>
@@ -572,23 +572,23 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
                   <Music className="w-3.5 h-3.5 text-amber-500" />
-                  <span>互動鋼琴鍵盤 (Piano Roll)</span>
+                  <span>Interactive Piano Roll</span>
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsPianoCollapsed(prev => !prev)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-                  title={isPianoCollapsed ? '展開鋼琴琴鍵' : '收合鋼琴琴鍵'}
+                  title={isPianoCollapsed ? 'Expand Piano Keys' : 'Collapse Piano Keys'}
                 >
                   {isPianoCollapsed ? (
                     <>
                       <ChevronDown className="w-3.5 h-3.5 text-amber-500" />
-                      <span>展開鋼琴</span>
+                      <span>Expand Piano</span>
                     </>
                   ) : (
                     <>
                       <ChevronUp className="w-3.5 h-3.5 text-amber-500" />
-                      <span>收合鋼琴</span>
+                      <span>Collapse Piano</span>
                     </>
                   )}
                 </button>
@@ -615,7 +615,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                 >
                   <p className="text-xs text-zinc-600 dark:text-zinc-400 flex items-center justify-center gap-1.5 font-medium">
                     <Music className="w-3.5 h-3.5 text-amber-500" />
-                    <span>鋼琴琴鍵已收合（點擊此處或右上角按鈕即可展開）</span>
+                    <span>Piano keyboard is collapsed (click here or top-right button to expand)</span>
                   </p>
                 </div>
               )}
@@ -624,11 +624,11 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
 
           {/* TAB 3: LYRICS & ANNOTATIONS */}
           {activeTab === 'lyrics' && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3.5">
               {/* Punctuation Row */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1 shrink-0 w-24">
-                  <MessageSquareQuote className="w-3.5 h-3.5" /> 標點填入:
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5 shrink-0 w-24">
+                  <MessageSquareQuote className="w-4 h-4" /> Punctuation:
                 </span>
                 <div className="flex items-center gap-1.5 flex-wrap flex-1">
                   {PUNCTUATION_MARKS.map(p => (
@@ -636,19 +636,19 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                       key={p.label}
                       type="button"
                       onClick={() => onInsertPunctuation(p.char)}
-                      title={`填入標點 ${p.label} (${p.desc})`}
-                      className="min-w-[40px] h-10 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900 text-amber-950 dark:text-amber-200 font-mono font-black text-sm border border-amber-200 dark:border-amber-800 transition-all active:scale-95 flex items-center justify-center shadow-2xs cursor-pointer touch-manipulation"
+                      title={`Insert punctuation ${p.label} (${p.desc})`}
+                      className="min-w-[44px] h-11 px-2.5 rounded-xl bg-zinc-100 hover:bg-amber-100 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono font-black text-sm border border-zinc-200/90 dark:border-zinc-700/80 transition-all active:scale-95 flex items-center justify-center shadow-2xs cursor-pointer touch-manipulation"
                     >
-                      {p.label === ' ' ? '␣ 空白' : p.label}
+                      {p.label === ' ' ? '␣ Space' : p.label}
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Performance Annotations */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1 shrink-0 w-24">
-                  <FileText className="w-3.5 h-3.5" /> 常用註解:
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5 shrink-0 w-24">
+                  <FileText className="w-4 h-4" /> Annotations:
                 </span>
                 <div className="flex items-center gap-1.5 flex-wrap flex-1">
                   {ANNOTATION_MARKS.map(ann => (
@@ -656,8 +656,8 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                       key={ann.label}
                       type="button"
                       onClick={() => onInsertAnnotation(ann.text)}
-                      title={`填入註解 ${ann.label} (${ann.desc})`}
-                      className="px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 text-indigo-950 dark:text-indigo-200 font-semibold text-xs border border-indigo-200 dark:border-indigo-800 transition-all active:scale-95 whitespace-nowrap shadow-2xs cursor-pointer touch-manipulation min-h-[38px]"
+                      title={`Insert annotation ${ann.label} (${ann.desc})`}
+                      className="px-3.5 py-2 rounded-xl bg-zinc-100 hover:bg-indigo-100 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-indigo-900 dark:text-indigo-200 font-semibold text-xs border border-zinc-200/90 dark:border-zinc-700/80 transition-all active:scale-95 whitespace-nowrap shadow-2xs cursor-pointer touch-manipulation min-h-[40px]"
                     >
                       {ann.label}
                     </button>
@@ -666,24 +666,24 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
               </div>
 
               {/* Custom Annotation Input */}
-              <div className="flex items-center gap-2 pt-2 border-t border-amber-200 dark:border-zinc-800 text-xs">
-                <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 shrink-0">自訂註解:</span>
+              <div className="flex items-center gap-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-800 text-xs">
+                <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400 shrink-0">Custom Annotation:</span>
                 <input
                   type="text"
-                  placeholder="如: (副歌前/男聲獨唱/自由節奏)..."
+                  placeholder="e.g. (Pre-Chorus / Male Solo / Rubato)..."
                   value={currentNote.annotation || ''}
                   onChange={e => onSetAnnotation(e.target.value)}
-                  className="flex-1 px-3 py-2 text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100"
+                  className="flex-1 px-3.5 py-2.5 text-xs bg-zinc-50 dark:bg-[#0a0c10] border border-zinc-200/90 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 min-h-[40px]"
                 />
                 <button
                   type="button"
                   onClick={() => {
                     onSetPitch('empty');
-                    showNotice('已設定自訂註解並將音高設為留白 (Empty)');
+                    showNotice('Set custom annotation with empty pitch (Empty)');
                   }}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs transition-colors cursor-pointer min-h-[38px] shadow-2xs"
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs transition-colors cursor-pointer min-h-[40px] shadow-xs active:scale-95 touch-manipulation shrink-0"
                 >
-                  設為留白註解
+                  Set Annotation
                 </button>
               </div>
             </div>

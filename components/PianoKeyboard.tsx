@@ -229,106 +229,106 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
   return (
     <div
       id="piano-keyboard-container"
-      className={`flex flex-col gap-2 p-3 bg-zinc-900 text-zinc-100 rounded-2xl border border-zinc-700/80 shadow-xl select-none ${className}`}
+      className={`flex flex-col gap-2 p-3 bg-[#10121a]/95 text-zinc-100 rounded-2xl border border-zinc-800 shadow-xl select-none ${className}`}
       style={{ touchAction: 'manipulation' }}
     >
       {/* Top Controls Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-zinc-800 pb-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-zinc-800/80 pb-2">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 font-bold text-amber-400">
-            <Music className="w-3.5 h-3.5" />
-            <span>鋼琴鍵盤 (Piano Roll)</span>
+            <Music className="w-4 h-4" />
+            <span>Piano Roll</span>
           </div>
 
-          <span className="px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-200 font-mono text-xs border border-zinc-700">
-            調號: <strong className="text-amber-400 font-bold">1 = {keySignature}</strong>
+          <span className="daw-lcd px-2.5 py-1 rounded-lg text-xs font-mono font-bold shadow-xs">
+            Key: <strong className="text-amber-400 font-black">1 = {keySignature}</strong>
           </span>
         </div>
 
         {/* View Mode & Octave Selectors */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Label mode toggle */}
-          <div className="flex items-center bg-zinc-800/90 p-0.5 rounded-xl border border-zinc-700 text-[11px]">
+          <div className="flex items-center bg-[#0a0c10] p-0.5 rounded-xl border border-zinc-800 text-[11px]">
             <button
               type="button"
               onClick={() => setLabelMode('both')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all min-h-[30px] cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
                 labelMode === 'both'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              簡譜+音名
+              Jianpu + Pitch
             </button>
             <button
               type="button"
               onClick={() => setLabelMode('jianpu')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all min-h-[30px] cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
                 labelMode === 'jianpu'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              純簡譜 1-7
+              Jianpu 1-7
             </button>
             <button
               type="button"
               onClick={() => setLabelMode('note')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all min-h-[30px] cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
                 labelMode === 'note'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              音名 (C D E)
+              Pitch Name (C D E)
             </button>
           </div>
 
           {/* Octave Range Tabs */}
-          <div className="flex items-center bg-zinc-800/90 p-0.5 rounded-xl border border-zinc-700 text-[11px]">
+          <div className="flex items-center bg-[#0a0c10] p-0.5 rounded-xl border border-zinc-800 text-[11px]">
             <button
               type="button"
               onClick={() => setOctaveView('low_mid')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all min-h-[30px] cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
                 octaveView === 'low_mid'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              低音+中音
+              Low + Mid
             </button>
             <button
               type="button"
               onClick={() => setOctaveView('mid_high')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all min-h-[30px] cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
                 octaveView === 'mid_high'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              中音+高音
+              Mid + High
             </button>
             <button
               type="button"
               onClick={() => setOctaveView('all')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all min-h-[30px] cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
                 octaveView === 'all'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              三八度全覽
+              All 3 Octaves
             </button>
             <button
               type="button"
               onClick={() => setOctaveView('mid')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all min-h-[30px] cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
                 octaveView === 'mid'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              單中音組
+              Mid Only
             </button>
           </div>
         </div>
@@ -349,10 +349,10 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                 ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black shadow-md ring-2 ring-amber-400'
                 : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700 shadow-xs'
             }`}
-            title="休止符 (Rest 0)"
+            title="Rest (0)"
           >
             <span className="font-mono text-lg font-black">0</span>
-            <span className="text-[10px] font-sans font-semibold">休止符</span>
+            <span className="text-[10px] font-sans font-semibold">Rest</span>
           </button>
 
           <button
@@ -366,10 +366,10 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                 ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black shadow-md ring-2 ring-amber-400'
                 : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-600 shadow-xs'
             }`}
-            title="空白音符 / 標點符號留白 (Empty)"
+            title="Empty spacer / punctuation (Empty)"
           >
-            <span className="font-mono text-sm font-bold">␣ 空</span>
-            <span className="text-[10px] font-sans">標點/留白</span>
+            <span className="font-mono text-sm font-bold">␣ Empty</span>
+            <span className="text-[10px] font-sans">Spacer</span>
           </button>
         </div>
 
@@ -381,10 +381,10 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
           {octavesData.map((octData, octIdx) => {
             const octLabel =
               octData.octaveNum === -1
-                ? '低音組 (-1)'
+                ? 'Low Octave (-1)'
                 : octData.octaveNum === 1
-                ? '高音組 (+1)'
-                : '中音組 (0)';
+                ? 'High Octave (+1)'
+                : 'Mid Octave (0)';
 
             return (
               <div
@@ -421,7 +421,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                         } rounded-b-md border-b-4 ${
                           active ? 'border-b-amber-600' : 'border-b-zinc-400'
                         }`}
-                        title={`音高: ${wKey.jianpuLabel} (${wKey.noteName} - ${wKey.solfege})`}
+                        title={`Pitch: ${wKey.jianpuLabel} (${wKey.noteName} - ${wKey.solfege})`}
                       >
                         {/* Active Dot Indicator */}
                         {active && (
@@ -490,7 +490,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                             ? '!bg-amber-400 !border-amber-500 !text-zinc-950 ring-2 ring-amber-400 font-black shadow-lg border-b-4 border-b-amber-600'
                             : 'bg-linear-to-b from-zinc-800 via-zinc-900 to-black hover:from-zinc-700 hover:to-zinc-900 text-zinc-100 border-zinc-950 border-b-4 border-b-black shadow-[0_4px_6px_rgba(0,0,0,0.6)]'
                         }`}
-                        title={`黑鍵音高: ${bKey.jianpuLabel} / ${bKey.accidentalLabel} (${bKey.noteName} - ${bKey.solfege})`}
+                        title={`Black Key: ${bKey.jianpuLabel} / ${bKey.accidentalLabel} (${bKey.noteName} - ${bKey.solfege})`}
                       >
                         {/* Top Active Indicator */}
                         {active && (
@@ -551,23 +551,23 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-3 h-3 text-amber-400" />
           <span>
-            選取音符:{' '}
+            Selected Note:{' '}
             {currentNote ? (
               <span className="text-amber-300 font-bold font-mono">
                 {currentNote.pitch === 0
-                  ? '0 (休止符)'
+                  ? '0 (Rest)'
                   : currentNote.pitch === 'empty'
-                  ? '␣ (空白/標點)'
+                  ? '␣ (Empty / Punctuation)'
                   : `${currentNote.accidental || ''}${currentNote.pitch}${
                       currentNote.octave > 0
-                        ? ` (高音 ${currentNote.octave}點)`
+                        ? ` (High ${currentNote.octave} dot)`
                         : currentNote.octave < 0
-                        ? ` (低音 ${Math.abs(currentNote.octave)}點)`
-                        : ' (中音)'
+                        ? ` (Low ${Math.abs(currentNote.octave)} dot)`
+                        : ' (Mid)'
                     }`}
               </span>
             ) : (
-              '未選取音符'
+              'No note selected'
             )}
           </span>
         </div>
@@ -575,11 +575,11 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         <div className="flex items-center gap-2 text-[10px] text-zinc-400 hidden sm:flex">
           <span className="flex items-center gap-1">
             <span className="inline-block w-2.5 h-2.5 rounded-sm bg-white border border-zinc-400" />
-            <span>白鍵 (自然音 1-7)</span>
+            <span>White Keys (Diatonic 1-7)</span>
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block w-2.5 h-2.5 rounded-sm bg-black border border-zinc-600" />
-            <span>黑鍵 (變化音 ♯/♭)</span>
+            <span>Black Keys (Accidentals ♯/♭)</span>
           </span>
         </div>
       </div>

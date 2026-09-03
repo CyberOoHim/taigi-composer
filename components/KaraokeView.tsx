@@ -339,7 +339,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
 
     // If measure 0 is not explicitly marked as a section, add it
     if (sectionStartIndices.length === 0 || sectionStartIndices[0].index !== 0) {
-      const firstSectionName = sectionStartIndices.length > 0 ? '前奏 (Intro)' : '段落 1';
+      const firstSectionName = sectionStartIndices.length > 0 ? 'Intro' : 'Section 1';
       sectionStartIndices.unshift({ index: 0, name: firstSectionName });
     }
 
@@ -349,7 +349,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       sectionStartIndices.length = 0;
       for (let i = 0; i < song.measures.length; i += chunkSize) {
         const secNum = Math.floor(i / chunkSize) + 1;
-        sectionStartIndices.push({ index: i, name: `段落 ${secNum}` });
+        sectionStartIndices.push({ index: i, name: `Section ${secNum}` });
       }
     }
 
@@ -396,7 +396,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         startPercent,
         endPercent,
         chord: song.measures[startMeasureIndex]?.chord,
-        firstLyricSnippet: lyricWords.join(' ') || (song.measures[startMeasureIndex]?.chord ? `和弦: ${song.measures[startMeasureIndex]?.chord}` : ''),
+        firstLyricSnippet: lyricWords.join(' ') || (song.measures[startMeasureIndex]?.chord ? `Chord: ${song.measures[startMeasureIndex]?.chord}` : ''),
       });
     }
 
@@ -644,95 +644,95 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`flex flex-col bg-zinc-950 text-white rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl transition-all duration-300 ${
+      className={`flex flex-col bg-[#0c0e14] text-white rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl transition-all duration-300 ${
         isStageMode || isFullscreen ? 'fixed inset-0 z-50 rounded-none h-dvh w-screen overflow-y-auto safe-pb safe-pt overscroll-none' : 'w-full'
       }`}
     >
-      {/* Karaoke Top Status Bar */}
-      <div className="flex flex-wrap items-center justify-between px-5 py-3.5 bg-zinc-900/90 border-b border-zinc-800/80 backdrop-blur-md gap-3">
+      {/* Karaoke Top Status Bar (DAW Stage Monitor) */}
+      <div className="flex flex-wrap items-center justify-between px-5 py-3.5 bg-[#10121a]/95 border-b border-zinc-800/80 backdrop-blur-md gap-3 select-none">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 text-zinc-950 shadow-md">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-md">
             <Radio className={`w-5 h-5 ${playbackState.isPlaying ? 'animate-spin' : ''}`} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base font-bold tracking-tight text-zinc-100">{song.title}</h2>
-              <span className="px-2 py-0.5 text-[11px] font-mono font-medium rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <span className="daw-lcd px-2.5 py-0.5 text-xs font-mono font-bold rounded-lg shadow-xs">
                 {effectiveKeyDisplay}
               </span>
-              <span className="px-2 py-0.5 text-[11px] font-mono rounded-full bg-zinc-800 text-zinc-300">
+              <span className="daw-lcd px-2.5 py-0.5 text-xs font-mono font-bold rounded-lg shadow-xs">
                 {song.timeSignature}
               </span>
             </div>
-            <p className="text-xs text-zinc-400">
-              {song.composer && `曲: ${song.composer}`} {song.lyricist && `| 詞: ${song.lyricist}`}
+            <p className="text-xs text-zinc-400 mt-0.5">
+              {song.composer && `Music: ${song.composer}`} {song.lyricist && `| Lyrics: ${song.lyricist}`}
             </p>
           </div>
         </div>
 
         {/* Display Mode & Fullscreen Tabs */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Display Mode Selector */}
-          <div id="ktv-display-mode-selector" className="flex items-center bg-zinc-800/90 p-1 rounded-xl border border-zinc-700/60 text-xs">
+          <div id="ktv-display-mode-selector" className="flex items-center bg-[#0a0c10] p-1 rounded-xl border border-zinc-800 text-xs">
             <button
               id="ktv-mode-all"
               type="button"
               onClick={() => setDisplayMode('all')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                 displayMode === 'all'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              全顯示 (All)
+              All
             </button>
             <button
               id="ktv-mode-hanji-poj"
               type="button"
               onClick={() => setDisplayMode('hanji_poj')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                 displayMode === 'hanji_poj'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              漢字 + 白話字
+              Hanji + POJ
             </button>
             <button
               id="ktv-mode-hanji-pij"
               type="button"
               onClick={() => setDisplayMode('hanji_pij')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                 displayMode === 'hanji_pij'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              漢字 + 臺羅
+              Hanji + PIJ
             </button>
             <button
               id="ktv-mode-hanji-only"
               type="button"
               onClick={() => setDisplayMode('hanji_only')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                 displayMode === 'hanji_only'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              純漢字
+              Hanji Only
             </button>
             <button
               id="ktv-mode-poj-only"
               type="button"
               onClick={() => setDisplayMode('poj_only')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                 displayMode === 'poj_only'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              純POJ
+              POJ Only
             </button>
           </div>
 
@@ -741,10 +741,10 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
             id="ktv-header-zoom-btn"
             type="button"
             onClick={cycleZoom}
-            className="flex items-center gap-1.5 px-3 py-1.5 min-h-[38px] rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-amber-300 border border-zinc-700/60 transition-all active:scale-95 touch-manipulation cursor-pointer"
-            title={`譜架縮放 (Zoom Scale): 目前 ${Math.round(stageZoom * 100)}% - 點擊循環切換 (100%~175%)`}
+            className="flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-xl bg-[#0a0c10] hover:bg-zinc-800 text-xs font-bold text-amber-300 border border-zinc-800 transition-all active:scale-95 touch-manipulation cursor-pointer"
+            title={`Stage Zoom: Currently ${Math.round(stageZoom * 100)}% - Click to cycle (100%-175%)`}
           >
-            <ZoomIn className="w-3.5 h-3.5 text-amber-400" />
+            <ZoomIn className="w-4 h-4 text-amber-400" />
             <span>{Math.round(stageZoom * 100)}%</span>
           </button>
 
@@ -753,15 +753,15 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
             id="ktv-stage-mode-toggle-btn"
             type="button"
             onClick={toggleStageMode}
-            className={`flex items-center gap-1.5 px-3 py-1.5 min-h-[38px] rounded-xl text-xs font-bold transition-all active:scale-95 touch-manipulation cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all active:scale-95 touch-manipulation cursor-pointer ${
               isStageMode || isFullscreen
                 ? 'bg-amber-500 text-zinc-950 font-bold border border-amber-400 shadow-md'
-                : 'bg-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-700 border border-zinc-700/60'
+                : 'bg-[#0a0c10] text-zinc-300 hover:text-white hover:bg-zinc-800 border border-zinc-800'
             }`}
-            title={isStageMode || isFullscreen ? '離開譜架/舞台模式 (ESC)' : '進入譜架/舞台專注模式 (Stage Mode)'}
+            title={isStageMode || isFullscreen ? 'Exit Stage Mode (ESC)' : 'Enter Stage Mode'}
           >
             {isStageMode || isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4 text-amber-400" />}
-            <span className="hidden sm:inline">{isStageMode || isFullscreen ? '離開譜架' : '譜架模式'}</span>
+            <span className="hidden sm:inline">{isStageMode || isFullscreen ? 'Exit Stage' : 'Stage Mode'}</span>
           </button>
         </div>
       </div>

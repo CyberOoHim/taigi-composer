@@ -9,7 +9,7 @@ export default function NotFound() {
         href="/"
         className="px-4 py-2 rounded-xl bg-amber-500 text-zinc-950 font-bold text-sm hover:bg-amber-400 transition-colors"
       >
-        返回首頁 (Return Home)
+        Return Home
       </Link>
     </div>
   );

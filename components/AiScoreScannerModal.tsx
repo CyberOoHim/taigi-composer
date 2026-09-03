@@ -158,7 +158,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
       }
       setImages(prev => [...prev, ...preparedList].slice(0, 3));
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '圖片處理失敗';
+      const msg = err instanceof Error ? err.message : 'Image processing failed';
       setUploadError(msg);
     } finally {
       setIsCompressing(false);
@@ -213,29 +213,29 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
     setPasscode('');
     setCustomApiKey('');
     setAuthSuccess(null);
-    setAuthError('已清除授權狀態與通行密碼');
+    setAuthError('Passcode authorization revoked');
   };
 
   // Trigger Gemini Multimodal Score Scan
   const handleStartScan = async () => {
     setUploadError(null);
     if (images.length === 0) {
-      setUploadError('請先上傳 1 至 3 頁樂譜圖片');
+      setUploadError('Please upload 1 to 3 score images first');
       return;
     }
 
     if (!isAiAuthenticated) {
       setIsAuthCollapsed(false);
-      setAuthError('請先輸入並驗證 Gemini 通行密碼 (預設: taigi)');
+      setAuthError('Please enter and verify Gemini passcode first (default: taigi)');
       return;
     }
 
     setIsScanning(true);
     setScanResult(null);
-    setScanStepMessage('準備圖片資料中...');
+    setScanStepMessage('Preparing image payloads...');
 
     try {
-      setScanStepMessage(`傳送 ${images.length} 頁樂譜圖片至 Gemini 3.7 多模態模型...`);
+      setScanStepMessage(`Sending ${images.length} score image(s) to Gemini 3.7 multimodal model...`);
       const imagePayloads = images.map(img => ({
         data: img.base64,
         mimeType: img.mimeType,
@@ -259,7 +259,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
         setUploadError(result.error);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '識譜過程發生未知錯誤';
+      const msg = err instanceof Error ? err.message : 'An unknown error occurred during score recognition';
       setUploadError(msg);
     } finally {
       setIsScanning(false);
@@ -358,13 +358,13 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                <span>AI 圖片樂譜與歌詞辨識 (AI Score OCR)</span>
+                <span>AI Score & Lyrics OCR</span>
                 <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 font-mono font-bold border border-amber-300/60 dark:border-amber-700/60">
-                  最多 3 頁 (Up to 3 Pages)
+                  Up to 3 Pages
                 </span>
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                支援簡譜 (1-7)、調號、和弦、拍號與台語歌詞 (漢字/白話字/臺羅) 多頁自動拼接轉錄
+                Supports numbered musical notation (1-7), keys, chords, time signatures, and Taigi lyrics (Hanji / POJ / PIJ) with multi-page stitching.
               </p>
             </div>
           </div>
@@ -386,10 +386,10 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
                 <Layers className="w-4 h-4 text-amber-500" />
-                <span>樂譜圖片頁面 (Score Pages · {images.length}/3 頁)</span>
+                <span>Score Pages ({images.length}/3 Pages)</span>
               </label>
               <span className="text-[11px] text-zinc-500">
-                支援 JPG、PNG、WebP · 自動最佳化縮圖與色彩對比
+                Supports JPG, PNG, WebP · Auto-optimized thumbnails & contrast
               </span>
             </div>
 
@@ -409,7 +409,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                     {/* Page Header Badge */}
                     <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 border-b border-zinc-200/80 dark:border-zinc-700 text-xs font-bold">
                       <span className="text-amber-700 dark:text-amber-400 font-mono">
-                        第 {pageIdx + 1} 頁 (Page {pageIdx + 1})
+                        Page {pageIdx + 1}
                       </span>
                       {img && (
                         <span className="text-[10px] text-zinc-500 font-mono">
@@ -433,7 +433,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleMoveImage(pageIdx, 'left')}
-                                title="移至前一頁"
+                                title="Move to previous page"
                                 className="p-1.5 rounded-lg bg-white/90 text-zinc-900 hover:bg-white shadow-xs cursor-pointer"
                               >
                                 <ChevronLeft className="w-4 h-4" />
@@ -443,7 +443,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleMoveImage(pageIdx, 'right')}
-                                title="移至後一頁"
+                                title="Move to next page"
                                 className="p-1.5 rounded-lg bg-white/90 text-zinc-900 hover:bg-white shadow-xs cursor-pointer"
                               >
                                 <ChevronRight className="w-4 h-4" />
@@ -452,7 +452,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handleRemoveImage(pageIdx)}
-                              title="刪除此頁"
+                              title="Delete this page"
                               className="p-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-500 shadow-xs cursor-pointer"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -472,9 +472,9 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                           <Plus className="w-4 h-4" />
                         </div>
                         <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                          新增第 {pageIdx + 1} 頁
+                          Add Page {pageIdx + 1}
                         </span>
-                        <span className="text-[10px] text-zinc-400 mt-0.5">點擊或拖曳圖片</span>
+                        <span className="text-[10px] text-zinc-400 mt-0.5">Click or drag image</span>
                         <input
                           id={`slot-file-input-${pageIdx}`}
                           type="file"
@@ -512,7 +512,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-bold disabled:opacity-40 transition-colors cursor-pointer"
                 >
                   <Upload className="w-3.5 h-3.5 text-amber-500" />
-                  <span>批次選擇圖片 (最多 3 張)</span>
+                  <span>Choose Images (Up to 3)</span>
                 </button>
 
                 {images.length > 0 && (
@@ -522,7 +522,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-medium transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>清空所有頁面</span>
+                    <span>Clear All Pages</span>
                   </button>
                 )}
               </div>
@@ -530,7 +530,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
               {isCompressing && (
                 <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium animate-pulse">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>正在壓縮並準備高解析度樂譜縮圖...</span>
+                  <span>Compressing and preparing high-resolution images...</span>
                 </div>
               )}
             </div>
@@ -546,7 +546,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
           {/* 2. EXTRACTION MODE SELECTOR */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-              辨識模式 (Extraction Mode)
+              Extraction Mode
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
               <button
@@ -555,18 +555,18 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                 className={`p-3 rounded-xl border font-bold flex flex-col gap-1 text-left transition-all cursor-pointer ${
                   mode === 'full_score'
                     ? 'bg-amber-500/15 border-amber-500 text-amber-950 dark:text-amber-200 ring-1 ring-amber-500'
-                    : 'bg-zinc-50 dark:bg-zinc-800/60 border-zinc-200 dark:border-zinc-700 hover:border-amber-400 text-zinc-700 dark:text-zinc-300'
+                    : 'bg-zinc-50 dark:bg-zinc-850 border-zinc-200 dark:border-zinc-700 hover:border-amber-400 text-zinc-700 dark:text-zinc-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-extrabold text-sm">
                     <Sparkles className="w-4 h-4 text-amber-500" />
-                    完整樂譜與歌詞
+                    Full Score & Lyrics
                   </span>
                   {mode === 'full_score' && <Check className="w-4 h-4 text-amber-600" />}
                 </div>
                 <p className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
-                  轉錄調號、拍號、BPM、簡譜音符、和弦以及對齊台語漢字/白話字/臺羅歌詞。
+                  Transcribes key, time signature, BPM, notes, chords, and aligned Taigi Hanji/POJ/PIJ lyrics.
                 </p>
               </button>
 
@@ -576,18 +576,18 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                 className={`p-3 rounded-xl border font-bold flex flex-col gap-1 text-left transition-all cursor-pointer ${
                   mode === 'score_only'
                     ? 'bg-amber-500/15 border-amber-500 text-amber-950 dark:text-amber-200 ring-1 ring-amber-500'
-                    : 'bg-zinc-50 dark:bg-zinc-800/60 border-zinc-200 dark:border-zinc-700 hover:border-amber-400 text-zinc-700 dark:text-zinc-300'
+                    : 'bg-zinc-50 dark:bg-zinc-850 border-zinc-200 dark:border-zinc-700 hover:border-amber-400 text-zinc-700 dark:text-zinc-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-extrabold text-sm">
                     <Music className="w-4 h-4 text-amber-500" />
-                    僅簡譜旋律與小節
+                    Notation & Measures Only
                   </span>
                   {mode === 'score_only' && <Check className="w-4 h-4 text-amber-600" />}
                 </div>
                 <p className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
-                  專注辨識 1-7 音符音高、節奏附點、八度點、休止符與和弦，不擷取歌詞。
+                  Focuses on 1-7 pitches, rhythms, dots, octaves, rests, and chords without lyrics.
                 </p>
               </button>
 
@@ -597,18 +597,18 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                 className={`p-3 rounded-xl border font-bold flex flex-col gap-1 text-left transition-all cursor-pointer ${
                   mode === 'lyrics_only'
                     ? 'bg-amber-500/15 border-amber-500 text-amber-950 dark:text-amber-200 ring-1 ring-amber-500'
-                    : 'bg-zinc-50 dark:bg-zinc-800/60 border-zinc-200 dark:border-zinc-700 hover:border-amber-400 text-zinc-700 dark:text-zinc-300'
+                    : 'bg-zinc-50 dark:bg-zinc-850 border-zinc-200 dark:border-zinc-700 hover:border-amber-400 text-zinc-700 dark:text-zinc-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-extrabold text-sm">
                     <Layers className="w-4 h-4 text-amber-500" />
-                    僅擷取歌詞與拼音
+                    Lyrics & Syllables Only
                   </span>
                   {mode === 'lyrics_only' && <Check className="w-4 h-4 text-amber-600" />}
                 </div>
                 <p className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
-                  從歌本或圖片中擷取台語歌詞文本，並自動分詞產生帶聲調標註的音節。
+                  Extracts Taigi lyrics from songbook images and splits into syllables with tone annotations.
                 </p>
               </button>
             </div>
@@ -619,7 +619,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
                 <Sparkles className="w-4 h-4 text-amber-500" />
-                <span>Gemini 多模態辨識設定 (AI OCR Settings)</span>
+                <span>Gemini Multimodal AI OCR Settings</span>
               </div>
               <button
                 type="button"
@@ -627,7 +627,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                 className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
               >
                 <Key className="w-3 h-3" />
-                <span>{showApiKeyInput ? '隱藏自訂 API Key' : '自訂 API Key (選填)'}</span>
+                <span>{showApiKeyInput ? 'Hide Custom API Key' : 'Custom API Key (Optional)'}</span>
               </button>
             </div>
 
@@ -636,7 +636,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
               <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-xs">
                 <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Gemini API 通行權限已驗證 (Passcode Verified)</span>
+                  <span>Gemini API Passcode Verified</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -645,13 +645,13 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                     className="flex items-center gap-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
                   >
                     <ChevronDown className="w-3.5 h-3.5" />
-                    <span>變更通行碼</span>
+                    <span>Change Passcode</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleRevokeAuth}
                     className="text-[11px] text-red-600 dark:text-red-400 hover:underline cursor-pointer"
-                    title="清除授權"
+                    title="Revoke authorization"
                   >
                     <LogOut className="w-3 h-3" />
                   </button>
@@ -662,7 +662,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
                     <Lock className="w-4 h-4 text-amber-500" />
-                    <span>Gemini API 通行密碼驗證 (Passcode Auth)</span>
+                    <span>Gemini API Passcode Authorization</span>
                   </div>
                   {isAiAuthenticated && (
                     <button
@@ -671,13 +671,13 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                       className="flex items-center gap-0.5 text-[11px] text-amber-700 dark:text-amber-300 hover:underline cursor-pointer"
                     >
                       <ChevronUp className="w-3 h-3" />
-                      <span>收合</span>
+                      <span>Collapse</span>
                     </button>
                   )}
                 </div>
 
                 <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
-                  請輸入通行密碼以啟用 Gemini 3.7 多模態識譜功能（預設提示：<code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 rounded font-mono font-bold">taigi</code> 或個人 API Key）。
+                  Enter the passcode to enable Gemini 3.7 multimodal OCR (Default hint: <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 rounded font-mono font-bold">taigi</code> or personal API Key).
                 </p>
 
                 <form onSubmit={handleVerifyPasscode} className="flex gap-2">
@@ -686,7 +686,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                       type={showPasscode ? 'text' : 'password'}
                       value={passcode}
                       onChange={e => setPasscode(e.target.value)}
-                      placeholder="輸入通行密碼 (如: taigi) 或 API Key"
+                      placeholder="Enter passcode (e.g. taigi) or API Key"
                       className="w-full pl-3 pr-8 py-2 text-xs bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-mono"
                     />
                     <button
@@ -703,7 +703,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                     className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-400 text-zinc-950 font-bold text-xs rounded-lg shadow-xs transition-all disabled:opacity-50 cursor-pointer shrink-0"
                   >
                     <Unlock className="w-3.5 h-3.5" />
-                    <span>驗證通行碼</span>
+                    <span>Verify</span>
                   </button>
                 </form>
 
@@ -727,7 +727,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
                   <Cpu className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Gemini 多模態模型</span>
+                  <span>Gemini Model</span>
                 </label>
                 <select
                   value={aiModel}
@@ -738,15 +738,15 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                   }}
                   className="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer"
                 >
-                  <option value="gemini-3.7-flash">1. gemini-3.7-flash (推薦·精準識譜)</option>
-                  <option value="gemini-3.7-flash-lite">2. gemini-3.7-flash-lite (快速·輕量)</option>
+                  <option value="gemini-3.7-flash">1. gemini-3.7-flash (Recommended · Accurate OCR)</option>
+                  <option value="gemini-3.7-flash-lite">2. gemini-3.7-flash-lite (Fast · Lightweight)</option>
                 </select>
               </div>
 
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
                   <BrainCircuit className="w-3.5 h-3.5 text-amber-500" />
-                  <span>思考深度 (Thinking Effort)</span>
+                  <span>Thinking Effort</span>
                 </label>
                 <select
                   value={thinkingEffort}
@@ -757,8 +757,8 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                   }}
                   className="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer"
                 >
-                  <option value="HIGH">HIGH (深度樂理思考·最適合多頁簡譜)</option>
-                  <option value="MEDIUM">MEDIUM (標準)</option>
+                  <option value="HIGH">HIGH (Deep Theory Reasoning · Best for Scores)</option>
+                  <option value="MEDIUM">MEDIUM (Standard)</option>
                 </select>
               </div>
             </div>
@@ -766,7 +766,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
             {showApiKeyInput && (
               <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/50 flex flex-col gap-1">
                 <label className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
-                  Gemini API Key (自訂個人金鑰)
+                  Gemini API Key (Custom Key)
                 </label>
                 <input
                   type="password"
@@ -793,15 +793,15 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
             {isScanning ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>{scanStepMessage || 'Gemini 多模態樂譜解析中...'}</span>
+                <span>{scanStepMessage || 'Gemini analyzing score images...'}</span>
               </>
             ) : (
               <>
                 <ScanLine className="w-5 h-5" />
                 <span>
                   {!isAiAuthenticated
-                    ? '請先完成通行密碼驗證'
-                    : `開始 AI 圖片辨識 (${images.length} 頁樂譜)`}
+                    ? 'Passcode Verification Required'
+                    : `Start AI Score Recognition (${images.length} Pages)`}
                 </span>
               </>
             )}
@@ -828,9 +828,9 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                         </span>
                       </h4>
                       <p className="text-xs text-zinc-500">
-                        {scanResult.song.composer ? `曲: ${scanResult.song.composer} · ` : ''}
-                        {scanResult.song.lyricist ? `詞: ${scanResult.song.lyricist} · ` : ''}
-                        共 {scanResult.song.measures.length} 小節 · {totalExtractedNotes} 個音符
+                        {scanResult.song.composer ? `Music: ${scanResult.song.composer} · ` : ''}
+                        {scanResult.song.lyricist ? `Lyrics: ${scanResult.song.lyricist} · ` : ''}
+                        {scanResult.song.measures.length} Measures · {totalExtractedNotes} Notes
                       </p>
                     </div>
                   </div>
@@ -842,7 +842,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                       className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 cursor-pointer shadow-2xs"
                     >
                       {copiedText ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedText ? '已複製' : '複製樂譜文字'}</span>
+                      <span>{copiedText ? 'Copied' : 'Copy Score Text'}</span>
                     </button>
                   </div>
                 </div>
@@ -861,7 +861,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                     }`}
                   >
                     <Columns className="w-3.5 h-3.5" />
-                    <span>左右對照分割檢視 (Split Inspector)</span>
+                    <span>Split Inspector</span>
                   </button>
                 )}
 
@@ -876,7 +876,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                     }`}
                   >
                     <FileMusic className="w-3.5 h-3.5" />
-                    <span>簡譜小節預覽 ({scanResult.song.measures.length} 小節)</span>
+                    <span>Measures Preview ({scanResult.song.measures.length} Measures)</span>
                   </button>
                 )}
 
@@ -890,7 +890,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                   }`}
                 >
                   <ImageIcon className="w-3.5 h-3.5" />
-                  <span>對比原圖 (Compare Images)</span>
+                  <span>Compare Images</span>
                 </button>
 
                 {scanResult.lyricsVerses && scanResult.lyricsVerses.length > 0 && (
@@ -904,7 +904,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                     }`}
                   >
                     <Layers className="w-3.5 h-3.5" />
-                    <span>歌詞音節預覽 ({scanResult.lyricsVerses.length} 句)</span>
+                    <span>Lyrics Preview ({scanResult.lyricsVerses.length} Verses)</span>
                   </button>
                 )}
               </div>
@@ -918,7 +918,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                       <div className="flex items-center gap-2">
                         <ImageIcon className="w-4 h-4 text-amber-500" />
                         <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                          原始樂譜原圖 (Source Score)
+                          Source Score Image
                         </span>
                       </div>
 
@@ -928,7 +928,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                           type="button"
                           onClick={() => setSplitImageZoom(z => Math.max(0.6, z - 0.2))}
                           className="p-1 text-zinc-600 dark:text-zinc-300 hover:text-amber-500 cursor-pointer"
-                          title="縮小圖片"
+                          title="Zoom Out"
                         >
                           <ZoomOut className="w-3.5 h-3.5" />
                         </button>
@@ -939,7 +939,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                           type="button"
                           onClick={() => setSplitImageZoom(z => Math.min(3.0, z + 0.2))}
                           className="p-1 text-zinc-600 dark:text-zinc-300 hover:text-amber-500 cursor-pointer"
-                          title="放大圖片"
+                          title="Zoom In"
                         >
                           <ZoomIn className="w-3.5 h-3.5" />
                         </button>
@@ -947,7 +947,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                           type="button"
                           onClick={() => setSplitImageZoom(1.0)}
                           className="px-1.5 py-0.5 text-[10px] font-mono font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-100 cursor-pointer"
-                          title="重設縮放"
+                          title="Reset Zoom"
                         >
                           100%
                         </button>
@@ -968,7 +968,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
                             }`}
                           >
-                            第 {i + 1} 頁
+                            Page {i + 1}
                           </button>
                         ))}
                       </div>
@@ -992,7 +992,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                       <div className="flex items-center gap-2">
                         <FileMusic className="w-4 h-4 text-amber-500" />
                         <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                          轉錄小節比對 ({scanResult.song.measures.length} 小節)
+                          Extracted Measures Comparison ({scanResult.song.measures.length} Measures)
                         </span>
                       </div>
                       <span className="text-[11px] text-zinc-500 font-mono">
@@ -1043,7 +1043,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                                     : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
                                 }`}
                               >
-                                {beats}/{expected} 拍 {isBeatsMatched ? '✓' : '⚠️'}
+                                {beats}/{expected} Beats {isBeatsMatched ? '✓' : '⚠️'}
                               </span>
                             </div>
 
@@ -1101,7 +1101,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                       >
                         <div className="flex items-center justify-between text-xs border-b border-zinc-100 dark:border-zinc-800 pb-1">
                           <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
-                            小節 #{m.measureNumber} {m.section ? `(${m.section})` : ''}
+                            Measure #{m.measureNumber} {m.section ? `(${m.section})` : ''}
                           </span>
                           {m.chord && (
                             <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-bold font-mono text-zinc-700 dark:text-zinc-300">
@@ -1169,7 +1169,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                             : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
                         }`}
                       >
-                        第 {i + 1} 頁 ({img.name})
+                        Page {i + 1} ({img.name})
                       </button>
                     ))}
                   </div>
@@ -1194,7 +1194,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                       className="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex flex-col gap-1.5"
                     >
                       <span className="text-xs font-bold font-mono text-amber-600 dark:text-amber-400">
-                        第 {vIdx + 1} 句 ({verse.length} 音節)
+                        Verse {vIdx + 1} ({verse.length} syllables)
                       </span>
                       <div className="flex flex-wrap gap-1.5">
                         {verse.map((syl, sIdx) => (
@@ -1226,7 +1226,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
           >
-            關閉 (Close)
+            Close
           </button>
 
           {scanResult && scanResult.success && (
@@ -1240,7 +1240,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-zinc-950 font-black text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
                   >
                     <FilePlus className="w-3.5 h-3.5" />
-                    <span>匯入為全新樂曲 (New Song)</span>
+                    <span>Import as New Song</span>
                   </button>
 
                   <button
@@ -1250,7 +1250,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                     className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs shadow-2xs transition-all cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5 text-amber-500" />
-                    <span>替換目前樂曲</span>
+                    <span>Replace Current Song</span>
                   </button>
 
                   <button
@@ -1260,7 +1260,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                     className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs shadow-2xs transition-all cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5 text-amber-500" />
-                    <span>追加小節至曲末</span>
+                    <span>Append Measures to End</span>
                   </button>
                 </>
               )}
@@ -1273,7 +1273,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-500/50 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold text-xs shadow-2xs transition-all cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>僅套用歌詞至目前樂曲</span>
+                  <span>Apply Lyrics Only</span>
                 </button>
               )}
             </div>

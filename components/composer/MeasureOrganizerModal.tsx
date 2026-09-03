@@ -101,10 +101,10 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
             </div>
             <div>
               <h3 className="font-extrabold text-base sm:text-lg tracking-tight">
-                小節總覽與順序編排 (Measure Organizer)
+                Measure Organizer & Layout
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                檢視全曲拍數完整度、快速調換小節相對位置、設定分行與小節線樣式
+                Inspect rhythm accuracy, reorder measures, and configure line breaks &amp; barlines
               </p>
             </div>
           </div>
@@ -113,7 +113,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
             type="button"
             onClick={onClose}
             className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-            title="關閉總覽"
+            title="Close Organizer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -124,16 +124,16 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
           {/* Quick Metrics */}
           <div className="flex items-center gap-2 flex-wrap font-medium">
             <span className="px-2.5 py-1 rounded-lg bg-zinc-200/70 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold">
-              全曲 {stats.total} 小節
+              {stats.total} Measures Total
             </span>
             <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800/60">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>拍數完整: {stats.complete}</span>
+              <span>Full Beats: {stats.complete}</span>
             </span>
             {stats.incomplete > 0 && (
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-800/60">
                 <AlertCircle className="w-3.5 h-3.5" />
-                <span>拍數未滿/超拍: {stats.incomplete}</span>
+                <span>Under / Over Beats: {stats.incomplete}</span>
               </span>
             )}
           </div>
@@ -151,7 +151,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
-                顯示全部 ({stats.total})
+                Show All ({stats.total})
               </button>
               <button
                 type="button"
@@ -162,7 +162,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
-                僅顯示拍數有誤 ({stats.incomplete})
+                Incomplete Only ({stats.incomplete})
               </button>
             </div>
 
@@ -173,10 +173,10 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                 type="button"
                 onClick={onBatchAutoFillAllRests}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation"
-                title="自動在所有缺少拍數的小節尾端補上休止符 (0)"
+                title="Automatically fill missing beats with rest notes (0) in all incomplete measures"
               >
                 <Wand2 className="w-3.5 h-3.5" />
-                <span>一鍵補齊未滿小節 ({stats.under})</span>
+                <span>Auto-Pad Incomplete ({stats.under})</span>
               </button>
             )}
 
@@ -186,7 +186,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
               className="flex items-center gap-1 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-bold rounded-xl transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>加小節</span>
+              <span>Add Measure</span>
             </button>
           </div>
         </div>
@@ -196,8 +196,8 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
           {displayedReports.length === 0 ? (
             <div className="py-12 flex flex-col items-center justify-center text-center text-zinc-500">
               <CheckCircle2 className="w-10 h-10 text-emerald-500 mb-2" />
-              <p className="font-bold text-sm">全曲小節拍數皆完全符合時值要求！</p>
-              <p className="text-xs text-zinc-400 mt-1">無任何不足拍或超拍小節。</p>
+              <p className="font-bold text-sm">All measures match their expected beat duration!</p>
+              <p className="text-xs text-zinc-400 mt-1">No under-beat or over-beat measures found.</p>
             </div>
           ) : (
             displayedReports.map(({ measure, idx, report, lyricSnippet }) => {
@@ -231,7 +231,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                         {measure.section}
                       </span>
                     ) : (
-                      <span className="text-[11px] text-zinc-400">無段落</span>
+                      <span className="text-[11px] text-zinc-400">No Section</span>
                     )}
 
                     {/* Chord Tag */}
@@ -240,7 +240,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                         {measure.chord}
                       </span>
                     ) : (
-                      <span className="text-[11px] text-zinc-400">無和弦</span>
+                      <span className="text-[11px] text-zinc-400">No Chord</span>
                     )}
 
                     {/* Beat Report Badge */}
@@ -259,23 +259,23 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                         <AlertCircle className={`w-3.5 h-3.5 ${report.isUnder ? 'text-amber-600' : 'text-rose-600'}`} />
                       )}
                       <span>
-                        {report.currentBeats}/{report.expectedBeats} 拍
+                        {report.currentBeats}/{report.expectedBeats} Beats
                       </span>
                       {!report.isFull && (
                         <span className="font-sans font-medium text-[11px] ml-0.5">
-                          {report.isUnder ? `(缺 ${report.absDiff} 拍)` : `(多 ${report.absDiff} 拍)`}
+                          {report.isUnder ? `(-${report.absDiff} beats)` : `(+${report.absDiff} beats)`}
                         </span>
                       )}
                     </div>
 
                     {/* Lyric Preview Snippet */}
                     <span className="text-xs text-zinc-600 dark:text-zinc-400 font-medium truncate max-w-[140px] sm:max-w-[180px]">
-                      {lyricSnippet ? `「${lyricSnippet}…」` : '(無歌詞)'}
+                      {lyricSnippet ? `"${lyricSnippet}…"` : '(No lyrics)'}
                     </span>
 
                     {/* Notes count */}
                     <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
-                      {measure.notes.length} 音
+                      {measure.notes.length} Notes
                     </span>
                   </div>
 
@@ -287,10 +287,10 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                         type="button"
                         onClick={() => onAutoFillRest(idx)}
                         className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs transition-colors cursor-pointer touch-manipulation"
-                        title={`自動在小節末補上 ${report.absDiff} 拍休止符 (0)`}
+                        title={`Auto-fill ${report.absDiff} beats rest note (0) at end of measure`}
                       >
                         <Plus className="w-3 h-3" />
-                        <span>補休止符 (+{report.absDiff})</span>
+                        <span>Fill Rest (+{report.absDiff})</span>
                       </button>
                     )}
 
@@ -303,10 +303,10 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                           ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200 border-amber-400 dark:border-amber-600'
                           : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
                       }`}
-                      title={measure.isLineBreak ? '已設定此小節後換行 (Click to toggle)' : '設定此小節後換行 (Line break after this measure)'}
+                      title={measure.isLineBreak ? 'Line break enabled after this measure (Click to toggle)' : 'Enable line break after this measure'}
                     >
                       <CornerDownLeft className="w-3.5 h-3.5" />
-                      <span>{measure.isLineBreak ? '已換行' : '換行'}</span>
+                      <span>{measure.isLineBreak ? 'Break' : 'No Break'}</span>
                     </button>
 
                     {/* Barline style select */}
@@ -314,13 +314,13 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                       value={measure.barlineType || 'single'}
                       onChange={e => onUpdateBarlineType(idx, e.target.value as BarlineType)}
                       className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-bold rounded-xl px-2 py-1.5 cursor-pointer"
-                      title="小節線樣式"
+                      title="Barline Style"
                     >
-                      <option value="single">| 單線</option>
-                      <option value="double">|| 雙線</option>
-                      <option value="end">|| 終止線</option>
-                      <option value="repeat_start">|: 反覆起</option>
-                      <option value="repeat_end">:| 反覆訖</option>
+                      <option value="single">| Single</option>
+                      <option value="double">|| Double</option>
+                      <option value="end">|| End</option>
+                      <option value="repeat_start">|: Repeat Start</option>
+                      <option value="repeat_end">:| Repeat End</option>
                     </select>
 
                     {/* Reorder: Move Up / Down */}
@@ -330,7 +330,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                         onClick={() => onMoveMeasure(idx, idx - 1)}
                         disabled={isFirst}
                         className="p-1 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                        title="小節往前移一格 (Move earlier)"
+                        title="Move earlier"
                       >
                         <ArrowUp className="w-3.5 h-3.5" />
                       </button>
@@ -339,7 +339,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                         onClick={() => onMoveMeasure(idx, idx + 1)}
                         disabled={isLast}
                         className="p-1 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                        title="小節往後移一格 (Move later)"
+                        title="Move later"
                       >
                         <ArrowDown className="w-3.5 h-3.5" />
                       </button>
@@ -353,7 +353,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                         onClose();
                       }}
                       className="p-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
-                      title="前往此小節編輯"
+                      title="Jump to edit measure"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                     </button>
@@ -364,7 +364,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                         type="button"
                         onClick={() => onDeleteMeasure(idx)}
                         className="p-1.5 rounded-xl text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
-                        title="刪除此小節"
+                        title="Delete measure"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -378,13 +378,13 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
 
         {/* Modal Footer */}
         <div className="flex items-center justify-between px-5 py-3.5 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
-          <span>提示：點擊「↑ / ↓」可快速調換小節順序；設定「換行」可讓樂譜視覺分行更契合樂句。</span>
+          <span>Tip: Use &ldquo;↑ / ↓&rdquo; to reorder measures; enable &ldquo;Break&rdquo; to start a new line for better visual phrasing.</span>
           <button
             type="button"
             onClick={onClose}
             className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-bold rounded-xl transition-all cursor-pointer"
           >
-            完成並返回編輯
+            Done
           </button>
         </div>
       </div>

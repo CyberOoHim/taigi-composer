@@ -143,7 +143,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60">
           <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold text-lg">
             <Library className="w-5 h-5 text-amber-500" />
-            <span>樂曲庫與匯入/匯出 (Song Library & Import / Export)</span>
+            <span>Song Library & Import / Export</span>
           </div>
           <button
             id="modal-close-btn"
@@ -166,7 +166,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             }`}
           >
             <Sparkles className="w-4 h-4 shrink-0" />
-            <span>精選名曲 (Presets)</span>
+            <span>Presets</span>
           </button>
 
           <button
@@ -179,7 +179,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             }`}
           >
             <FolderHeart className="w-4 h-4 shrink-0 text-amber-500" />
-            <span>自訂曲庫 ({customSongs.length})</span>
+            <span>Custom Library ({customSongs.length})</span>
           </button>
 
           <button
@@ -192,7 +192,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             }`}
           >
             <Download className="w-4 h-4 shrink-0" />
-            <span>匯出樂譜</span>
+            <span>Export Score</span>
           </button>
 
           <button
@@ -205,7 +205,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             }`}
           >
             <Upload className="w-4 h-4 shrink-0" />
-            <span>匯入樂譜</span>
+            <span>Import Score</span>
           </button>
 
           <button
@@ -218,7 +218,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             }`}
           >
             <ScanLine className="w-4 h-4 text-amber-500 shrink-0" />
-            <span>AI 圖片識譜</span>
+            <span>AI Score OCR</span>
           </button>
         </div>
 
@@ -229,7 +229,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             <div id="presets-panel" className="flex flex-col gap-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  點擊即可載入完整台語簡譜、和弦與漢字/白話字/臺羅對齊歌詞：
+                  Select a song to load complete Jianpu score, chords, and aligned lyrics:
                 </p>
                 <div className="flex items-center gap-2">
                   {onStartFreshSong && (
@@ -241,20 +241,20 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                         onStartFreshSong();
                       }}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700 text-xs font-bold transition-all cursor-pointer"
-                      title="建立全新空白樂曲"
+                      title="Create New Blank Song"
                     >
                       <FilePlus2 className="w-3.5 h-3.5 text-amber-500" />
-                      <span>新建空白樂曲</span>
+                      <span>New Blank Song</span>
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={handleSaveToCustomLibrary}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 text-xs font-bold transition-all cursor-pointer"
-                    title="將目前正在編寫的樂曲儲存至自訂曲庫"
+                    title="Save current song to custom library"
                   >
                     <BookmarkPlus className="w-3.5 h-3.5 text-amber-500" />
-                    <span>{savedSuccess ? '已儲存至自訂曲庫！' : '儲存當前曲目至自訂曲庫'}</span>
+                    <span>{savedSuccess ? 'Saved to Library!' : 'Save Current to Library'}</span>
                   </button>
                 </div>
               </div>
@@ -288,9 +288,9 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     </div>
 
                     <div className="mt-3 flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                      <span>{preset.measures.length} 小節 (Bars)</span>
+                      <span>{preset.measures.length} Measures</span>
                       <span className="font-medium text-amber-600 dark:text-amber-400 group-hover:underline">
-                        載入 (Load) →
+                        Load →
                       </span>
                     </div>
                   </div>
@@ -304,7 +304,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             <div id="custom-library-panel" className="flex flex-col gap-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  保存在瀏覽器 LocalStorage 中的自訂創作曲庫（共 {customSongs.length} 首）：
+                  Songs stored in local browser storage ({customSongs.length} total):
                 </p>
                 <div className="flex items-center gap-2">
                   {onStartFreshSong && (
@@ -316,10 +316,10 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                         onStartFreshSong();
                       }}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700 text-xs font-bold transition-all cursor-pointer"
-                      title="建立全新空白樂曲"
+                      title="Create New Blank Song"
                     >
                       <FilePlus2 className="w-3.5 h-3.5 text-amber-500" />
-                      <span>新建空白樂曲</span>
+                      <span>New Blank Song</span>
                     </button>
                   )}
                   <button
@@ -328,7 +328,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-zinc-950 text-xs font-bold transition-all shadow-xs hover:bg-amber-400 cursor-pointer"
                   >
                     <BookmarkPlus className="w-3.5 h-3.5" />
-                    <span>{savedSuccess ? '已儲存！' : '儲存當前曲目'}</span>
+                    <span>{savedSuccess ? 'Saved!' : 'Save Current'}</span>
                   </button>
                 </div>
               </div>
@@ -336,9 +336,9 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
               {customSongs.length === 0 ? (
                 <div className="p-8 text-center border border-dashed border-zinc-300 dark:border-zinc-700 rounded-2xl flex flex-col items-center gap-3">
                   <FolderHeart className="w-10 h-10 text-zinc-400" />
-                  <h4 className="font-bold text-sm text-zinc-700 dark:text-zinc-300">目前尚無自訂樂曲</h4>
+                  <h4 className="font-bold text-sm text-zinc-700 dark:text-zinc-300">No Custom Songs Saved</h4>
                   <p className="text-xs text-zinc-500 max-w-sm">
-                    點擊「儲存當前曲目」即可將正在創作的樂曲保存在此處，或開始創作全新樂曲。
+                    Click &ldquo;Save Current&rdquo; to store your in-progress composition here, or start a new song.
                   </p>
                   {onStartFreshSong && (
                     <button
@@ -350,7 +350,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                       className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
                     >
                       <FilePlus2 className="w-4 h-4" />
-                      <span>開始創作全新空白樂曲</span>
+                      <span>Start New Blank Song</span>
                     </button>
                   )}
                 </div>
@@ -383,21 +383,21 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                               type="button"
                               onClick={(e) => handleDeleteFromCustomLibrary(e, cSong.id)}
                               className="p-1 text-zinc-400 hover:text-rose-500 rounded transition-colors"
-                              title="從自訂曲庫移除"
+                              title="Delete from custom library"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
-                          {cSong.description || cSong.subtitle || '自訂創作簡譜'}
+                          {cSong.description || cSong.subtitle || 'Custom Jianpu score'}
                         </p>
                       </div>
 
                       <div className="mt-3 flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                        <span>{cSong.measures.length} 小節 (Bars)</span>
+                        <span>{cSong.measures.length} Measures</span>
                         <span className="font-medium text-amber-600 dark:text-amber-400 group-hover:underline">
-                          載入 (Load) →
+                          Load →
                         </span>
                       </div>
                     </div>
@@ -412,7 +412,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             <div id="export-panel" className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="font-semibold text-zinc-700 dark:text-zinc-300">格式 (Format):</span>
+                  <span className="font-semibold text-zinc-700 dark:text-zinc-300">Format:</span>
                   <button
                     id="export-format-json-btn"
                     onClick={() => setExportFormat('json')}
@@ -435,7 +435,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     }`}
                   >
                     <FileText className="w-3.5 h-3.5 inline mr-1" />
-                    純文字簡譜對齊 (.txt)
+                    Plain Text Notation (.txt)
                   </button>
                 </div>
 
@@ -443,18 +443,18 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   <button
                     id="export-copy-btn"
                     onClick={handleCopyExport}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                   >
                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? '已複製 (Copied)' : '複製 (Copy)'}</span>
+                    <span>{copied ? 'Copied!' : 'Copy'}</span>
                   </button>
                   <button
                     id="export-download-btn"
                     onClick={handleDownloadFile}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold hover:opacity-90 transition-opacity"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>下載檔案 (Download)</span>
+                    <span>Download File</span>
                   </button>
                 </div>
               </div>
@@ -474,12 +474,12 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             <div id="import-panel" className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  貼上 JSON 或是文字簡譜格式，或上傳檔案：
+                  Paste JSON or plain text Jianpu format, or upload a score file:
                 </p>
 
                 <label htmlFor="import-file-input" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors">
                   <Upload className="w-3.5 h-3.5" />
-                  <span>選擇檔案 (Upload File)</span>
+                  <span>Upload File</span>
                   <input
                     id="import-file-input"
                     type="file"
@@ -502,7 +502,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                 rows={10}
                 value={importText}
                 onChange={e => setImportText(e.target.value)}
-                placeholder="貼上 JSON 字串 或 純文字簡譜 (e.g. Title: 望春風, Key: F, [Measure 1] ...)"
+                placeholder="Paste JSON string or plain text Jianpu (e.g. Title: ..., Key: F, [Measure 1] ...)"
                 className="w-full px-3 py-2 text-xs font-mono bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-800 dark:text-zinc-200 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
               />
 
@@ -512,10 +512,10 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   type="button"
                   onClick={handleImportSubmit}
                   disabled={!importText.trim()}
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-sm shadow-md transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-sm shadow-md transition-all disabled:opacity-50 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
-                  <span>確認匯入 (Confirm Import)</span>
+                  <span>Confirm Import</span>
                 </button>
               </div>
             </div>
@@ -531,29 +531,29 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   </div>
                   <div>
                     <h4 className="font-extrabold text-zinc-900 dark:text-zinc-100 text-base flex items-center gap-2">
-                      <span>Gemini AI 多模態圖片識譜</span>
+                      <span>Gemini AI Multimodal Score OCR</span>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 font-mono font-bold">
-                        1~3 頁
+                        1~3 Pages
                       </span>
                     </h4>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      上傳實體歌本、簡譜或歌詞照片，AI 自動辨識旋律、節奏、八度、和弦與台語音節聲調！
+                      Upload physical sheet music or lyrics photos. AI automatically recognizes melodies, rhythms, octaves, chords, and Taigi lyrics!
                     </p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs text-zinc-600 dark:text-zinc-400 pt-2 border-t border-amber-200/60 dark:border-amber-800/60">
                   <div className="flex flex-col gap-1 p-2 rounded-lg bg-white/60 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800">
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100">1. 上傳 1~3 頁圖片</span>
-                    <span className="text-[11px] text-zinc-500">支援手機拍照或掃描檔，自動壓縮與最佳化。</span>
+                    <span className="font-bold text-zinc-900 dark:text-zinc-100">1. Upload 1~3 Images</span>
+                    <span className="text-[11px] text-zinc-500">Supports phone photos and scans with automatic optimization.</span>
                   </div>
                   <div className="flex flex-col gap-1 p-2 rounded-lg bg-white/60 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800">
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100">2. Gemini AI 解析</span>
-                    <span className="text-[11px] text-zinc-500">深度樂理思考，多頁小節自動無縫拼接。</span>
+                    <span className="font-bold text-zinc-900 dark:text-zinc-100">2. Gemini AI Analysis</span>
+                    <span className="text-[11px] text-zinc-500">Deep music theory thinking with seamless multi-page stitching.</span>
                   </div>
                   <div className="flex flex-col gap-1 p-2 rounded-lg bg-white/60 dark:bg-zinc-900/60 border border-zinc-200/60 dark:border-zinc-800">
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100">3. 預覽並一鍵匯入</span>
-                    <span className="text-[11px] text-zinc-500">對照原圖檢查，可匯入新曲或追加小節。</span>
+                    <span className="font-bold text-zinc-900 dark:text-zinc-100">3. Preview & Import</span>
+                    <span className="text-[11px] text-zinc-500">Inspect against source images. Import as new song or append.</span>
                   </div>
                 </div>
 
@@ -568,7 +568,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-extrabold text-sm shadow-md transition-all active:scale-98 cursor-pointer"
                   >
                     <ScanLine className="w-4 h-4" />
-                    <span>開啟 AI 圖片識譜工具 (Open AI Scanner) →</span>
+                    <span>Open AI Score Scanner →</span>
                   </button>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 {
-  "name": "Taigi Composer & Karaoke Studio (台語簡譜創作與卡拉OK)",
-  "short_name": "台語簡譜",
+  "name": "Taigi Composer & Karaoke Studio",
+  "short_name": "Taigi Composer",
   "description": "Compose, edit, and play aligned Taigi (Hanji/POJ/PIJ) lyrics with numbered musical notation (Jianpu) and interactive Karaoke engine.",
   "start_url": "./",
   "scope": "./",
@@ -8,7 +8,7 @@
   "orientation": "any",
   "background_color": "#18181b",
   "theme_color": "#f59e0b",
-  "lang": "zh-TW",
+  "lang": "en",
   "categories": ["music", "education", "utilities"],
   "icons": [
     {
@@ -44,14 +44,14 @@
   ],
   "shortcuts": [
     {
-      "name": "Karaoke Player (卡拉OK演唱模式)",
+      "name": "Karaoke Player",
       "short_name": "Karaoke",
       "description": "Play and sing along with real-time bouncing ball lyrics",
       "url": "./?mode=karaoke",
       "icons": [{ "src": "icons/icon-192x192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Composer Editor (簡譜編輯器)",
+      "name": "Score Editor",
       "short_name": "Editor",
       "description": "Edit notes, chords, and Taigi syllables",
       "url": "./?mode=editor",

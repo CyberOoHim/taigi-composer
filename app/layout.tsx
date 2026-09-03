@@ -11,7 +11,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Taigi Composer & Karaoke Studio (台語簡譜創作與卡拉OK)',
+  title: 'Taigi Composer & Karaoke Studio',
   description: 'Compose, edit, and play aligned Taigi (Hanji/POJ/PIJ) lyrics with numbered musical notation (Jianpu) and interactive Karaoke engine.',
   applicationName: 'Taigi Composer',
   appleWebApp: {
@@ -38,6 +38,7 @@ export const metadata: Metadata = {
     title: 'Taigi Composer & Karaoke Studio',
     description: 'Compose, edit, and play aligned Taigi (Hanji/POJ/PIJ) lyrics with numbered musical notation (Jianpu) and interactive Karaoke engine.',
     type: 'website',
+    siteName: 'Taigi Composer',
   },
   twitter: {
     card: 'summary_large_image',
@@ -48,7 +49,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-TW" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="manifest" href="manifest.webmanifest" />
         <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />

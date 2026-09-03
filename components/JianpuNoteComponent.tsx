@@ -173,15 +173,15 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
     <div
       onClick={onClick}
       className={cn(
-        'group relative flex flex-col items-center justify-between rounded-lg cursor-pointer transition-all duration-150 select-none',
+        'group relative flex flex-col items-center justify-between rounded-xl cursor-pointer transition-all duration-150 select-none touch-manipulation',
         isKaraokeMode
           ? 'min-w-[52px] px-2 py-2'
-          : 'min-w-[46px] px-1.5 py-1.5 border hover:border-amber-400/80 hover:bg-amber-50/40 dark:hover:bg-amber-950/20',
+          : 'min-w-[46px] px-2 py-1.5 border hover:border-amber-400/80 hover:bg-amber-50/40 dark:hover:bg-zinc-800/60',
         isSelected
-          ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/50 shadow-sm ring-2 ring-amber-400/50'
-          : !isKaraokeMode && 'border-zinc-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60',
+          ? 'border-amber-500 bg-amber-50/80 dark:bg-[#1f1d18] shadow-sm ring-2 ring-amber-400/50'
+          : !isKaraokeMode && 'border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-[#141720]/80',
         isActive && 'bg-amber-400/20 dark:bg-amber-500/25 ring-2 ring-amber-500 scale-[1.04]',
-        isNonNotation && 'opacity-90 border-dashed bg-zinc-50/50 dark:bg-zinc-900/40',
+        isNonNotation && 'opacity-90 border-dashed bg-zinc-50/50 dark:bg-[#0c0e14]/50',
         className
       )}
     >

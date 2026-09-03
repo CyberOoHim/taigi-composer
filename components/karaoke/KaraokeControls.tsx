@@ -98,31 +98,34 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
   formatTime,
 }) => {
   return (
-    <div className="p-4 bg-zinc-900/95 flex flex-col gap-3.5 safe-pb">
+    <div className="p-4 bg-[#10121a]/98 border-t border-zinc-800/80 flex flex-col gap-3.5 safe-pb select-none">
       {/* Progress Slider with Section Markers & Debounced Scrubbing */}
       <div className="flex flex-col gap-1.5 w-full">
         {/* Time & Active Section Info Bar */}
         <div className="flex items-center justify-between text-xs font-mono text-zinc-400">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-amber-400 min-w-[42px]">
+            <span className="daw-lcd px-2.5 py-0.5 text-xs font-bold rounded-lg shadow-xs min-w-[50px] text-center">
               {formatTime(currentDisplayTime)}
             </span>
             {sliderDraggingPercent !== null && (
-              <span className="text-[11px] font-sans px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
-                跳轉位置: {formatTime(currentDisplayTime)}
+              <span className="text-[11px] font-sans px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                Seek: {formatTime(currentDisplayTime)}
               </span>
             )}
           </div>
 
           <div className="flex items-center gap-2">
             {activeSection && (
-              <span className="text-[11px] font-sans text-zinc-400 hidden sm:inline-flex items-center gap-1">
-                <span>段落:</span>
-                <span className="text-amber-300 font-bold">{activeSection.name}</span>
+              <span className="text-[11px] font-sans text-zinc-400 hidden sm:inline-flex items-center gap-1.5">
+                <span>Section:</span>
+                <span className="text-amber-400 font-semibold">{activeSection.name}</span>
+                <span className="text-zinc-500 font-mono">
+                  (#{activeSection.startMeasureNumber}~#{activeSection.endMeasureNumber})
+                </span>
               </span>
             )}
-            <span className="text-zinc-400 min-w-[42px] text-right">
-              {formatTime(totalDuration)}
+            <span className="text-zinc-500 font-mono">
+              / {formatTime(totalDuration)}
             </span>
           </div>
         </div>
@@ -130,7 +133,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
         {/* Timeline Track with Visual Section Markers */}
         <div className="relative py-2.5 select-none group flex items-center">
           {/* Background Track Bar */}
-          <div className="w-full h-3 bg-zinc-800/90 rounded-full relative overflow-hidden border border-zinc-700/60 shadow-inner">
+          <div className="w-full h-3.5 bg-[#0a0c10] rounded-full relative overflow-hidden border border-zinc-800 shadow-inner">
             {/* Progress Fill */}
             <div
               className="h-full bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400 rounded-full transition-[width] duration-75"
@@ -157,14 +160,14 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
                       onJumpToSection(sec);
                     }}
                     className="group/mark relative flex flex-col items-center justify-center p-2 focus:outline-hidden cursor-pointer touch-manipulation transition-transform active:scale-90"
-                    title={`段落標記: ${sec.name} (${formatTime(sec.startTimeSec)} · #${sec.startMeasureNumber}小節) - 點擊立即跳轉`}
+                    title={`Section: ${sec.name} (${formatTime(sec.startTimeSec)} · Measure #${sec.startMeasureNumber}) - Click to jump`}
                   >
                     {/* Vertical Notch Marker */}
                     <div
                       className={`w-1.5 h-4.5 rounded-full transition-all shadow-xs ${
                         isSectionActive
                           ? 'bg-amber-300 ring-2 ring-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.9)] scale-110'
-                          : 'bg-zinc-400 hover:bg-amber-400 group-hover/mark:bg-amber-400'
+                          : 'bg-zinc-500 hover:bg-amber-400 group-hover/mark:bg-amber-400'
                       }`}
                     />
 
@@ -215,7 +218,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
                 style={{
                   left: `${Math.min(92, Math.max(8, sec.startPercent))}%`,
                 }}
-                title={`跳轉至 ${sec.name}`}
+                title={`Jump to ${sec.name}`}
               >
                 {sec.name}
               </button>
@@ -233,8 +236,8 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
             id="ktv-prev-section-btn"
             type="button"
             onClick={onJumpPrevSection}
-            className="min-w-[44px] min-h-[44px] p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-all active:scale-95 touch-manipulation flex items-center justify-center cursor-pointer"
-            title="Jump to Previous Section (上一段落)"
+            className="min-w-[44px] min-h-[44px] p-2.5 rounded-xl bg-[#0a0c10] hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-all active:scale-95 touch-manipulation flex items-center justify-center cursor-pointer"
+            title="Jump to Previous Section"
           >
             <SkipBack className="w-4.5 h-4.5" />
           </button>
@@ -244,8 +247,8 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
             id="ktv-restart-btn"
             type="button"
             onClick={onRestart}
-            className="min-w-[44px] min-h-[44px] p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-all active:scale-95 touch-manipulation flex items-center justify-center cursor-pointer"
-            title="Restart from beginning (從頭重新播放)"
+            className="min-w-[44px] min-h-[44px] p-2.5 rounded-xl bg-[#0a0c10] hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-all active:scale-95 touch-manipulation flex items-center justify-center cursor-pointer"
+            title="Restart from Beginning"
           >
             <RotateCcw className="w-4.5 h-4.5" />
           </button>
@@ -255,7 +258,11 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
             id="ktv-main-play-pause-btn"
             type="button"
             onClick={onTogglePlay}
-            className="min-w-[50px] min-h-[48px] w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold shadow-lg shadow-amber-500/20 active:scale-95 transition-all touch-manipulation flex items-center justify-center cursor-pointer"
+            className={`min-w-[52px] min-h-[50px] px-3.5 h-12 rounded-2xl text-zinc-950 font-bold active:scale-95 transition-all touch-manipulation flex items-center justify-center cursor-pointer ${
+              playbackState.isPlaying
+                ? 'daw-playback-glow bg-amber-400 text-zinc-950 shadow-lg shadow-amber-500/30'
+                : 'bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-md shadow-amber-500/20'
+            }`}
             title={playbackState.isPlaying ? 'Pause' : 'Play Karaoke'}
           >
             {playbackState.isPlaying ? (
@@ -270,8 +277,8 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
             id="ktv-next-section-btn"
             type="button"
             onClick={onJumpNextSection}
-            className="min-w-[44px] min-h-[44px] p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-all active:scale-95 touch-manipulation flex items-center justify-center cursor-pointer"
-            title="Jump to Next Section (下一段落)"
+            className="min-w-[44px] min-h-[44px] p-2.5 rounded-xl bg-[#0a0c10] hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-all active:scale-95 touch-manipulation flex items-center justify-center cursor-pointer"
+            title="Jump to Next Section"
           >
             <SkipForward className="w-4.5 h-4.5" />
           </button>
@@ -283,23 +290,23 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
             onClick={onToggleLoopMeasure}
             className={`min-w-[44px] min-h-[44px] p-2.5 rounded-xl border transition-all active:scale-95 touch-manipulation flex items-center justify-center cursor-pointer ${
               isLoopingMeasure
-                ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-sm'
-                : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white'
+                ? 'bg-amber-500/20 border-amber-500/60 text-amber-300 shadow-sm'
+                : 'bg-[#0a0c10] border-zinc-800 text-zinc-400 hover:text-white'
             }`}
-            title="Loop active measure (循環播放當前小節)"
+            title="Loop Active Measure"
           >
             <Repeat className="w-4.5 h-4.5" />
           </button>
         </div>
 
         {/* Key Changer (Transpose) Controls */}
-        <div id="ktv-transpose-controls" className="flex items-center min-h-[44px] bg-zinc-800/90 rounded-xl p-1 border border-zinc-700 text-xs">
-          <span className="px-2 font-medium text-zinc-400">移調:</span>
+        <div id="ktv-transpose-controls" className="flex items-center min-h-[44px] bg-[#0a0c10] rounded-xl p-1 border border-zinc-800 text-xs">
+          <span className="px-2 font-medium text-zinc-400">Key:</span>
           <button
             id="ktv-transpose-down-btn"
             type="button"
             onClick={() => onTranspose(-1)}
-            className="min-w-[36px] min-h-[36px] px-2 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 font-bold text-zinc-200 transition-all active:scale-90 touch-manipulation flex items-center justify-center cursor-pointer"
+            className="min-w-[36px] min-h-[36px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 font-bold text-zinc-200 transition-all active:scale-90 touch-manipulation flex items-center justify-center cursor-pointer"
             title="Key down (b)"
           >
             ♭
@@ -311,7 +318,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
             id="ktv-transpose-up-btn"
             type="button"
             onClick={() => onTranspose(1)}
-            className="min-w-[36px] min-h-[36px] px-2 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 font-bold text-zinc-200 transition-all active:scale-90 touch-manipulation flex items-center justify-center cursor-pointer"
+            className="min-w-[36px] min-h-[36px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 font-bold text-zinc-200 transition-all active:scale-90 touch-manipulation flex items-center justify-center cursor-pointer"
             title="Key up (#)"
           >
             ♯
@@ -329,22 +336,22 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
         </div>
 
         {/* Instrument Selector */}
-        <div id="ktv-instrument-control" className="flex items-center min-h-[44px] gap-1.5 bg-zinc-800/90 rounded-xl p-1.5 border border-zinc-700 text-xs">
+        <div id="ktv-instrument-control" className="flex items-center min-h-[44px] gap-1.5 bg-[#0a0c10] rounded-xl p-1.5 border border-zinc-800 text-xs">
           <span className="px-1 font-medium text-zinc-400 flex items-center gap-1">
-            <Disc className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">音色:</span>
+            <Disc className="w-4 h-4 text-amber-400" />
+            <span className="hidden sm:inline">Tone:</span>
           </span>
           <select
             id="ktv-instrument-select"
             value={instrument}
             onChange={e => onSetInstrument(e.target.value as InstrumentType)}
-            className="bg-zinc-900 text-zinc-200 font-medium px-2.5 py-1.5 min-h-[36px] rounded-lg border border-zinc-700 focus:outline-hidden focus:border-amber-400 cursor-pointer touch-manipulation"
+            className="bg-[#141720] text-zinc-200 font-medium px-2.5 py-1.5 min-h-[36px] rounded-lg border border-zinc-700/80 focus:outline-hidden focus:border-amber-400 cursor-pointer touch-manipulation"
           >
-            <option value="piano">鋼琴 (Grand Piano)</option>
-            <option value="flute">臺灣竹笛/蕭 (Traditional Flute)</option>
-            <option value="guitar">古典吉他 (Acoustic Guitar)</option>
-            <option value="synth">80s KTV 合成器 (Synthesizer)</option>
-            <option value="bell">八音鐘 (Glockenspiel)</option>
+            <option value="piano">Grand Piano</option>
+            <option value="flute">Traditional Flute</option>
+            <option value="guitar">Acoustic Guitar</option>
+            <option value="synth">80s Synth</option>
+            <option value="bell">Glockenspiel</option>
           </select>
         </div>
 
@@ -356,11 +363,11 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
           className={`flex items-center min-h-[44px] gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-medium transition-all active:scale-95 touch-manipulation cursor-pointer ${
             showMixer
               ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-              : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white'
+              : 'bg-[#0a0c10] border-zinc-800 text-zinc-300 hover:text-white'
           }`}
         >
           <Sliders className="w-4 h-4" />
-          <span>混音 & 速度</span>
+          <span>Mixer & Tempo</span>
         </button>
 
         {/* 1-Tap Zoom Toggle for Music Stand Ergonomics */}
@@ -369,11 +376,11 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
             id="ktv-zoom-toggle-btn"
             type="button"
             onClick={onCycleZoom}
-            className="flex items-center min-h-[44px] gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-bold text-amber-300 transition-all active:scale-95 touch-manipulation cursor-pointer"
-            title={`譜架縮放 (Zoom): 目前 ${Math.round(zoomScale * 100)}% - 點擊循環切換 (100%~175%)`}
+            className="flex items-center min-h-[44px] gap-1.5 px-3.5 py-2 rounded-xl bg-[#0a0c10] hover:bg-zinc-800 border border-zinc-800 text-xs font-bold text-amber-300 transition-all active:scale-95 touch-manipulation cursor-pointer"
+            title={`Stage Zoom: Currently ${Math.round(zoomScale * 100)}% - Click to cycle (100%-175%)`}
           >
             <ZoomIn className="w-4 h-4 text-amber-400" />
-            <span>縮放 {Math.round(zoomScale * 100)}%</span>
+            <span>Zoom {Math.round(zoomScale * 100)}%</span>
           </button>
         )}
 
@@ -386,16 +393,16 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
             className={`flex items-center min-h-[44px] gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all active:scale-95 touch-manipulation cursor-pointer ${
               isStageMode
                 ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-md'
-                : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                : 'bg-[#0a0c10] hover:bg-zinc-800 border-zinc-800 text-zinc-200'
             }`}
-            title={isStageMode ? '退出譜架全螢幕模式' : '開啟譜架/舞台專注模式 (Stage Mode)'}
+            title={isStageMode ? 'Exit Stage Mode' : 'Enter Stage Mode'}
           >
             {isStageMode ? (
               <Minimize2 className="w-4 h-4" />
             ) : (
               <Maximize2 className="w-4 h-4 text-amber-400" />
             )}
-            <span>{isStageMode ? '離開譜架' : '譜架模式'}</span>
+            <span>{isStageMode ? 'Exit Stage' : 'Stage Mode'}</span>
           </button>
         )}
       </div>
@@ -406,7 +413,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
           {/* Melody Volume */}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between text-xs text-zinc-400">
-              <span>主旋律導唱 (Melody Lead)</span>
+              <span>Melody Lead</span>
               <span className="font-mono text-zinc-200">{Math.round(melodyVolume * 100)}%</span>
             </div>
             <input
@@ -423,7 +430,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
           {/* Backing Chord Volume */}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between text-xs text-zinc-400">
-              <span>和弦伴奏 (Accompaniment)</span>
+              <span>Accompaniment</span>
               <span className="font-mono text-zinc-200">{Math.round(backingVolume * 100)}%</span>
             </div>
             <input
@@ -440,7 +447,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
           {/* Metronome Volume */}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between text-xs text-zinc-400">
-              <span>節拍器 (Metronome Beat)</span>
+              <span>Metronome</span>
               <span className="font-mono text-zinc-200">{Math.round(metronomeVolume * 100)}%</span>
             </div>
             <input
@@ -457,7 +464,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
           {/* Tempo BPM Adjuster */}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between text-xs text-zinc-400">
-              <span>速度 (Speed: {Math.round(song.bpm * tempoMultiplier)} BPM)</span>
+              <span>Speed ({Math.round(song.bpm * tempoMultiplier)} BPM)</span>
               <span className="font-mono text-zinc-200">{tempoMultiplier.toFixed(2)}x</span>
             </div>
             <input

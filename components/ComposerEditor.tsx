@@ -137,7 +137,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     }, 3500);
   }, []);
 
-  // Compute segmented verses based on punctuation (標點) or whitespace/rest pause (空白)
+  // Compute segmented verses based on punctuation or whitespace/rest pause
   const verses = useMemo(() => groupSongIntoVerses(song), [song]);
 
   // Subscribe to audio engine playback state
@@ -210,8 +210,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           }
         }
 
-        const secName = song.measures[validMeasureIdx]?.section || `第 ${validMeasureIdx + 1} 小節`;
-        showNotice(`已跳轉至段落「${secName}」進行編寫`);
+        const secName = song.measures[validMeasureIdx]?.section || `Measure ${validMeasureIdx + 1}`;
+        showNotice(`Jumped to section "${secName}" for editing`);
 
         if (onTargetMeasureHandled) {
           onTargetMeasureHandled();
@@ -423,7 +423,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       else if (n.duration >= 1) newDur = 0.5;
       else if (n.duration >= 0.5) newDur = 0.25;
       else newDur = 0.125;
-      showNotice(`已減半時值：${newDur} 拍 (/)`);
+      showNotice(`Halved duration: ${newDur} beats (/)`);
       return { ...n, duration: newDur };
     });
   }, [updateSelectedNote, showNotice]);
@@ -437,7 +437,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       else if (n.duration <= 0.5) newDur = 1;
       else if (n.duration <= 1) newDur = 2;
       else newDur = 4;
-      showNotice(`已加倍時值：${newDur} 拍 (*)`);
+      showNotice(`Doubled duration: ${newDur} beats (*)`);
       return { ...n, duration: newDur };
     });
   }, [updateSelectedNote, showNotice]);
@@ -481,8 +481,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           custom: punct,
         },
       }));
-      const label = punct === '\n' ? '↵ 換行' : punct;
-      showNotice(`已填入標點「${label}」並將時值設為 0 拍`);
+      const label = punct === '\n' ? '↵ newline' : punct;
+      showNotice(`Inserted punctuation "${label}" with 0 beats`);
     },
     [selectedMeasureIndex, selectedNoteIndex, updateSelectedNote, showNotice]
   );
@@ -503,7 +503,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         custom: annot,
       },
     }));
-    showNotice(`已填入樂曲/演唱註解「${annot}」(0 拍不佔時值)`);
+    showNotice(`Inserted annotation "${annot}" (0 beats)`);
   };
 
   // Set custom annotation text on selected note
@@ -608,7 +608,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     });
 
     onUpdateSong(normalizeSongDurations({ ...song, measures: newMeasures }));
-    showNotice(`已將「${text}」分配至第 ${mIdx + 1} 小節各音符！`);
+    showNotice(`Distributed "${text}" across notes in Measure ${mIdx + 1}!`);
     setMeasureBatchTexts(prev => ({ ...prev, [mIdx]: '' }));
   };
 
@@ -651,7 +651,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     });
 
     onUpdateSong(normalizeSongDurations({ ...song, measures: newMeasures }));
-    showNotice(`已將「${text}」分配至第 ${vIdx + 1} 句各音符！`);
+    showNotice(`Distributed "${text}" across notes in Verse ${vIdx + 1}!`);
     setVerseBatchTexts(prev => ({ ...prev, [vIdx]: '' }));
   };
 
@@ -691,7 +691,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const handleDeleteNoteAt = (mIdx: number, nIdx: number) => {
     const targetMeasure = song.measures[mIdx];
     if (targetMeasure && targetMeasure.notes.length <= 1) {
-      showNotice('小節內至少需保留一個音符。如需刪除請直接刪除整個小節。');
+      showNotice('Measure must retain at least one note. To delete, remove the entire measure.');
       return;
     }
 
@@ -763,7 +763,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   // Measure Management: Delete Measure
   const handleDeleteMeasure = (mIdx: number) => {
     if (song.measures.length <= 1) {
-      showNotice('樂曲中至少需保留一個小節。');
+      showNotice('Song must retain at least one measure.');
       return;
     }
 
@@ -827,7 +827,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       onUpdateSong({ ...song, measures: newMeasures });
       setSelectedCoord([mIdx + 1, 0]);
-      showNotice(`已在此音符處插入小節線，拆分為第 ${mIdx + 1} 與第 ${mIdx + 2} 小節`);
+      showNotice(`Inserted barline at note, splitting into Measures ${mIdx + 1} and ${mIdx + 2}`);
     },
     [song, onUpdateSong, showNotice]
   );
@@ -854,7 +854,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       onUpdateSong({ ...song, measures: newMeasures });
       setSelectedCoord([mIdx, currentM.notes.length]);
-      showNotice(`已將第 ${mIdx + 1} 與第 ${mIdx + 2} 小節合併為一小節`);
+      showNotice(`Merged Measures ${mIdx + 1} and ${mIdx + 2} into one measure`);
     },
     [song, onUpdateSong, showNotice]
   );
@@ -864,7 +864,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     (mIdx: number) => {
       const currentM = song.measures[mIdx];
       if (!currentM || currentM.notes.length <= 1) {
-        showNotice('小節內至少需保留一個音符');
+        showNotice('Measure must retain at least one note');
         return;
       }
 
@@ -895,7 +895,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       onUpdateSong({ ...song, measures: newMeasures });
       setSelectedCoord([mIdx + 1, 0]);
-      showNotice(`已將末音移入第 ${mIdx + 2} 小節`);
+      showNotice(`Moved last note into Measure ${mIdx + 2}`);
     },
     [song, onUpdateSong, showNotice]
   );
@@ -927,7 +927,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       onUpdateSong({ ...song, measures: newMeasures });
       setSelectedCoord([mIdx, newCurrentNotes.length - 1]);
-      showNotice(`已從第 ${mIdx + 2} 小節借入首音`);
+      showNotice(`Borrowed first note from Measure ${mIdx + 2}`);
     },
     [song, onUpdateSong, showNotice]
   );
@@ -947,7 +947,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       onUpdateSong({ ...song, measures: newMeasures });
       setSelectedCoord([toIdx, 0]);
-      showNotice(`已將第 ${fromIdx + 1} 小節移動至第 ${toIdx + 1} 小節位置`);
+      showNotice(`Moved Measure ${fromIdx + 1} to position ${toIdx + 1}`);
     },
     [song, onUpdateSong, showNotice]
   );
@@ -961,7 +961,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       });
       onUpdateSong({ ...song, measures: newMeasures });
       const willBreak = !song.measures[mIdx]?.isLineBreak;
-      showNotice(willBreak ? `已設定第 ${mIdx + 1} 小節後換行` : `已取消第 ${mIdx + 1} 小節後換行`);
+      showNotice(willBreak ? `Set line break after Measure ${mIdx + 1}` : `Removed line break after Measure ${mIdx + 1}`);
     },
     [song, onUpdateSong, showNotice]
   );
@@ -1004,7 +1004,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       });
 
       onUpdateSong({ ...song, measures: newMeasures });
-      showNotice(`已為第 ${mIdx + 1} 小節補滿 ${report.absDiff} 拍休止符 (0)`);
+      showNotice(`Padded Measure ${mIdx + 1} with ${report.absDiff} beats of rest (0)`);
     },
     [song, onUpdateSong, showNotice]
   );
@@ -1057,12 +1057,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     });
 
     if (fixedCount === 0) {
-      showNotice('全曲小節拍數皆已完整，無需補充！');
+      showNotice('All measures already have full beats!');
       return;
     }
 
     onUpdateSong({ ...song, measures: newMeasures });
-    showNotice(`已自動為全曲 ${fixedCount} 個不足拍小節補滿休止符！`);
+    showNotice(`Automatically padded ${fixedCount} incomplete measure(s) with rests!`);
   }, [song, onUpdateSong, showNotice]);
 
   // Undo / Redo triggers with user feedback
@@ -1070,7 +1070,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     if (!onUndo) return false;
     const success = onUndo();
     if (success) {
-      showNotice('已復原上一步修改 (Undo)');
+      showNotice('Undo modification');
     }
     return success;
   }, [onUndo, showNotice]);
@@ -1079,7 +1079,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     if (!onRedo) return false;
     const success = onRedo();
     if (success) {
-      showNotice('已重做下一步修改 (Redo)');
+      showNotice('Redo modification');
     }
     return success;
   }, [onRedo, showNotice]);
@@ -1243,7 +1243,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onClick={() => setNotification(null)}
             className="px-2.5 py-1 bg-zinc-950/20 hover:bg-zinc-950/30 rounded-lg text-xs cursor-pointer font-bold"
           >
-            關閉
+            Close
           </button>
         </div>
       )}
@@ -1275,7 +1275,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-base font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
             <Music2 className="w-5 h-5 text-amber-500" />
-            <span>台語簡譜曲譜編輯區 (WYSIWYG Jianpu Score Sheet)</span>
+            <span>Jianpu Score Editor</span>
           </h2>
 
           <div className="flex items-center gap-2 text-xs">
@@ -1290,11 +1290,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                   type="button"
                   onClick={handleUndo}
                   disabled={!canUndo}
-                  title={canUndo ? `復原 (Undo) [Ctrl+Z] · 尚有 ${pastCount} 步` : '無可復原步驟 (Undo)'}
+                  title={canUndo ? `Undo [Ctrl+Z] · ${pastCount} step(s)` : 'No steps to undo'}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
                 >
                   <Undo2 className="w-3.5 h-3.5" />
-                  <span>復原</span>
+                  <span>Undo</span>
                   {canUndo && pastCount > 0 && (
                     <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
                       {pastCount}
@@ -1309,11 +1309,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                   type="button"
                   onClick={handleRedo}
                   disabled={!canRedo}
-                  title={canRedo ? `重做 (Redo) [Ctrl+Y] · 尚有 ${futureCount} 步` : '無可重做步驟 (Redo)'}
+                  title={canRedo ? `Redo [Ctrl+Y] · ${futureCount} step(s)` : 'No steps to redo'}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
                 >
                   <Redo2 className="w-3.5 h-3.5" />
-                  <span>重做</span>
+                  <span>Redo</span>
                   {canRedo && futureCount > 0 && (
                     <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
                       {futureCount}
@@ -1329,12 +1329,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
               type="button"
               onClick={() => setIsOrganizerOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-              title="小節總覽、拍數檢查與順序排版"
+              title="Measure overview, rhythm check, and layout"
             >
               <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>小節總覽編排</span>
+              <span>Measure Organizer</span>
               {incompleteMeasuresCount > 0 && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono font-black" title={`${incompleteMeasuresCount} 個小節拍數未滿或超拍`}>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono font-black" title={`${incompleteMeasuresCount} measure(s) under or over beat limit`}>
                   {incompleteMeasuresCount}
                 </span>
               )}
@@ -1346,7 +1346,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl font-bold shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>新增小節</span>
+              <span>Add Measure</span>
             </button>
           </div>
         </div>
@@ -1359,7 +1359,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>編輯檢視模式:</span>
+              <span>Editor View Mode:</span>
             </span>
             <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl shadow-xs border border-zinc-200 dark:border-zinc-700">
               <button
@@ -1373,9 +1373,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                 }`}
               >
                 <AlignLeft className="w-3.5 h-3.5" />
-                <span>句編輯模式 (Verse Mode)</span>
+                <span>Verse Mode</span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-600/30 text-zinc-950 dark:text-zinc-900 font-extrabold ml-1">
-                  推薦
+                  Recommended
                 </span>
               </button>
 
@@ -1390,7 +1390,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>小節編輯模式 (Measure Mode)</span>
+                <span>Measure Mode</span>
               </button>
             </div>
           </div>
@@ -1398,13 +1398,13 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           <div className="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             {editMode === 'verse' ? (
               <span className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/60 font-medium">
-                <span className="font-bold text-amber-600 dark:text-amber-400">句模式：</span>
-                依歌詞標點符號或空白留白自動分句 · 共 {verses.length} 句
+                <span className="font-bold text-amber-600 dark:text-amber-400">Verse Mode:</span>
+                Auto-grouped by punctuation and breath rests · {verses.length} verses total
               </span>
             ) : (
               <span className="flex items-center gap-1.5 bg-zinc-200/70 dark:bg-zinc-700/60 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-xl font-medium">
-                <span className="font-bold text-zinc-900 dark:text-zinc-100">小節模式：</span>
-                依樂譜小節線獨立分段 · 共 {song.measures.length} 小節
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">Measure Mode:</span>
+                Arranged by score barlines · {song.measures.length} measures total
               </span>
             )}
           </div>
@@ -1525,7 +1525,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             className="flex items-center gap-2 px-6 py-3.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-extrabold text-sm rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px]"
           >
             <Plus className="w-4 h-4" />
-            <span>在曲末新增小節 (Append Measure)</span>
+            <span>Append Measure</span>
           </button>
         </div>
       </div>

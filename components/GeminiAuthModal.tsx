@@ -92,7 +92,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
     setIsCollapsed(false);
     setPasscode('');
     setSuccessMsg(null);
-    setErrorMsg('已清除驗證狀態與金鑰 (Authentication revoked)');
+    setErrorMsg('Authentication revoked and credentials cleared.');
   };
 
   const handleModelChange = (model: GeminiModelChoice) => {
@@ -124,7 +124,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
             <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
               <Sparkles className="w-4 h-4" />
             </div>
-            <span>Gemini AI 存取權限驗證 (Passcode Auth)</span>
+            <span>Gemini AI Passcode Authorization</span>
           </div>
           <button
             id="gemini-auth-close-btn"
@@ -146,15 +146,15 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-bold text-sm">
                   <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>通行密碼已驗證 (Authenticated)</span>
+                  <span>Passcode Authenticated</span>
                 </div>
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 font-mono font-bold">
-                  已解鎖
+                  Unlocked
                 </span>
               </div>
 
               <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Gemini AI 存取功能已就緒，支援台語歌詞多格式音節自動解析與聲調對齊。
+                Gemini AI access is ready. Automatic syllable segmentation and tone alignment for Taigi lyrics are enabled.
               </p>
 
               {/* Collapsed Model & Effort Summary */}
@@ -182,7 +182,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                   className="flex items-center gap-1 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer"
                 >
                   <ChevronDown className="w-3.5 h-3.5" />
-                  <span>展開設定 / 變更通行碼</span>
+                  <span>Change Passcode / Settings</span>
                 </button>
 
                 <button
@@ -192,7 +192,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                   className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 hover:underline cursor-pointer"
                 >
                   <LogOut className="w-3 h-3" />
-                  <span>清除授權 (Lock)</span>
+                  <span>Revoke Access (Lock)</span>
                 </button>
               </div>
             </div>
@@ -207,10 +207,10 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                 <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div className="flex flex-col gap-1">
                   <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                    請輸入通行密碼 (Enter Passcode)
+                    Enter Passcode
                   </h4>
                   <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                    輸入預設通行碼（提示：<code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 rounded font-mono font-bold text-amber-800 dark:text-amber-300">taigi</code>）或填入個人 Gemini API Key 即可解鎖。
+                    Enter the default passcode (Hint: <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 rounded font-mono font-bold text-amber-800 dark:text-amber-300">taigi</code>) or your personal Gemini API Key to unlock.
                   </p>
                 </div>
               </div>
@@ -223,7 +223,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                 >
                   <span className="flex items-center gap-1.5">
                     <Key className="w-3.5 h-3.5 text-amber-500" />
-                    <span>通行密碼 / API Key</span>
+                    <span>Passcode / API Key</span>
                   </span>
                   {isAuthenticated && (
                     <button
@@ -232,7 +232,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                       className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5 cursor-pointer"
                     >
                       <ChevronUp className="w-3 h-3" />
-                      <span>收合 (Collapse)</span>
+                      <span>Collapse</span>
                     </button>
                   )}
                 </label>
@@ -243,7 +243,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                     type={showPasscode ? 'text' : 'password'}
                     value={passcode}
                     onChange={e => setPasscode(e.target.value)}
-                    placeholder="輸入通行密碼或 AIzaSy... 金鑰"
+                    placeholder="Enter passcode or AIzaSy... key"
                     autoFocus
                     className="w-full pl-3 pr-10 py-2.5 text-sm bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-mono"
                   />
@@ -265,7 +265,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                     className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1"
                   >
                     <Cpu className="w-3 h-3 text-amber-500" />
-                    <span>模型選擇 (Model)</span>
+                    <span>Model Choice</span>
                   </label>
                   <select
                     id="gemini-auth-model-select"
@@ -273,7 +273,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                     onChange={e => handleModelChange(e.target.value as GeminiModelChoice)}
                     className="w-full px-2.5 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-200 cursor-pointer"
                   >
-                    <option value="gemini-3.7-flash">gemini-3.7-flash (預設)</option>
+                    <option value="gemini-3.7-flash">gemini-3.7-flash (Default)</option>
                     <option value="gemini-3.7-flash-lite">gemini-3.7-flash-lite</option>
                   </select>
                 </div>
@@ -284,7 +284,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                     className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1"
                   >
                     <BrainCircuit className="w-3 h-3 text-amber-500" />
-                    <span>思考程度 (Thinking)</span>
+                    <span>Thinking Effort</span>
                   </label>
                   <select
                     id="gemini-auth-effort-select"
@@ -292,7 +292,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                     onChange={e => handleEffortChange(e.target.value as GeminiThinkingEffort)}
                     className="w-full px-2.5 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-200 cursor-pointer"
                   >
-                    <option value="MEDIUM">MEDIUM (預設)</option>
+                    <option value="MEDIUM">MEDIUM (Default)</option>
                     <option value="HIGH">HIGH</option>
                   </select>
                 </div>
@@ -327,7 +327,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                 className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-sm shadow-md transition-all disabled:opacity-50 cursor-pointer"
               >
                 <Unlock className="w-4 h-4" />
-                <span>驗證通行碼並解鎖 (Verify & Unlock)</span>
+                <span>Verify & Unlock</span>
               </button>
             </form>
           )}
@@ -341,7 +341,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-semibold transition-colors cursor-pointer"
           >
-            關閉 (Close)
+            Close
           </button>
         </div>
       </div>

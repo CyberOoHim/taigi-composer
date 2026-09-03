@@ -111,10 +111,10 @@ export const AbLoopRehearsalBar: React.FC<AbLoopRehearsalBarProps> = ({
   return (
     <div
       id="ab-loop-rehearsal-bar"
-      className={`w-full px-4 sm:px-6 py-3.5 rounded-2xl border transition-all duration-200 shadow-md ${
+      className={`w-full px-4 sm:px-6 py-3.5 rounded-2xl border transition-all duration-200 shadow-md select-none ${
         abLoop.enabled
-          ? 'bg-zinc-900/95 border-amber-500/80 ring-2 ring-amber-500/30'
-          : 'bg-zinc-900/80 border-zinc-800'
+          ? 'bg-[#10121a]/98 border-amber-500/70 ring-2 ring-amber-500/20'
+          : 'bg-[#10121a]/85 border-zinc-800'
       }`}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -127,19 +127,19 @@ export const AbLoopRehearsalBar: React.FC<AbLoopRehearsalBarProps> = ({
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px] ${
               abLoop.enabled
                 ? 'bg-amber-500 text-zinc-950 font-black shadow-md ring-2 ring-amber-400'
-                : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700'
+                : 'bg-[#0a0c10] hover:bg-zinc-800 text-zinc-300 border border-zinc-800'
             }`}
-            title="開啟或關閉合唱團樂句 A-B 循環排練模式"
+            title="Toggle A-B Phrase Rehearsal Loop Mode"
           >
             <Repeat className={`w-4 h-4 ${abLoop.enabled ? 'animate-spin-slow' : ''}`} />
-            <span>{abLoop.enabled ? 'A–B 循環排練中' : '開啟 A–B 循環排練'}</span>
+            <span>{abLoop.enabled ? 'A–B Loop Active' : 'Enable A–B Loop'}</span>
           </button>
 
           {abLoop.enabled && (
             <div className="flex items-center gap-2 flex-wrap">
               {/* Point A Selector */}
-              <div className="flex items-center gap-1.5 bg-zinc-800/90 border border-zinc-700 px-2.5 py-1.5 rounded-xl text-xs">
-                <span className="font-bold text-amber-400">起點 A:</span>
+              <div className="flex items-center gap-1.5 bg-[#0a0c10] border border-zinc-800 px-3 py-1.5 rounded-xl text-xs min-h-[38px]">
+                <span className="font-bold text-amber-400">Point A:</span>
                 <select
                   id="ab-loop-start-select"
                   value={abLoop.startMeasure}
@@ -156,7 +156,7 @@ export const AbLoopRehearsalBar: React.FC<AbLoopRehearsalBarProps> = ({
                 >
                   {song.measures.map((m, idx) => (
                     <option key={`start-${idx}`} value={idx} className="bg-zinc-900 text-white">
-                      第 {idx + 1} 小節 {m.section ? `(${m.section})` : ''}
+                      Measure #{idx + 1} {m.section ? `(${m.section})` : ''}
                     </option>
                   ))}
                 </select>
@@ -165,8 +165,8 @@ export const AbLoopRehearsalBar: React.FC<AbLoopRehearsalBarProps> = ({
               <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0" />
 
               {/* Point B Selector */}
-              <div className="flex items-center gap-1.5 bg-zinc-800/90 border border-zinc-700 px-2.5 py-1.5 rounded-xl text-xs">
-                <span className="font-bold text-amber-400">終點 B:</span>
+              <div className="flex items-center gap-1.5 bg-[#0a0c10] border border-zinc-800 px-3 py-1.5 rounded-xl text-xs min-h-[38px]">
+                <span className="font-bold text-amber-400">Point B:</span>
                 <select
                   id="ab-loop-end-select"
                   value={abLoop.endMeasure}
@@ -183,15 +183,15 @@ export const AbLoopRehearsalBar: React.FC<AbLoopRehearsalBarProps> = ({
                 >
                   {song.measures.map((m, idx) => (
                     <option key={`end-${idx}`} value={idx} className="bg-zinc-900 text-white">
-                      第 {idx + 1} 小節 {m.section ? `(${m.section})` : ''}
+                      Measure #{idx + 1} {m.section ? `(${m.section})` : ''}
                     </option>
                   ))}
                 </select>
               </div>
 
               {/* Span Badge */}
-              <span className="text-[11px] font-mono text-zinc-400 bg-zinc-800 px-2 py-1 rounded-lg border border-zinc-700">
-                共 {abLoop.endMeasure - abLoop.startMeasure + 1} 小節
+              <span className="daw-lcd text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-xs">
+                {abLoop.endMeasure - abLoop.startMeasure + 1} Measures
               </span>
             </div>
           )}
@@ -201,30 +201,30 @@ export const AbLoopRehearsalBar: React.FC<AbLoopRehearsalBarProps> = ({
         {abLoop.enabled && (
           <div className="flex items-center gap-2 flex-wrap">
             {/* Quick Presets */}
-            <div className="flex items-center bg-zinc-800/90 rounded-xl p-0.5 border border-zinc-700/80 text-[11px]">
+            <div className="flex items-center bg-[#0a0c10] rounded-xl p-0.5 border border-zinc-800 text-[11px]">
               <button
                 type="button"
                 onClick={handleSetPresetSection}
-                className="px-2.5 py-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 transition-colors cursor-pointer font-medium"
-                title="以當前段落設為 A-B 範圍"
+                className="px-3 py-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer font-medium min-h-[36px] touch-manipulation"
+                title="Set A-B range to current section"
               >
-                當前段落
+                Current Section
               </button>
               <button
                 type="button"
                 onClick={handleSetPreset2Bars}
-                className="px-2.5 py-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 transition-colors cursor-pointer font-medium"
-                title="以當前 2 小節設為 A-B 範圍"
+                className="px-3 py-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer font-medium min-h-[36px] touch-manipulation"
+                title="Set A-B range to current 2 measures"
               >
-                2 小節
+                2 Measures
               </button>
               <button
                 type="button"
                 onClick={handleSetPreset4Bars}
-                className="px-2.5 py-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 transition-colors cursor-pointer font-medium"
-                title="以當前 4 小節設為 A-B 範圍"
+                className="px-3 py-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer font-medium min-h-[36px] touch-manipulation"
+                title="Set A-B range to current 4 measures"
               >
-                4 小節
+                4 Measures
               </button>
             </div>
 
@@ -240,10 +240,10 @@ export const AbLoopRehearsalBar: React.FC<AbLoopRehearsalBarProps> = ({
                 }
               }}
               className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black rounded-xl text-xs shadow-md transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-              title="從起點 A 啟動循環排練"
+              title="Start loop rehearsal from Point A"
             >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>{isPlaying ? '重新排練 A–B' : '開始 A–B 排練'}</span>
+              <Play className="w-4 h-4 fill-current" />
+              <span>{isPlaying ? 'Restart A–B' : 'Start A–B Loop'}</span>
             </button>
           </div>
         )}
@@ -254,12 +254,12 @@ export const AbLoopRehearsalBar: React.FC<AbLoopRehearsalBarProps> = ({
         <div className="mt-3 pt-3 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-3 text-xs">
           {/* Loop Count Target */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-zinc-400 font-medium">循環次數:</span>
+            <span className="text-zinc-400 font-medium">Repetitions:</span>
             {[
-              { label: '無限 (∞)', val: 0 },
-              { label: '3 次', val: 3 },
-              { label: '5 次', val: 5 },
-              { label: '10 次', val: 10 },
+              { label: 'Infinite (∞)', val: 0 },
+              { label: '3x', val: 3 },
+              { label: '5x', val: 5 },
+              { label: '10x', val: 10 },
             ].map(opt => (
               <button
                 key={opt.val}
@@ -282,12 +282,12 @@ export const AbLoopRehearsalBar: React.FC<AbLoopRehearsalBarProps> = ({
 
             {/* Current Iteration Counter */}
             <div className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800 text-amber-300 rounded-lg border border-zinc-700 font-mono font-bold">
-              <span>已排練: {abLoop.currentIteration} 次</span>
-              {abLoop.loopTarget > 0 && <span>/ {abLoop.loopTarget} 次</span>}
+              <span>Count: {abLoop.currentIteration}</span>
+              {abLoop.loopTarget > 0 && <span>/ {abLoop.loopTarget}</span>}
             </div>
           </div>
 
-          {/* Tempo Trainer (漸進變速訓練器) */}
+          {/* Tempo Trainer */}
           <div className="flex items-center gap-2 flex-wrap">
             <button
               id="ab-loop-tempo-trainer-btn"
@@ -303,17 +303,17 @@ export const AbLoopRehearsalBar: React.FC<AbLoopRehearsalBarProps> = ({
                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/60 ring-1 ring-emerald-400/40'
                   : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60'
               }`}
-              title="啟用漸進變速訓練：每循環一次自動提速 5%，直到滿速 100%"
+              title="Enable tempo trainer: automatically accelerate 5% after each loop until 100%"
             >
               <Zap className={`w-3.5 h-3.5 ${abLoop.tempoTrainer ? 'text-emerald-400' : ''}`} />
-              <span>速度訓練器 (+5%/次)</span>
+              <span>Tempo Trainer (+5%/loop)</span>
               {abLoop.tempoTrainer && <Check className="w-3.5 h-3.5 text-emerald-400" />}
             </button>
 
             {/* Current Tempo Multiplier */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-800 rounded-xl border border-zinc-700 text-zinc-300 font-mono">
               <Gauge className="w-3.5 h-3.5 text-amber-400" />
-              <span>目前速度: {Math.round(tempoMultiplier * 100)}%</span>
+              <span>Speed: {Math.round(tempoMultiplier * 100)}%</span>
             </div>
 
             {/* Reset Tempo */}
@@ -321,7 +321,7 @@ export const AbLoopRehearsalBar: React.FC<AbLoopRehearsalBarProps> = ({
               type="button"
               onClick={onResetTempo}
               className="p-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700 transition-colors cursor-pointer"
-              title="重設速度至基準 100%"
+              title="Reset speed to 100%"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -340,10 +340,10 @@ export const AbLoopRehearsalBar: React.FC<AbLoopRehearsalBarProps> = ({
                   ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/60 font-bold'
                   : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60'
               }`}
-              title="起跑前先敲 1 小節預備節拍 (1-measure count-in)"
+              title="1-measure count-in before playback starts"
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>預備拍 (Count-in)</span>
+              <span>Count-in</span>
             </button>
           </div>
         </div>

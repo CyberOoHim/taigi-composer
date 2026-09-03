@@ -56,14 +56,14 @@ function safeSetItem(key: string, value: string): void {
 }
 
 // ============================================================================
-// 1. ACTIVE VIEW TAB (Default: 'split' / 雙視窗)
+// 1. ACTIVE VIEW TAB (Default: 'split')
 // ============================================================================
 export function getStoredActiveTab(): ActiveTabMode {
   const val = safeGetItem(STORAGE_KEYS.ACTIVE_TAB);
   if (val === 'split' || val === 'karaoke' || val === 'editor') {
     return val;
   }
-  return 'split'; // Default to 雙視窗
+  return 'split'; // Default to split view
 }
 
 export function setStoredActiveTab(tab: ActiveTabMode): void {

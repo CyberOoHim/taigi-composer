@@ -37,15 +37,15 @@ export const AlignedScoreRoll: React.FC<AlignedScoreRollProps> = React.memo(({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
           <Music className="w-3.5 h-3.5 text-amber-400" />
-          <span>簡譜曲譜對齊滾動條 (Aligned Numbered Music Notation Roll)</span>
+          <span>Aligned Numbered Music Notation Roll</span>
           {loopRange && (
             <span className="text-[10px] font-mono font-bold text-amber-300 bg-amber-950/70 border border-amber-600/50 px-2 py-0.5 rounded-md">
-              A-B 循環區間: #{loopRange.startMeasure + 1} ~ #{loopRange.endMeasure + 1}
+              A-B Loop: #{loopRange.startMeasure + 1} - #{loopRange.endMeasure + 1}
             </span>
           )}
         </div>
         <span className="text-[11px] text-zinc-500">
-          第 {playbackState.currentMeasureIndex + 1} 小節 (Measure {playbackState.currentMeasureIndex + 1} of {song.measures.length})
+          Measure {playbackState.currentMeasureIndex + 1} of {song.measures.length}
         </span>
       </div>
 
@@ -74,7 +74,7 @@ export const AlignedScoreRoll: React.FC<AlignedScoreRollProps> = React.memo(({
                   ? 'bg-amber-950/25 border-amber-500/50 hover:border-amber-400'
                   : 'bg-zinc-950/70 border-zinc-800/80 hover:border-zinc-700'
               }`}
-              title={`點擊跳轉至第 ${mIdx + 1} 小節${isInLoopRange ? ' (A-B 排練區間)' : ''}`}
+              title={`Click to jump to Measure #${mIdx + 1}${isInLoopRange ? ' (A-B Loop Range)' : ''}`}
             >
               {/* Measure Header with Section info and Edit button */}
               <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1.5 px-1">
@@ -82,12 +82,12 @@ export const AlignedScoreRoll: React.FC<AlignedScoreRollProps> = React.memo(({
                   <span className="font-mono font-semibold">#{measure.measureNumber}</span>
                   {isLoopStart && (
                     <span className="text-[9px] font-black font-mono text-zinc-950 bg-amber-400 px-1 py-0.2 rounded shadow-2xs">
-                      起點 A
+                      Loop A
                     </span>
                   )}
                   {isLoopEnd && (
                     <span className="text-[9px] font-black font-mono text-zinc-950 bg-amber-400 px-1 py-0.2 rounded shadow-2xs">
-                      終點 B
+                      Loop B
                     </span>
                   )}
                   {measure.section && (
@@ -118,7 +118,7 @@ export const AlignedScoreRoll: React.FC<AlignedScoreRollProps> = React.memo(({
                         } else {
                           onEditSection({
                             id: `sec-${mIdx}`,
-                            name: measure.section || `第 ${mIdx + 1} 小節`,
+                            name: measure.section || `Measure #${mIdx + 1}`,
                             startMeasureIndex: mIdx,
                             endMeasureIndex: mIdx,
                             startMeasureNumber: measure.measureNumber,
@@ -133,8 +133,8 @@ export const AlignedScoreRoll: React.FC<AlignedScoreRollProps> = React.memo(({
                       }
                     }}
                     className="p-1 rounded-md text-zinc-400 hover:text-amber-300 hover:bg-zinc-800 active:scale-90 transition-all cursor-pointer border border-transparent hover:border-zinc-700 ml-1.5"
-                    title={`編輯此段落/小節 (跳轉至簡譜編寫器)`}
-                    aria-label={`編輯第 ${mIdx + 1} 小節`}
+                    title="Edit this section/measure (switch to Score Editor)"
+                    aria-label={`Edit Measure #${mIdx + 1}`}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>

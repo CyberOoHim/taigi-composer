@@ -119,7 +119,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
             type="button"
             onClick={() => onJumpToSection(activeSection)}
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800/90 hover:bg-zinc-700/90 border border-amber-500/40 text-xs font-semibold text-amber-300 shadow-md transition-all active:scale-95 cursor-pointer"
-            title={`點擊重新從「${activeSection.name}」開始`}
+            title={`Click to restart from "${activeSection.name}"`}
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             <span>{activeSection.name}</span>
@@ -133,7 +133,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
         {isVerseCompleted && (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs font-semibold shadow-xs">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>唱畢 (Phrase Complete)</span>
+            <span>Phrase Complete</span>
           </span>
         )}
       </div>
@@ -154,14 +154,14 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
               {/* Next verse header label */}
               <div className="flex items-center gap-1.5 shrink-0 select-none">
                 <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-medium tracking-wider px-2 py-0.5 rounded-md bg-zinc-800/60 text-zinc-400 border border-zinc-800">
-                  <span className="text-amber-400/80 font-bold">下句預覽</span>
+                  <span className="text-amber-400/80 font-bold">Next Verse</span>
                   <span className="text-[9px] text-zinc-500 font-mono">
                     #{nextVerse.startMeasureNumber}~#{nextVerse.endMeasureNumber}
                   </span>
                 </span>
                 {nextVerseTiming && nextVerseTiming.firstVocalWord && (
                   <span className="hidden md:inline-flex items-center gap-1 text-[10px] text-amber-400/80 font-medium px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-900/40">
-                    <span>首字:</span>
+                    <span>First:</span>
                     <strong className="text-amber-300/90">{nextVerseTiming.firstVocalWord}</strong>
                     {nextVerseTiming.firstVocalPitchDisplay && (
                       <span className="font-mono text-zinc-400">({nextVerseTiming.firstVocalPitchDisplay})</span>
@@ -248,7 +248,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                     {/* First sung note indicator badge */}
                     {isFirstSungNote && (
                       <span className="absolute -top-3.5 text-[8px] sm:text-[9px] font-black text-amber-300 bg-amber-950 px-1 py-0 rounded border border-amber-500/70 leading-none whitespace-nowrap shadow-xs">
-                        首字
+                        First
                       </span>
                     )}
 
@@ -331,7 +331,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
               exit={{ opacity: 0 }}
               className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 italic select-none"
             >
-              <span>(尾聲 · Final Verse of Song)</span>
+              <span>(Final Verse of Song)</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -452,7 +452,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                     {/* First character visual hint */}
                     {isTargetFirstVocal && (
                       <span className="absolute -top-5 text-[9px] sm:text-[10px] font-bold text-amber-300 bg-amber-950/90 px-1.5 py-0.5 rounded border border-amber-500/60 shadow-xs whitespace-nowrap select-none">
-                        首字
+                        First
                       </span>
                     )}
 
@@ -652,7 +652,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
             </motion.div>
           ) : (
             <div className="flex flex-col items-center justify-center p-8 text-zinc-500 italic select-none">
-              <span>(等待樂曲準備中 · Ready)</span>
+              <span>(Waiting for playback · Ready)</span>
             </div>
           )}
         </AnimatePresence>
