@@ -77,10 +77,13 @@ export function verifyGeminiPasscode(input: string): GeminiAuthResult {
       localStorage.setItem(AUTH_STORAGE_KEY, 'true');
       localStorage.setItem(PASSCODE_STORAGE_KEY, trimmed);
     }
+    const hasEnvKey = typeof process !== 'undefined' && Boolean(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
     return {
       success: true,
       isApiKey: false,
-      message: 'Passcode verified successfully! Gemini API access unlocked.',
+      message: hasEnvKey
+        ? 'Passcode verified successfully! Gemini AI access unlocked.'
+        : 'Passcode verified! If AI calls fail, please enter your personal Gemini API Key.',
     };
   }
 

@@ -176,6 +176,15 @@ export default function Home() {
   // Global Keyboard shortcuts: Space for playback, Ctrl+Z / Cmd+Z for undo, Ctrl+Y / Cmd+Shift+Z for redo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isTyping =
+        activeEl instanceof HTMLInputElement ||
+        activeEl instanceof HTMLTextAreaElement ||
+        activeEl instanceof HTMLSelectElement ||
+        activeEl?.getAttribute('contenteditable') === 'true';
+
+      if (isTyping) return;
+
       // Check for Undo (Ctrl+Z or Cmd+Z without Shift)
       if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
         e.preventDefault();
@@ -192,13 +201,8 @@ export default function Home() {
         return;
       }
 
-      // Spacebar to toggle playback (if not typing in input/textarea/select)
-      if (
-        (e.code === 'Space' || e.key === ' ') &&
-        document.activeElement?.tagName !== 'INPUT' &&
-        document.activeElement?.tagName !== 'TEXTAREA' &&
-        document.activeElement?.tagName !== 'SELECT'
-      ) {
+      // Spacebar to toggle playback
+      if (e.code === 'Space' || e.key === ' ') {
         e.preventDefault();
         handleTogglePlay();
       }
@@ -257,7 +261,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    Want to edit this song's melody, notes, or lyrics?
+                    Want to edit this song&apos;s melody, notes, or lyrics?
                   </h4>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
                     Switch to Score Editor mode to adjust numbered notes 1-7, key signatures, chords, and Hanji/POJ/TL lyrics. Full Undo and Redo supported.

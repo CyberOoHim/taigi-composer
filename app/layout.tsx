@@ -58,7 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Taigi Composer" />
       </head>
-      <body suppressHydrationWarning className="antialiased select-none">
+      <body suppressHydrationWarning className="antialiased">
         {children}
         <PwaManager />
       </body>

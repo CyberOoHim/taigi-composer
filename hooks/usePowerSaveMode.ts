@@ -53,6 +53,8 @@ export function usePowerSaveMode() {
     const nav = navigator as NavigatorWithBattery;
     if (typeof nav.getBattery === 'function') {
       let batteryRef: BatteryManager | null = null;
+      let handleLevelChange: (() => void) | null = null;
+      let handleChargingChange: (() => void) | null = null;
 
       nav.getBattery().then(battery => {
         batteryRef = battery;
@@ -65,14 +67,14 @@ export function usePowerSaveMode() {
           setIsEcoMode(true);
         }
 
-        const handleLevelChange = () => {
+        handleLevelChange = () => {
           setBatteryLevel(battery.level);
           if (localStorage.getItem(STORAGE_KEY) === null && battery.level <= 0.2 && !battery.charging) {
             setIsEcoMode(true);
           }
         };
 
-        const handleChargingChange = () => {
+        handleChargingChange = () => {
           setIsCharging(battery.charging);
         };
 
@@ -84,7 +86,8 @@ export function usePowerSaveMode() {
 
       return () => {
         if (batteryRef) {
-          // Cleanup listeners if reference exists
+          if (handleLevelChange) batteryRef.removeEventListener('levelchange', handleLevelChange);
+          if (handleChargingChange) batteryRef.removeEventListener('chargingchange', handleChargingChange);
         }
       };
     }

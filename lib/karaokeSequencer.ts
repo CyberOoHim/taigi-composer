@@ -213,8 +213,6 @@ export function getKaraokeStageSequenceState(
   const tsParts = (song.measures[0]?.timeSignature || song.timeSignature || '4/4').split('/');
   const beatsPerBar = parseInt(tsParts[0], 10) || 4;
 
-  const GRACE_PERIOD_SEC = 0.65; // Seconds to linger on completed verse before advancing to next
-
   let activeIndex = 0;
   let isLeadIn = false;
   let isIntro = false;

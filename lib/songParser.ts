@@ -47,9 +47,9 @@ export function formatNoteToJianpuString(note: JianpuNote): string {
   let p = `${note.pitch}`;
   if (note.accidental) p = `${note.accidental}${p}`;
 
-  // Octave representation
+  // Octave representation (+ for higher octaves, , for lower octaves)
   if (note.octave > 0) p = `${p}${'+'.repeat(note.octave)}`;
-  if (note.octave < 0) p = `${p}${'-'.repeat(Math.abs(note.octave))}`;
+  if (note.octave < 0) p = `${p}${','.repeat(Math.abs(note.octave))}`;
 
   // Duration representation
   if (note.duration === 0.5) p = `${p}_`;
@@ -257,11 +257,14 @@ function parseJianpuToken(token: string, id: string): JianpuNote {
     clean = clean.substring(1);
   }
 
-  // Octave indicators (+ or - or dots)
-  const plusCount = (clean.match(/\+/g) || []).length;
-  const minusCount = (clean.match(/-/g) || []).length;
-  if (plusCount > 0) octave = plusCount;
-  else if (minusCount > 0 && !clean.includes('--')) octave = -minusCount;
+  // Octave indicators (+ or ' for up, , for down)
+  const plusCount = (clean.match(/[\+']/g) || []).length;
+  const commaCount = (clean.match(/,/g) || []).length;
+  if (plusCount > 0) {
+    octave = Math.min(3, plusCount);
+  } else if (commaCount > 0) {
+    octave = -Math.min(3, commaCount);
+  }
 
   // Duration
   if (clean.includes('___')) duration = 0.125;

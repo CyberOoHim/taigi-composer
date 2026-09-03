@@ -75,6 +75,9 @@ const generateId = (prefix: string) => {
   return `${prefix}-${Date.now()}-${uniqueIdCounter}`;
 };
 
+const renumberMeasures = (measures: Measure[]): Measure[] =>
+  measures.map((m, idx) => (m.measureNumber === idx + 1 ? m : { ...m, measureNumber: idx + 1 }));
+
 export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   song,
   onUpdateSong,
@@ -752,11 +755,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
     const newMeasures = [...song.measures];
     newMeasures.splice(mIdx + 1, 0, dupMeasure);
-    newMeasures.forEach((m, idx) => {
-      m.measureNumber = idx + 1;
-    });
+    const renumbered = renumberMeasures(newMeasures);
 
-    onUpdateSong({ ...song, measures: newMeasures });
+    onUpdateSong({ ...song, measures: renumbered });
     setSelectedCoord([mIdx + 1, 0]);
   };
 
@@ -768,11 +769,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     }
 
     const newMeasures = song.measures.filter((_, idx) => idx !== mIdx);
-    newMeasures.forEach((m, idx) => {
-      m.measureNumber = idx + 1;
-    });
+    const renumbered = renumberMeasures(newMeasures);
 
-    onUpdateSong({ ...song, measures: newMeasures });
+    onUpdateSong({ ...song, measures: renumbered });
     setSelectedCoord([Math.max(0, mIdx - 1), 0]);
   };
 
@@ -821,11 +820,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       const newMeasures = [...song.measures];
       newMeasures.splice(mIdx, 1, firstMeasure, secondMeasure);
-      newMeasures.forEach((m, idx) => {
-        m.measureNumber = idx + 1;
-      });
+      const renumbered = renumberMeasures(newMeasures);
 
-      onUpdateSong({ ...song, measures: newMeasures });
+      onUpdateSong({ ...song, measures: renumbered });
       setSelectedCoord([mIdx + 1, 0]);
       showNotice(`Inserted barline at note, splitting into Measures ${mIdx + 1} and ${mIdx + 2}`);
     },
@@ -848,11 +845,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       const newMeasures = [...song.measures];
       newMeasures.splice(mIdx, 2, mergedMeasure);
-      newMeasures.forEach((m, idx) => {
-        m.measureNumber = idx + 1;
-      });
+      const renumbered = renumberMeasures(newMeasures);
 
-      onUpdateSong({ ...song, measures: newMeasures });
+      onUpdateSong({ ...song, measures: renumbered });
       setSelectedCoord([mIdx, currentM.notes.length]);
       showNotice(`Merged Measures ${mIdx + 1} and ${mIdx + 2} into one measure`);
     },
@@ -889,11 +884,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         newMeasures.push(newMeasure);
       }
 
-      newMeasures.forEach((m, idx) => {
-        m.measureNumber = idx + 1;
-      });
+      const renumbered = renumberMeasures(newMeasures);
 
-      onUpdateSong({ ...song, measures: newMeasures });
+      onUpdateSong({ ...song, measures: renumbered });
       setSelectedCoord([mIdx + 1, 0]);
       showNotice(`Moved last note into Measure ${mIdx + 2}`);
     },
@@ -921,11 +914,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         newMeasures[mIdx + 1] = { ...nextM, notes: newNextNotes };
       }
 
-      newMeasures.forEach((m, idx) => {
-        m.measureNumber = idx + 1;
-      });
+      const renumbered = renumberMeasures(newMeasures);
 
-      onUpdateSong({ ...song, measures: newMeasures });
+      onUpdateSong({ ...song, measures: renumbered });
       setSelectedCoord([mIdx, newCurrentNotes.length - 1]);
       showNotice(`Borrowed first note from Measure ${mIdx + 2}`);
     },
@@ -941,11 +932,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const [moved] = newMeasures.splice(fromIdx, 1);
       newMeasures.splice(toIdx, 0, moved);
 
-      newMeasures.forEach((m, idx) => {
-        m.measureNumber = idx + 1;
-      });
+      const renumbered = renumberMeasures(newMeasures);
 
-      onUpdateSong({ ...song, measures: newMeasures });
+      onUpdateSong({ ...song, measures: renumbered });
       setSelectedCoord([toIdx, 0]);
       showNotice(`Moved Measure ${fromIdx + 1} to position ${toIdx + 1}`);
     },
@@ -1115,24 +1104,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     }
   }, [song, audioEngine, editMode, verses]);
 
-  // Global Keyboard listener for quick score editing
+  // Keyboard listener for quick score editing (undo/redo handled globally at master transport)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Check for Undo / Redo keyboard shortcuts
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
-        e.preventDefault();
-        handleUndo();
-        return;
-      }
-      if (
-        ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z'))
-      ) {
-        e.preventDefault();
-        handleRedo();
-        return;
-      }
-
       const activeEl = document.activeElement;
       const isTyping =
         activeEl instanceof HTMLInputElement ||
@@ -1224,8 +1198,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     handleNavigateNextNote,
     handleNavigatePrevNote,
     handleInsertPunctuationToNote,
-    handleUndo,
-    handleRedo,
   ]);
 
   return (
