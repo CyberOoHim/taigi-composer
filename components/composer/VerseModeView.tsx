@@ -234,7 +234,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
               </div>
             </div>
 
-            {/* WYSIWYG JIANPU SCORE ROW WITH MEASURE DIVIDERS */}
+            {/* WYSIWYG NUMBERED NOTATION SCORE ROW WITH MEASURE DIVIDERS */}
             <div
               className="flex items-stretch overflow-x-auto pb-3 pt-1 gap-2 sm:gap-2.5"
               style={{ WebkitOverflowScrolling: 'touch' }}

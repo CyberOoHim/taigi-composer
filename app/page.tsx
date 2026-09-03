@@ -383,7 +383,7 @@ export default function Home() {
               <span>Import, Export & Share</span>
             </h4>
             <p className="leading-relaxed text-zinc-500 dark:text-zinc-400">
-              Supports standard JSON score files (.taigi.json) and human-readable plain text Jianpu formats (.txt) for one-click copying or downloading. Includes presets for classical compositions.
+              Supports standard JSON score files (.taigi.json) and human-readable plain text Numbered Notation formats (.txt) for one-click copying or downloading. Includes presets for classical compositions.
             </p>
           </div>
         </div>

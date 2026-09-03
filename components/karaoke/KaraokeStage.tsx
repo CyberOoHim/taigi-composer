@@ -501,7 +501,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                       {mainWordDisplay}
                     </span>
 
-                    {/* Corresponding Complete Jianpu Notation below */}
+                    {/* Corresponding Complete Numbered Notation below */}
                     <span
                       className={`mt-1.5 inline-flex flex-col items-center justify-center relative rounded-md transition-all duration-150 px-2 py-1 select-none ${
                         zoomScale >= 1.5

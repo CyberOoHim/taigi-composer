@@ -33,7 +33,7 @@ export function importSongFromJson(jsonString: string): Song {
 }
 
 /**
- * Format a single Jianpu note into readable notation string
+ * Format a single Numbered Notation note into readable notation string
  * e.g., 5 with octave 1 = 5̇, octave -1 = 5̣, duration 0.5 = 5_, duration 2 = 5 -
  */
 export function formatNoteToJianpuString(note: JianpuNote): string {
@@ -68,7 +68,7 @@ export function formatNoteToJianpuString(note: JianpuNote): string {
  */
 export function exportSongToText(song: Song): string {
   const lines: string[] = [
-    `# Taigi Jianpu Score Format`,
+    `# Taigi Numbered Notation Score Format`,
     `Title: ${song.title}`,
     song.subtitle ? `Subtitle: ${song.subtitle}` : '',
     song.composer ? `Composer: ${song.composer}` : '',
@@ -89,7 +89,7 @@ export function exportSongToText(song: Song): string {
     const pijTokens = m.notes.map(n => n.lyric.pij || '—');
     const customTokens = m.notes.map(n => n.lyric.custom || '—');
 
-    lines.push(`Jianpu:  ${jianpuTokens.join('  ')}`);
+    lines.push(`Numbered Notation:  ${jianpuTokens.join('  ')}`);
     lines.push(`Hanji:   ${hanjiTokens.join('  ')}`);
     lines.push(`POJ:     ${pojTokens.join('  ')}`);
     lines.push(`TL:      ${pijTokens.join('  ')}`);
@@ -153,8 +153,8 @@ export function importSongFromText(text: string): Song {
         notes: [],
       };
     } else if (currentMeasure) {
-      if (line.startsWith('Jianpu:')) {
-        const tokens = line.replace('Jianpu:', '').trim().split(/\s+/).filter(Boolean);
+      if (line.startsWith('Numbered Notation:') || line.startsWith('Jianpu:')) {
+        const tokens = line.replace(/^(Numbered Notation:|Jianpu:)/, '').trim().split(/\s+/).filter(Boolean);
         currentMeasure.notes = tokens.map((tok, nIdx) => parseJianpuToken(tok, `${currentMeasure!.id}-n${nIdx}`));
       } else if (line.startsWith('Hanji:') && currentMeasure.notes) {
         const tokens = line.replace('Hanji:', '').trim().split(/\s+/).filter(Boolean);

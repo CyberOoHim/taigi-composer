@@ -1241,13 +1241,13 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         playingMeasureIdx={playingMeasureIdx}
       />
 
-      {/* WYSIWYG JIANPU SCORE SHEET CONTAINER */}
+      {/* WYSIWYG NUMBERED NOTATION SCORE SHEET CONTAINER */}
       <div id="wysiwyg-jianpu-score-container" className="flex flex-col gap-4">
         {/* Score Sheet Header */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-base font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
             <Music2 className="w-5 h-5 text-amber-500" />
-            <span>Jianpu Score Editor</span>
+            <span>Numbered Notation Score Editor</span>
           </h2>
 
           <div className="flex items-center gap-2 text-xs">

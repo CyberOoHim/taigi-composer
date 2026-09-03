@@ -392,12 +392,12 @@ Output strictly valid JSON matching this schema:
 }`;
     } else {
       const includeLyrics = mode === 'full_score';
-      systemInstruction = `You are a world-class music transcription AI specializing in numbered notation (Jianpu 簡譜) and Taiwanese Hokkien songs (Taigi).
+      systemInstruction = `You are a world-class music transcription AI specializing in numbered notation (Numbered Notation 簡譜) and Taiwanese Hokkien songs (Taigi).
 ${pageCountNote}
 
-Task: Transcribe the sheet music from the image(s) measure-by-measure into structured Jianpu notation.
+Task: Transcribe the sheet music from the image(s) measure-by-measure into structured Numbered Notation notation.
 
-Rules for Jianpu & Taiwanese Music Transcription:
+Rules for Numbered Notation & Taiwanese Music Transcription:
 1. **Metadata**:
    - "title": Song title (e.g., "望春風", "雨夜花", "家後")
    - "key": Key signature (e.g., "F", "C", "G", "Bb", "D", "Eb", "Ab", "A", "E", "Db", "B"). Look for $1=F$ or $1=C$, etc.

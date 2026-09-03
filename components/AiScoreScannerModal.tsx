@@ -773,7 +773,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Right Column: Extracted Jianpu Measures */}
+                  {/* Right Column: Extracted Numbered Notation Measures */}
                   <div className="flex flex-col gap-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 shadow-xs">
                     <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2">
                       <div className="flex items-center gap-2">

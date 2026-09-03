@@ -34,11 +34,11 @@
   <path d="M 64 390 Q 160 350, 256 390 T 448 390" fill="none" stroke="url(#goldGrad)" stroke-width="3" stroke-opacity="0.3" stroke-dasharray="6 6" />
   <path d="M 64 414 Q 160 374, 256 414 T 448 414" fill="none" stroke="#71717a" stroke-width="1.5" stroke-opacity="0.3" />
 
-  <!-- Center musical icon & Jianpu (1 2 3) and Taigi typography -->
+  <!-- Center musical icon & Numbered Notation (1 2 3) and Taigi typography -->
   <!-- Glowing Center Medallion -->
   <circle cx="256" cy="220" r="130" fill="#27272a" stroke="url(#goldGrad)" stroke-width="5" filter="url(#shadow)" />
   
-  <!-- Jianpu (Numbered musical notation) Graphic: "1 2 3" notes with under-beams & dots -->
+  <!-- Numbered Notation (Numbered musical notation) Graphic: "1 2 3" notes with under-beams & dots -->
   <g id="notes" filter="url(#glow)">
     <!-- Note 1 -->
     <text x="175" y="225" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="82" fill="url(#goldGrad)" text-anchor="middle">1</text>

@@ -144,7 +144,7 @@ export const TAIGI_TONE_CHARS = [
   { label: 'kui', char: 'kui', desc: 'kui (whole / return)' },
 ];
 
-// Common Punctuation Marks for Jianpu sheet lyrics and notations
+// Common Punctuation Marks for Numbered Notation sheet lyrics and notations
 export const PUNCTUATION_MARKS = [
   { label: '，', char: '，', desc: 'Comma' },
   { label: '。', char: '。', desc: 'Period' },

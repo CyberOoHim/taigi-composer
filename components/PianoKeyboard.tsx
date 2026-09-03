@@ -44,7 +44,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
   // Base key semitone relative to C4 (0 = C)
   const baseKeySemitone = KEY_SEMITONES[keySignature] ?? 0;
 
-  // Helper to compute absolute note name and octave from Jianpu scale degree + key
+  // Helper to compute absolute note name and octave from Numbered Notation scale degree + key
   const getNoteDetails = useMemo(() => {
     return (pitch: PitchNumber, octave: number, accidental: '' | '#' | 'b') => {
       if (pitch === 'empty' || pitch === 0) {
@@ -258,7 +258,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Jianpu + Pitch
+              Numbered Notation + Pitch
             </button>
             <button
               type="button"
@@ -269,7 +269,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Jianpu 1-7
+              Numbered Notation 1-7
             </button>
             <button
               type="button"
@@ -428,7 +428,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                           <div className="absolute top-2 w-2 h-2 rounded-full bg-amber-600 animate-ping" />
                         )}
 
-                        {/* Top Jianpu Octave Dot */}
+                        {/* Top Numbered Notation Octave Dot */}
                         {wKey.octave > 0 && (
                           <span
                             className={`w-1.5 h-1.5 rounded-full mb-0.5 ${
@@ -437,7 +437,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                           />
                         )}
 
-                        {/* Jianpu Pitch Number */}
+                        {/* Numbered Notation Pitch Number */}
                         {(labelMode === 'both' || labelMode === 'jianpu') && (
                           <span
                             className={`font-mono text-base sm:text-lg font-black leading-none ${
@@ -448,7 +448,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                           </span>
                         )}
 
-                        {/* Bottom Jianpu Octave Dot */}
+                        {/* Bottom Numbered Notation Octave Dot */}
                         {wKey.octave < 0 && (
                           <span
                             className={`w-1.5 h-1.5 rounded-full mt-0.5 ${
@@ -506,7 +506,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                           />
                         )}
 
-                        {/* Jianpu Accidental Pitch */}
+                        {/* Numbered Notation Accidental Pitch */}
                         {(labelMode === 'both' || labelMode === 'jianpu') && (
                           <span
                             className={`font-mono text-[10px] sm:text-xs font-black tracking-tighter leading-none ${

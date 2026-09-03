@@ -2,7 +2,7 @@
 
 > **Document Version:** 1.0.0  
 > **Target Audience:** Audio Engineers, Music Transcribers, Full-stack Developers, Taiwanese Hokkien (Taigi) Linguists  
-> **Scope:** Complete methodology, architecture, and practical workflows for audio extraction, acoustic analysis, pitch transcription to Jianpu (Numbered Musical Notation), Web Audio synthesis, multimodal score recognition, and lessons learned from production implementations.
+> **Scope:** Complete methodology, architecture, and practical workflows for audio extraction, acoustic analysis, pitch transcription to Numbered Notation (Numbered Musical Notation), Web Audio synthesis, multimodal score recognition, and lessons learned from production implementations.
 
 ---
 
@@ -14,7 +14,7 @@
    - 2.3 節拍量化與小節對齊 (Beat Quantization & Meter Alignment)
    - 2.4 調性判定與五聲音階映射 (Key & Pentatonic Scale Recognition)
    - 2.5 台語語音辨識與歌詞斷詞 (Taigi ASR & Syllable Alignment)
-3. [樂譜圖片多模態辨識 (Multimodal Sheet Music OCR to Jianpu)](#3-樂譜圖片多模態辨識)
+3. [樂譜圖片多模態辨識 (Multimodal Sheet Music OCR to Numbered Notation)](#3-樂譜圖片多模態辨識)
    - 3.1 提示詞工程與資料結構規範
    - 3.2 多頁樂譜拼接與小節序號重整
 4. [前端聲音合成與音訊引擎 (Web Audio Synthesis Engine)](#4-前端聲音合成與音訊引擎)
@@ -38,7 +38,7 @@
 
 ## 1. 系統全貌與架構設計
 
-本專案致力於台語經典歌曲與簡譜（Jianpu / 記譜法）的數位化創作、卡拉OK伴奏、羅馬字歌詞對齊（POJ 白話字 / TL 臺羅拼音）與聲音合成。
+本專案致力於台語經典歌曲與簡譜（Numbered Notation / 記譜法）的數位化創作、卡拉OK伴奏、羅馬字歌詞對齊（POJ 白話字 / TL 臺羅拼音）與聲音合成。
 
 ```
                                ┌────────────────────────────────┐
@@ -155,7 +155,7 @@ $$\text{MIDI} = \text{KeyBaseMidi} + \text{ScaleInterval}[\text{pitch}] + (\text
 
 ---
 
-## 3. 樂譜圖片多模態辨識 (Multimodal Sheet Music OCR to Jianpu)
+## 3. 樂譜圖片多模態辨識 (Multimodal Sheet Music OCR to Numbered Notation)
 
 本專案實作了以 Gemini 3.7 多模態視覺神經網路（`gemini-3.7-flash` 與 `gemini-3.7-flash-lite`）為核心的簡譜影像辨識系統（`lib/geminiService.ts`）。
 

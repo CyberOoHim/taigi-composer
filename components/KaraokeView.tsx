@@ -805,7 +805,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         onResetTempo={handleResetTempo}
       />
 
-      {/* Aligned Jianpu Score Roll */}
+      {/* Aligned Numbered Notation Score Roll */}
       <AlignedScoreRoll
         song={song}
         playbackState={playbackState}

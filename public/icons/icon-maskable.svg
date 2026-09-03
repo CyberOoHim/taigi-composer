@@ -25,7 +25,7 @@
   <!-- Center musical medallion within safe zone (within 410x410 central area) -->
   <circle cx="256" cy="240" r="135" fill="#27272a" stroke="url(#goldGrad)" stroke-width="6" filter="url(#shadow)" />
   
-  <!-- Jianpu (Numbered musical notation) Graphic: "1 5 6" notes -->
+  <!-- Numbered Notation (Numbered musical notation) Graphic: "1 5 6" notes -->
   <g id="notes" filter="url(#glow)">
     <!-- Note 1 -->
     <text x="175" y="245" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="82" fill="url(#goldGrad)" text-anchor="middle">1</text>

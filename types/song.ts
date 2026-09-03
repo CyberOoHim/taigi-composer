@@ -25,6 +25,8 @@ export interface JianpuNote {
   annotation?: string;      // Optional musical / vocal annotation (e.g., 漸慢, 合唱, 間奏, rit., V, etc.)
 }
 
+export type NumberedNotationNote = JianpuNote;
+
 export type BarlineType = 'single' | 'double' | 'end' | 'repeat_start' | 'repeat_end';
 
 export interface Measure {

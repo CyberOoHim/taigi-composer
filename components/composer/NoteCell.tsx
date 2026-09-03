@@ -113,7 +113,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
           </span>
         )}
 
-        {/* Jianpu Note Number Container */}
+        {/* Numbered Notation Note Number Container */}
         <div className="flex flex-col items-center justify-center min-h-[44px]">
           {/* Top Octave Dots */}
           {octaveTopDots > 0 && (

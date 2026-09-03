@@ -305,4 +305,6 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
   );
 });
 
-JianpuNoteComponent.displayName = 'JianpuNoteComponent';
+JianpuNoteComponent.displayName = 'NumberedNotationNoteComponent';
+
+export const NumberedNotationNoteComponent = JianpuNoteComponent;

@@ -552,7 +552,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                 </div>
               </div>
 
-              {/* THE WYSIWYG JIANPU SCORE ROW WITH INTERACTIVE BARLINES */}
+              {/* THE WYSIWYG NUMBERED NOTATION SCORE ROW WITH INTERACTIVE BARLINES */}
               <div
                 className="flex items-center overflow-x-auto pb-3 pt-1 gap-1.5 sm:gap-2 select-none"
                 style={{ WebkitOverflowScrolling: 'touch' }}

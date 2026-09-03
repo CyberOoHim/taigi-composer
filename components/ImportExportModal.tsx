@@ -229,7 +229,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             <div id="presets-panel" className="flex flex-col gap-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Select a song to load complete Jianpu score, chords, and aligned lyrics:
+                  Select a song to load complete Numbered Notation score, chords, and aligned lyrics:
                 </p>
                 <div className="flex items-center gap-2">
                   {onStartFreshSong && (
@@ -390,7 +390,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                           </div>
                         </div>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
-                          {cSong.description || cSong.subtitle || 'Custom Jianpu score'}
+                          {cSong.description || cSong.subtitle || 'Custom Numbered Notation score'}
                         </p>
                       </div>
 
@@ -474,7 +474,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             <div id="import-panel" className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Paste JSON or plain text Jianpu format, or upload a score file:
+                  Paste JSON or plain text Numbered Notation format, or upload a score file:
                 </p>
 
                 <label htmlFor="import-file-input" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors">
@@ -502,7 +502,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                 rows={10}
                 value={importText}
                 onChange={e => setImportText(e.target.value)}
-                placeholder="Paste JSON string or plain text Jianpu (e.g. Title: ..., Key: F, [Measure 1] ...)"
+                placeholder="Paste JSON string or plain text Numbered Notation (e.g. Title: ..., Key: F, [Measure 1] ...)"
                 className="w-full px-3 py-2 text-xs font-mono bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-800 dark:text-zinc-200 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
               />
 
