@@ -70,6 +70,12 @@ interface MeasureModeViewProps {
   onNavigatePrevNote?: () => void;
   autoStepAdvance?: boolean;
   onToggleAutoStepAdvance?: () => void;
+  onUndo?: () => boolean;
+  onRedo?: () => boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  pastCount?: number;
+  futureCount?: number;
   showNotice: (msg: string) => void;
 
   // Measure adjustment & line editing extensions
@@ -123,6 +129,12 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   onNavigatePrevNote,
   autoStepAdvance,
   onToggleAutoStepAdvance,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
+  pastCount = 0,
+  futureCount = 0,
   showNotice,
   onSplitMeasureAtNote,
   onMergeWithNextMeasure,
@@ -722,6 +734,12 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     onNavigatePrevNote={onNavigatePrevNote}
                     autoStepAdvance={autoStepAdvance}
                     onToggleAutoStepAdvance={onToggleAutoStepAdvance}
+                    onUndo={onUndo}
+                    onRedo={onRedo}
+                    canUndo={canUndo}
+                    canRedo={canRedo}
+                    pastCount={pastCount}
+                    futureCount={futureCount}
                     showNotice={showNotice}
                     inCard={true}
                   />

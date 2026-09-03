@@ -223,6 +223,56 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             <Trash2 className="w-3.5 h-3.5" />
           </button>
 
+          {/* Undo / Redo in Input Deck */}
+          {(onUndo || onRedo) && (
+            <div
+              id="hud-undo-redo-group"
+              className="flex items-center bg-white dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs"
+            >
+              {onUndo && (
+                <button
+                  id="hud-undo-btn"
+                  type="button"
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                  title={canUndo ? `復原 (Undo) [Ctrl+Z] · 尚有 ${pastCount} 步` : '無可復原步驟 (Undo)'}
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
+                >
+                  <Undo2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">復原</span>
+                  {canUndo && pastCount > 0 && (
+                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
+                      {pastCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {onUndo && onRedo && (
+                <div className="w-[1px] h-3.5 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
+              )}
+
+              {onRedo && (
+                <button
+                  id="hud-redo-btn"
+                  type="button"
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                  title={canRedo ? `重做 (Redo) [Ctrl+Y] · 尚有 ${futureCount} 步` : '無可重做步驟 (Redo)'}
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
+                >
+                  <Redo2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">重做</span>
+                  {canRedo && futureCount > 0 && (
+                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
+                      {futureCount}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Split Measure before current note */}
           {onSplitMeasureBeforeNote && selectedNoteIndex !== null && selectedNoteIndex > 0 && (
             <button
@@ -234,31 +284,6 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
               <Scissors className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span className="hidden sm:inline">加小節線拆分</span>
             </button>
-          )}
-
-          {/* Undo / Redo if provided */}
-          {onUndo && onRedo && (
-            <div className="flex items-center bg-white dark:bg-zinc-800 p-0.5 rounded-xl border border-amber-300 dark:border-zinc-700">
-              <button
-                type="button"
-                onClick={onUndo}
-                disabled={!canUndo}
-                title={canUndo ? `復原 (Undo) · 尚有 ${pastCount} 步` : '無可復原步驟'}
-                className="p-1.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer min-h-[34px] min-w-[34px] flex items-center justify-center"
-              >
-                <Undo2 className="w-3.5 h-3.5" />
-              </button>
-              <div className="w-[1px] h-3.5 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
-              <button
-                type="button"
-                onClick={onRedo}
-                disabled={!canRedo}
-                title={canRedo ? `重做 (Redo) · 尚有 ${futureCount} 步` : '無可重做步驟'}
-                className="p-1.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer min-h-[34px] min-w-[34px] flex items-center justify-center"
-              >
-                <Redo2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
           )}
 
           {/* Collapse / Expand Toggle */}

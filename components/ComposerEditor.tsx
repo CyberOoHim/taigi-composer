@@ -1448,6 +1448,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onNavigatePrevNote={handleNavigatePrevNote}
             autoStepAdvance={autoStepAdvance}
             onToggleAutoStepAdvance={() => setAutoStepAdvance(prev => !prev)}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            pastCount={pastCount}
+            futureCount={futureCount}
             showNotice={showNotice}
             onSplitMeasureAtNote={handleSplitMeasureAtNote}
           />
@@ -1491,6 +1497,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onNavigatePrevNote={handleNavigatePrevNote}
             autoStepAdvance={autoStepAdvance}
             onToggleAutoStepAdvance={() => setAutoStepAdvance(prev => !prev)}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            pastCount={pastCount}
+            futureCount={futureCount}
             showNotice={showNotice}
             onSplitMeasureAtNote={handleSplitMeasureAtNote}
             onMergeWithNextMeasure={handleMergeWithNextMeasure}
