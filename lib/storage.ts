@@ -29,7 +29,7 @@ export const STORAGE_KEYS = {
 } as const;
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
-export type DeckTabMode = 'numpad' | 'piano' | 'lyrics';
+export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
 
 /**
  * Safe local storage getter with fallback
@@ -312,7 +312,7 @@ export function setStoredAutoStepAdvance(advance: boolean): void {
 
 export function getStoredDeckTab(): DeckTabMode {
   const val = safeGetItem(STORAGE_KEYS.DECK_TAB);
-  if (val === 'numpad' || val === 'piano' || val === 'lyrics') return val;
+  if (val === 'numpad' || val === 'piano' || val === 'ornaments' || val === 'lyrics') return val;
   return 'numpad';
 }
 

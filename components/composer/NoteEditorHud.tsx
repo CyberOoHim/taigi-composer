@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { JianpuNote, KeySignature, NoteDuration, PitchNumber } from '@/types/song';
+import { ArticulationType, GraceNote, JianpuNote, KeySignature, NoteDuration, PitchNumber } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import {
   getDurationChineseInfo,
   PUNCTUATION_MARKS,
   ANNOTATION_MARKS,
+  formatGraceNotes,
 } from '@/lib/taigiUtils';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { getStoredDeckTab, setStoredDeckTab } from '@/lib/storage';
@@ -27,9 +28,11 @@ import {
   Zap,
   Sparkles,
   Scissors,
+  Sliders,
+  Wand2,
 } from 'lucide-react';
 
-export type DeckTabMode = 'numpad' | 'piano' | 'lyrics';
+export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
 
 export interface NoteEditorHudProps {
   currentNote: JianpuNote;
@@ -44,6 +47,10 @@ export interface NoteEditorHudProps {
   onSetDuration: (duration: NoteDuration) => void;
   onToggleDotted: () => void;
   onToggleTie: () => void;
+  onToggleSlur?: () => void;
+  onSetArticulation?: (art: ArticulationType) => void;
+  onToggleTriplet?: () => void;
+  onToggleDoubleDotted?: () => void;
   onInsertPunctuation: (punct: string) => void;
   onInsertAnnotation: (annot: string) => void;
   onSetAnnotation: (annot: string) => void;
@@ -77,6 +84,10 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   onSetDuration,
   onToggleDotted,
   onToggleTie,
+  onToggleSlur,
+  onSetArticulation,
+  onToggleTriplet,
+  onToggleDoubleDotted,
   onInsertPunctuation,
   onInsertAnnotation,
   onSetAnnotation,
@@ -125,6 +136,128 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             : ''
         }`;
 
+  // Grace Notes handlers
+  const handleAddPreGrace = () => {
+    const existing = currentNote.preGraceNotes || [];
+    if (existing.length >= 3) {
+      showNotice('前裝飾音最多支援 3 個小音符');
+      return;
+    }
+    const defaultPitch = (typeof currentNote.pitch === 'number' && currentNote.pitch > 0 ? currentNote.pitch : 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+    const newNote: GraceNote = { pitch: defaultPitch, octave: currentNote.octave || 0, accidental: '' };
+    onUpdateSelectedNote(n => ({
+      ...n,
+      preGraceNotes: [...(n.preGraceNotes || []), newNote],
+    }));
+  };
+
+  const handleUpdatePreGrace = (index: number, updater: (g: GraceNote) => GraceNote) => {
+    onUpdateSelectedNote(n => {
+      const list = [...(n.preGraceNotes || [])];
+      if (list[index]) {
+        list[index] = updater(list[index]);
+      }
+      return { ...n, preGraceNotes: list };
+    });
+  };
+
+  const handleRemovePreGrace = (index: number) => {
+    onUpdateSelectedNote(n => ({
+      ...n,
+      preGraceNotes: (n.preGraceNotes || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleAddPostGrace = () => {
+    const existing = currentNote.postGraceNotes || [];
+    if (existing.length >= 3) {
+      showNotice('後裝飾音最多支援 3 個小音符');
+      return;
+    }
+    const defaultPitch = (typeof currentNote.pitch === 'number' && currentNote.pitch > 0 ? currentNote.pitch : 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+    const newNote: GraceNote = { pitch: defaultPitch, octave: currentNote.octave || 0, accidental: '' };
+    onUpdateSelectedNote(n => ({
+      ...n,
+      postGraceNotes: [...(n.postGraceNotes || []), newNote],
+    }));
+  };
+
+  const handleUpdatePostGrace = (index: number, updater: (g: GraceNote) => GraceNote) => {
+    onUpdateSelectedNote(n => {
+      const list = [...(n.postGraceNotes || [])];
+      if (list[index]) {
+        list[index] = updater(list[index]);
+      }
+      return { ...n, postGraceNotes: list };
+    });
+  };
+
+  const handleRemovePostGrace = (index: number) => {
+    onUpdateSelectedNote(n => ({
+      ...n,
+      postGraceNotes: (n.postGraceNotes || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleApplyOrnamentPreset = (type: 'upper_single' | 'lower_single' | 'double_slide' | 'triple_turn' | 'post_drop' | 'post_lift' | 'clear') => {
+    const baseP = (typeof currentNote.pitch === 'number' && currentNote.pitch > 0 ? currentNote.pitch : 5);
+    const wrapPitch = (p: number): 1 | 2 | 3 | 4 | 5 | 6 | 7 => {
+      let norm = ((p - 1) % 7) + 1;
+      if (norm <= 0) norm += 7;
+      return norm as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+    };
+
+    let updatedPre: GraceNote[] = currentNote.preGraceNotes || [];
+    let updatedPost: GraceNote[] = currentNote.postGraceNotes || [];
+
+    switch (type) {
+      case 'upper_single':
+        updatedPre = [{ pitch: wrapPitch(baseP + 1), octave: currentNote.octave || 0 }];
+        showNotice('已套用：單音上倚音');
+        break;
+      case 'lower_single':
+        updatedPre = [{ pitch: wrapPitch(baseP - 1), octave: currentNote.octave || 0 }];
+        showNotice('已套用：單音下倚音');
+        break;
+      case 'double_slide':
+        updatedPre = [
+          { pitch: wrapPitch(baseP - 2), octave: currentNote.octave || 0 },
+          { pitch: wrapPitch(baseP - 1), octave: currentNote.octave || 0 },
+        ];
+        showNotice('已套用：雙音滑轉');
+        break;
+      case 'triple_turn':
+        updatedPre = [
+          { pitch: wrapPitch(baseP + 1), octave: currentNote.octave || 0 },
+          { pitch: wrapPitch(baseP), octave: currentNote.octave || 0 },
+          { pitch: wrapPitch(baseP - 1), octave: currentNote.octave || 0 },
+        ];
+        showNotice('已套用：三音迴音');
+        break;
+      case 'post_drop':
+        updatedPost = [{ pitch: wrapPitch(baseP - 1), octave: currentNote.octave || 0 }];
+        showNotice('已套用：尾音下拋');
+        break;
+      case 'post_lift':
+        updatedPost = [{ pitch: wrapPitch(baseP + 1), octave: currentNote.octave || 0 }];
+        showNotice('已套用：尾音上提');
+        break;
+      case 'clear':
+        updatedPre = [];
+        updatedPost = [];
+        showNotice('已清除裝飾音');
+        break;
+    }
+
+    const updatedNote: JianpuNote = {
+      ...currentNote,
+      preGraceNotes: updatedPre,
+      postGraceNotes: updatedPost,
+    };
+    onUpdateSelectedNote(() => updatedNote);
+    audioEngine.previewNote(keySignature, updatedNote);
+  };
+
   return (
     <div
       id={`inline-note-hud-${selectedMeasureIndex}`}
@@ -153,9 +286,38 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             </span>
           </div>
 
-          {currentNote.isTied && (
-            <span className="text-xs bg-amber-400/20 text-amber-700 dark:text-amber-300 px-2.5 py-1 rounded-md font-bold border border-amber-400/40">
-              Tie ⌒
+          {(currentNote.tieToNext || (currentNote.isTied && !currentNote.slurToNext)) && (
+            <span className="text-xs bg-amber-400/20 text-amber-700 dark:text-amber-300 px-2.5 py-1 rounded-md font-bold border border-amber-400/40" title="Tie: 連結音 (音色融合成一音)">
+              Tie ⌒ (連結)
+            </span>
+          )}
+
+          {currentNote.slurToNext && (
+            <span className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 px-2.5 py-1 rounded-md font-bold border border-purple-400/40" title="Slur: 圓滑音 (連音/一字多音)">
+              Slur ⌢ (圓滑)
+            </span>
+          )}
+
+          {currentNote.articulation && currentNote.articulation !== 'none' && (
+            <span className="text-xs bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 px-2 py-1 rounded-md font-bold border border-cyan-400/40">
+              {currentNote.articulation === 'fermata' && '延長 𝄐'}
+              {currentNote.articulation === 'accent' && '重音 >'}
+              {currentNote.articulation === 'staccato' && '跳音 ·'}
+              {currentNote.articulation === 'tenuto' && '保持 —'}
+              {currentNote.articulation === 'portamento_up' && '上滑 ↗'}
+              {currentNote.articulation === 'portamento_down' && '下滑 ↘'}
+            </span>
+          )}
+
+          {currentNote.isTriplet && (
+            <span className="text-xs bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-md font-bold border border-indigo-400/40">
+              三連音 3
+            </span>
+          )}
+
+          {((currentNote.preGraceNotes?.length || 0) + (currentNote.postGraceNotes?.length || 0) > 0) && (
+            <span className="text-xs bg-rose-500/15 text-rose-700 dark:text-rose-300 px-2 py-1 rounded-md font-bold border border-rose-400/30">
+              裝飾: {formatGraceNotes(currentNote.preGraceNotes)} {currentNote.pitch} {formatGraceNotes(currentNote.postGraceNotes)}
             </span>
           )}
 
@@ -343,6 +505,24 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
 
               <button
                 type="button"
+                onClick={() => setActiveTab('ornaments')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[38px] ${
+                  activeTab === 'ornaments'
+                    ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>裝飾音 (Grace)</span>
+                {((currentNote.preGraceNotes?.length || 0) + (currentNote.postGraceNotes?.length || 0) > 0) && (
+                  <span className="ml-0.5 px-1.5 py-0.2 bg-purple-600 text-white rounded-full text-[10px] font-black">
+                    {(currentNote.preGraceNotes?.length || 0) + (currentNote.postGraceNotes?.length || 0)}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveTab('lyrics')}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[38px] ${
                   activeTab === 'lyrics'
@@ -505,7 +685,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                 </div>
               </div>
 
-              {/* Row 2: Duration & Articulation Row */}
+              {/* Row 2: Duration & Phrasing Controls */}
               <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-zinc-200/80 dark:border-zinc-800/80">
                 <span className="text-xs font-extrabold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0 w-12">
                   Duration:
@@ -517,7 +697,11 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     { label: '0.5 beats (8th)', dur: 0.5 },
                     { label: '1.5 beats (Dotted 4th)', dur: 1.5 },
                     { label: '0.25 beats (16th)', dur: 0.25 },
+                    { label: '0.125 beats (32nd)', dur: 0.125 },
+                    { label: '⅓ Triplet (8th)', dur: 0.333 },
+                    { label: '⅔ Triplet (4th)', dur: 0.667 },
                     { label: '0.75 beats', dur: 0.75 },
+                    { label: '1.75 beats (··)', dur: 1.75 },
                     { label: '2 beats (Half)', dur: 2 },
                     { label: '3 beats (Dotted Half)', dur: 3 },
                     { label: '4 beats (Whole)', dur: 4 },
@@ -549,18 +733,145 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     · Dotted
                   </button>
 
+                  {/* Toggle Double Dotted */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onToggleDoubleDotted) {
+                        onToggleDoubleDotted();
+                      } else {
+                        onUpdateSelectedNote(n => {
+                          const nextDouble = !n.isDoubleDotted;
+                          let nextDur = n.duration;
+                          if (nextDouble) {
+                            if (n.duration === 1) nextDur = 1.75;
+                            else if (n.duration === 2) nextDur = 3.5;
+                          } else {
+                            if (n.duration === 1.75) nextDur = 1;
+                            else if (n.duration === 3.5) nextDur = 2;
+                          }
+                          return { ...n, isDoubleDotted: nextDouble, duration: nextDur };
+                        });
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[38px] ${
+                      currentNote.isDoubleDotted || currentNote.duration === 1.75 || currentNote.duration === 3.5
+                        ? 'bg-amber-500 text-zinc-950 border-amber-500 ring-2 ring-amber-400 font-black shadow-xs'
+                        : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs'
+                    }`}
+                    title="Double Dotted (雙附點)"
+                  >
+                    ·· Double Dot
+                  </button>
+
+                  {/* Toggle Triplet */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onToggleTriplet) {
+                        onToggleTriplet();
+                      } else {
+                        onUpdateSelectedNote(n => {
+                          const nextTrip = !n.isTriplet;
+                          let nextDur = n.duration;
+                          if (nextTrip) {
+                            if (n.duration === 0.5) nextDur = 0.333;
+                            else if (n.duration === 1) nextDur = 0.667;
+                            else nextDur = 0.333;
+                          } else {
+                            if (n.duration === 0.333) nextDur = 0.5;
+                            else if (n.duration === 0.667) nextDur = 1;
+                          }
+                          return { ...n, isTriplet: nextTrip, duration: nextDur };
+                        });
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[38px] ${
+                      currentNote.isTriplet || currentNote.duration === 0.333 || currentNote.duration === 0.667
+                        ? 'bg-amber-500 text-zinc-950 border-amber-500 ring-2 ring-amber-400 font-black shadow-xs'
+                        : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs'
+                    }`}
+                    title="Triplet (三連音)"
+                  >
+                    ┌ 3 ┐ Triplet
+                  </button>
+
                   {/* Toggle Tie */}
                   <button
                     type="button"
                     onClick={onToggleTie}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                      currentNote.isTied
+                      currentNote.tieToNext || (currentNote.isTied && !currentNote.slurToNext)
                         ? 'bg-amber-500 text-zinc-950 border-amber-500 ring-2 ring-amber-400 font-black shadow-xs'
                         : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs'
                     }`}
+                    title="Tie (連結音): 連接同音高，播放時音色融合為一持續長音"
                   >
-                    ⌒ Tie
+                    ⌒ Tie (連結音)
                   </button>
+
+                  {/* Toggle Slur */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onToggleSlur) {
+                        onToggleSlur();
+                      } else {
+                        onUpdateSelectedNote(n => ({
+                          ...n,
+                          slurToNext: !n.slurToNext,
+                        }));
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[38px] ${
+                      currentNote.slurToNext
+                        ? 'bg-purple-600 text-white border-purple-500 ring-2 ring-purple-400 font-black shadow-xs'
+                        : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs'
+                    }`}
+                    title="Slur (圓滑音): 跨越不同音高圓滑唱奏，亦適用一字多音 (Melisma)"
+                  >
+                    ⌢ Slur (圓滑音)
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 3: Articulations Palette */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-800/80">
+                <span className="text-xs font-extrabold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0 w-12">
+                  Artic:
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap flex-1">
+                  {[
+                    { label: '自然 (None)', art: 'none' as const },
+                    { label: '延長 𝄐 (Fermata)', art: 'fermata' as const },
+                    { label: '重音 > (Accent)', art: 'accent' as const },
+                    { label: '跳音 · (Staccato)', art: 'staccato' as const },
+                    { label: '保持 — (Tenuto)', art: 'tenuto' as const },
+                    { label: '上滑 ↗ (Port. Up)', art: 'portamento_up' as const },
+                    { label: '下滑 ↘ (Port. Down)', art: 'portamento_down' as const },
+                  ].map(a => {
+                    const isSelected = (currentNote.articulation || 'none') === a.art;
+                    return (
+                      <button
+                        key={a.art}
+                        type="button"
+                        onClick={() => {
+                          if (onSetArticulation) {
+                            onSetArticulation(a.art);
+                          } else {
+                            onUpdateSelectedNote(n => ({ ...n, articulation: a.art }));
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
+                          isSelected
+                            ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-2 ring-amber-400'
+                            : 'bg-zinc-100 dark:bg-[#0a0c10] hover:bg-amber-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs'
+                        }`}
+                      >
+                        {a.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -622,7 +933,275 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             </div>
           )}
 
-          {/* TAB 3: LYRICS & ANNOTATIONS */}
+          {/* TAB 3: ORNAMENTS / GRACE NOTES */}
+          {activeTab === 'ornaments' && (
+            <div className="flex flex-col gap-4">
+              {/* Header & Quick Audition Banner */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-zinc-50 dark:bg-[#0c0e14] rounded-xl border border-zinc-200/80 dark:border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                    裝飾音編輯 (前裝飾音與後裝飾音，支援 1 至 3 個小音符)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => audioEngine.previewNote(keySignature, currentNote)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-zinc-950 hover:bg-amber-400 active:scale-95 transition-all shadow-xs cursor-pointer"
+                  title="試聽本音與裝飾音 (Preview note with ornaments)"
+                >
+                  <Volume2 className="w-3.5 h-3.5" />
+                  <span>試聽效果</span>
+                </button>
+              </div>
+
+              {/* 經典唱腔裝飾音範本 (One-Tap Presets) */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-extrabold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                  經典台語 / 流行唱腔範本 (One-Tap Presets):
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { label: '單音上倚音', desc: 'Pre-grace +1', type: 'upper_single' as const },
+                    { label: '單音下倚音', desc: 'Pre-grace -1', type: 'lower_single' as const },
+                    { label: '雙音滑轉', desc: 'Pre-grace double', type: 'double_slide' as const },
+                    { label: '三音迴音', desc: 'Pre-grace triple turn', type: 'triple_turn' as const },
+                    { label: '尾音下拋', desc: 'Post-grace drop', type: 'post_drop' as const },
+                    { label: '尾音上提', desc: 'Post-grace lift', type: 'post_lift' as const },
+                    { label: '清除裝飾音', desc: 'Clear', type: 'clear' as const },
+                  ].map(p => (
+                    <button
+                      key={p.type}
+                      type="button"
+                      onClick={() => handleApplyOrnamentPreset(p.type)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
+                        p.type === 'clear'
+                          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/50 hover:bg-rose-100'
+                          : 'bg-zinc-100 dark:bg-[#0a0c10] hover:bg-amber-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs'
+                      }`}
+                      title={p.desc}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 前裝飾音 (Pre-Grace Notes, 1 to 3 notes) */}
+              <div className="flex flex-col gap-2 p-3 bg-zinc-100/70 dark:bg-[#0c0e14]/70 rounded-xl border border-zinc-200/80 dark:border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-zinc-800 dark:text-zinc-200">
+                      前裝飾音 (前倚音 / Pre-Grace Notes)
+                    </span>
+                    <span className="text-[11px] font-mono text-zinc-500">
+                      {(currentNote.preGraceNotes || []).length} / 3 音
+                    </span>
+                  </div>
+                  {(currentNote.preGraceNotes || []).length < 3 && (
+                    <button
+                      type="button"
+                      onClick={handleAddPreGrace}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 text-zinc-950 hover:bg-amber-400 active:scale-95 cursor-pointer"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>新增音符</span>
+                    </button>
+                  )}
+                </div>
+
+                {(!currentNote.preGraceNotes || currentNote.preGraceNotes.length === 0) ? (
+                  <p className="text-xs text-zinc-500 italic py-1">尚未設定前裝飾音（點擊上方「新增音符」或點選唱腔範本）</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {currentNote.preGraceNotes.map((g, idx) => (
+                      <div
+                        key={idx}
+                        className="flex flex-wrap items-center justify-between gap-2 p-2 bg-white dark:bg-[#141720] rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs"
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-1 bg-amber-500/20 text-amber-800 dark:text-amber-300 rounded-md font-mono font-black text-xs">
+                            #{idx + 1}
+                          </span>
+
+                          {/* Pitch Picker (1-7) */}
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5, 6, 7].map(p => (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => handleUpdatePreGrace(idx, old => ({ ...old, pitch: p as 1 | 2 | 3 | 4 | 5 | 6 | 7 }))}
+                                className={`w-7 h-7 rounded-lg font-mono font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
+                                  g.pitch === p
+                                    ? 'bg-amber-500 text-zinc-950 font-black ring-2 ring-amber-400'
+                                    : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-800 dark:text-zinc-200'
+                                }`}
+                              >
+                                {p}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Octave buttons */}
+                          <div className="flex items-center gap-1 border-l border-zinc-200 dark:border-zinc-700 pl-2">
+                            {[-1, 0, 1].map(oct => (
+                              <button
+                                key={oct}
+                                type="button"
+                                onClick={() => handleUpdatePreGrace(idx, old => ({ ...old, octave: oct }))}
+                                className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
+                                  (g.octave || 0) === oct
+                                    ? 'bg-amber-500 text-zinc-950 font-black'
+                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                                }`}
+                              >
+                                {oct === -1 ? '低̣' : oct === 1 ? '高̇' : '中'}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Accidental buttons */}
+                          <div className="flex items-center gap-1 border-l border-zinc-200 dark:border-zinc-700 pl-2">
+                            {(['', '#', 'b'] as const).map(acc => (
+                              <button
+                                key={acc || 'nat'}
+                                type="button"
+                                onClick={() => handleUpdatePreGrace(idx, old => ({ ...old, accidental: acc }))}
+                                className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
+                                  (g.accidental || '') === acc
+                                    ? 'bg-amber-500 text-zinc-950 font-black'
+                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                                }`}
+                              >
+                                {acc === '#' ? '♯' : acc === 'b' ? '♭' : '♮'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePreGrace(idx)}
+                          className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                          title="刪除此外飾音"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 後裝飾音 (Post-Grace Notes, 1 to 3 notes) */}
+              <div className="flex flex-col gap-2 p-3 bg-zinc-100/70 dark:bg-[#0c0e14]/70 rounded-xl border border-zinc-200/80 dark:border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-zinc-800 dark:text-zinc-200">
+                      後裝飾音 (尾裝飾音 / Post-Grace Notes)
+                    </span>
+                    <span className="text-[11px] font-mono text-zinc-500">
+                      {(currentNote.postGraceNotes || []).length} / 3 音
+                    </span>
+                  </div>
+                  {(currentNote.postGraceNotes || []).length < 3 && (
+                    <button
+                      type="button"
+                      onClick={handleAddPostGrace}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 text-zinc-950 hover:bg-amber-400 active:scale-95 cursor-pointer"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>新增音符</span>
+                    </button>
+                  )}
+                </div>
+
+                {(!currentNote.postGraceNotes || currentNote.postGraceNotes.length === 0) ? (
+                  <p className="text-xs text-zinc-500 italic py-1">尚未設定後裝飾音（點擊上方「新增音符」或點選唱腔範本）</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {currentNote.postGraceNotes.map((g, idx) => (
+                      <div
+                        key={idx}
+                        className="flex flex-wrap items-center justify-between gap-2 p-2 bg-white dark:bg-[#141720] rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs"
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-1 bg-purple-500/20 text-purple-800 dark:text-purple-300 rounded-md font-mono font-black text-xs">
+                            #{idx + 1}
+                          </span>
+
+                          {/* Pitch Picker (1-7) */}
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5, 6, 7].map(p => (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => handleUpdatePostGrace(idx, old => ({ ...old, pitch: p as 1 | 2 | 3 | 4 | 5 | 6 | 7 }))}
+                                className={`w-7 h-7 rounded-lg font-mono font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
+                                  g.pitch === p
+                                    ? 'bg-amber-500 text-zinc-950 font-black ring-2 ring-amber-400'
+                                    : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-800 dark:text-zinc-200'
+                                }`}
+                              >
+                                {p}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Octave buttons */}
+                          <div className="flex items-center gap-1 border-l border-zinc-200 dark:border-zinc-700 pl-2">
+                            {[-1, 0, 1].map(oct => (
+                              <button
+                                key={oct}
+                                type="button"
+                                onClick={() => handleUpdatePostGrace(idx, old => ({ ...old, octave: oct }))}
+                                className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
+                                  (g.octave || 0) === oct
+                                    ? 'bg-amber-500 text-zinc-950 font-black'
+                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                                }`}
+                              >
+                                {oct === -1 ? '低̣' : oct === 1 ? '高̇' : '中'}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Accidental buttons */}
+                          <div className="flex items-center gap-1 border-l border-zinc-200 dark:border-zinc-700 pl-2">
+                            {(['', '#', 'b'] as const).map(acc => (
+                              <button
+                                key={acc || 'nat'}
+                                type="button"
+                                onClick={() => handleUpdatePostGrace(idx, old => ({ ...old, accidental: acc }))}
+                                className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
+                                  (g.accidental || '') === acc
+                                    ? 'bg-amber-500 text-zinc-950 font-black'
+                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                                }`}
+                              >
+                                {acc === '#' ? '♯' : acc === 'b' ? '♭' : '♮'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePostGrace(idx)}
+                          className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                          title="刪除此外飾音"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: LYRICS & ANNOTATIONS */}
           {activeTab === 'lyrics' && (
             <div className="flex flex-col gap-3.5">
               {/* Punctuation Row */}

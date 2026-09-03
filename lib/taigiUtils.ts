@@ -1,4 +1,4 @@
-import { JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, VerseItem, VerseNoteRef } from '@/types/song';
+import { ArticulationType, GraceNote, JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, VerseItem, VerseNoteRef } from '@/types/song';
 
 // Semitones relative to C4 (MIDI note 60)
 export const KEY_SEMITONES: Record<KeySignature, number> = {
@@ -392,6 +392,42 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         description: 'Quarter note (1 beat) + double dots (0.75 beats) = 1.75 beats',
         isDotted: true,
       };
+    case 3.5:
+      return {
+        name: 'Double Dotted Half Note',
+        fractionLabel: '3½ beats',
+        beatsLabel: '3.5 beats',
+        jianpuSymbol: '5 - - ··',
+        description: 'Half note (2 beats) + double dots (1.5 beats) = 3.5 beats',
+        isDotted: true,
+      };
+    case 0.125:
+      return {
+        name: '32nd Note',
+        fractionLabel: '⅛ beat',
+        beatsLabel: '0.125 beats',
+        jianpuSymbol: '5 (3 underlines)',
+        description: 'Thirty-second note (0.125 beats, 3 underlines)',
+        isDotted: false,
+      };
+    case 0.333:
+      return {
+        name: '8th Note Triplet',
+        fractionLabel: '⅓ beat',
+        beatsLabel: '0.333 beats',
+        jianpuSymbol: '┌ 3 ┐ (⅓ beat)',
+        description: 'Triplet 8th note: 3 notes in the space of 1 beat (0.333 beats each)',
+        isDotted: false,
+      };
+    case 0.667:
+      return {
+        name: 'Quarter Note Triplet',
+        fractionLabel: '⅔ beat',
+        beatsLabel: '0.667 beats',
+        jianpuSymbol: '┌ 3 ┐ (⅔ beat)',
+        description: 'Triplet quarter note: 3 notes in the space of 2 beats (0.667 beats each)',
+        isDotted: false,
+      };
     default:
       return {
         name: `Custom Duration (${duration} beats)`,
@@ -402,6 +438,74 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         isDotted: duration % 1 !== 0 && duration !== 0.5 && duration !== 0.25,
       };
   }
+}
+
+/**
+ * Compare two notes to see if they have identical musical pitch (pitch number, octave, accidental).
+ */
+export function isSamePitch(a: JianpuNote | null | undefined, b: JianpuNote | null | undefined): boolean {
+  if (!a || !b) return false;
+  if (a.pitch === 'empty' || b.pitch === 'empty') return false;
+  if (a.pitch === 0 || b.pitch === 0) return a.pitch === b.pitch;
+  return (
+    a.pitch === b.pitch &&
+    (a.octave || 0) === (b.octave || 0) &&
+    (a.accidental || '') === (b.accidental || '')
+  );
+}
+
+/**
+ * Check if a Tie is active from currentNote into nextNote.
+ * A Tie (連結音) connects notes of the SAME pitch, combining their sound in playback.
+ */
+export function isTieActive(currentNote: JianpuNote | null | undefined, nextNote?: JianpuNote | null): boolean {
+  if (!currentNote || !nextNote) return false;
+  const wantsTie = Boolean(currentNote.tieToNext || currentNote.isTied);
+  return wantsTie && isSamePitch(currentNote, nextNote);
+}
+
+/**
+ * Check if a Slur is active from currentNote into nextNote.
+ * A Slur (圓滑音 / 歌唱連線) connects notes across different or arbitrary pitches (legato phrasing / melisma).
+ */
+export function isSlurActive(currentNote: JianpuNote | null | undefined, nextNote?: JianpuNote | null): boolean {
+  if (!currentNote) return false;
+  if (currentNote.slurToNext) return true;
+  // Backward compatibility: if isTied is set but pitches differ, it's musically a Slur
+  if (currentNote.isTied && nextNote && !isSamePitch(currentNote, nextNote)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Check if a note is a melisma continuation under a slur (following an initial note with lyrics).
+ */
+export function isMelismaContinuation(note: JianpuNote | null | undefined, prevNote?: JianpuNote | null): boolean {
+  if (!note || !prevNote) return false;
+  const prevSlurred = isSlurActive(prevNote, note);
+  const noteHasOwnLyric = Boolean(
+    note.lyric?.hanji?.trim() ||
+    note.lyric?.poj?.trim() ||
+    note.lyric?.pij?.trim() ||
+    note.lyric?.custom?.trim()
+  );
+  return prevSlurred && !noteHasOwnLyric;
+}
+
+/**
+ * Format grace notes into compact display string e.g. "(3 5)"
+ */
+export function formatGraceNotes(notes?: GraceNote[]): string {
+  if (!notes || notes.length === 0) return '';
+  return notes
+    .map(g => {
+      let p = `${g.accidental || ''}${g.pitch}`;
+      if (g.octave > 0) p += '̇'.repeat(g.octave);
+      else if (g.octave < 0) p += '̣'.repeat(Math.abs(g.octave));
+      return p;
+    })
+    .join('');
 }
 
 /**

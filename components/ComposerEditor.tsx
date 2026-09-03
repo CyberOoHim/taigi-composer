@@ -12,6 +12,7 @@ import {
   Song,
   VerseItem,
   VerseNoteRef,
+  ArticulationType,
 } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import {
@@ -414,8 +415,64 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
   // Toggle tie
   const handleToggleTie = useCallback(() => {
-    updateSelectedNote(n => ({ ...n, isTied: !n.isTied }));
-  }, [updateSelectedNote]);
+    updateSelectedNote(n => {
+      const nextTie = !(n.tieToNext ?? n.isTied);
+      showNotice(nextTie ? '已設定連結音 ⌒ (Tie - 融合成一音)' : '已關閉連結音');
+      return { ...n, tieToNext: nextTie, isTied: nextTie };
+    });
+  }, [updateSelectedNote, showNotice]);
+
+  // Toggle slur
+  const handleToggleSlur = useCallback(() => {
+    updateSelectedNote(n => {
+      const nextSlur = !n.slurToNext;
+      showNotice(nextSlur ? '已設定圓滑線 ⌢ (Slur / 一字多音)' : '已關閉圓滑線');
+      return { ...n, slurToNext: nextSlur };
+    });
+  }, [updateSelectedNote, showNotice]);
+
+  // Set articulation
+  const handleSetArticulation = useCallback((art: ArticulationType) => {
+    updateSelectedNote(n => {
+      showNotice(`記號設定：${art}`);
+      return { ...n, articulation: art };
+    });
+  }, [updateSelectedNote, showNotice]);
+
+  // Toggle triplet
+  const handleToggleTriplet = useCallback(() => {
+    updateSelectedNote(n => {
+      const nextTrip = !n.isTriplet;
+      let nextDur = n.duration;
+      if (nextTrip) {
+        if (n.duration === 0.5) nextDur = 0.333;
+        else if (n.duration === 1) nextDur = 0.667;
+        else nextDur = 0.333;
+      } else {
+        if (n.duration === 0.333) nextDur = 0.5;
+        else if (n.duration === 0.667) nextDur = 1;
+      }
+      showNotice(nextTrip ? '已切換為三連音 ┌ 3 ┐' : '已關閉三連音');
+      return { ...n, isTriplet: nextTrip, duration: nextDur };
+    });
+  }, [updateSelectedNote, showNotice]);
+
+  // Toggle double dotted
+  const handleToggleDoubleDotted = useCallback(() => {
+    updateSelectedNote(n => {
+      const nextDouble = !n.isDoubleDotted;
+      let nextDur = n.duration;
+      if (nextDouble) {
+        if (n.duration === 1) nextDur = 1.75;
+        else if (n.duration === 2) nextDur = 3.5;
+      } else {
+        if (n.duration === 1.75) nextDur = 1;
+        else if (n.duration === 3.5) nextDur = 2;
+      }
+      showNotice(nextDouble ? '已切換為雙附點 ··' : '已關閉雙附點');
+      return { ...n, isDoubleDotted: nextDouble, duration: nextDur };
+    });
+  }, [updateSelectedNote, showNotice]);
 
   // Halve note duration (e.g. 1 -> 0.5 -> 0.25 -> 0.125)
   const handleHalveDuration = useCallback(() => {
@@ -1392,9 +1449,13 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         e.preventDefault();
         handleToggleDotted();
       } else if (e.key === 't' || e.key === 'T') {
-        // Toggle tie / slur
+        // Toggle tie
         e.preventDefault();
         handleToggleTie();
+      } else if (e.key === 's' || e.key === 'S') {
+        // Toggle slur
+        e.preventDefault();
+        handleToggleSlur();
       } else if (e.key === '#') {
         // Toggle sharp accidental
         e.preventDefault();
@@ -1437,6 +1498,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     handleSetOctave,
     handleToggleDotted,
     handleToggleTie,
+    handleToggleSlur,
     handleSetAccidental,
     handleNavigateNextNote,
     handleNavigatePrevNote,
@@ -1654,6 +1716,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onSetDuration={handleSetDuration}
             onToggleDotted={handleToggleDotted}
             onToggleTie={handleToggleTie}
+            onToggleSlur={handleToggleSlur}
+            onSetArticulation={handleSetArticulation}
+            onToggleTriplet={handleToggleTriplet}
+            onToggleDoubleDotted={handleToggleDoubleDotted}
             onInsertPunctuation={handleInsertPunctuationToNote}
             onInsertAnnotation={handleInsertAnnotationToNote}
             onSetAnnotation={handleSetAnnotation}
@@ -1703,6 +1769,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onSetDuration={handleSetDuration}
             onToggleDotted={handleToggleDotted}
             onToggleTie={handleToggleTie}
+            onToggleSlur={handleToggleSlur}
+            onSetArticulation={handleSetArticulation}
+            onToggleTriplet={handleToggleTriplet}
+            onToggleDoubleDotted={handleToggleDoubleDotted}
             onInsertPunctuation={handleInsertPunctuationToNote}
             onInsertAnnotation={handleInsertAnnotationToNote}
             onSetAnnotation={handleSetAnnotation}

@@ -1,5 +1,5 @@
-import { InstrumentType, JianpuNote, KeySignature, Measure, Song } from '@/types/song';
-import { getChordNotes, getPitchFrequency, isNonNotationItem } from './taigiUtils';
+import { ArticulationType, GraceNote, InstrumentType, JianpuNote, KeySignature, Measure, Song } from '@/types/song';
+import { getChordNotes, getPitchFrequency, isNonNotationItem, isSamePitch, isSlurActive, isTieActive } from './taigiUtils';
 
 export interface PlaybackState {
   isPlaying: boolean;
@@ -106,7 +106,7 @@ export class AudioEngine {
 
   constructor() {
     // AudioContext will be initialized on first user interaction
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
           // If page is hidden and audio is not actively playing, suspend AudioContext immediately to save battery
@@ -204,14 +204,16 @@ export class AudioEngine {
 
     const effectiveBpm = 80 * this.options.tempoMultiplier;
     const durationSec = (note.duration * (60 / effectiveBpm));
-    const playDuration = Math.min(durationSec, 1.2);
+    const playDuration = Math.min(durationSec, 1.4);
 
-    this.playTone(
-      freq,
+    this.playMelodyNoteWithDetails(
+      key,
+      note,
       this.ctx.currentTime,
       playDuration,
       this.melodyGain,
-      this.options.instrument
+      this.options.instrument,
+      { isPreview: true }
     );
 
     // Auto suspend AudioContext after preview note finishes to power down audio hardware
@@ -238,6 +240,103 @@ export class AudioEngine {
   }
 
   /**
+   * Synthesize a melody note including pre-grace notes, main tone with articulations, and post-grace notes.
+   */
+  private playMelodyNoteWithDetails(
+    key: KeySignature,
+    note: JianpuNote,
+    scheduleAt: number,
+    noteDurationSec: number,
+    destination: GainNode,
+    instrument: InstrumentType,
+    options?: {
+      isLegato?: boolean;
+      isPreview?: boolean;
+      glideFromFreq?: number;
+    }
+  ) {
+    if (!this.ctx || noteDurationSec <= 0) return;
+
+    const mainFreq = getPitchFrequency(
+      key,
+      note.pitch,
+      note.octave,
+      note.accidental,
+      this.options.transpose
+    );
+    if (mainFreq <= 0) return;
+
+    const preGrace = (note.preGraceNotes || []).slice(0, 3);
+    const postGrace = (note.postGraceNotes || []).slice(0, 3);
+
+    // Calculate ornament time slices
+    const maxOrnamentPortion = Math.min(0.24, noteDurationSec * 0.4);
+    const preCount = preGrace.length;
+    const postCount = postGrace.length;
+    const totalCount = preCount + postCount;
+
+    const graceNoteDur = totalCount > 0
+      ? Math.min(0.07, maxOrnamentPortion / totalCount)
+      : 0;
+
+    const totalPreDur = preCount * graceNoteDur;
+    const totalPostDur = postCount * graceNoteDur;
+    const mainDur = Math.max(0.05, noteDurationSec - totalPreDur - totalPostDur);
+
+    // 1. Play Pre-Grace Notes (前裝飾音 / 前倚音)
+    preGrace.forEach((g, idx) => {
+      const gFreq = getPitchFrequency(key, g.pitch, g.octave, g.accidental, this.options.transpose);
+      if (gFreq > 0) {
+        this.playTone(
+          gFreq,
+          scheduleAt + idx * graceNoteDur,
+          graceNoteDur * 0.95,
+          destination,
+          instrument,
+          { isLegato: true, volumeMultiplier: 0.82 }
+        );
+      }
+    });
+
+    // 2. Play Main Note with articulation & portamento
+    const mainStartTime = scheduleAt + totalPreDur;
+    let glideFreq = options?.glideFromFreq;
+    if (note.articulation === 'portamento_up') {
+      glideFreq = mainFreq * 0.89; // Glide up from ~2 semitones below
+    } else if (note.articulation === 'portamento_down') {
+      glideFreq = mainFreq * 1.12; // Glide down from ~2 semitones above
+    }
+
+    this.playTone(
+      mainFreq,
+      mainStartTime,
+      mainDur,
+      destination,
+      instrument,
+      {
+        isLegato: options?.isLegato || preCount > 0 || postCount > 0,
+        articulation: note.articulation,
+        glideFromFreq: glideFreq,
+      }
+    );
+
+    // 3. Play Post-Grace Notes (後裝飾音 / 尾裝飾音)
+    postGrace.forEach((g, idx) => {
+      const gFreq = getPitchFrequency(key, g.pitch, g.octave, g.accidental, this.options.transpose);
+      if (gFreq > 0) {
+        this.playTone(
+          gFreq,
+          scheduleAt + totalPreDur + mainDur + idx * graceNoteDur,
+          graceNoteDur * 0.95,
+          destination,
+          instrument,
+          { isLegato: true, volumeMultiplier: 0.82 }
+        );
+      }
+    });
+  }
+
+  /**
    * Synthesize instrument sound
    */
   private playTone(
@@ -245,19 +344,44 @@ export class AudioEngine {
     startTime: number,
     duration: number,
     destination: GainNode,
-    instrument: InstrumentType
+    instrument: InstrumentType,
+    options?: {
+      isLegato?: boolean;
+      articulation?: ArticulationType;
+      volumeMultiplier?: number;
+      glideFromFreq?: number;
+    }
   ) {
     if (!this.ctx || freq <= 0) return;
+
+    let effectiveDuration = duration;
+    let volMul = options?.volumeMultiplier ?? 1.0;
+    const isLegato = options?.isLegato ?? false;
+
+    if (options?.articulation === 'staccato') {
+      effectiveDuration = Math.max(0.06, duration * 0.45);
+    } else if (options?.articulation === 'fermata') {
+      effectiveDuration = duration * 1.75;
+    } else if (options?.articulation === 'accent') {
+      volMul *= 1.35;
+    }
 
     const osc = this.ctx.createOscillator();
     this.registerOscillator(osc);
     const gain = this.ctx.createGain();
 
+    if (options?.glideFromFreq && options.glideFromFreq > 0) {
+      osc.frequency.setValueAtTime(options.glideFromFreq, startTime);
+      osc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
+    }
+
     switch (instrument) {
       case 'piano': {
         // Multi-harmonic acoustic piano-like simulation
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, startTime);
+        if (!options?.glideFromFreq) {
+          osc.frequency.setValueAtTime(freq, startTime);
+        }
 
         // Sub oscillator for depth
         const subOsc = this.ctx.createOscillator();
@@ -265,24 +389,32 @@ export class AudioEngine {
         const subGain = this.ctx.createGain();
         subOsc.type = 'sine';
         subOsc.frequency.setValueAtTime(freq * 2, startTime);
-        subGain.gain.setValueAtTime(0.3, startTime);
-        subGain.gain.exponentialRampToValueAtTime(0.001, startTime + Math.max(duration * 0.7, 0.1));
+        subGain.gain.setValueAtTime(0.3 * volMul, startTime);
+        subGain.gain.exponentialRampToValueAtTime(0.001, startTime + Math.max(effectiveDuration * 0.7, 0.1));
         subOsc.connect(subGain);
         subGain.connect(gain);
         subOsc.start(startTime);
-        subOsc.stop(startTime + duration + 0.1);
+        subOsc.stop(startTime + effectiveDuration + 0.1);
 
-        // Fast punch attack, natural exponential decay
+        // Fast punch attack or softened legato attack
         gain.gain.setValueAtTime(0.0001, startTime);
-        gain.gain.linearRampToValueAtTime(0.8, startTime + 0.012);
-        gain.gain.exponentialRampToValueAtTime(0.35, startTime + 0.15);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(duration * 0.95, 0.2));
+        if (isLegato) {
+          gain.gain.linearRampToValueAtTime(0.7 * volMul, startTime + 0.022);
+          gain.gain.setValueAtTime(0.5 * volMul, startTime + effectiveDuration * 0.85);
+          gain.gain.linearRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        } else {
+          gain.gain.linearRampToValueAtTime(0.8 * volMul, startTime + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.35 * volMul, startTime + 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(effectiveDuration * 0.95, 0.2));
+        }
         break;
       }
       case 'flute': {
         // Traditional Taiwanese bamboo flute / Xiao / Dizi style
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, startTime);
+        if (!options?.glideFromFreq) {
+          osc.frequency.setValueAtTime(freq, startTime);
+        }
 
         // Subtle vibrato LFO
         const lfo = this.ctx.createOscillator();
@@ -292,7 +424,7 @@ export class AudioEngine {
         lfoGain.gain.setValueAtTime(freq * 0.015, startTime);
         lfo.connect(osc.frequency);
         lfo.start(startTime + 0.1);
-        lfo.stop(startTime + duration);
+        lfo.stop(startTime + effectiveDuration);
 
         // Overtone harmonic for breathy timber
         const overtone = this.ctx.createOscillator();
@@ -300,44 +432,49 @@ export class AudioEngine {
         const overtoneGain = this.ctx.createGain();
         overtone.type = 'triangle';
         overtone.frequency.setValueAtTime(freq * 3, startTime);
-        overtoneGain.gain.setValueAtTime(0.08, startTime);
-        overtoneGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+        overtoneGain.gain.setValueAtTime(0.08 * volMul, startTime);
+        overtoneGain.gain.exponentialRampToValueAtTime(0.001, startTime + effectiveDuration);
         overtone.connect(overtoneGain);
         overtoneGain.connect(gain);
         overtone.start(startTime);
-        overtone.stop(startTime + duration);
+        overtone.stop(startTime + effectiveDuration);
 
         // Soft breathy attack and smooth sustain
         gain.gain.setValueAtTime(0.0001, startTime);
-        gain.gain.linearRampToValueAtTime(0.7, startTime + 0.06);
-        gain.gain.setValueAtTime(0.65, startTime + duration * 0.8);
-        gain.gain.linearRampToValueAtTime(0.0001, startTime + duration);
+        const fluteAttack = isLegato ? 0.02 : 0.06;
+        gain.gain.linearRampToValueAtTime(0.7 * volMul, startTime + fluteAttack);
+        gain.gain.setValueAtTime(0.65 * volMul, startTime + effectiveDuration * 0.85);
+        gain.gain.linearRampToValueAtTime(0.0001, startTime + effectiveDuration);
         break;
       }
       case 'guitar': {
         // Nylon acoustic guitar pluck
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(freq, startTime);
+        if (!options?.glideFromFreq) {
+          osc.frequency.setValueAtTime(freq, startTime);
+        }
 
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'lowpass';
         filter.frequency.setValueAtTime(freq * 4, startTime);
-        filter.frequency.exponentialRampToValueAtTime(freq * 1.2, startTime + Math.max(duration * 0.6, 0.15));
+        filter.frequency.exponentialRampToValueAtTime(freq * 1.2, startTime + Math.max(effectiveDuration * 0.6, 0.15));
 
         osc.disconnect();
         osc.connect(filter);
         filter.connect(gain);
 
         gain.gain.setValueAtTime(0.0001, startTime);
-        gain.gain.linearRampToValueAtTime(0.75, startTime + 0.008);
-        gain.gain.exponentialRampToValueAtTime(0.25, startTime + 0.2);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration * 0.9);
+        gain.gain.linearRampToValueAtTime(0.75 * volMul, startTime + (isLegato ? 0.018 : 0.008));
+        gain.gain.exponentialRampToValueAtTime(0.25 * volMul, startTime + 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration * (isLegato ? 0.98 : 0.9));
         break;
       }
       case 'synth': {
         // Classic 80s/90s KTV Karaoke FM Brass / Synth Lead
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(freq, startTime);
+        if (!options?.glideFromFreq) {
+          osc.frequency.setValueAtTime(freq, startTime);
+        }
 
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'lowpass';
@@ -349,31 +486,33 @@ export class AudioEngine {
         filter.connect(gain);
 
         gain.gain.setValueAtTime(0.001, startTime);
-        gain.gain.linearRampToValueAtTime(0.6, startTime + 0.03);
-        gain.gain.setValueAtTime(0.5, startTime + duration * 0.75);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+        gain.gain.linearRampToValueAtTime(0.6 * volMul, startTime + (isLegato ? 0.015 : 0.03));
+        gain.gain.setValueAtTime(0.5 * volMul, startTime + effectiveDuration * 0.75);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
         break;
       }
       case 'bell': {
         // Glockenspiel / music box bell
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, startTime);
+        if (!options?.glideFromFreq) {
+          osc.frequency.setValueAtTime(freq, startTime);
+        }
 
         const bell2 = this.ctx.createOscillator();
         this.registerOscillator(bell2);
         const bell2Gain = this.ctx.createGain();
         bell2.type = 'sine';
         bell2.frequency.setValueAtTime(freq * 2.756, startTime);
-        bell2Gain.gain.setValueAtTime(0.4, startTime);
-        bell2Gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(duration * 0.5, 0.2));
+        bell2Gain.gain.setValueAtTime(0.4 * volMul, startTime);
+        bell2Gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(effectiveDuration * 0.5, 0.2));
         bell2.connect(bell2Gain);
         bell2Gain.connect(gain);
         bell2.start(startTime);
-        bell2.stop(startTime + duration);
+        bell2.stop(startTime + effectiveDuration);
 
         gain.gain.setValueAtTime(0.0001, startTime);
-        gain.gain.linearRampToValueAtTime(0.8, startTime + 0.005);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+        gain.gain.linearRampToValueAtTime(0.8 * volMul, startTime + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
         break;
       }
     }
@@ -382,7 +521,7 @@ export class AudioEngine {
     gain.connect(destination);
 
     osc.start(startTime);
-    osc.stop(startTime + duration + 0.05);
+    osc.stop(startTime + effectiveDuration + 0.05);
   }
 
   /**
@@ -505,6 +644,27 @@ export class AudioEngine {
       durationSec: number;
     }[] = [];
 
+    // Pre-calculate true tie chains and combined sound durations for this measure
+    const notesCount = targetMeasure.notes.length;
+    const isTiedContinuation = new Array<boolean>(notesCount).fill(false);
+    const combinedSoundDurations = new Array<number>(notesCount).fill(0);
+
+    for (let i = 0; i < notesCount; i++) {
+      if (isTiedContinuation[i]) continue;
+      const n = targetMeasure.notes[i];
+      const isNon = isNonNotationItem(n) || n.pitch === 'empty' || n.duration <= 0;
+      let durSec = isNon ? 0 : n.duration * secPerBeat;
+      let k = i;
+      while (k + 1 < notesCount && isTieActive(targetMeasure.notes[k], targetMeasure.notes[k + 1])) {
+        k++;
+        isTiedContinuation[k] = true;
+        const nextN = targetMeasure.notes[k];
+        const nextDurSec = isNonNotationItem(nextN) || nextN.pitch === 'empty' || nextN.duration <= 0 ? 0 : nextN.duration * secPerBeat;
+        durSec += nextDurSec;
+      }
+      combinedSoundDurations[i] = durSec;
+    }
+
     let noteTime = 0;
     targetMeasure.notes.forEach((note, nIdx) => {
       const isNonNotation = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
@@ -512,21 +672,21 @@ export class AudioEngine {
       const scheduleAt = audioStart + noteTime;
 
       if (!isNonNotation && note.duration > 0) {
-        const freq = getPitchFrequency(
-          song.key,
-          note.pitch,
-          note.octave,
-          note.accidental,
-          this.options.transpose
-        );
+        // Only trigger audio if this note is NOT a continuation of an already-sustained tie
+        if (!isTiedContinuation[nIdx]) {
+          const soundDuration = combinedSoundDurations[nIdx] || noteDurationSec;
+          const nextNote = targetMeasure.notes[nIdx + 1];
+          const prevNote = nIdx > 0 ? targetMeasure.notes[nIdx - 1] : null;
+          const isSlurred = isSlurActive(note, nextNote) || (prevNote ? isSlurActive(prevNote, note) : false);
 
-        if (freq > 0) {
-          this.playTone(
-            freq,
+          this.playMelodyNoteWithDetails(
+            song.key,
+            note,
             scheduleAt,
-            noteDurationSec,
+            soundDuration,
             this.melodyGain!,
-            this.options.instrument
+            this.options.instrument,
+            { isLegato: isSlurred }
           );
         }
       }
@@ -610,31 +770,51 @@ export class AudioEngine {
       durationSec: number;
     }[] = [];
 
+    // Pre-calculate true tie chains for verse notes
+    const vCount = verseNotes.length;
+    const isTiedContinuation = new Array<boolean>(vCount).fill(false);
+    const combinedSoundDurations = new Array<number>(vCount).fill(0);
+
+    for (let i = 0; i < vCount; i++) {
+      if (isTiedContinuation[i]) continue;
+      const n = verseNotes[i].note;
+      const isNon = isNonNotationItem(n) || n.pitch === 'empty' || n.duration <= 0;
+      let durSec = isNon ? 0 : n.duration * secPerBeat;
+      let k = i;
+      while (k + 1 < vCount && isTieActive(verseNotes[k].note, verseNotes[k + 1].note)) {
+        k++;
+        isTiedContinuation[k] = true;
+        const nextN = verseNotes[k].note;
+        const nextDurSec = isNonNotationItem(nextN) || nextN.pitch === 'empty' || nextN.duration <= 0 ? 0 : nextN.duration * secPerBeat;
+        durSec += nextDurSec;
+      }
+      combinedSoundDurations[i] = durSec;
+    }
+
     let noteTime = 0;
     let lastChord = '';
 
-    verseNotes.forEach(item => {
+    verseNotes.forEach((item, itemIdx) => {
       const { note, measureIdx, noteIdx } = item;
       const isNonNotation = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
       const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
       const scheduleAt = audioStart + noteTime;
 
       if (!isNonNotation && note.duration > 0) {
-        const freq = getPitchFrequency(
-          song.key,
-          note.pitch,
-          note.octave,
-          note.accidental,
-          this.options.transpose
-        );
+        if (!isTiedContinuation[itemIdx]) {
+          const soundDuration = combinedSoundDurations[itemIdx] || noteDurationSec;
+          const nextItem = verseNotes[itemIdx + 1];
+          const prevItem = verseNotes[itemIdx - 1];
+          const isSlurred = isSlurActive(note, nextItem?.note) || (prevItem ? isSlurActive(prevItem.note, note) : false);
 
-        if (freq > 0) {
-          this.playTone(
-            freq,
+          this.playMelodyNoteWithDetails(
+            song.key,
+            note,
             scheduleAt,
-            noteDurationSec,
+            soundDuration,
             this.melodyGain!,
-            this.options.instrument
+            this.options.instrument,
+            { isLegato: isSlurred }
           );
         }
 
@@ -764,6 +944,55 @@ export class AudioEngine {
       durationSec: number;
     }[] = [];
 
+    // Flatten all notes across the song to detect cross-measure ties and slurs
+    interface FlatSongNote {
+      measureIndex: number;
+      noteIndex: number;
+      note: JianpuNote;
+      noteStartTime: number;
+      noteDurationSec: number;
+      isNonNotation: boolean;
+    }
+
+    const flatSongNotes: FlatSongNote[] = [];
+    let songAccumTime = 0;
+
+    song.measures.forEach((measure, mIdx) => {
+      measure.notes.forEach((note, nIdx) => {
+        const isNon = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
+        const noteDurSec = isNon ? 0 : note.duration * secPerBeat;
+        flatSongNotes.push({
+          measureIndex: mIdx,
+          noteIndex: nIdx,
+          note,
+          noteStartTime: songAccumTime,
+          noteDurationSec: noteDurSec,
+          isNonNotation: isNon,
+        });
+        if (!isNon) {
+          songAccumTime += noteDurSec;
+        }
+      });
+    });
+
+    const flatTotal = flatSongNotes.length;
+    const isTiedContinuation = new Array<boolean>(flatTotal).fill(false);
+    const combinedSoundDurations = new Array<number>(flatTotal).fill(0);
+
+    for (let i = 0; i < flatTotal; i++) {
+      if (isTiedContinuation[i]) continue;
+      const fn = flatSongNotes[i];
+      let durSec = fn.noteDurationSec;
+      let k = i;
+      while (k + 1 < flatTotal && isTieActive(flatSongNotes[k].note, flatSongNotes[k + 1].note)) {
+        k++;
+        isTiedContinuation[k] = true;
+        durSec += flatSongNotes[k].noteDurationSec;
+      }
+      combinedSoundDurations[i] = durSec;
+    }
+
+    let flatCursor = 0;
     song.measures.forEach((measure, mIdx) => {
       let measureTime = accumulatedSongTime;
       let measureBeatsCount = 0;
@@ -773,30 +1002,31 @@ export class AudioEngine {
       const beatsPerBar = parseInt(tsParts[0], 10) || 4;
 
       measure.notes.forEach((note, nIdx) => {
-        const isNonNotation = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
-        const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
+        const currentFlatIdx = flatCursor++;
+        const fn = flatSongNotes[currentFlatIdx];
+        const isNonNotation = fn.isNonNotation;
+        const noteDurationSec = fn.noteDurationSec;
         const noteStartTime = measureTime;
 
         // Schedule melody note if it starts at or after our playback cursor
         if (!isNonNotation && note.duration > 0) {
-          if (noteStartTime + noteDurationSec >= startFromSec) {
-            const scheduleAt = this.startAudioTime + noteStartTime;
-            if (scheduleAt >= this.ctx!.currentTime) {
-              const freq = getPitchFrequency(
-                song.key,
-                note.pitch,
-                note.octave,
-                note.accidental,
-                this.options.transpose
-              );
+          if (!isTiedContinuation[currentFlatIdx]) {
+            const soundDuration = combinedSoundDurations[currentFlatIdx] || noteDurationSec;
+            if (noteStartTime + soundDuration >= startFromSec) {
+              const scheduleAt = this.startAudioTime + noteStartTime;
+              if (scheduleAt >= this.ctx!.currentTime) {
+                const nextFn = flatSongNotes[currentFlatIdx + 1];
+                const prevFn = currentFlatIdx > 0 ? flatSongNotes[currentFlatIdx - 1] : null;
+                const isSlurred = isSlurActive(note, nextFn?.note) || (prevFn ? isSlurActive(prevFn.note, note) : false);
 
-              if (freq > 0) {
-                this.playTone(
-                  freq,
+                this.playMelodyNoteWithDetails(
+                  song.key,
+                  note,
                   scheduleAt,
-                  noteDurationSec,
+                  soundDuration,
                   this.melodyGain!,
-                  this.options.instrument
+                  this.options.instrument,
+                  { isLegato: isSlurred }
                 );
               }
             }

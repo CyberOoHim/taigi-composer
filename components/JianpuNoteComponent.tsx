@@ -3,10 +3,11 @@
 import React from 'react';
 import { JianpuNote, LyricDisplayMode } from '@/types/song';
 import { cn } from '@/lib/utils';
-import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
+import { isMelismaContinuation, isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
 
 interface JianpuNoteComponentProps {
   note: JianpuNote;
+  prevNote?: JianpuNote | null;
   isSelected?: boolean;
   isActive?: boolean;
   playProgress?: number; // 0 to 1 progress within this note during playback
@@ -18,6 +19,7 @@ interface JianpuNoteComponentProps {
 
 export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.memo(({
   note,
+  prevNote,
   isSelected = false,
   isActive = false,
   playProgress = 0,
@@ -34,10 +36,14 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
   const octaveTopDots = isPitched && note.octave > 0 ? note.octave : 0;
   const octaveBottomDots = isPitched && note.octave < 0 ? Math.abs(note.octave) : 0;
 
-  // Underlines for eighth notes (duration <= 0.5) and 16th notes (duration <= 0.25)
-  const isEighth = !isNonNotation && (note.duration === 0.5 || note.duration === 0.75);
-  const isSixteenth = !isNonNotation && (note.duration <= 0.25 || note.duration === 0.375);
-  const showDot = !isNonNotation && (note.isDotted || note.duration === 1.5 || note.duration === 0.75 || note.duration === 3 || note.duration === 0.375 || note.duration === 1.75);
+  // Underlines for 8th, 16th, and 32nd notes
+  const isThirtySecond = !isNonNotation && typeof note.duration === 'number' && note.duration > 0 && note.duration <= 0.125;
+  const isSixteenth = !isNonNotation && typeof note.duration === 'number' && ((note.duration <= 0.25 && note.duration > 0.125) || note.duration === 0.375);
+  const isEighth = !isNonNotation && typeof note.duration === 'number' && (note.duration === 0.5 || note.duration === 0.75 || note.duration === 0.333);
+
+  const isTriplet = !isNonNotation && (note.isTriplet || note.duration === 0.333 || note.duration === 0.667);
+  const showDoubleDot = !isNonNotation && (note.isDoubleDotted || note.duration === 1.75 || note.duration === 3.5);
+  const showDot = !isNonNotation && !showDoubleDot && (note.isDotted || note.duration === 1.5 || note.duration === 0.75 || note.duration === 3 || note.duration === 0.375);
 
   // Extension dashes for 2, 3, 4 beats
   const dashesCount = !isNonNotation
@@ -61,6 +67,13 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
   const renderLyricContent = () => {
     const hasText = Boolean(hanji || poj || pij || custom || annotation);
     if (!hasText) {
+      if (isMelismaContinuation(note, prevNote)) {
+        return (
+          <span className="text-purple-600 dark:text-purple-400 font-mono text-xs font-bold tracking-widest select-none" title="Melisma (一字多音連音)">
+            ──
+          </span>
+        );
+      }
       if (note.pitch === 0 && !isNonNotation) {
         return <span className="text-zinc-400 dark:text-zinc-600 font-mono text-xs">0</span>;
       }
@@ -194,9 +207,39 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
 
       {/* Note Number Container */}
       <div className="flex items-center justify-center relative min-h-[36px] px-1">
+        {/* Top Articulation mark (Fermata, Accent, Staccato, Tenuto, Portamento) */}
+        {note.articulation && note.articulation !== 'none' && !isNonNotation && (
+          <span className="absolute -top-5 text-amber-600 dark:text-amber-400 font-black text-xs select-none">
+            {note.articulation === 'fermata' && '𝄐'}
+            {note.articulation === 'accent' && '>'}
+            {note.articulation === 'staccato' && '·'}
+            {note.articulation === 'tenuto' && '—'}
+            {note.articulation === 'portamento_up' && '↗'}
+            {note.articulation === 'portamento_down' && '↘'}
+          </span>
+        )}
+
+        {/* Triplet indicator 3 */}
+        {isTriplet && !isNonNotation && (
+          <span className="absolute -top-4 text-[9px] font-mono font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/80 px-1 rounded-sm border border-indigo-200 dark:border-indigo-800 shadow-2xs">
+            3
+          </span>
+        )}
+
         {/* Slur / Tie Indicator */}
-        {note.isTied && !isNonNotation && (
-          <span className="absolute -top-2.5 text-zinc-400 dark:text-zinc-500 text-xs font-bold">⌒</span>
+        {!isNonNotation && (
+          <div className="absolute -top-2.5 flex items-center gap-0.5 text-xs font-bold pointer-events-none">
+            {(note.tieToNext || (note.isTied && !note.slurToNext)) && (
+              <span className="text-amber-500 dark:text-amber-400 text-sm font-black leading-none" title="Tie (連結音 - 音色融合)">
+                ⌒
+              </span>
+            )}
+            {note.slurToNext && (
+              <span className="text-purple-600 dark:text-purple-400 text-sm font-black leading-none" title="Slur (圓滑音 - 一字多音)">
+                ⌢
+              </span>
+            )}
+          </div>
         )}
 
         {/* Top Annotation if set */}
@@ -222,43 +265,85 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
             </div>
           )}
 
-          {/* Main Pitch Number & Accidental & Dotted */}
-          <div className="flex items-baseline font-mono text-lg font-bold tracking-tight">
-            {isPitched && note.accidental && (
-              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 mr-0.5">
-                {note.accidental === '#' ? '♯' : '♭'}
-              </span>
+          {/* Main Pitch Row with Pre-Grace Notes, Pitch Number, and Post-Grace Notes */}
+          <div className="flex items-center">
+            {/* Pre-Grace Notes (前裝飾音 / 前倚音) */}
+            {isPitched && note.preGraceNotes && note.preGraceNotes.length > 0 && (
+              <div className="flex items-end gap-0.5 mr-1 mb-1 text-[10px] text-zinc-600 dark:text-zinc-400 font-mono font-bold leading-none select-none">
+                <span className="text-[9px] text-purple-600 dark:text-purple-400 font-black -mr-0.5">⌒</span>
+                {note.preGraceNotes.map((g, idx) => (
+                  <span key={idx} className="relative flex flex-col items-center">
+                    {g.octave > 0 && <span className="text-[7px] leading-none mb-[-2px]">·</span>}
+                    <span className="flex items-baseline">
+                      {g.accidental && <span className="text-[8px] text-amber-600">{g.accidental === '#' ? '♯' : '♭'}</span>}
+                      <span>{g.pitch}</span>
+                    </span>
+                    {g.octave < 0 && <span className="text-[7px] leading-none mt-[-2px]">·</span>}
+                    <span className="w-full h-[1px] bg-zinc-600 dark:bg-zinc-400 mt-0.5" />
+                  </span>
+                ))}
+              </div>
             )}
-            <span
-              className={cn(
-                'transition-colors',
-                isNonNotation
-                  ? 'text-zinc-400/80 dark:text-zinc-500 font-mono text-base px-1 min-w-[14px] text-center'
-                  : note.pitch === 0
-                  ? 'text-zinc-400 dark:text-zinc-500 font-normal'
-                  : isActive
-                  ? 'text-amber-600 dark:text-amber-300 scale-110'
-                  : 'text-zinc-900 dark:text-zinc-100'
+
+            {/* Main Pitch Number & Accidental & Dotted */}
+            <div className="flex items-baseline font-mono text-lg font-bold tracking-tight">
+              {isPitched && note.accidental && (
+                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 mr-0.5">
+                  {note.accidental === '#' ? '♯' : '♭'}
+                </span>
               )}
-            >
-              {isNonNotation
-                ? annotation
-                  ? ''
-                  : hanji === '\n' || hanji === '↵' || hanji === '\r' || custom === '\n' || custom === '↵' || custom === '\r'
-                  ? '↵'
-                  : isPunctuationOrSpacer(hanji || custom)
-                  ? hanji || custom
-                  : '␣'
-                : note.pitch}
-            </span>
-            {showDot && (
-              <span className="text-sm font-black text-amber-600 dark:text-amber-400 ml-0.5">·</span>
-            )}
-            {/* Extension Dashes */}
-            {dashesCount > 0 && (
-              <span className="font-mono text-zinc-500 dark:text-zinc-400 text-sm ml-1 font-semibold">
-                {' -'.repeat(dashesCount)}
+              <span
+                className={cn(
+                  'transition-colors',
+                  isNonNotation
+                    ? 'text-zinc-400/80 dark:text-zinc-500 font-mono text-base px-1 min-w-[14px] text-center'
+                    : note.pitch === 0
+                    ? 'text-zinc-400 dark:text-zinc-500 font-normal'
+                    : isActive
+                    ? 'text-amber-600 dark:text-amber-300 scale-110'
+                    : 'text-zinc-900 dark:text-zinc-100'
+                )}
+              >
+                {isNonNotation
+                  ? annotation
+                    ? ''
+                    : hanji === '\n' || hanji === '↵' || hanji === '\r' || custom === '\n' || custom === '↵' || custom === '\r'
+                    ? '↵'
+                    : isPunctuationOrSpacer(hanji || custom)
+                    ? hanji || custom
+                    : '␣'
+                  : note.pitch}
               </span>
+              {showDoubleDot && (
+                <span className="text-sm font-black text-amber-600 dark:text-amber-400 ml-0.5">··</span>
+              )}
+              {showDot && (
+                <span className="text-sm font-black text-amber-600 dark:text-amber-400 ml-0.5">·</span>
+              )}
+              {/* Extension Dashes */}
+              {dashesCount > 0 && (
+                <span className="font-mono text-zinc-500 dark:text-zinc-400 text-sm ml-1 font-semibold">
+                  {' -'.repeat(dashesCount)}
+                </span>
+              )}
+            </div>
+
+            {/* Post-Grace Notes (後裝飾音 / 尾裝飾音) */}
+            {isPitched && note.postGraceNotes && note.postGraceNotes.length > 0 && (
+              <div className="flex items-end gap-0.5 ml-1 mb-1 text-[10px] text-zinc-600 dark:text-zinc-400 font-mono font-bold leading-none select-none">
+                {note.postGraceNotes.map((g, idx) => (
+                  <span key={idx} className="relative flex flex-col items-center">
+                    {g.octave > 0 && <span className="text-[7px] leading-none mb-[-2px]">·</span>}
+                    <span className="flex items-baseline">
+                      {g.accidental && <span className="text-[8px] text-amber-600">{g.accidental === '#' ? '♯' : '♭'}</span>}
+                      <span>{g.pitch}</span>
+                    </span>
+                    {g.octave < 0 && <span className="text-[7px] leading-none mt-[-2px]">·</span>}
+                    <span className="w-full h-[1px] bg-zinc-600 dark:bg-zinc-400 mt-0.5" />
+                  </span>
+                ))}
+                <span className="text-[9px] text-purple-600 dark:text-purple-400 font-black -ml-0.5">⌒</span>
+              </div>
             )}
           </div>
 
@@ -288,6 +373,28 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
           )}
           {isSixteenth && (
             <div className="flex flex-col gap-[2px] w-full mt-0.5">
+              <div
+                className={cn(
+                  'w-full h-[1.5px] rounded-full',
+                  isActive ? 'bg-amber-500' : 'bg-zinc-800 dark:bg-zinc-300'
+                )}
+              />
+              <div
+                className={cn(
+                  'w-full h-[1.5px] rounded-full',
+                  isActive ? 'bg-amber-500' : 'bg-zinc-800 dark:bg-zinc-300'
+                )}
+              />
+            </div>
+          )}
+          {isThirtySecond && (
+            <div className="flex flex-col gap-[1.5px] w-full mt-0.5">
+              <div
+                className={cn(
+                  'w-full h-[1.5px] rounded-full',
+                  isActive ? 'bg-amber-500' : 'bg-zinc-800 dark:bg-zinc-300'
+                )}
+              />
               <div
                 className={cn(
                   'w-full h-[1.5px] rounded-full',

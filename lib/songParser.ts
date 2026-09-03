@@ -47,18 +47,36 @@ export function formatNoteToJianpuString(note: JianpuNote): string {
   let p = `${note.pitch}`;
   if (note.accidental) p = `${note.accidental}${p}`;
 
+  // Pre-grace notes
+  if (note.preGraceNotes && note.preGraceNotes.length > 0) {
+    const preStr = note.preGraceNotes.map(g => `${g.accidental || ''}${g.pitch}`).join('');
+    p = `(${preStr})${p}`;
+  }
+
   // Octave representation (+ for higher octaves, , for lower octaves)
   if (note.octave > 0) p = `${p}${'+'.repeat(note.octave)}`;
   if (note.octave < 0) p = `${p}${','.repeat(Math.abs(note.octave))}`;
+
+  // Post-grace notes
+  if (note.postGraceNotes && note.postGraceNotes.length > 0) {
+    const postStr = note.postGraceNotes.map(g => `${g.accidental || ''}${g.pitch}`).join('');
+    p = `${p}(${postStr})`;
+  }
 
   // Duration representation
   if (note.duration === 0.5) p = `${p}_`;
   else if (note.duration === 0.25) p = `${p}__`;
   else if (note.duration === 0.125) p = `${p}___`;
-  else if (note.duration === 1.5) p = `${p}.`;
+  else if (note.duration === 0.333) p = `${p}/3`;
+  else if (note.duration === 0.667) p = `${p}*2/3`;
+  else if (note.duration === 1.75 || note.isDoubleDotted) p = `${p}..`;
+  else if (note.duration === 1.5 || note.isDotted) p = `${p}.`;
   else if (note.duration === 2) p = `${p}-`;
   else if (note.duration === 3) p = `${p}--`;
   else if (note.duration === 4) p = `${p}---`;
+
+  if (note.tieToNext) p = `${p}~`;
+  if (note.slurToNext) p = `${p}^`;
 
   return p;
 }

@@ -4,7 +4,16 @@ export type KeySignature = 'C' | 'Db' | 'D' | 'Eb' | 'E' | 'F' | 'F#' | 'G' | 'A
 
 export type PitchNumber = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 'empty';
 
-export type NoteDuration = 4 | 3 | 2 | 1.75 | 1.5 | 1.25 | 1 | 0.75 | 0.5 | 0.375 | 0.25 | 0.125 | number;
+export type NoteDuration = 4 | 3.5 | 3 | 2 | 1.75 | 1.5 | 1.25 | 1 | 0.75 | 0.667 | 0.5 | 0.375 | 0.333 | 0.25 | 0.125 | number;
+
+export interface GraceNote {
+  id?: string;
+  pitch: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  octave: number;           // -2, -1, 0, 1, 2 (dots below / above)
+  accidental?: '' | '#' | 'b';
+}
+
+export type ArticulationType = 'none' | 'staccato' | 'tenuto' | 'accent' | 'fermata' | 'portamento_up' | 'portamento_down';
 
 export interface LyricSyllable {
   hanji?: string;   // 漢字 e.g. "望"
@@ -20,7 +29,14 @@ export interface JianpuNote {
   accidental?: '' | '#' | 'b'; // Sharp or Flat
   duration: NoteDuration;   // in beats (1 = quarter note, 0.5 = 8th note, etc.)
   isDotted?: boolean;       // Display dot
-  isTied?: boolean;         // Slur/Tie to next note
+  isDoubleDotted?: boolean; // Display double dot (e.g. 1.75 or 3.5 beats)
+  isTied?: boolean;         // Legacy tie/slur to next note
+  tieToNext?: boolean;      // True Tie: combines same pitch into one continuous sustained sound
+  slurToNext?: boolean;     // Slur: legato phrasing & melisma across different pitches
+  preGraceNotes?: GraceNote[];  // 1 to 3 pre-grace notes (前裝飾音 / 前倚音)
+  postGraceNotes?: GraceNote[]; // 1 to 3 post-grace notes (後裝飾音 / 尾裝飾音)
+  isTriplet?: boolean;      // Part of a 3-note triplet
+  articulation?: ArticulationType; // Performance articulation (e.g. staccato, fermata, accent, etc.)
   lyric: LyricSyllable;     // Aligned lyric or punctuation
   annotation?: string;      // Optional musical / vocal annotation (e.g., 漸慢, 合唱, 間奏, rit., V, etc.)
 }

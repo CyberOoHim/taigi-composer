@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { JianpuNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, VerseItem, VerseNoteRef } from '@/types/song';
+import { JianpuNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, VerseItem, VerseNoteRef, ArticulationType } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
 import { scrollToCardElement } from '@/lib/utils';
@@ -36,6 +36,10 @@ interface VerseModeViewProps {
   onSetDuration: (duration: NoteDuration) => void;
   onToggleDotted: () => void;
   onToggleTie: () => void;
+  onToggleSlur?: () => void;
+  onSetArticulation?: (art: ArticulationType) => void;
+  onToggleTriplet?: () => void;
+  onToggleDoubleDotted?: () => void;
   onInsertPunctuation: (punct: string) => void;
   onInsertAnnotation: (annot: string) => void;
   onSetAnnotation: (annot: string) => void;
@@ -82,6 +86,10 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   onSetDuration,
   onToggleDotted,
   onToggleTie,
+  onToggleSlur,
+  onSetArticulation,
+  onToggleTriplet,
+  onToggleDoubleDotted,
   onInsertPunctuation,
   onInsertAnnotation,
   onSetAnnotation,
@@ -261,6 +269,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                     )}
                     <NoteCell
                       note={item.note}
+                      prevNote={itemIdx > 0 ? verse.notes[itemIdx - 1]?.note : null}
                       mIdx={item.measureIndex}
                       nIdx={item.noteIndex}
                       isSelected={isSelected}
@@ -293,6 +302,10 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   onSetDuration={onSetDuration}
                   onToggleDotted={onToggleDotted}
                   onToggleTie={onToggleTie}
+                  onToggleSlur={onToggleSlur}
+                  onSetArticulation={onSetArticulation}
+                  onToggleTriplet={onToggleTriplet}
+                  onToggleDoubleDotted={onToggleDoubleDotted}
                   onInsertPunctuation={onInsertPunctuation}
                   onInsertAnnotation={onInsertAnnotation}
                   onSetAnnotation={onSetAnnotation}

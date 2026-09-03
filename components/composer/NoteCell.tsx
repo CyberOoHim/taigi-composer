@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import { JianpuNote, LyricDisplayMode } from '@/types/song';
-import { isNonNotationItem, isPunctuationOrSpacer, extractTaigiTone } from '@/lib/taigiUtils';
+import { isNonNotationItem, isPunctuationOrSpacer, extractTaigiTone, isMelismaContinuation } from '@/lib/taigiUtils';
 import { Volume2 } from 'lucide-react';
 
 interface NoteCellProps {
   note: JianpuNote;
+  prevNote?: JianpuNote | null;
   mIdx: number;
   nIdx: number;
   isSelected: boolean;
@@ -22,6 +23,7 @@ interface NoteCellProps {
 
 export const NoteCell: React.FC<NoteCellProps> = React.memo(({
   note,
+  prevNote,
   mIdx,
   nIdx,
   isSelected,
@@ -40,19 +42,24 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
   const isPitched = !isNonNotation && typeof note.pitch === 'number' && note.pitch > 0;
   const octaveTopDots = isPitched && note.octave > 0 ? note.octave : 0;
   const octaveBottomDots = isPitched && note.octave < 0 ? Math.abs(note.octave) : 0;
-  const isEighth = !isNonNotation && (note.duration === 0.5 || note.duration === 0.75);
-  const isSixteenth = !isNonNotation && (note.duration <= 0.25 || note.duration === 0.375);
 
   const pojTone = extractTaigiTone(note.lyric?.poj || '');
   const pijTone = extractTaigiTone(note.lyric?.pij || '');
+
+  const isThirtySecond = !isNonNotation && typeof note.duration === 'number' && note.duration > 0 && note.duration <= 0.125;
+  const isSixteenth = !isNonNotation && typeof note.duration === 'number' && ((note.duration <= 0.25 && note.duration > 0.125) || note.duration === 0.375);
+  const isEighth = !isNonNotation && typeof note.duration === 'number' && (note.duration === 0.5 || note.duration === 0.75 || note.duration === 0.333);
+
+  const isTriplet = !isNonNotation && (note.isTriplet || note.duration === 0.333 || note.duration === 0.667);
+  const showDoubleDot = !isNonNotation && (note.isDoubleDotted || note.duration === 1.75 || note.duration === 3.5);
   const showDot =
     !isNonNotation &&
+    !showDoubleDot &&
     (note.isDotted ||
       note.duration === 1.5 ||
       note.duration === 0.75 ||
       note.duration === 3 ||
-      note.duration === 0.375 ||
-      note.duration === 1.75);
+      note.duration === 0.375);
 
   const dashesCount = !isNonNotation
     ? note.duration === 2
@@ -99,11 +106,39 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
         className="w-full flex flex-col items-center justify-center cursor-pointer py-1 touch-manipulation active:scale-95 transition-transform"
         title="Click to select note and preview"
       >
-        {/* Slur / Tie Arc */}
-        {note.isTied && !isNonNotation && (
-          <span className="text-amber-600 dark:text-amber-400 text-sm font-bold -mb-1">
-            ⌒
+        {/* Articulation mark (Fermata, Accent, Staccato, Tenuto, Portamento) */}
+        {note.articulation && note.articulation !== 'none' && !isNonNotation && (
+          <span className="text-amber-600 dark:text-amber-400 font-black text-xs select-none -mb-1">
+            {note.articulation === 'fermata' && '𝄐'}
+            {note.articulation === 'accent' && '>'}
+            {note.articulation === 'staccato' && '·'}
+            {note.articulation === 'tenuto' && '—'}
+            {note.articulation === 'portamento_up' && '↗'}
+            {note.articulation === 'portamento_down' && '↘'}
           </span>
+        )}
+
+        {/* Triplet indicator 3 */}
+        {isTriplet && !isNonNotation && (
+          <span className="text-[9px] font-mono font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/80 px-1 rounded-sm border border-indigo-200 dark:border-indigo-800 -mb-0.5 shadow-2xs">
+            3
+          </span>
+        )}
+
+        {/* Slur / Tie Arc */}
+        {!isNonNotation && (
+          <div className="flex items-center gap-1 text-xs font-bold -mb-1 select-none pointer-events-none">
+            {(note.tieToNext || (note.isTied && !note.slurToNext)) && (
+              <span className="text-amber-500 dark:text-amber-400 text-sm font-black" title="Tie (連結音 - 音色融合)">
+                ⌒
+              </span>
+            )}
+            {note.slurToNext && (
+              <span className="text-purple-600 dark:text-purple-400 text-sm font-black" title="Slur (圓滑音 - 一字多音)">
+                ⌢
+              </span>
+            )}
+          </div>
         )}
 
         {/* Annotation Pill */}
@@ -127,45 +162,89 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
             </div>
           )}
 
-          {/* Pitch Number & Accidental */}
-          <div className="flex items-baseline font-mono text-2xl font-black tracking-tight select-none">
-            {isPitched && note.accidental && (
-              <span className="text-sm font-bold text-amber-600 dark:text-amber-400 mr-0.5">
-                {note.accidental === '#' ? '♯' : '♭'}
-              </span>
+          {/* Pitch Number & Accidental & Grace Notes */}
+          <div className="flex items-center">
+            {/* Pre-Grace Notes (前裝飾音 / 前倚音) */}
+            {isPitched && note.preGraceNotes && note.preGraceNotes.length > 0 && (
+              <div className="flex items-end gap-0.5 mr-1 mb-1 text-[11px] text-zinc-600 dark:text-zinc-400 font-mono font-bold leading-none select-none">
+                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-black -mr-0.5">⌒</span>
+                {note.preGraceNotes.map((g, idx) => (
+                  <span key={idx} className="relative flex flex-col items-center">
+                    {g.octave > 0 && <span className="text-[7px] leading-none mb-[-2px]">·</span>}
+                    <span className="flex items-baseline">
+                      {g.accidental && <span className="text-[8px] text-amber-600">{g.accidental === '#' ? '♯' : '♭'}</span>}
+                      <span>{g.pitch}</span>
+                    </span>
+                    {g.octave < 0 && <span className="text-[7px] leading-none mt-[-2px]">·</span>}
+                    <span className="w-full h-[1.5px] bg-zinc-600 dark:bg-zinc-400 mt-0.5 rounded-full" />
+                  </span>
+                ))}
+              </div>
             )}
-            <span
-              className={`${
-                isNonNotation
-                  ? 'text-zinc-400 dark:text-zinc-500 font-mono text-lg font-normal'
-                  : note.pitch === 0
-                  ? 'text-zinc-400 dark:text-zinc-600 font-normal'
-                  : isPlaybackActive
-                  ? 'text-amber-600 dark:text-amber-300 scale-110'
-                  : isSelected
-                  ? 'text-amber-700 dark:text-amber-300 font-black'
-                  : 'text-zinc-900 dark:text-zinc-100'
-              }`}
-            >
-              {isNonNotation
-                ? note.annotation
-                  ? ''
-                  : hanji === '\n' || hanji === '↵' || custom === '\n' || custom === '↵'
-                  ? '↵'
-                  : isPunctuationOrSpacer(hanji || custom)
-                  ? hanji || custom
-                  : '␣'
-                : note.pitch}
-            </span>
-            {showDot && (
-              <span className="text-base font-black text-amber-600 dark:text-amber-400 ml-0.5">
-                ·
+
+            {/* Main Pitch Number & Accidental */}
+            <div className="flex items-baseline font-mono text-2xl font-black tracking-tight select-none">
+              {isPitched && note.accidental && (
+                <span className="text-sm font-bold text-amber-600 dark:text-amber-400 mr-0.5">
+                  {note.accidental === '#' ? '♯' : '♭'}
+                </span>
+              )}
+              <span
+                className={`${
+                  isNonNotation
+                    ? 'text-zinc-400 dark:text-zinc-500 font-mono text-lg font-normal'
+                    : note.pitch === 0
+                    ? 'text-zinc-400 dark:text-zinc-600 font-normal'
+                    : isPlaybackActive
+                    ? 'text-amber-600 dark:text-amber-300 scale-110'
+                    : isSelected
+                    ? 'text-amber-700 dark:text-amber-300 font-black'
+                    : 'text-zinc-900 dark:text-zinc-100'
+                }`}
+              >
+                {isNonNotation
+                  ? note.annotation
+                    ? ''
+                    : hanji === '\n' || hanji === '↵' || custom === '\n' || custom === '↵'
+                    ? '↵'
+                    : isPunctuationOrSpacer(hanji || custom)
+                    ? hanji || custom
+                    : '␣'
+                  : note.pitch}
               </span>
-            )}
-            {dashesCount > 0 && (
-              <span className="font-mono text-zinc-500 dark:text-zinc-400 text-base ml-1 font-bold">
-                {' -'.repeat(dashesCount)}
-              </span>
+              {showDoubleDot && (
+                <span className="text-base font-black text-amber-600 dark:text-amber-400 ml-0.5">
+                  ··
+                </span>
+              )}
+              {showDot && (
+                <span className="text-base font-black text-amber-600 dark:text-amber-400 ml-0.5">
+                  ·
+                </span>
+              )}
+              {dashesCount > 0 && (
+                <span className="font-mono text-zinc-500 dark:text-zinc-400 text-base ml-1 font-bold">
+                  {' -'.repeat(dashesCount)}
+                </span>
+              )}
+            </div>
+
+            {/* Post-Grace Notes (後裝飾音 / 尾裝飾音) */}
+            {isPitched && note.postGraceNotes && note.postGraceNotes.length > 0 && (
+              <div className="flex items-end gap-0.5 ml-1 mb-1 text-[11px] text-zinc-600 dark:text-zinc-400 font-mono font-bold leading-none select-none">
+                {note.postGraceNotes.map((g, idx) => (
+                  <span key={idx} className="relative flex flex-col items-center">
+                    {g.octave > 0 && <span className="text-[7px] leading-none mb-[-2px]">·</span>}
+                    <span className="flex items-baseline">
+                      {g.accidental && <span className="text-[8px] text-amber-600">{g.accidental === '#' ? '♯' : '♭'}</span>}
+                      <span>{g.pitch}</span>
+                    </span>
+                    {g.octave < 0 && <span className="text-[7px] leading-none mt-[-2px]">·</span>}
+                    <span className="w-full h-[1.5px] bg-zinc-600 dark:bg-zinc-400 mt-0.5 rounded-full" />
+                  </span>
+                ))}
+                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-black -ml-0.5">⌒</span>
+              </div>
             )}
           </div>
 
@@ -189,6 +268,13 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
             <div className="flex flex-col gap-[2px] w-full mt-0.5">
               <div className="w-full h-[2px] rounded-full bg-zinc-900 dark:bg-zinc-200" />
               <div className="w-full h-[2px] rounded-full bg-zinc-900 dark:bg-zinc-200" />
+            </div>
+          )}
+          {isThirtySecond && (
+            <div className="flex flex-col gap-[1.5px] w-full mt-0.5">
+              <div className="w-full h-[1.5px] rounded-full bg-zinc-900 dark:bg-zinc-200" />
+              <div className="w-full h-[1.5px] rounded-full bg-zinc-900 dark:bg-zinc-200" />
+              <div className="w-full h-[1.5px] rounded-full bg-zinc-900 dark:bg-zinc-200" />
             </div>
           )}
 

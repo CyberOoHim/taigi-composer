@@ -19,8 +19,8 @@ export const PRESET_SONGS: Song[] = [
         chord: 'Bb',
         section: 'Verse 1',
         notes: [
-          { id: 'u_n1', pitch: 5, octave: -1, duration: 0.5, lyric: { hanji: '雨', poj: 'Hō͘', pij: 'Hōo', custom: '雨' } },
-          { id: 'u_n2', pitch: 6, octave: -1, duration: 0.5, isTied: true, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
+          { id: 'u_n1', pitch: 5, octave: -1, duration: 0.5, slurToNext: true, lyric: { hanji: '雨', poj: 'Hō͘', pij: 'Hōo', custom: '雨' } },
+          { id: 'u_n2', pitch: 6, octave: -1, duration: 0.5, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
           { id: 'u_n3', pitch: 5, octave: -1, duration: 1.0, lyric: { hanji: '夜', poj: 'iā', pij: 'iā', custom: '夜' } },
         ],
       },
@@ -29,7 +29,7 @@ export const PRESET_SONGS: Song[] = [
         measureNumber: 2,
         chord: 'Gm',
         notes: [
-          { id: 'u_n4', pitch: 3, octave: 0, duration: 2.0, lyric: { hanji: '花', poj: 'hoe', pij: 'hue', custom: '花' } },
+          { id: 'u_n4', pitch: 3, octave: 0, duration: 2.0, preGraceNotes: [{ pitch: 5, octave: -1 }], lyric: { hanji: '花', poj: 'hoe', pij: 'hue', custom: '花' } },
         ],
       },
       {
@@ -37,10 +37,10 @@ export const PRESET_SONGS: Song[] = [
         measureNumber: 3,
         chord: 'Eb',
         notes: [
-          { id: 'u_n5', pitch: 3, octave: 0, duration: 0.25, lyric: { hanji: '雨', poj: 'hō͘', pij: 'hōo', custom: '雨' } },
-          { id: 'u_n6', pitch: 2, octave: 0, duration: 0.25, isTied: true, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
+          { id: 'u_n5', pitch: 3, octave: 0, duration: 0.25, slurToNext: true, lyric: { hanji: '雨', poj: 'hō͘', pij: 'hōo', custom: '雨' } },
+          { id: 'u_n6', pitch: 2, octave: 0, duration: 0.25, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
           { id: 'u_n7', pitch: 1, octave: 0, duration: 0.5, lyric: { hanji: '夜', poj: 'iā', pij: 'iā', custom: '夜' } },
-          { id: 'u_n8', pitch: 6, octave: -1, duration: 0.5, isTied: true, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
+          { id: 'u_n8', pitch: 6, octave: -1, duration: 0.5, slurToNext: true, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
           { id: 'u_n9', pitch: 5, octave: -1, duration: 0.5, lyric: { hanji: '花', poj: 'hoe', pij: 'hue', custom: '花' } },
         ],
       },
@@ -72,7 +72,7 @@ export const PRESET_SONGS: Song[] = [
         notes: [
           { id: 'u_n17', pitch: 3, octave: 0, duration: 0.5, lyric: { hanji: '吹', poj: 'chhoe', pij: 'tshue', custom: '吹' } },
           { id: 'u_n18', pitch: 3, octave: 0, duration: 0.5, lyric: { hanji: '落', poj: 'lo̍h', pij: 'lo̍h', custom: '落' } },
-          { id: 'u_n19', pitch: 2, octave: 0, duration: 1.0, isTied: true, lyric: { hanji: '地', poj: 'tē', pij: 'tē', custom: '地' } },
+          { id: 'u_n19', pitch: 2, octave: 0, duration: 1.0, tieToNext: true, isTied: true, lyric: { hanji: '地', poj: 'tē', pij: 'tē', custom: '地' } },
         ],
       },
       {
@@ -99,9 +99,9 @@ export const PRESET_SONGS: Song[] = [
         chord: 'Cm',
         notes: [
           { id: 'u_n24', pitch: 5, octave: 0, duration: 0.5, lyric: { hanji: '看', poj: 'khòaⁿ', pij: 'khuànn', custom: '看' } },
-          { id: 'u_n25', pitch: 3, octave: 0, duration: 0.25, isTied: true, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
-          { id: 'u_n26', pitch: 5, octave: 0, duration: 0.25, isTied: true, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
-          { id: 'u_n27', pitch: 3, octave: 0, duration: 1.0, lyric: { hanji: '見', poj: 'kìⁿ', pij: 'kìnn', custom: '見' } },
+          { id: 'u_n25', pitch: 3, octave: 0, duration: 0.25, slurToNext: true, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
+          { id: 'u_n26', pitch: 5, octave: 0, duration: 0.25, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
+          { id: 'u_n27', pitch: 3, octave: 0, duration: 1.0, preGraceNotes: [{ pitch: 2, octave: 0 }], lyric: { hanji: '見', poj: 'kìⁿ', pij: 'kìnn', custom: '見' } },
         ],
       },
       {
@@ -110,11 +110,11 @@ export const PRESET_SONGS: Song[] = [
         chord: 'F7',
         notes: [
           { id: 'u_n28', pitch: 3, octave: 0, duration: 0.5, lyric: { hanji: '每', poj: 'múi', pij: 'múi', custom: '每' } },
-          { id: 'u_n29', pitch: 2, octave: 0, duration: 0.25, lyric: { hanji: '日', poj: 'ji̍t', pij: 'ji̍t', custom: '日' } },
-          { id: 'u_n30', pitch: 3, octave: 0, duration: 0.125, isTied: true, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
-          { id: 'u_n31', pitch: 2, octave: 0, duration: 0.125, isTied: true, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
+          { id: 'u_n29', pitch: 2, octave: 0, duration: 0.25, slurToNext: true, lyric: { hanji: '日', poj: 'ji̍t', pij: 'ji̍t', custom: '日' } },
+          { id: 'u_n30', pitch: 3, octave: 0, duration: 0.125, slurToNext: true, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
+          { id: 'u_n31', pitch: 2, octave: 0, duration: 0.125, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
           { id: 'u_n32', pitch: 1, octave: 0, duration: 0.5, lyric: { hanji: '怨', poj: 'oàn', pij: 'uàn', custom: '怨' } },
-          { id: 'u_n33', pitch: 6, octave: -1, duration: 0.5, isTied: true, lyric: { hanji: '嗟', poj: 'chhe', pij: 'tshe', custom: '嗟' } },
+          { id: 'u_n33', pitch: 6, octave: -1, duration: 0.5, tieToNext: true, isTied: true, lyric: { hanji: '嗟', poj: 'chhe', pij: 'tshe', custom: '嗟' } },
         ],
       },
       {

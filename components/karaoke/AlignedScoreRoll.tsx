@@ -149,6 +149,7 @@ export const AlignedScoreRoll: React.FC<AlignedScoreRollProps> = React.memo(({
                     <JianpuNoteComponent
                       key={note.id}
                       note={note}
+                      prevNote={nIdx > 0 ? measure.notes[nIdx - 1] : (mIdx > 0 ? song.measures[mIdx - 1]?.notes[song.measures[mIdx - 1].notes.length - 1] : null)}
                       isActive={isNoteActive}
                       displayMode={displayMode}
                       isKaraokeMode={true}
