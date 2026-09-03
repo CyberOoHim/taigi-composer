@@ -19,9 +19,12 @@ import {
   BatteryCharging,
   BatteryLow,
   Sparkles,
+  ShieldCheck,
   ScanLine,
   FilePlus2,
 } from 'lucide-react';
+import { useGeminiAuth } from '@/hooks/useGeminiAuth';
+
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
 
@@ -70,6 +73,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   batteryLevel,
   isCharging,
 }) => {
+  const { isAuthenticated } = useGeminiAuth();
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
 
   return (
@@ -315,11 +319,21 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               id="header-open-gemini-auth-btn"
               type="button"
               onClick={onOpenGeminiAuth}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 rounded-xl border border-amber-300/80 dark:border-amber-700/80 text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0"
-              title="Gemini AI Passcode & Settings"
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0 ${
+                isAuthenticated
+                  ? 'bg-emerald-500/15 hover:bg-emerald-500/25 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-400/80 dark:border-emerald-700/80'
+                  : 'bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border-amber-300/80 dark:border-amber-700/80'
+              }`}
+              title={isAuthenticated ? 'Gemini AI Unlocked · Manage passcode & settings' : 'Gemini AI Passcode & Settings'}
             >
-              <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-              <span className="hidden xl:inline whitespace-nowrap">AI Passcode</span>
+              {isAuthenticated ? (
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              ) : (
+                <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+              )}
+              <span className="hidden xl:inline whitespace-nowrap">
+                {isAuthenticated ? 'AI Unlocked' : 'AI Passcode'}
+              </span>
             </button>
           )}
 

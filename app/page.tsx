@@ -405,6 +405,7 @@ export default function Home() {
         song={song}
         onApplyLyrics={setSong}
         onOpenScanner={() => setIsScannerOpen(true)}
+        onOpenGeminiAuth={() => setIsGeminiAuthOpen(true)}
       />
 
       <GeminiAuthModal
@@ -417,7 +418,9 @@ export default function Home() {
         onClose={() => setIsScannerOpen(false)}
         currentSong={song}
         onApply={handleApplyScannedSong}
+        onOpenGeminiAuth={() => setIsGeminiAuthOpen(true)}
       />
+
 
       <NewSongModal
         isOpen={isNewSongConfirmOpen}

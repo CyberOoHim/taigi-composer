@@ -18,13 +18,8 @@ import {
   ShieldCheck,
   LogOut,
 } from 'lucide-react';
-import {
-  isGeminiAuthenticated,
-  verifyGeminiPasscode,
-  revokeGeminiAuth,
-  getActiveGeminiApiKey,
-} from '@/lib/geminiAuth';
-import { GeminiModelChoice, GeminiThinkingEffort } from '@/lib/geminiService';
+import { useGeminiAuth } from '@/hooks/useGeminiAuth';
+import type { GeminiModelChoice, GeminiThinkingEffort } from '@/lib/geminiService';
 
 interface GeminiAuthModalProps {
   isOpen: boolean;
@@ -37,33 +32,33 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
   onClose,
   onAuthSuccess,
 }) => {
+  const {
+    isAuthenticated,
+    activeModel,
+    thinkingEffort,
+    apiKey,
+    verifyPasscode,
+    revokeAuth,
+    setModel,
+    setThinkingEffort,
+    setApiKey,
+  } = useGeminiAuth();
+
   const [passcode, setPasscode] = useState('');
   const [showPasscode, setShowPasscode] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') return isGeminiAuthenticated();
-    return false;
-  });
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') return isGeminiAuthenticated();
-    return false;
-  });
+  const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [activeModel, setActiveModel] = useState<GeminiModelChoice>(() => {
-    if (typeof window !== 'undefined') {
-      const savedModel = localStorage.getItem('taigi_gemini_model') as string;
-      if (savedModel === 'gemini-3.7-flash' || savedModel === 'gemini-3.7-flash-lite') return savedModel;
-      if (savedModel === 'gemini-2.5-flash-lite') return 'gemini-3.7-flash-lite';
-    }
-    return 'gemini-3.7-flash';
-  });
-  const [thinkingEffort, setThinkingEffort] = useState<GeminiThinkingEffort>(() => {
-    if (typeof window !== 'undefined') {
-      const savedEffort = localStorage.getItem('taigi_gemini_thinking_effort') as GeminiThinkingEffort;
-      if (savedEffort) return savedEffort;
-    }
-    return 'MEDIUM';
-  });
+
+  const isCollapsed = isAuthenticated && !isManuallyExpanded;
+
+  const handleClose = () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setPasscode('');
+    setIsManuallyExpanded(false);
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -72,13 +67,12 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const result = verifyGeminiPasscode(passcode);
+    const result = verifyPasscode(passcode);
     if (result.success) {
-      setIsAuthenticated(true);
       setSuccessMsg(result.message);
-      // Collapse after brief success feedback
+      setPasscode('');
       setTimeout(() => {
-        setIsCollapsed(true);
+        setIsManuallyExpanded(false);
         if (onAuthSuccess) onAuthSuccess();
       }, 600);
     } else {
@@ -87,32 +81,18 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
   };
 
   const handleRevoke = () => {
-    revokeGeminiAuth();
-    setIsAuthenticated(false);
-    setIsCollapsed(false);
+    revokeAuth();
+    setIsManuallyExpanded(false);
     setPasscode('');
     setSuccessMsg(null);
     setErrorMsg('Authentication revoked and credentials cleared.');
   };
 
-  const handleModelChange = (model: GeminiModelChoice) => {
-    setActiveModel(model);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('taigi_gemini_model', model);
-    }
-  };
-
-  const handleEffortChange = (effort: GeminiThinkingEffort) => {
-    setThinkingEffort(effort);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('taigi_gemini_thinking_effort', effort);
-    }
-  };
 
   return (
     <div
       id="gemini-auth-modal-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
     >
       <div
         id="gemini-auth-modal-card"
@@ -124,11 +104,11 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
             <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
               <Sparkles className="w-4 h-4" />
             </div>
-            <span>Gemini AI Passcode Authorization</span>
+            <span>Gemini AI Passcode & Settings</span>
           </div>
           <button
             id="gemini-auth-close-btn"
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -154,7 +134,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
               </div>
 
               <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Gemini AI access is ready. Automatic syllable segmentation and tone alignment for Taigi lyrics are enabled.
+                Gemini AI access is active across all composer tools (AI Score Scanner & Quick Lyric Aligner). Single-entry authentication is synced app-wide.
               </p>
 
               {/* Collapsed Model & Effort Summary */}
@@ -178,11 +158,11 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                 <button
                   id="gemini-auth-expand-btn"
                   type="button"
-                  onClick={() => setIsCollapsed(false)}
+                  onClick={() => setIsManuallyExpanded(true)}
                   className="flex items-center gap-1 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer"
                 >
                   <ChevronDown className="w-3.5 h-3.5" />
-                  <span>Change Passcode / Settings</span>
+                  <span>Change Passcode / Preferences</span>
                 </button>
 
                 <button
@@ -207,10 +187,14 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                 <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div className="flex flex-col gap-1">
                   <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                    Enter Passcode
+                    {isAuthenticated ? 'Update Authorization' : 'Enter Passcode Once for All Features'}
                   </h4>
                   <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                    Enter the default passcode (Hint: <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 rounded font-mono font-bold text-amber-800 dark:text-amber-300">taigi</code>) or your personal Gemini API Key to unlock.
+                    Enter the default passcode (Hint:{' '}
+                    <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 rounded font-mono font-bold text-amber-800 dark:text-amber-300">
+                      taigi
+                    </code>
+                    ) or your personal Gemini API Key. Once authenticated, access is automatically synchronized across the AI Score Scanner and Quick Lyric Aligner.
                   </p>
                 </div>
               </div>
@@ -228,7 +212,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                   {isAuthenticated && (
                     <button
                       type="button"
-                      onClick={() => setIsCollapsed(true)}
+                      onClick={() => setIsManuallyExpanded(false)}
                       className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5 cursor-pointer"
                     >
                       <ChevronUp className="w-3 h-3" />
@@ -243,7 +227,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                     type={showPasscode ? 'text' : 'password'}
                     value={passcode}
                     onChange={e => setPasscode(e.target.value)}
-                    placeholder="Enter passcode or AIzaSy... key"
+                    placeholder="Enter passcode (e.g. taigi) or AIzaSy... key"
                     autoFocus
                     className="w-full pl-3 pr-10 py-2.5 text-sm bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-mono"
                   />
@@ -270,7 +254,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                   <select
                     id="gemini-auth-model-select"
                     value={activeModel}
-                    onChange={e => handleModelChange(e.target.value as GeminiModelChoice)}
+                    onChange={e => setModel(e.target.value as GeminiModelChoice)}
                     className="w-full px-2.5 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-200 cursor-pointer"
                   >
                     <option value="gemini-3.7-flash">gemini-3.7-flash (Default)</option>
@@ -289,13 +273,34 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                   <select
                     id="gemini-auth-effort-select"
                     value={thinkingEffort}
-                    onChange={e => handleEffortChange(e.target.value as GeminiThinkingEffort)}
+                    onChange={e => setThinkingEffort(e.target.value as GeminiThinkingEffort)}
                     className="w-full px-2.5 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-200 cursor-pointer"
                   >
                     <option value="MEDIUM">MEDIUM (Default)</option>
-                    <option value="HIGH">HIGH</option>
+                    <option value="HIGH">HIGH (Deep Theory)</option>
+                    <option value="LOW">LOW</option>
+                    <option value="OFF">OFF</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Optional Custom API Key Display / Input */}
+              <div className="flex flex-col gap-1 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                <label
+                  htmlFor="gemini-auth-key-input"
+                  className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1"
+                >
+                  <Key className="w-3 h-3 text-amber-500" />
+                  <span>Custom Gemini API Key (Optional)</span>
+                </label>
+                <input
+                  id="gemini-auth-key-input"
+                  type="password"
+                  value={apiKey}
+                  onChange={e => setApiKey(e.target.value)}
+                  placeholder="AIzaSy... (leave empty to use default env key)"
+                  className="w-full px-2.5 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-200 font-mono"
+                />
               </div>
 
               {/* Feedback Notifications */}
@@ -327,7 +332,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                 className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-sm shadow-md transition-all disabled:opacity-50 cursor-pointer"
               >
                 <Unlock className="w-4 h-4" />
-                <span>Verify & Unlock</span>
+                <span>Verify & Unlock App-Wide</span>
               </button>
             </form>
           )}
@@ -338,7 +343,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
           <button
             id="gemini-auth-footer-close-btn"
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-semibold transition-colors cursor-pointer"
           >
             Close

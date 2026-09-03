@@ -15,31 +15,14 @@ import {
   GeminiModelChoice,
   GeminiThinkingEffort,
 } from '@/lib/geminiService';
-import {
-  isGeminiAuthenticated,
-  verifyGeminiPasscode,
-  revokeGeminiAuth,
-  getActiveGeminiApiKey,
-} from '@/lib/geminiAuth';
+import { useGeminiAuth } from '@/hooks/useGeminiAuth';
+import { GeminiAuthCard } from '@/components/GeminiAuthCard';
 import {
   AlignLeft,
   Sparkles,
   X,
   Check,
   Loader2,
-  Cpu,
-  BrainCircuit,
-  Key,
-  Lock,
-  Unlock,
-  ShieldCheck,
-  Eye,
-  EyeOff,
-  ChevronDown,
-  ChevronUp,
-  AlertCircle,
-  CheckCircle2,
-  LogOut,
   ScanLine,
 } from 'lucide-react';
 
@@ -49,7 +32,9 @@ interface QuickLyricAlignerModalProps {
   song: Song;
   onApplyLyrics: (updatedSong: Song) => void;
   onOpenScanner?: () => void;
+  onOpenGeminiAuth?: () => void;
 }
+
 
 interface VersePreviewItem {
   verseIndex: number;
@@ -66,107 +51,22 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   song,
   onApplyLyrics,
   onOpenScanner,
+  onOpenGeminiAuth,
 }) => {
+  // Synchronized Gemini AI Auth & Configuration
+  const {
+    isAuthenticated: isAiAuthenticated,
+    activeModel: aiModel,
+    thinkingEffort,
+    apiKey: customApiKey,
+  } = useGeminiAuth();
+
   const [inputText, setInputText] = useState('');
   const [targetField, setTargetField] = useState<'hanji' | 'poj' | 'pij' | 'custom' | 'auto_ai'>('auto_ai');
-  const [aiModel, setAiModel] = useState<GeminiModelChoice>(() => {
-    if (typeof window !== 'undefined') {
-      const savedModel = localStorage.getItem('taigi_gemini_model') as string;
-      if (savedModel === 'gemini-3.7-flash' || savedModel === 'gemini-3.7-flash-lite') {
-        return savedModel;
-      }
-      if (savedModel === 'gemini-2.5-flash-lite') return 'gemini-3.7-flash-lite';
-    }
-    return 'gemini-3.7-flash';
-  });
-  const [thinkingEffort, setThinkingEffort] = useState<GeminiThinkingEffort>(() => {
-    if (typeof window !== 'undefined') {
-      const savedEffort = localStorage.getItem('taigi_gemini_thinking_effort') as GeminiThinkingEffort;
-      if (savedEffort === 'HIGH' || savedEffort === 'MEDIUM') {
-        return savedEffort;
-      }
-    }
-    return 'MEDIUM';
-  });
-  const [customApiKey, setCustomApiKey] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return getActiveGeminiApiKey() || localStorage.getItem('taigi_gemini_api_key') || '';
-    }
-    return '';
-  });
-  const [showApiKeyInput, setShowApiKeyInput] = useState<boolean>(false);
-
-  // Gemini Passcode Auth States
-  const [isAiAuthenticated, setIsAiAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') return isGeminiAuthenticated();
-    return false;
-  });
-  const [isAuthCollapsed, setIsAuthCollapsed] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') return isGeminiAuthenticated();
-    return false;
-  });
-  const [passcode, setPasscode] = useState<string>('');
-  const [showPasscode, setShowPasscode] = useState<boolean>(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
-
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [versePreviews, setVersePreviews] = useState<VersePreviewItem[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
 
-  const handleModelChange = (model: GeminiModelChoice) => {
-    setAiModel(model);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('taigi_gemini_model', model);
-    }
-  };
-
-  const handleThinkingEffortChange = (effort: GeminiThinkingEffort) => {
-    setThinkingEffort(effort);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('taigi_gemini_thinking_effort', effort);
-    }
-  };
-
-  const handleApiKeyChange = (key: string) => {
-    setCustomApiKey(key);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('taigi_gemini_api_key', key);
-    }
-  };
-
-  // Passcode verification
-  const handleVerifyPasscode = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setAuthError(null);
-    setAuthSuccess(null);
-
-    const result = verifyGeminiPasscode(passcode);
-    if (result.success) {
-      setIsAiAuthenticated(true);
-      setAuthSuccess(result.message);
-      setAiError(null);
-      if (result.isApiKey) {
-        setCustomApiKey(passcode.trim());
-      }
-      // Smoothly collapse the auth box upon verification
-      setTimeout(() => {
-        setIsAuthCollapsed(true);
-      }, 500);
-    } else {
-      setAuthError(result.message);
-    }
-  };
-
-  const handleRevokeAuth = () => {
-    revokeGeminiAuth();
-    setIsAiAuthenticated(false);
-    setIsAuthCollapsed(false);
-    setPasscode('');
-    setCustomApiKey('');
-    setAuthSuccess(null);
-    setAuthError('Passcode authorization revoked and credentials cleared.');
-  };
 
   if (!isOpen) return null;
 
@@ -191,11 +91,11 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
     if (targetField === 'auto_ai') {
       // Check passcode authentication before calling Gemini
       if (!isAiAuthenticated) {
-        setIsAuthCollapsed(false);
-        setAuthError('Please enter and verify passcode first to unlock Gemini AI features.');
         setAiError('Passcode not verified. Cannot call Gemini API.');
+        if (onOpenGeminiAuth) onOpenGeminiAuth();
         return;
       }
+
 
       setIsLoadingAi(true);
       try {
@@ -516,205 +416,14 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
           {/* AI Passcode Auth & Model Configuration Panel */}
           {targetField === 'auto_ai' && (
-            <div
-              id="aligner-ai-config-panel"
-              className="p-3.5 bg-amber-500/10 dark:bg-amber-950/30 border border-amber-300/60 dark:border-amber-700/60 rounded-xl flex flex-col gap-3 animate-in fade-in duration-150"
-            >
-              {/* Header Bar of AI Config Panel */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  <span>Gemini AI Configuration</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowApiKeyInput(prev => !prev)}
-                  className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 hover:underline cursor-pointer"
-                >
-                  <Key className="w-3 h-3" />
-                  <span>{showApiKeyInput ? 'Hide Custom API Key' : 'Custom API Key (Optional)'}</span>
-                </button>
-              </div>
-
-              {/* PASSCODE AUTHENTICATION CARD (COLLAPSIBLE) */}
-              {isAiAuthenticated && isAuthCollapsed ? (
-                /* Collapsed Authenticated Badge */
-                <div
-                  id="aligner-auth-collapsed-bar"
-                  className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 dark:bg-emerald-950/40 dark:border-emerald-800/60 text-xs animate-in fade-in duration-150"
-                >
-                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span>Gemini API Passcode Verified</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      id="aligner-auth-expand-toggle-btn"
-                      type="button"
-                      onClick={() => setIsAuthCollapsed(false)}
-                      className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-200 cursor-pointer hover:underline"
-                    >
-                      <ChevronDown className="w-3.5 h-3.5" />
-                      <span>Change Passcode</span>
-                    </button>
-                    <button
-                      id="aligner-auth-revoke-btn"
-                      type="button"
-                      onClick={handleRevokeAuth}
-                      className="text-[11px] text-red-600 dark:text-red-400 hover:underline cursor-pointer ml-1"
-                      title="Revoke Passcode Access"
-                    >
-                      <LogOut className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Expanded Passcode Auth Box */
-                <div
-                  id="aligner-auth-expanded-box"
-                  className="p-3 bg-white dark:bg-zinc-800/90 border border-amber-300/80 dark:border-amber-700/80 rounded-xl flex flex-col gap-2.5 shadow-2xs animate-in fade-in duration-150"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
-                      <Lock className="w-4 h-4 text-amber-500" />
-                      <span>Gemini API Passcode Authorization</span>
-                    </div>
-                    {isAiAuthenticated && (
-                      <button
-                        id="aligner-auth-collapse-toggle-btn"
-                        type="button"
-                        onClick={() => setIsAuthCollapsed(true)}
-                        className="flex items-center gap-0.5 text-[11px] text-amber-700 dark:text-amber-300 hover:underline cursor-pointer"
-                      >
-                        <ChevronUp className="w-3 h-3" />
-                        <span>Collapse</span>
-                      </button>
-                    )}
-                  </div>
-
-                  <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                    Enter the passcode to enable Gemini AI syllable analysis and tone tagging (Default hint: <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 rounded font-mono font-bold">taigi</code> or personal API Key).
-                  </p>
-
-                  <form onSubmit={handleVerifyPasscode} className="flex gap-2">
-                    <div className="relative flex-1 flex items-center">
-                      <input
-                        id="aligner-passcode-input"
-                        type={showPasscode ? 'text' : 'password'}
-                        value={passcode}
-                        onChange={e => setPasscode(e.target.value)}
-                        placeholder="Enter passcode (e.g. taigi) or API Key"
-                        className="w-full pl-3 pr-8 py-2 text-xs bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-mono"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPasscode(!showPasscode)}
-                        className="absolute right-2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
-                      >
-                        {showPasscode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                    <button
-                      id="aligner-verify-passcode-btn"
-                      type="submit"
-                      disabled={!passcode.trim()}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-xs rounded-lg shadow-xs transition-all disabled:opacity-50 cursor-pointer shrink-0"
-                    >
-                      <Unlock className="w-3.5 h-3.5" />
-                      <span>Verify</span>
-                    </button>
-                  </form>
-
-                  {authError && (
-                    <div
-                      id="aligner-auth-error-msg"
-                      className="p-2 rounded-md bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-[11px] text-red-600 dark:text-red-400 flex items-center gap-1.5"
-                    >
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{authError}</span>
-                    </div>
-                  )}
-
-                  {authSuccess && (
-                    <div
-                      id="aligner-auth-success-msg"
-                      className="p-2 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>{authSuccess}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Model & Thinking Effort Selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* 1. Gemini Model Selection Dropdown */}
-                <div className="flex flex-col gap-1.5">
-                  <label
-                    htmlFor="aligner-ai-model-select"
-                    className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5"
-                  >
-                    <Cpu className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Gemini Model</span>
-                  </label>
-                  <select
-                    id="aligner-ai-model-select"
-                    value={aiModel}
-                    onChange={e => handleModelChange(e.target.value as GeminiModelChoice)}
-                    className="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-2xs"
-                  >
-                    <option value="gemini-3.7-flash">1. gemini-3.7-flash (Default · Deep Reasoning)</option>
-                    <option value="gemini-3.7-flash-lite">2. gemini-3.7-flash-lite (Fast · Lightweight)</option>
-                  </select>
-                </div>
-
-                {/* 2. Thinking Effort Dropdown */}
-                <div className="flex flex-col gap-1.5">
-                  <label
-                    htmlFor="aligner-thinking-effort-select"
-                    className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5"
-                  >
-                    <BrainCircuit className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Thinking Effort</span>
-                  </label>
-                  <select
-                    id="aligner-thinking-effort-select"
-                    value={thinkingEffort}
-                    onChange={e => handleThinkingEffortChange(e.target.value as GeminiThinkingEffort)}
-                    className="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer shadow-2xs"
-                  >
-                    <option value="MEDIUM">MEDIUM (Default)</option>
-                    <option value="HIGH">HIGH</option>
-                  </select>
-                </div>
-              </div>
-
-              {showApiKeyInput && (
-                <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/50 flex flex-col gap-1.5 animate-in fade-in duration-100">
-                  <div className="flex items-center justify-between">
-                    <label
-                      htmlFor="aligner-custom-api-key"
-                      className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400"
-                    >
-                      Gemini API Key (Custom Key)
-                    </label>
-                    <span className="text-[10px] text-zinc-500">
-                      Default uses environment variable; private key optional
-                    </span>
-                  </div>
-                  <input
-                    id="aligner-custom-api-key"
-                    type="password"
-                    value={customApiKey}
-                    onChange={e => handleApiKeyChange(e.target.value)}
-                    placeholder="AIzaSy..."
-                    className="w-full px-3 py-2 text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-mono shadow-2xs"
-                  />
-                </div>
-              )}
-            </div>
+            <GeminiAuthCard
+              title="Gemini AI Configuration"
+              description="Enter the passcode to enable Gemini AI syllable analysis and tone tagging."
+              onOpenFullSettings={onOpenGeminiAuth}
+              idPrefix="aligner"
+            />
           )}
+
 
           {/* Action Trigger Button */}
           <button
