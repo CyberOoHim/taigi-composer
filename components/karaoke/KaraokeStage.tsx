@@ -463,7 +463,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                       </span>
                     )}
 
-                    {/* Romanization (POJ / PIJ) Ruby above */}
+                    {/* Romanization (POJ / TL) Ruby above */}
                     {(displayMode === 'all' || displayMode === 'hanji_poj' || displayMode === 'hanji_pij') && (
                       <span
                         className={`${romanSizeClass} font-serif italic mb-0.5 min-h-[1.25rem] transition-colors select-none ${

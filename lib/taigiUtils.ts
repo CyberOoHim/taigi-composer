@@ -96,7 +96,7 @@ export function getChordNotes(chordName: string, transposeSemitones: number = 0)
   return intervals.map(semitone => 440 * Math.pow(2, (rootMidi + semitone - 69) / 12));
 }
 
-// Special Taigi (POJ and Tâi-lô / PIJ) characters and tone diacritics
+// Special Taigi (POJ and Tâi-lô / TL) characters and tone diacritics
 export const TAIGI_TONE_CHARS = [
   // Tone marks for vowels
   { label: 'á', char: 'á', desc: 'Tone 2 (Rising)' },
@@ -181,7 +181,7 @@ export const ANNOTATION_MARKS = [
 ];
 
 /**
- * Split text into Taigi syllables based on whether it's Hanji, POJ/PIJ (hyphens/spaces), or mixed Han-lo.
+ * Split text into Taigi syllables based on whether it's Hanji, POJ/TL (hyphens/spaces), or mixed Han-lo.
  * e.g., "獨夜無伴守燈下" -> ["獨", "夜", "無", "伴", "守", "燈", "下"]
  * e.g., "To̍k-iā bô-phōaⁿ siú teng-ē" -> ["To̍k", "iā", "bô", "phōaⁿ", "siú", "teng", "ē"]
  * e.g., "阮ê故鄉" -> ["阮", "ê", "故", "鄉"]
@@ -198,7 +198,7 @@ export function splitTaigiLyricSyllables(text: string): string[] {
   const rawWords = cleaned.split(/\s+/).filter(Boolean);
 
   for (const word of rawWords) {
-    // If the word contains hyphens (common in POJ/PIJ like "bô-phōaⁿ" or "chhun-hong")
+    // If the word contains hyphens (common in POJ/TL like "bô-phōaⁿ" or "chhun-hong")
     if (word.includes('-')) {
       const parts = word.split('-').filter(Boolean);
       for (const part of parts) {
@@ -843,7 +843,7 @@ export interface TaigiToneInfo {
 
 /**
  * Extract Taiwanese Hokkien tone number and contour for learning aids.
- * Supports Pe̍h-ōe-jī (POJ), Tâi-lô (PIJ), and numeric tone notations.
+ * Supports Pe̍h-ōe-jī (POJ), Tâi-lô (TL), and numeric tone notations.
  */
 export function extractTaigiTone(syllable: string): TaigiToneInfo | null {
   if (!syllable || !syllable.trim()) return null;

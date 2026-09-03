@@ -291,7 +291,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
           </div>
         )}
 
-        {/* PIJ Lyric Input */}
+        {/* TL Lyric Input */}
         {(displayMode === 'all' || displayMode === 'hanji_pij') && (
           <div className="w-full flex flex-col gap-0.5">
             <input
@@ -317,9 +317,9 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                   }
                 }
               }}
-              placeholder="PIJ"
+              placeholder="TL"
               className="w-full text-center font-serif text-[11px] px-1 py-1 rounded-lg bg-cyan-50/60 dark:bg-[#0c1316] border border-cyan-200/90 dark:border-cyan-800/60 text-cyan-800 dark:text-cyan-300 focus:outline-hidden focus:ring-2 focus:ring-cyan-500 focus:bg-white dark:focus:bg-zinc-800 min-h-[32px] touch-manipulation"
-              title="PIJ romanization - Space, hyphen, or Tab moves to next note"
+              title="TL romanization - Space, hyphen, or Tab moves to next note"
             />
             {showToneOverlay && pijTone && (
               <div

@@ -260,7 +260,7 @@ export default function Home() {
                     Want to edit this song's melody, notes, or lyrics?
                   </h4>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
-                    Switch to Score Editor mode to adjust numbered notes 1-7, key signatures, chords, and Hanji/POJ/PIJ lyrics. Full Undo and Redo supported.
+                    Switch to Score Editor mode to adjust numbered notes 1-7, key signatures, chords, and Hanji/POJ/TL lyrics. Full Undo and Redo supported.
                   </p>
                 </div>
               </div>
@@ -356,10 +356,10 @@ export default function Home() {
           <div className="flex flex-col gap-2">
             <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 text-xs uppercase tracking-wider">
               <Sparkles className="w-4 h-4 text-amber-500" />
-              <span>Multi-format Lyrics Support (Hanji / POJ / PIJ)</span>
+              <span>Multi-format Lyrics Support (Hanji / POJ / TL)</span>
             </h4>
             <p className="leading-relaxed text-zinc-500 dark:text-zinc-400">
-              Supports Hanji (漢字), Pe̍h-ōe-jī (POJ), Tâi-lô (PIJ), and Han-lô mixed orthography. Each note precisely aligns with corresponding syllables and vocal annotations.
+              Supports Hanji (漢字), Pe̍h-ōe-jī (POJ), Tâi-lô (TL), and Han-lô mixed orthography. Each note precisely aligns with corresponding syllables and vocal annotations.
             </p>
           </div>
 

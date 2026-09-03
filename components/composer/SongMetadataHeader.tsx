@@ -414,7 +414,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                   }`}
                 >
-                  All (Hanji + POJ + PIJ)
+                  All (Hanji + POJ + TL)
                 </button>
                 <button
                   id="composer-mode-hanji-poj"
@@ -438,7 +438,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                   }`}
                 >
-                  Hanji + PIJ
+                  Hanji + TL
                 </button>
                 <button
                   id="composer-mode-hanji-only"

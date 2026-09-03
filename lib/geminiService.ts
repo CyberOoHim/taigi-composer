@@ -215,7 +215,7 @@ export async function convertTaigiLyricsWithAi(
   try {
     const ai = new GoogleGenAI({ apiKey });
     const prompt = `You are an expert Taiwanese Hokkien (Taigi / 臺灣話) linguist and music lyricist.
-The user provided the following Taigi lyrics (which may be Hanji, POJ, PIJ, or Han-lô mixed):
+The user provided the following Taigi lyrics (which may be Hanji, POJ, TL, or Han-lô mixed):
 "${text}"
 
 Task:

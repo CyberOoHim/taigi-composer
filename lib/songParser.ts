@@ -92,7 +92,7 @@ export function exportSongToText(song: Song): string {
     lines.push(`Jianpu:  ${jianpuTokens.join('  ')}`);
     lines.push(`Hanji:   ${hanjiTokens.join('  ')}`);
     lines.push(`POJ:     ${pojTokens.join('  ')}`);
-    lines.push(`PIJ:     ${pijTokens.join('  ')}`);
+    lines.push(`TL:      ${pijTokens.join('  ')}`);
     lines.push(`Custom:  ${customTokens.join('  ')}`);
     lines.push(``);
   });
@@ -170,8 +170,8 @@ export function importSongFromText(text: string): Song {
             currentMeasure!.notes![idx].lyric.poj = tok === '—' ? '' : tok;
           }
         });
-      } else if (line.startsWith('PIJ:') && currentMeasure.notes) {
-        const tokens = line.replace('PIJ:', '').trim().split(/\s+/).filter(Boolean);
+      } else if ((line.startsWith('TL:') || line.startsWith('PIJ:')) && currentMeasure.notes) {
+        const tokens = line.replace(/^(TL|PIJ):/, '').trim().split(/\s+/).filter(Boolean);
         tokens.forEach((tok, idx) => {
           if (currentMeasure!.notes![idx]) {
             currentMeasure!.notes![idx].lyric.pij = tok === '—' ? '' : tok;

@@ -38,7 +38,7 @@
 
 ## 1. 系統全貌與架構設計
 
-本專案致力於台語經典歌曲與簡譜（Jianpu / 記譜法）的數位化創作、卡拉OK伴奏、羅馬字歌詞對齊（POJ 白話字 / PIJ 臺羅拼音）與聲音合成。
+本專案致力於台語經典歌曲與簡譜（Jianpu / 記譜法）的數位化創作、卡拉OK伴奏、羅馬字歌詞對齊（POJ 白話字 / TL 臺羅拼音）與聲音合成。
 
 ```
                                ┌────────────────────────────────┐
@@ -149,7 +149,7 @@ $$\text{MIDI} = \text{KeyBaseMidi} + \text{ScaleInterval}[\text{pitch}] + (\text
 
 ### 2.5 台語語音辨識與歌詞斷詞 (Taigi ASR & Syllable Alignment)
 - **音節對齊原則**：
-  - 台語屬於單音節語素文字（Monosyllabic），一個漢字對應一個音節（Syllable）及一組羅馬字（POJ/PIJ）。
+  - 台語屬於單音節語素文字（Monosyllabic），一個漢字對應一個音節（Syllable）及一組羅馬字（POJ/TL）。
   - 使用 Whisper 配合臺灣閩南語聲調字典，辨識歌詞文本。
   - 將歌詞音節依照時間戳記（Word-level Timestamps）與各小節音符一對一配對。
 
@@ -555,7 +555,7 @@ function audioBufferToWav(buffer: AudioBuffer): Blob {
 | **Track 0 (Conductor)** | Tempo Meta Event (`FF 51 03`, 設定微秒/四分音符)，Time Signature (`FF 58 04 02 02 18 08` 代表 2/4 拍)。 |
 | **Track 1 (Melody)** | Note-On / Note-Off 事件，MIDI 通道 1，音色程式（Program Change 0: Acoustic Grand Piano 或 73: Flute）。 |
 | **Track 2 (Chords)** | 依小節伴奏音符輸出，MIDI 通道 2（Program Change 24: Acoustic Guitar (Nylon)）。 |
-| **Track 3 (Lyrics)** | 歌詞 Meta Event (`FF 05 <len> <text>`)，填寫 POJ / PIJ 羅馬字以便於國際 DAW 顯示。 |
+| **Track 3 (Lyrics)** | 歌詞 Meta Event (`FF 05 <len> <text>`)，填寫 POJ / TL 羅馬字以便於國際 DAW 顯示。 |
 
 ---
 

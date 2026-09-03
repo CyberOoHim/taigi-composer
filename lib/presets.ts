@@ -323,7 +323,7 @@ export const PRESET_SONGS: Song[] = [
     timeSignature: '4/4',
     bpm: 76,
     notesPerLine: 4,
-    description: 'The most iconic Taiwanese song. Authentic pentatonic melody with complete Hanji, POJ (Pe̍h-ōe-jī), and PIJ (Tâi-lô) aligned.',
+    description: 'The most iconic Taiwanese song. Authentic pentatonic melody with complete Hanji, POJ (Pe̍h-ōe-jī), and TL (Tâi-lô) aligned.',
     measures: [
       {
         id: 'm1',
@@ -495,7 +495,7 @@ export const PRESET_SONGS: Song[] = [
     timeSignature: '4/4',
     bpm: 88,
     notesPerLine: 4,
-    description: 'Hanji mixed with POJ/PIJ lyrics demonstrating authentic modern Han-lô notation and lively melody.',
+    description: 'Hanji mixed with POJ/TL lyrics demonstrating authentic modern Han-lô notation and lively melody.',
     measures: [
       {
         id: 'a_m1',

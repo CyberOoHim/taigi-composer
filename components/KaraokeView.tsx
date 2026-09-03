@@ -708,7 +708,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Hanji + PIJ
+              Hanji + TL
             </button>
             <button
               id="ktv-mode-hanji-only"

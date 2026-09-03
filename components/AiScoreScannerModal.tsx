@@ -364,7 +364,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                 </span>
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Supports numbered musical notation (1-7), keys, chords, time signatures, and Taigi lyrics (Hanji / POJ / PIJ) with multi-page stitching.
+                Supports numbered musical notation (1-7), keys, chords, time signatures, and Taigi lyrics (Hanji / POJ / TL) with multi-page stitching.
               </p>
             </div>
           </div>
@@ -566,7 +566,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                   {mode === 'full_score' && <Check className="w-4 h-4 text-amber-600" />}
                 </div>
                 <p className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
-                  Transcribes key, time signature, BPM, notes, chords, and aligned Taigi Hanji/POJ/PIJ lyrics.
+                  Transcribes key, time signature, BPM, notes, chords, and aligned Taigi Hanji/POJ/TL lyrics.
                 </p>
               </button>
 

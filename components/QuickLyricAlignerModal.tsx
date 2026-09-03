@@ -409,7 +409,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label htmlFor="aligner-input-text" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                Paste Lyrics Text (Hanji / POJ / PIJ / Han-lô)
+                Paste Lyrics Text (Hanji / POJ / TL / Han-lô)
               </label>
               <div className="flex items-center gap-2">
                 {onOpenScanner && (
@@ -457,7 +457,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Auto (Hanji + POJ + PIJ)</span>
+                <span>AI Auto (Hanji + POJ + TL)</span>
               </button>
 
               <button
@@ -496,7 +496,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
                 }`}
               >
-                Fill PIJ
+                Fill TL
               </button>
 
               <button
