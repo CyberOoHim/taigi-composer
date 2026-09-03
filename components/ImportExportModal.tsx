@@ -29,6 +29,7 @@ import {
   BookmarkPlus,
   Trash2,
   FolderHeart,
+  FilePlus2,
 } from 'lucide-react';
 
 interface ImportExportModalProps {
@@ -37,6 +38,7 @@ interface ImportExportModalProps {
   currentSong: Song;
   onLoadSong: (song: Song) => void;
   onOpenScanner?: () => void;
+  onStartFreshSong?: () => void;
 }
 
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({
@@ -45,6 +47,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   currentSong,
   onLoadSong,
   onOpenScanner,
+  onStartFreshSong,
 }) => {
   const [activeTab, setActiveTab] = useState<'presets' | 'custom' | 'export' | 'import' | 'ai_scan'>('presets');
   const [exportFormat, setExportFormat] = useState<'json' | 'text'>('json');
@@ -224,19 +227,36 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           {/* TAB 1: PRESET SONGS */}
           {activeTab === 'presets' && (
             <div id="presets-panel" className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   點擊即可載入完整台語簡譜、和弦與漢字/白話字/臺羅對齊歌詞：
                 </p>
-                <button
-                  type="button"
-                  onClick={handleSaveToCustomLibrary}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 text-xs font-bold transition-all cursor-pointer"
-                  title="將目前正在編寫的樂曲儲存至自訂曲庫"
-                >
-                  <BookmarkPlus className="w-3.5 h-3.5 text-amber-500" />
-                  <span>{savedSuccess ? '已儲存至自訂曲庫！' : '儲存當前曲目至自訂曲庫'}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {onStartFreshSong && (
+                    <button
+                      id="modal-presets-new-song-btn"
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onStartFreshSong();
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700 text-xs font-bold transition-all cursor-pointer"
+                      title="建立全新空白樂曲"
+                    >
+                      <FilePlus2 className="w-3.5 h-3.5 text-amber-500" />
+                      <span>新建空白樂曲</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveToCustomLibrary}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 text-xs font-bold transition-all cursor-pointer"
+                    title="將目前正在編寫的樂曲儲存至自訂曲庫"
+                  >
+                    <BookmarkPlus className="w-3.5 h-3.5 text-amber-500" />
+                    <span>{savedSuccess ? '已儲存至自訂曲庫！' : '儲存當前曲目至自訂曲庫'}</span>
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {PRESET_SONGS.map(preset => (
@@ -282,27 +302,57 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           {/* TAB 2: CUSTOM SONG LIBRARY */}
           {activeTab === 'custom' && (
             <div id="custom-library-panel" className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   保存在瀏覽器 LocalStorage 中的自訂創作曲庫（共 {customSongs.length} 首）：
                 </p>
-                <button
-                  type="button"
-                  onClick={handleSaveToCustomLibrary}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-zinc-950 text-xs font-bold transition-all shadow-xs hover:bg-amber-400 cursor-pointer"
-                >
-                  <BookmarkPlus className="w-3.5 h-3.5" />
-                  <span>{savedSuccess ? '已儲存！' : '儲存當前曲目'}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {onStartFreshSong && (
+                    <button
+                      id="modal-custom-new-song-btn"
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onStartFreshSong();
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700 text-xs font-bold transition-all cursor-pointer"
+                      title="建立全新空白樂曲"
+                    >
+                      <FilePlus2 className="w-3.5 h-3.5 text-amber-500" />
+                      <span>新建空白樂曲</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveToCustomLibrary}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-zinc-950 text-xs font-bold transition-all shadow-xs hover:bg-amber-400 cursor-pointer"
+                  >
+                    <BookmarkPlus className="w-3.5 h-3.5" />
+                    <span>{savedSuccess ? '已儲存！' : '儲存當前曲目'}</span>
+                  </button>
+                </div>
               </div>
 
               {customSongs.length === 0 ? (
-                <div className="p-8 text-center border border-dashed border-zinc-300 dark:border-zinc-700 rounded-2xl flex flex-col items-center gap-2">
+                <div className="p-8 text-center border border-dashed border-zinc-300 dark:border-zinc-700 rounded-2xl flex flex-col items-center gap-3">
                   <FolderHeart className="w-10 h-10 text-zinc-400" />
                   <h4 className="font-bold text-sm text-zinc-700 dark:text-zinc-300">目前尚無自訂樂曲</h4>
                   <p className="text-xs text-zinc-500 max-w-sm">
-                    點擊「儲存當前曲目」即可將正在創作的樂曲保存在此處，或從「匯入樂譜」貼上外部樂譜。
+                    點擊「儲存當前曲目」即可將正在創作的樂曲保存在此處，或開始創作全新樂曲。
                   </p>
+                  {onStartFreshSong && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onStartFreshSong();
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+                    >
+                      <FilePlus2 className="w-4 h-4" />
+                      <span>開始創作全新空白樂曲</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

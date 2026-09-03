@@ -50,6 +50,7 @@ interface ComposerEditorProps {
   setDisplayMode: (mode: LyricDisplayMode) => void;
   onOpenAligner: () => void;
   onOpenScanner?: () => void;
+  onStartFreshSong?: () => void;
   targetMeasureIndex?: number | null;
   onTargetMeasureHandled?: () => void;
   onUndo?: () => boolean;
@@ -74,6 +75,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   setDisplayMode,
   onOpenAligner,
   onOpenScanner,
+  onStartFreshSong,
   targetMeasureIndex,
   onTargetMeasureHandled,
   onUndo,
@@ -869,6 +871,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         setDisplayMode={setDisplayMode}
         onOpenAligner={onOpenAligner}
         onOpenScanner={onOpenScanner}
+        onStartFreshSong={onStartFreshSong}
       />
 
       {/* Persistent Section Navigation Rail (Quick Section Jump) */}

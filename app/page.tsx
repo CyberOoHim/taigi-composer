@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { LyricDisplayMode, Song } from '@/types/song';
-import { PRESET_SONGS } from '@/lib/presets';
+import { PRESET_SONGS, createFreshSong } from '@/lib/presets';
 import { audioEngine } from '@/lib/audioEngine';
 import { HeaderBar, ActiveTabMode } from '@/components/HeaderBar';
 import { KaraokeView, KaraokeSection } from '@/components/KaraokeView';
@@ -11,6 +11,7 @@ import { ImportExportModal } from '@/components/ImportExportModal';
 import { QuickLyricAlignerModal } from '@/components/QuickLyricAlignerModal';
 import { GeminiAuthModal } from '@/components/GeminiAuthModal';
 import { AiScoreScannerModal } from '@/components/AiScoreScannerModal';
+import { NewSongModal } from '@/components/NewSongModal';
 import { useSongHistory } from '@/hooks/useSongHistory';
 import { usePowerSaveMode } from '@/hooks/usePowerSaveMode';
 import {
@@ -20,6 +21,7 @@ import {
   setStoredDisplayMode,
   getStoredCurrentSong,
   setStoredCurrentSong,
+  saveSongToCustomLibrary,
 } from '@/lib/storage';
 import {
   Mic2,
@@ -62,6 +64,7 @@ export default function Home() {
   const [isAlignerOpen, setIsAlignerOpen] = useState(false);
   const [isGeminiAuthOpen, setIsGeminiAuthOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isNewSongConfirmOpen, setIsNewSongConfirmOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [targetMeasureIndex, setTargetMeasureIndex] = useState<number | null>(null);
 
@@ -82,6 +85,26 @@ export default function Home() {
     setDisplayModeState(mode);
     setStoredDisplayMode(mode);
   }, []);
+
+  const handleStartFreshSong = useCallback(() => {
+    setIsNewSongConfirmOpen(true);
+  }, []);
+
+  const handleConfirmFreshSong = useCallback((saveCurrentFirst: boolean) => {
+    if (saveCurrentFirst) {
+      saveSongToCustomLibrary(song);
+    }
+    if (audioEngine) {
+      audioEngine.stop();
+    }
+    const freshSong = createFreshSong();
+    loadNewSong(freshSong);
+    if (activeTab === 'karaoke') {
+      setActiveTab('editor');
+    }
+    setTargetMeasureIndex(0);
+    setIsNewSongConfirmOpen(false);
+  }, [song, activeTab, setActiveTab, loadNewSong]);
 
   // Save current song to localStorage when updated
   useEffect(() => {
@@ -190,6 +213,7 @@ export default function Home() {
       <HeaderBar
         song={song}
         onSelectSong={handleSelectSong}
+        onStartFreshSong={handleStartFreshSong}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenImportExport={() => setIsImportExportOpen(true)}
@@ -261,6 +285,7 @@ export default function Home() {
               setDisplayMode={setDisplayMode}
               onOpenAligner={() => setIsAlignerOpen(true)}
               onOpenScanner={() => setIsScannerOpen(true)}
+              onStartFreshSong={handleStartFreshSong}
               targetMeasureIndex={targetMeasureIndex}
               onTargetMeasureHandled={() => setTargetMeasureIndex(null)}
               onUndo={undo}
@@ -304,6 +329,7 @@ export default function Home() {
                 setDisplayMode={setDisplayMode}
                 onOpenAligner={() => setIsAlignerOpen(true)}
                 onOpenScanner={() => setIsScannerOpen(true)}
+                onStartFreshSong={handleStartFreshSong}
                 targetMeasureIndex={targetMeasureIndex}
                 onTargetMeasureHandled={() => setTargetMeasureIndex(null)}
                 onUndo={undo}
@@ -358,6 +384,7 @@ export default function Home() {
         currentSong={song}
         onLoadSong={handleSelectSong}
         onOpenScanner={() => setIsScannerOpen(true)}
+        onStartFreshSong={handleStartFreshSong}
       />
 
       <QuickLyricAlignerModal
@@ -378,6 +405,13 @@ export default function Home() {
         onClose={() => setIsScannerOpen(false)}
         currentSong={song}
         onApply={handleApplyScannedSong}
+      />
+
+      <NewSongModal
+        isOpen={isNewSongConfirmOpen}
+        onClose={() => setIsNewSongConfirmOpen(false)}
+        currentSongTitle={song.title}
+        onConfirm={handleConfirmFreshSong}
       />
     </div>
   );

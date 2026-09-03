@@ -20,6 +20,7 @@ import {
   BatteryLow,
   Sparkles,
   ScanLine,
+  FilePlus2,
 } from 'lucide-react';
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -27,6 +28,7 @@ export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
 interface HeaderBarProps {
   song: Song;
   onSelectSong: (song: Song) => void;
+  onStartFreshSong?: () => void;
   activeTab: ActiveTabMode;
   setActiveTab: (tab: ActiveTabMode) => void;
   onOpenImportExport: () => void;
@@ -49,6 +51,7 @@ interface HeaderBarProps {
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   song,
   onSelectSong,
+  onStartFreshSong,
   activeTab,
   setActiveTab,
   onOpenImportExport,
@@ -273,6 +276,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             >
               <ScanLine className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
               <span className="hidden 2xl:inline whitespace-nowrap">AI 識譜</span>
+            </button>
+          )}
+
+          {/* Start Fresh Song Trigger */}
+          {onStartFreshSong && (
+            <button
+              id="header-new-song-btn"
+              type="button"
+              onClick={onStartFreshSong}
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl border border-zinc-200/80 dark:border-zinc-700 text-xs font-bold transition-colors cursor-pointer touch-manipulation min-h-[34px] sm:min-h-[36px] whitespace-nowrap shrink-0"
+              title="建立全新空白樂曲 (New Song)"
+            >
+              <FilePlus2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span className="hidden xl:inline whitespace-nowrap">新建</span>
             </button>
           )}
 

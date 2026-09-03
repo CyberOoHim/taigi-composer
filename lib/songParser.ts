@@ -68,6 +68,7 @@ export function exportSongToText(song: Song): string {
     `Key: ${song.key}`,
     `Time: ${song.timeSignature}`,
     `BPM: ${song.bpm}`,
+    song.description ? `Description: ${song.description}` : '',
     ``,
   ].filter(Boolean);
 
@@ -120,6 +121,8 @@ export function importSongFromText(text: string): Song {
       song.composer = line.replace('Composer:', '').trim();
     } else if (line.startsWith('Lyricist:')) {
       song.lyricist = line.replace('Lyricist:', '').trim();
+    } else if (line.startsWith('Description:')) {
+      song.description = line.replace('Description:', '').trim();
     } else if (line.startsWith('Key:')) {
       song.key = (line.replace('Key:', '').trim() as KeySignature) || 'C';
     } else if (line.startsWith('Time:')) {

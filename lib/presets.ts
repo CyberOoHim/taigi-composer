@@ -435,3 +435,37 @@ export const PRESET_SONGS: Song[] = [
     ],
   },
 ];
+
+/**
+ * Creates a brand-new empty/fresh song template ready for editing.
+ */
+export function createFreshSong(title = '未命名樂曲'): Song {
+  const timestamp = Date.now();
+  return {
+    id: `song-${timestamp}`,
+    title,
+    subtitle: '',
+    composer: '',
+    lyricist: '',
+    key: 'C',
+    timeSignature: '4/4',
+    bpm: 80,
+    notesPerLine: 4,
+    description: '',
+    measures: [
+      {
+        id: `m-${timestamp}-1`,
+        measureNumber: 1,
+        chord: 'C',
+        section: 'Verse 1',
+        notes: [
+          { id: `n-${timestamp}-1`, pitch: 1, octave: 0, duration: 1, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
+          { id: `n-${timestamp}-2`, pitch: 2, octave: 0, duration: 1, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
+          { id: `n-${timestamp}-3`, pitch: 3, octave: 0, duration: 1, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
+          { id: `n-${timestamp}-4`, pitch: 5, octave: 0, duration: 1, lyric: { hanji: '', poj: '', pij: '', custom: '' } },
+        ],
+      },
+    ],
+  };
+}
+
