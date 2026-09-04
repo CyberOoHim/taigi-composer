@@ -177,7 +177,13 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                       e.stopPropagation();
                       if (vIdx > 0) {
                         const prevVerse = verses[vIdx - 1];
-                        const target = prevVerse.notes[0];
+                        const target =
+                          prevVerse.notes.find(
+                            n =>
+                              !isNonNotationItem(n.note) &&
+                              ((typeof n.note.pitch === 'number' && n.note.pitch > 0) ||
+                                Boolean(n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji)))
+                          ) || prevVerse.notes[0];
                         if (target) onSelectNote(target.measureIndex, target.noteIndex);
                         scrollToCardElement(`verse-card-${vIdx - 1}`);
                       }
@@ -197,7 +203,13 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                       e.stopPropagation();
                       if (vIdx < verses.length - 1) {
                         const nextVerse = verses[vIdx + 1];
-                        const target = nextVerse.notes[0];
+                        const target =
+                          nextVerse.notes.find(
+                            n =>
+                              !isNonNotationItem(n.note) &&
+                              ((typeof n.note.pitch === 'number' && n.note.pitch > 0) ||
+                                Boolean(n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji)))
+                          ) || nextVerse.notes[0];
                         if (target) onSelectNote(target.measureIndex, target.noteIndex);
                         scrollToCardElement(`verse-card-${vIdx + 1}`);
                       }

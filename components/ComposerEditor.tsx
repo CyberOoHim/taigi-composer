@@ -333,21 +333,44 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     if (curM && selectedNoteIndex < curM.notes.length - 1) {
       handleSelectNote(selectedMeasureIndex, selectedNoteIndex + 1);
     } else if (selectedMeasureIndex < song.measures.length - 1) {
-      handleSelectNote(selectedMeasureIndex + 1, 0);
+      const nextM = selectedMeasureIndex + 1;
+      handleSelectNote(nextM, 0);
+      if (editMode === 'verse') {
+        const vIdx = verses.findIndex(v =>
+          v.notes.some(n => n.measureIndex === nextM && n.noteIndex === 0)
+        );
+        if (vIdx !== -1) {
+          scrollToCardElement(`verse-card-${vIdx}`);
+        }
+      } else {
+        scrollToCardElement(`measure-card-${nextM}`);
+      }
     }
-  }, [selectedMeasureIndex, selectedNoteIndex, song.measures, handleSelectNote]);
+  }, [selectedMeasureIndex, selectedNoteIndex, song.measures, handleSelectNote, editMode, verses]);
 
   const handleNavigatePrevNote = useCallback(() => {
     if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
     if (selectedNoteIndex > 0) {
       handleSelectNote(selectedMeasureIndex, selectedNoteIndex - 1);
     } else if (selectedMeasureIndex > 0) {
-      const prevM = song.measures[selectedMeasureIndex - 1];
+      const prevMIdx = selectedMeasureIndex - 1;
+      const prevM = song.measures[prevMIdx];
       if (prevM && prevM.notes.length > 0) {
-        handleSelectNote(selectedMeasureIndex - 1, prevM.notes.length - 1);
+        const prevNoteIdx = prevM.notes.length - 1;
+        handleSelectNote(prevMIdx, prevNoteIdx);
+        if (editMode === 'verse') {
+          const vIdx = verses.findIndex(v =>
+            v.notes.some(n => n.measureIndex === prevMIdx && n.noteIndex === prevNoteIdx)
+          );
+          if (vIdx !== -1) {
+            scrollToCardElement(`verse-card-${vIdx}`);
+          }
+        } else {
+          scrollToCardElement(`measure-card-${prevMIdx}`);
+        }
       }
     }
-  }, [selectedMeasureIndex, selectedNoteIndex, song.measures, handleSelectNote]);
+  }, [selectedMeasureIndex, selectedNoteIndex, song.measures, handleSelectNote, editMode, verses]);
 
   // Change pitch (with optional auto-advance)
   const handleSetPitch = useCallback(
@@ -1665,7 +1688,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   ]);
 
   return (
-    <div id="composer-editor-root" className="flex flex-col gap-5 w-full pb-10">
+    <div id="composer-editor-root" className="flex flex-col gap-5 w-full pb-36 sm:pb-52">
       {/* Inline Notification Banner */}
       {notification && (
         <div
