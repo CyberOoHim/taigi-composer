@@ -65,15 +65,13 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
     : 0;
 
   // Lyric texts
-  const hanji = note.lyric.hanji || '';
-  const poj = note.lyric.poj || '';
-  const tl = note.lyric.tl || '';
-  const custom = note.lyric.custom || '';
+  const hanlo = note.lyric.hanlo || note.lyric.custom || note.lyric.hanji || '';
+  const poj = note.lyric.poj || note.lyric.tl || '';
   const annotation = note.annotation || '';
 
   // Determine what lyrics to show based on display mode
   const renderLyricContent = () => {
-    const hasText = Boolean(hanji || poj || tl || custom || annotation);
+    const hasText = Boolean(hanlo || poj || annotation);
     if (!hasText) {
       if (isMelismaContinuation(note, prevNote)) {
         return (
@@ -94,7 +92,7 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
       return <span className="text-zinc-400 dark:text-zinc-600 font-mono text-xs">—</span>;
     }
 
-    const primaryText = hanji || custom || annotation || poj || tl || '';
+    const primaryText = hanlo || annotation || poj || '';
     const isPunctuation = isPunctuationOrSpacer(primaryText);
 
     const effectiveMode: 'roman' | 'hanlo' | 'roman_major_hanlo' | 'hanlo_major_roman' =
@@ -102,7 +100,7 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
         ? 'hanlo_major_roman'
         : displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
         ? 'hanlo'
-        : displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'tl_only'
+        : displayMode === 'roman' || displayMode === 'poj_only'
         ? 'roman'
         : 'roman_major_hanlo';
 
@@ -110,7 +108,7 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
       case 'roman':
         return (
           <span className="font-serif italic text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
-            {poj || tl || custom || hanji || annotation || '—'}
+            {poj || hanlo || annotation || '—'}
           </span>
         );
       case 'hanlo':
@@ -123,16 +121,16 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
                 : 'text-zinc-900 dark:text-zinc-100'
             )}
           >
-            {hanji || custom || annotation || poj || tl || '—'}
+            {hanlo || annotation || poj || '—'}
           </span>
         );
       case 'hanlo_major_roman':
         return (
           <div className="flex flex-col items-center leading-tight gap-0.5">
             {/* 羅馬字 smaller sub on top */}
-            {(poj || tl) && (
+            {poj && (
               <span className="text-[11px] font-serif italic text-emerald-600 dark:text-emerald-400 font-medium">
-                {poj || tl}
+                {poj}
               </span>
             )}
             {/* 漢羅 major text below */}
@@ -144,7 +142,7 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
                   : 'text-zinc-900 dark:text-zinc-100'
               )}
             >
-              {hanji || custom || poj || tl || annotation || '—'}
+              {hanlo || poj || annotation || '—'}
             </span>
           </div>
         );
@@ -153,9 +151,9 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
         return (
           <div className="flex flex-col items-center leading-tight gap-0.5">
             {/* 漢羅 smaller sub on top */}
-            {(hanji || custom) && (
+            {hanlo && (
               <span className="text-[11px] font-sans text-zinc-600 dark:text-zinc-400 font-medium">
-                {hanji || custom}
+                {hanlo}
               </span>
             )}
             {/* 羅馬字 major text below */}
@@ -167,7 +165,7 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
                   : 'text-emerald-700 dark:text-emerald-300'
               )}
             >
-              {poj || tl || hanji || custom || annotation || '—'}
+              {poj || hanlo || annotation || '—'}
             </span>
           </div>
         );
@@ -353,10 +351,10 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
                 {isNonNotation
                   ? annotation
                     ? ''
-                    : hanji === '\n' || hanji === '↵' || hanji === '\r' || custom === '\n' || custom === '↵' || custom === '\r'
+                    : hanlo === '\n' || hanlo === '↵' || hanlo === '\r'
                     ? '↵'
-                    : isPunctuationOrSpacer(hanji || custom)
-                    ? hanji || custom
+                    : isPunctuationOrSpacer(hanlo)
+                    ? hanlo
                     : '␣'
                   : note.pitch}
               </span>

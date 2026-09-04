@@ -490,9 +490,9 @@ export function isMelismaContinuation(note: JianpuNote | null | undefined, prevN
   if (!note || !prevNote) return false;
   const prevSlurred = isSlurActive(prevNote, note);
   const noteHasOwnLyric = Boolean(
-    note.lyric?.hanji?.trim() ||
+    note.lyric?.hanlo?.trim() ||
     note.lyric?.poj?.trim() ||
-    note.lyric?.tl?.trim() ||
+    note.lyric?.hanji?.trim() ||
     note.lyric?.custom?.trim()
   );
   return prevSlurred && !noteHasOwnLyric;
@@ -536,23 +536,15 @@ export function isNonNotationItem(note: JianpuNote | null | undefined): boolean 
 
   // 4. Note contains punctuation, delimiter, space, or newline in lyrics
   // All delimiters, spaces, and newlines strictly maintain a time value of zero
-  const rawHanji = note.lyric?.hanji ?? '';
-  const rawCustom = note.lyric?.custom ?? '';
-  const rawPoj = note.lyric?.poj ?? '';
-  const rawTl = note.lyric?.tl ?? '';
+  const rawHanlo = note.lyric?.hanlo ?? note.lyric?.custom ?? note.lyric?.hanji ?? '';
+  const rawPoj = note.lyric?.poj ?? note.lyric?.tl ?? '';
 
-  const hasAnyLyric =
-    rawHanji.length > 0 ||
-    rawCustom.length > 0 ||
-    rawPoj.length > 0 ||
-    rawTl.length > 0;
+  const hasAnyLyric = rawHanlo.length > 0 || rawPoj.length > 0;
 
   const isPurePunctuationLyric =
     hasAnyLyric &&
-    (!rawHanji || isPunctuationOrSpacer(rawHanji)) &&
-    (!rawCustom || isPunctuationOrSpacer(rawCustom)) &&
-    (!rawPoj || isPunctuationOrSpacer(rawPoj)) &&
-    (!rawTl || isPunctuationOrSpacer(rawTl));
+    (!rawHanlo || isPunctuationOrSpacer(rawHanlo)) &&
+    (!rawPoj || isPunctuationOrSpacer(rawPoj));
 
   if (isPurePunctuationLyric) {
     return true;
@@ -630,17 +622,13 @@ export function isNewlineBreak(str?: string): boolean {
 export function isVerseBreakNote(note: JianpuNote | null | undefined): boolean {
   if (!note) return false;
 
-  const hanji = note.lyric?.hanji || '';
-  const custom = note.lyric?.custom || '';
-  const poj = note.lyric?.poj || '';
-  const tl = note.lyric?.tl || '';
+  const hanlo = note.lyric?.hanlo || note.lyric?.custom || note.lyric?.hanji || '';
+  const poj = note.lyric?.poj || note.lyric?.tl || '';
   const annot = note.annotation || '';
 
   return (
-    isNewlineBreak(hanji) ||
-    isNewlineBreak(custom) ||
+    isNewlineBreak(hanlo) ||
     isNewlineBreak(poj) ||
-    isNewlineBreak(tl) ||
     isNewlineBreak(annot)
   );
 }
@@ -672,20 +660,14 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
     });
     const chords = verseChordsList;
 
-    const hanjiParts: string[] = [];
+    const hanloParts: string[] = [];
     const pojParts: string[] = [];
-    const tlParts: string[] = [];
-    const customParts: string[] = [];
 
     currentNotes.forEach(n => {
-      const h = n.note.lyric.hanji;
-      const p = n.note.lyric.poj;
-      const tl = n.note.lyric.tl;
-      const c = n.note.lyric.custom;
-      if (h && !isNewlineBreak(h)) hanjiParts.push(h);
+      const h = n.note.lyric.hanlo || n.note.lyric.custom || n.note.lyric.hanji;
+      const p = n.note.lyric.poj || n.note.lyric.tl;
+      if (h && !isNewlineBreak(h)) hanloParts.push(h);
       if (p && !isNewlineBreak(p)) pojParts.push(p);
-      if (tl && !isNewlineBreak(tl)) tlParts.push(tl);
-      if (c && !isNewlineBreak(c)) customParts.push(c);
     });
 
     const verseIndex = verses.length;
@@ -698,10 +680,10 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
       section: currentSection || currentNotes[0].section,
       chords,
       lyricSummary: {
-        hanji: hanjiParts.join(''),
         poj: pojParts.join(' '),
-        tl: tlParts.join(' '),
-        custom: customParts.join(' '),
+        hanlo: hanloParts.join(''),
+        hanji: hanloParts.join(''),
+        custom: hanloParts.join(' '),
       },
     });
 
@@ -792,10 +774,10 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
         section: song.measures[0]?.section,
         chords: Array.from(new Set(allNotes.map(n => n.chord).filter(Boolean) as string[])),
         lyricSummary: {
-          hanji: allNotes.map(n => n.note.lyric.hanji || '').filter(h => !isNewlineBreak(h)).join(''),
-          poj: allNotes.map(n => n.note.lyric.poj || '').filter(p => !isNewlineBreak(p)).join(' '),
-          tl: allNotes.map(n => n.note.lyric.tl || '').filter(tl => !isNewlineBreak(tl)).join(' '),
-          custom: allNotes.map(n => n.note.lyric.custom || '').filter(c => !isNewlineBreak(c)).join(' '),
+          poj: allNotes.map(n => n.note.lyric.poj || n.note.lyric.tl || '').filter(p => !isNewlineBreak(p)).join(' '),
+          hanlo: allNotes.map(n => n.note.lyric.hanlo || n.note.lyric.custom || n.note.lyric.hanji || '').filter(h => !isNewlineBreak(h)).join(''),
+          hanji: allNotes.map(n => n.note.lyric.hanlo || n.note.lyric.custom || n.note.lyric.hanji || '').filter(h => !isNewlineBreak(h)).join(''),
+          custom: allNotes.map(n => n.note.lyric.hanlo || n.note.lyric.custom || n.note.lyric.hanji || '').filter(c => !isNewlineBreak(c)).join(' '),
         },
       });
     }

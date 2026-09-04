@@ -84,7 +84,7 @@ export function getStoredDisplayMode(): LyricDisplayMode {
   if (val === 'poj_only' || val === 'tl_only') return 'roman';
   if (val === 'hanji_only' || val === 'custom_only') return 'hanlo';
   if (val === 'hanji_poj') return 'hanlo_major_roman';
-  if (val === 'all' || val === 'hanji_tl') return 'roman_major_hanlo';
+  if (val === 'all' || val === 'hanji_tl' || val === 'hanji_pij') return 'roman_major_hanlo';
 
   return 'roman_major_hanlo';
 }
@@ -102,8 +102,20 @@ export function getStoredCurrentSong(): Song {
     try {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.id && Array.isArray(parsed.measures) && parsed.measures.length > 0) {
-        // Return user's parsed song directly without destructive overwrite
-        return parsed as Song;
+        const song = parsed as Song;
+        song.measures.forEach(m => {
+          if (Array.isArray(m.notes)) {
+            m.notes.forEach(n => {
+              if (n && n.lyric) {
+                if (!n.lyric.poj && n.lyric.tl) n.lyric.poj = n.lyric.tl;
+                if (!n.lyric.hanlo) {
+                  n.lyric.hanlo = n.lyric.custom || n.lyric.hanji || '';
+                }
+              }
+            });
+          }
+        });
+        return song;
       }
     } catch {
       // JSON parse error, fallback

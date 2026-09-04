@@ -78,10 +78,10 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
     return currentVerse.notes.findIndex(item => {
       const n = item.note;
       const isNonNotation = isNonNotationItem(n) || n.pitch === 'empty' || (typeof n.duration === 'number' && n.duration <= 0);
-      const rawHanji = n.lyric.hanji ?? n.lyric.custom ?? '';
+      const rawHanlo = n.lyric.hanlo ?? n.lyric.hanji ?? n.lyric.custom ?? '';
       const rawRoman = n.lyric.poj ?? n.lyric.tl ?? '';
       const hasLyric =
-        (rawHanji && !isPunctuationOrSpacer(rawHanji) && rawHanji !== '\n' && rawHanji !== '↵') ||
+        (rawHanlo && !isPunctuationOrSpacer(rawHanlo) && rawHanlo !== '\n' && rawHanlo !== '↵') ||
         (rawRoman && !isPunctuationOrSpacer(rawRoman) && rawRoman !== '\n' && rawRoman !== '↵');
       const isPitched = !isNonNotation && typeof n.pitch === 'number' && n.pitch > 0;
       return !isNonNotation && (hasLyric || isPitched) && n.duration > 0;
@@ -93,10 +93,10 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
     return nextVerse.notes.findIndex(item => {
       const n = item.note;
       const isNonNotation = isNonNotationItem(n) || n.pitch === 'empty' || (typeof n.duration === 'number' && n.duration <= 0);
-      const rawHanji = n.lyric.hanji ?? n.lyric.custom ?? '';
+      const rawHanlo = n.lyric.hanlo ?? n.lyric.hanji ?? n.lyric.custom ?? '';
       const rawRoman = n.lyric.poj ?? n.lyric.tl ?? '';
       const hasLyric =
-        (rawHanji && !isPunctuationOrSpacer(rawHanji) && rawHanji !== '\n' && rawHanji !== '↵') ||
+        (rawHanlo && !isPunctuationOrSpacer(rawHanlo) && rawHanlo !== '\n' && rawHanlo !== '↵') ||
         (rawRoman && !isPunctuationOrSpacer(rawRoman) && rawRoman !== '\n' && rawRoman !== '↵');
       const isPitched = !isNonNotation && typeof n.pitch === 'number' && n.pitch > 0;
       return !isNonNotation && (hasLyric || isPitched) && n.duration > 0;
@@ -106,7 +106,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   const effectiveMode: 'roman' | 'hanlo' | 'roman_major_hanlo' | 'hanlo_major_roman' = React.useMemo(() => {
     if (displayMode === 'hanlo_major_roman' || displayMode === 'hanji_poj') return 'hanlo_major_roman';
     if (displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only') return 'hanlo';
-    if (displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'tl_only') return 'roman';
+    if (displayMode === 'roman' || displayMode === 'poj_only') return 'roman';
     return 'roman_major_hanlo';
   }, [displayMode]);
 
@@ -155,15 +155,12 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
               {nextVerse.notes.map((item, idx) => {
                 const note = item.note;
                 const isNonNotation = isNonNotationItem(note);
-                const rawHanji = note.lyric.hanji ?? note.lyric.custom ?? '';
-                const rawRoman =
-                  displayMode === 'hanji_tl' || displayMode === 'tl_only'
-                    ? note.lyric.tl ?? note.lyric.poj ?? ''
-                    : note.lyric.poj ?? note.lyric.tl ?? '';
+                const rawHanlo = note.lyric.hanlo ?? note.lyric.hanji ?? note.lyric.custom ?? '';
+                const rawRoman = note.lyric.poj ?? note.lyric.tl ?? '';
 
-                const hasHanji = Boolean(rawHanji && rawHanji.trim());
+                const hasHanlo = Boolean(rawHanlo && rawHanlo.trim());
                 const hasRoman = Boolean(rawRoman && rawRoman.trim());
-                const hasExplicitText = hasHanji || hasRoman;
+                const hasExplicitText = hasHanlo || hasRoman;
 
                 if ((note.pitch === 0 || note.pitch === 'empty') && !hasExplicitText && !note.annotation) {
                   return null;
@@ -190,22 +187,22 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 let subRubyDisplay = '\u00A0';
                 let mainWordDisplay = '\u00A0';
                 if (effectiveMode === 'roman') {
-                  mainWordDisplay = hasRoman ? rawRoman : (hasHanji ? rawHanji : '\u00A0');
+                  mainWordDisplay = hasRoman ? rawRoman : (hasHanlo ? rawHanlo : '\u00A0');
                 } else if (effectiveMode === 'hanlo') {
-                  mainWordDisplay = hasHanji ? rawHanji : (hasRoman ? rawRoman : '\u00A0');
+                  mainWordDisplay = hasHanlo ? rawHanlo : (hasRoman ? rawRoman : '\u00A0');
                 } else if (effectiveMode === 'roman_major_hanlo') {
                   // 3. 羅馬字（主）+ 漢羅: 漢羅 is sub on top, 羅馬字 is major
-                  subRubyDisplay = hasHanji ? rawHanji : '\u00A0';
-                  mainWordDisplay = hasRoman ? rawRoman : (hasHanji ? rawHanji : '\u00A0');
+                  subRubyDisplay = hasHanlo ? rawHanlo : '\u00A0';
+                  mainWordDisplay = hasRoman ? rawRoman : (hasHanlo ? rawHanlo : '\u00A0');
                 } else {
                   // 4. 漢羅（主）+ 羅馬字: 羅馬字 is sub on top, 漢羅 is major
                   subRubyDisplay = hasRoman ? rawRoman : '\u00A0';
-                  mainWordDisplay = hasHanji ? rawHanji : (hasRoman ? rawRoman : '\u00A0');
+                  mainWordDisplay = hasHanlo ? rawHanlo : (hasRoman ? rawRoman : '\u00A0');
                 }
 
                 const isFirstSungNote = idx === nextFirstVocalIndex;
 
-                if (rawHanji === '\n' || rawHanji === '↵') {
+                if (rawHanlo === '\n' || rawHanlo === '↵') {
                   return (
                     <div
                       key={`next-nl-${item.measureIndex}-${item.noteIndex}-${idx}`}
@@ -214,13 +211,13 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                   );
                 }
 
-                if (isPunctuationOrSpacer(rawHanji)) {
+                if (isPunctuationOrSpacer(rawHanlo)) {
                   return (
                     <div
                       key={`next-punct-${item.measureIndex}-${item.noteIndex}-${idx}`}
                       className="flex items-center justify-center self-center px-0.5 text-zinc-500 font-sans select-none"
                     >
-                      <span className="text-base sm:text-lg">{rawHanji}</span>
+                      <span className="text-base sm:text-lg">{rawHanlo}</span>
                     </div>
                   );
                 }
@@ -355,17 +352,14 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                   (item.measureIndex < playbackState.currentMeasureIndex ||
                     (item.measureIndex === playbackState.currentMeasureIndex && item.noteIndex < playbackState.currentNoteIndex));
 
-                const rawHanji = note.lyric.hanji ?? note.lyric.custom ?? '';
-                const rawRoman =
-                  displayMode === 'hanji_tl' || displayMode === 'tl_only'
-                    ? note.lyric.tl ?? note.lyric.poj ?? ''
-                    : note.lyric.poj ?? note.lyric.tl ?? '';
+                const rawHanlo = note.lyric.hanlo ?? note.lyric.hanji ?? note.lyric.custom ?? '';
+                const rawRoman = note.lyric.poj ?? note.lyric.tl ?? '';
 
-                const hasHanji = Boolean(rawHanji && rawHanji.trim());
+                const hasHanlo = Boolean(rawHanlo && rawHanlo.trim());
                 const hasRoman = Boolean(rawRoman && rawRoman.trim());
-                const hasExplicitText = hasHanji || hasRoman;
+                const hasExplicitText = hasHanlo || hasRoman;
 
-                if (rawHanji === '\n' || rawHanji === '↵') {
+                if (rawHanlo === '\n' || rawHanlo === '↵') {
                   return (
                     <div
                       key={`active-nl-${item.measureIndex}-${item.noteIndex}-${idx}`}
@@ -374,13 +368,13 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                   );
                 }
 
-                if (isPunctuationOrSpacer(rawHanji)) {
+                if (isPunctuationOrSpacer(rawHanlo)) {
                   return (
                     <div
                       key={`active-punct-${item.measureIndex}-${item.noteIndex}-${idx}`}
                       className="flex items-center justify-center self-center px-1 text-zinc-400 font-sans select-none"
                     >
-                      <span className={hanjiSizeClass}>{rawHanji}</span>
+                      <span className={hanjiSizeClass}>{rawHanlo}</span>
                     </div>
                   );
                 }
@@ -410,17 +404,17 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 let subRubyDisplay = '\u00A0';
                 let mainWordDisplay = '\u00A0';
                 if (effectiveMode === 'roman') {
-                  mainWordDisplay = hasRoman ? rawRoman : (hasHanji ? rawHanji : '\u00A0');
+                  mainWordDisplay = hasRoman ? rawRoman : (hasHanlo ? rawHanlo : '\u00A0');
                 } else if (effectiveMode === 'hanlo') {
-                  mainWordDisplay = hasHanji ? rawHanji : (hasRoman ? rawRoman : '\u00A0');
+                  mainWordDisplay = hasHanlo ? rawHanlo : (hasRoman ? rawRoman : '\u00A0');
                 } else if (effectiveMode === 'roman_major_hanlo') {
                   // 3. 羅馬字（主）+ 漢羅: 漢羅 is sub on top, 羅馬字 is major
-                  subRubyDisplay = hasHanji ? rawHanji : '\u00A0';
-                  mainWordDisplay = hasRoman ? rawRoman : (hasHanji ? rawHanji : '\u00A0');
+                  subRubyDisplay = hasHanlo ? rawHanlo : '\u00A0';
+                  mainWordDisplay = hasRoman ? rawRoman : (hasHanlo ? rawHanlo : '\u00A0');
                 } else {
                   // 4. 漢羅（主）+ 羅馬字: 羅馬字 is sub on top, 漢羅 is major
                   subRubyDisplay = hasRoman ? rawRoman : '\u00A0';
-                  mainWordDisplay = hasHanji ? rawHanji : (hasRoman ? rawRoman : '\u00A0');
+                  mainWordDisplay = hasHanlo ? rawHanlo : (hasRoman ? rawRoman : '\u00A0');
                 }
 
                 // Clean visual hint on the first vocal character when awaiting singing

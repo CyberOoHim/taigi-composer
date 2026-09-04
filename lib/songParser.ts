@@ -47,9 +47,9 @@ export function importSongFromJson(jsonString: string): Song {
 export function formatNoteToJianpuString(note: JianpuNote): string {
   if (note.pitch === 'empty' || (typeof note.duration === 'number' && note.duration <= 0)) {
     if (note.annotation) return `[${note.annotation}]`;
-    const hanji = note.lyric.hanji || note.lyric.custom || '';
-    if (hanji === '\n' || hanji === '↵') return '↵';
-    if (hanji && isPunctuationOrSpacer(hanji)) return hanji;
+    const hanlo = note.lyric.hanlo || note.lyric.hanji || note.lyric.custom || '';
+    if (hanlo === '\n' || hanlo === '↵') return '↵';
+    if (hanlo && isPunctuationOrSpacer(hanlo)) return hanlo;
     return '_';
   }
 
@@ -112,7 +112,7 @@ export function exportSongToText(song: Song): string {
 
     const jianpuTokens = m.notes.map(n => formatNoteToJianpuString(n));
     const romanTokens = m.notes.map(n => n.lyric.poj || n.lyric.tl || '—');
-    const hanloTokens = m.notes.map(n => n.lyric.hanji || n.lyric.custom || '—');
+    const hanloTokens = m.notes.map(n => n.lyric.hanlo || n.lyric.hanji || n.lyric.custom || '—');
 
     lines.push(`Numbered Notation:  ${jianpuTokens.join('  ')}`);
     lines.push(`羅馬字:  ${romanTokens.join('  ')}`);
@@ -141,8 +141,6 @@ export function importSongFromText(text: string): Song {
   let measureIndex = 1;
   let pendingRoman: string[] | null = null;
   let pendingHanlo: string[] | null = null;
-  let pendingTl: string[] | null = null;
-  let pendingCustom: string[] | null = null;
 
   const applyPendingLyrics = () => {
     if (!currentMeasure?.notes || currentMeasure.notes.length === 0) return;
@@ -156,21 +154,10 @@ export function importSongFromText(text: string): Song {
     if (pendingHanlo) {
       pendingHanlo.forEach((tok, idx) => {
         if (currentMeasure!.notes![idx]) {
-          currentMeasure!.notes![idx].lyric.hanji = tok === '—' ? '' : tok;
-        }
-      });
-    }
-    if (pendingTl) {
-      pendingTl.forEach((tok, idx) => {
-        if (currentMeasure!.notes![idx]) {
-          currentMeasure!.notes![idx].lyric.tl = tok === '—' ? '' : tok;
-        }
-      });
-    }
-    if (pendingCustom) {
-      pendingCustom.forEach((tok, idx) => {
-        if (currentMeasure!.notes![idx]) {
-          currentMeasure!.notes![idx].lyric.custom = tok === '—' ? '' : tok;
+          const val = tok === '—' ? '' : tok;
+          currentMeasure!.notes![idx].lyric.hanlo = val;
+          currentMeasure!.notes![idx].lyric.hanji = val;
+          currentMeasure!.notes![idx].lyric.custom = val;
         }
       });
     }
@@ -204,8 +191,6 @@ export function importSongFromText(text: string): Song {
 
       pendingRoman = null;
       pendingHanlo = null;
-      pendingTl = null;
-      pendingCustom = null;
 
       const chordMatch = line.match(/Chord:\s*([A-Za-z0-9#b]+)/i);
       const sectionMatch = line.match(/\(([^)]+)\)/);
@@ -222,17 +207,11 @@ export function importSongFromText(text: string): Song {
         const tokens = line.replace(/^(Numbered Notation:|Jianpu:)/, '').trim().split(/\s+/).filter(Boolean);
         currentMeasure.notes = tokens.map((tok, nIdx) => parseJianpuToken(tok, `${currentMeasure!.id}-n${nIdx}`));
         applyPendingLyrics();
-      } else if (line.startsWith('羅馬字:') || line.startsWith('Roman:') || line.startsWith('POJ:')) {
-        pendingRoman = line.replace(/^(羅馬字:|Roman:|POJ:)/, '').trim().split(/\s+/).filter(Boolean);
+      } else if (line.startsWith('羅馬字:') || line.startsWith('Roman:') || line.startsWith('POJ:') || line.startsWith('TL:')) {
+        pendingRoman = line.replace(/^(羅馬字:|Roman:|POJ:|TL:)/, '').trim().split(/\s+/).filter(Boolean);
         applyPendingLyrics();
-      } else if (line.startsWith('漢羅:') || line.startsWith('Hanlo:') || line.startsWith('Hanji:')) {
-        pendingHanlo = line.replace(/^(漢羅:|Hanlo:|Hanji:)/, '').trim().split(/\s+/).filter(Boolean);
-        applyPendingLyrics();
-      } else if (line.startsWith('TL:')) {
-        pendingTl = line.replace(/^TL:/, '').trim().split(/\s+/).filter(Boolean);
-        applyPendingLyrics();
-      } else if (line.startsWith('Custom:')) {
-        pendingCustom = line.replace('Custom:', '').trim().split(/\s+/).filter(Boolean);
+      } else if (line.startsWith('漢羅:') || line.startsWith('Hanlo:') || line.startsWith('Hanji:') || line.startsWith('Custom:')) {
+        pendingHanlo = line.replace(/^(漢羅:|Hanlo:|Hanji:|Custom:)/, '').trim().split(/\s+/).filter(Boolean);
         applyPendingLyrics();
       }
     }

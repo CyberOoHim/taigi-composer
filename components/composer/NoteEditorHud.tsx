@@ -160,12 +160,10 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   const durationInfo = getDurationChineseInfo(currentNote.duration);
 
   // Pitch formatted label
+  const rawHanlo = currentNote.lyric?.hanlo || currentNote.lyric?.hanji || currentNote.lyric?.custom || '';
   const isLineBreakNote =
     currentNote.pitch === 'empty' &&
-    (currentNote.lyric?.hanji === '\n' ||
-      currentNote.lyric?.hanji === '↵' ||
-      currentNote.lyric?.custom === '\n' ||
-      currentNote.lyric?.custom === '↵');
+    (rawHanlo === '\n' || rawHanlo === '↵');
 
   const punctChar = getPunctuationDisplayChar(currentNote);
 
@@ -1510,7 +1508,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                      羅馬字 (Romanization / POJ / TL):
+                      羅馬字 (POJ):
                     </label>
                     <input
                       type="text"
@@ -1523,7 +1521,6 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                           lyric: {
                             ...n.lyric,
                             poj: val,
-                            tl: val,
                           },
                         }));
                       }}
@@ -1533,20 +1530,19 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
 
                   <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      漢羅 (Han-lô / 漢字):
+                      漢羅 (Han-lô):
                     </label>
                     <input
                       type="text"
                       placeholder="例：燈下 或 守..."
-                      value={currentNote.lyric?.custom || currentNote.lyric?.hanji || ''}
+                      value={currentNote.lyric?.hanlo || currentNote.lyric?.custom || currentNote.lyric?.hanji || ''}
                       onChange={e => {
                         const val = e.target.value;
                         onUpdateSelectedNote(n => ({
                           ...n,
                           lyric: {
                             ...n.lyric,
-                            hanji: val,
-                            custom: val,
+                            hanlo: val,
                           },
                         }));
                       }}

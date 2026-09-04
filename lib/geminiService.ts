@@ -146,10 +146,8 @@ export async function convertTaigiLyricsByVersesWithAi(
     return lines.map((line) => {
       const rawSyllables = splitTaigiLyricSyllables(line);
       return rawSyllables.map((s) => ({
-        hanji: s,
+        hanlo: s,
         poj: s,
-        tl: s,
-        custom: s,
       }));
     });
   }
@@ -163,11 +161,9 @@ ${formattedLines}
 
 Task:
 1. For each line, break down into an array of syllables aligned one-by-one.
-2. For each syllable, output:
-   - "hanji": The Han character (if applicable, or matching Hanji)
-   - "poj": Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc.)
-   - "tl": Tâi-lô (臺灣閩南語羅馬字拼音方案) with correct tone marks (á, à, â, ā, a̍, a̋, oo, nn, etc.)
-   - "custom": Han-lô mixed representation
+2. For each syllable, output strictly two fields:
+   - "hanlo": 漢羅 (Hàn-lô: Traditional Han character or Han-lô mixed representation, e.g. "望", "阮ê", "chhun-hong")
+   - "poj": 羅馬字 / Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc., e.g. "Bāng")
 
 Return strictly valid JSON in the following schema:
 {
@@ -175,9 +171,9 @@ Return strictly valid JSON in the following schema:
     {
       "lineIndex": 0,
       "syllables": [
-        { "hanji": "望", "poj": "Bāng", "tl": "Bāng", "custom": "望" },
-        { "hanji": "春", "poj": "Chhun", "tl": "Tshun", "custom": "春" },
-        { "hanji": "風", "poj": "hong", "tl": "hong", "custom": "風" }
+        { "hanlo": "望", "poj": "Bāng" },
+        { "hanlo": "春", "poj": "Chhun" },
+        { "hanlo": "風", "poj": "hong" }
       ]
     }
   ]
@@ -203,7 +199,7 @@ Return strictly valid JSON in the following schema:
           result.push(found.syllables);
         } else {
           const rawSyllables = splitTaigiLyricSyllables(lines[i]);
-          result.push(rawSyllables.map((s) => ({ hanji: s, poj: s, tl: s, custom: s })));
+          result.push(rawSyllables.map((s) => ({ hanlo: s, poj: s })));
         }
       }
       return result;
@@ -215,10 +211,8 @@ Return strictly valid JSON in the following schema:
   return lines.map((line) => {
     const rawSyllables = splitTaigiLyricSyllables(line);
     return rawSyllables.map((s) => ({
-      hanji: s,
+      hanlo: s,
       poj: s,
-      tl: s,
-      custom: s,
     }));
   });
 }
@@ -260,33 +254,29 @@ export async function convertTaigiLyricsWithAi(
     // Fall back to rule-based tokenizer when no API key is present
     const rawSyllables = splitTaigiLyricSyllables(text);
     return rawSyllables.map((s) => ({
-      hanji: s,
+      hanlo: s,
       poj: s,
-      tl: s,
-      custom: s,
     }));
   }
 
   try {
     const ai = getGenAiInstance(apiKey);
     const prompt = `You are an expert Taiwanese Hokkien (Taigi / 臺灣話) linguist and music lyricist.
-The user provided the following Taigi lyrics (which may be Hanji, POJ, TL, or Han-lô mixed):
+The user provided the following Taigi lyrics (which may be Hanji, POJ, or Han-lô mixed):
 "${text}"
 
 Task:
 1. Break down into an array of syllables aligned one-by-one.
-2. For each syllable, output:
-   - "hanji": The Han character (if applicable, or matching Hanji)
-   - "poj": Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc.)
-   - "tl": Tâi-lô (臺灣閩南語羅馬字拼音方案) with correct tone marks (á, à, â, ā, a̍, a̋, oo, nn, etc.)
-   - "custom": Han-lô mixed representation
+2. For each syllable, output strictly two fields:
+   - "hanlo": 漢羅 (Hàn-lô: Traditional Han character or Han-lô mixed representation, e.g. "望", "阮ê", "chhun-hong")
+   - "poj": 羅馬字 / Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc., e.g. "Bāng")
 
 Return strictly valid JSON in the following schema:
 {
   "syllables": [
-    { "hanji": "望", "poj": "Bāng", "tl": "Bāng", "custom": "望" },
-    { "hanji": "春", "poj": "Chhun", "tl": "Tshun", "custom": "春" },
-    { "hanji": "風", "poj": "hong", "tl": "hong", "custom": "風" }
+    { "hanlo": "望", "poj": "Bāng" },
+    { "hanlo": "春", "poj": "Chhun" },
+    { "hanlo": "風", "poj": "hong" }
   ]
 }
 `;
@@ -312,10 +302,8 @@ Return strictly valid JSON in the following schema:
 
   const rawSyllables = splitTaigiLyricSyllables(text);
   return rawSyllables.map((s) => ({
-    hanji: s,
+    hanlo: s,
     poj: s,
-    tl: s,
-    custom: s,
   }));
 }
 
@@ -441,11 +429,9 @@ ${pageCountNote}
 Task: Extract all Taiwanese song lyrics from the provided image(s).
 1. Read all lyrics lines/verses in order.
 2. For each line, break it down into syllables aligned one-by-one.
-3. For each syllable, transcribe:
-   - "hanji": Traditional Chinese Hanji character (e.g. "望", "春", "風")
-   - "poj": Pe̍h-ōe-jī with accurate tone diacritics (e.g. "Bāng", "Chhun", "hong")
-   - "tl": Tâi-lô (臺灣閩南語羅馬字) with accurate tone marks (e.g. "Bāng", "Tshun", "hong")
-   - "custom": Han-lô mixed representation or punctuation
+3. For each syllable, transcribe strictly two fields:
+   - "hanlo": 漢羅 (Traditional Chinese Hanji character or Han-lô mixed representation, e.g. "望", "春", "風", "阮ê")
+   - "poj": 羅馬字 / Pe̍h-ōe-jī with accurate tone diacritics (e.g. "Bāng", "Chhun", "hong")
 4. Extract title, composer, lyricist if visible.
 
 Output strictly valid JSON matching this schema:
@@ -458,8 +444,8 @@ Output strictly valid JSON matching this schema:
     {
       "lineIndex": 0,
       "syllables": [
-        { "hanji": "獨", "poj": "To̍k", "tl": "To̍k", "custom": "獨" },
-        { "hanji": "夜", "poj": "iā", "tl": "iā", "custom": "夜" }
+        { "hanlo": "獨", "poj": "To̍k" },
+        { "hanlo": "夜", "poj": "iā" }
       ]
     }
   ]
@@ -505,10 +491,8 @@ Rules for Numbered Notation & Taiwanese Music Transcription:
      ${
        includeLyrics
          ? `* "lyric": Aligned Taiwanese lyric syllable for this note:
-       - "hanji": Chinese Han character (e.g. "望")
-       - "poj": Pe̍h-ōe-jī with tone marks (e.g. "Bāng")
-       - "tl": Tâi-lô with tone marks (e.g. "Bāng")
-       - "custom": Han-lô mixed representation (e.g. "望")
+       - "hanlo": 漢羅 (Traditional Hanji or Han-lô mixed representation, e.g. "獨")
+       - "poj": 羅馬字 (Pe̍h-ōe-jī with tone marks, e.g. "To̍k")
        If a note is an extension / melisma / tie on the same word, you can leave lyric empty {} or use "~" / "—".`
          : `* "lyric": {} (Empty object since score-only mode was selected).`
      }
@@ -534,7 +518,7 @@ Return strictly valid JSON matching this schema:
           "duration": 1,
           "isDotted": false,
           "isTied": false,
-          "lyric": { "hanji": "獨", "poj": "To̍k", "tl": "To̍k", "custom": "獨" }
+          "lyric": { "hanlo": "獨", "poj": "To̍k" }
         }
       ]
     }
@@ -610,10 +594,8 @@ Return strictly valid JSON matching this schema:
 
           const rawLyric = (n.lyric as Record<string, string>) || {};
           const lyric: LyricSyllable = {
-            hanji: typeof rawLyric.hanji === 'string' ? rawLyric.hanji : undefined,
-            poj: typeof rawLyric.poj === 'string' ? rawLyric.poj : undefined,
-            tl: typeof rawLyric.tl === 'string' ? rawLyric.tl : undefined,
-            custom: typeof rawLyric.custom === 'string' ? rawLyric.custom : undefined,
+            poj: typeof rawLyric.poj === 'string' ? rawLyric.poj : typeof rawLyric.tl === 'string' ? rawLyric.tl : undefined,
+            hanlo: typeof rawLyric.hanlo === 'string' ? rawLyric.hanlo : typeof rawLyric.hanji === 'string' ? rawLyric.hanji : typeof rawLyric.custom === 'string' ? rawLyric.custom : undefined,
           };
 
           const rawNote: JianpuNote = {

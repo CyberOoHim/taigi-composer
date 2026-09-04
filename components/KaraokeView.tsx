@@ -711,7 +711,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               type="button"
               onClick={() => setDisplayMode('roman')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'tl_only'
+                displayMode === 'roman' || displayMode === 'poj_only'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}
@@ -735,7 +735,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               type="button"
               onClick={() => setDisplayMode('roman_major_hanlo')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                displayMode === 'roman_major_hanlo' || displayMode === 'all' || displayMode === 'hanji_tl'
+                displayMode === 'roman_major_hanlo' || displayMode === 'all'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}

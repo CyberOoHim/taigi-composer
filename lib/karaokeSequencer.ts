@@ -155,13 +155,13 @@ export function computeVersesTiming(
 
       const noteObj = firstVocalNote.note;
       firstVocalWord =
+        noteObj.lyric.hanlo ||
         noteObj.lyric.hanji ||
         noteObj.lyric.custom ||
         noteObj.lyric.poj ||
-        noteObj.lyric.tl ||
         (noteObj.pitch && noteObj.pitch !== 'empty' ? String(noteObj.pitch) : '');
 
-      firstVocalRoman = noteObj.lyric.poj || noteObj.lyric.tl || '';
+      firstVocalRoman = noteObj.lyric.poj || '';
       firstVocalPitchDisplay =
         noteObj.pitch && noteObj.pitch !== 'empty' && noteObj.pitch > 0
           ? `${noteObj.accidental || ''}${noteObj.pitch}`

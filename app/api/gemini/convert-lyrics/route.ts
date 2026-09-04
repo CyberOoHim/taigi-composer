@@ -42,11 +42,9 @@ ${formattedLines}
 
 Task:
 1. For each line, break down into an array of syllables aligned one-by-one.
-2. For each syllable, output:
-   - "hanji": The Han character (if applicable, or matching Hanji)
-   - "poj": Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc.)
-   - "tl": Tâi-lô (臺灣閩南語羅馬字拼音方案) with correct tone marks (á, à, â, ā, a̍, a̋, oo, nn, etc.)
-   - "custom": Han-lô mixed representation
+2. For each syllable, output strictly two fields:
+   - "hanlo": 漢羅 (Hàn-lô: Traditional Han character or Han-lô mixed representation, e.g. "望", "阮ê", "chhun-hong")
+   - "poj": 羅馬字 / Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc., e.g. "Bāng")
 
 Return strictly valid JSON in the following schema:
 {
@@ -54,7 +52,7 @@ Return strictly valid JSON in the following schema:
     {
       "lineIndex": 0,
       "syllables": [
-        { "hanji": "望", "poj": "Bāng", "tl": "Bāng", "custom": "望" }
+        { "hanlo": "望", "poj": "Bāng" }
       ]
     }
   ]
@@ -79,7 +77,7 @@ Return strictly valid JSON in the following schema:
             result.push(found.syllables);
           } else {
             const rawSyllables = splitTaigiLyricSyllables(lines[i]);
-            result.push(rawSyllables.map((s) => ({ hanji: s, poj: s, tl: s, custom: s })));
+            result.push(rawSyllables.map((s) => ({ hanlo: s, poj: s })));
           }
         }
         return NextResponse.json({ verses: result });
@@ -89,21 +87,19 @@ Return strictly valid JSON in the following schema:
     // Mode B: single text line
     if (typeof text === 'string' && text.trim().length > 0) {
       const prompt = `You are an expert Taiwanese Hokkien (Taigi / 臺灣話) linguist and music lyricist.
-The user provided the following Taigi lyrics (which may be Hanji, POJ, TL, or Han-lô mixed):
+The user provided the following Taigi lyrics (which may be Hanji, POJ, or Han-lô mixed):
 "${text}"
 
 Task:
 1. Break down into an array of syllables aligned one-by-one.
-2. For each syllable, output:
-   - "hanji": The Han character (if applicable, or matching Hanji)
-   - "poj": Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc.)
-   - "tl": Tâi-lô (臺灣閩南語羅馬字拼音方案) with correct tone marks (á, à, â, ā, a̍, a̋, oo, nn, etc.)
-   - "custom": Han-lô mixed representation
+2. For each syllable, output strictly two fields:
+   - "hanlo": 漢羅 (Hàn-lô: Traditional Han character or Han-lô mixed representation, e.g. "望", "阮ê", "chhun-hong")
+   - "poj": 羅馬字 / Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc., e.g. "Bāng")
 
 Return strictly valid JSON in the following schema:
 {
   "syllables": [
-    { "hanji": "望", "poj": "Bāng", "tl": "Bāng", "custom": "望" }
+    { "hanlo": "望", "poj": "Bāng" }
   ]
 }`;
 
@@ -123,7 +119,11 @@ Return strictly valid JSON in the following schema:
       }
     }
 
-    return NextResponse.json({ error: 'No valid lyrics provided.' }, { status: 400 });
+    // Fallback rule-based split
+    const rawSyllables = splitTaigiLyricSyllables(text || '');
+    return NextResponse.json({
+      syllables: rawSyllables.map((s) => ({ hanlo: s, poj: s })),
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });

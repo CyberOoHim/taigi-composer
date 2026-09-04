@@ -112,9 +112,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           const h = hSyllables[sIdx] || '';
           tokens.push({
             poj: r,
-            tl: r,
-            hanji: h,
-            custom: h,
+            hanlo: h,
           });
         }
 
@@ -201,10 +199,8 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
         const previews: VersePreviewItem[] = lines.map((line, idx) => {
           const rawSyllables = splitTaigiLyricSyllables(line);
           const tokens: LyricSyllable[] = rawSyllables.map(s => ({
-            hanji: s,
+            hanlo: s,
             poj: s,
-            tl: s,
-            custom: s,
           }));
           const matchedVerse = songVerses[idx];
           return {
@@ -234,13 +230,11 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           if (isRomanTarget) {
             return {
               poj: s,
-              tl: s,
             };
           } else {
-            // hanlo / custom / hanji
+            // hanlo
             return {
-              hanji: s,
-              custom: s,
+              hanlo: s,
             };
           }
         });
@@ -290,19 +284,19 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           // If note is an explicit non-notation break or spacer, don't overwrite with sung lyric unless token is also punctuation
           const isNoteNonNotation = isNonNotationItem(note);
           const tok = vp.tokens[tokIdx];
-          const isTokenPunct = isPunctuationOrSpacer(tok.hanji || tok.custom || '');
+          const isTokenPunct = isPunctuationOrSpacer(tok.hanlo || tok.hanji || tok.custom || '');
 
           if (isNoteNonNotation && !isTokenPunct) {
             continue; // Skip non-notation note so syllable aligns with sung pitch
           }
 
           tokIdx++;
+          const targetHanlo = tok.hanlo !== undefined ? tok.hanlo : (tok.hanji !== undefined ? tok.hanji : tok.custom);
+          const targetPoj = tok.poj !== undefined ? tok.poj : tok.tl;
           note.lyric = {
             ...note.lyric,
-            ...(tok.hanji !== undefined ? { hanji: tok.hanji } : {}),
-            ...(tok.poj !== undefined ? { poj: tok.poj } : {}),
-            ...(tok.tl !== undefined ? { tl: tok.tl } : {}),
-            ...(tok.custom !== undefined ? { custom: tok.custom } : {}),
+            ...(targetHanlo !== undefined ? { hanlo: targetHanlo } : {}),
+            ...(targetPoj !== undefined ? { poj: targetPoj } : {}),
           };
 
           if (isTokenPunct && isNoteNonNotation) {
@@ -320,19 +314,19 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           if (tokenIdx < flatTokens.length) {
             const isNoteNonNotation = isNonNotationItem(note);
             const tok = flatTokens[tokenIdx];
-            const isTokenPunct = isPunctuationOrSpacer(tok.hanji || tok.custom || '');
+            const isTokenPunct = isPunctuationOrSpacer(tok.hanlo || tok.hanji || tok.custom || '');
 
             if (isNoteNonNotation && !isTokenPunct) {
               return; // Skip non-notation note
             }
 
             tokenIdx++;
+            const targetHanlo = tok.hanlo !== undefined ? tok.hanlo : (tok.hanji !== undefined ? tok.hanji : tok.custom);
+            const targetPoj = tok.poj !== undefined ? tok.poj : tok.tl;
             note.lyric = {
               ...note.lyric,
-              ...(tok.hanji !== undefined ? { hanji: tok.hanji } : {}),
-              ...(tok.poj !== undefined ? { poj: tok.poj } : {}),
-              ...(tok.tl !== undefined ? { tl: tok.tl } : {}),
-              ...(tok.custom !== undefined ? { custom: tok.custom } : {}),
+              ...(targetHanlo !== undefined ? { hanlo: targetHanlo } : {}),
+              ...(targetPoj !== undefined ? { poj: targetPoj } : {}),
             };
 
             if (isTokenPunct && isNoteNonNotation) {
@@ -381,7 +375,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 對齊目標模式 (Alignment Mode)
               </label>
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                支援 羅馬字 (POJ/TL) 與 漢羅 (Han-lô)
+                支援 羅馬字 (POJ) 與 漢羅 (Han-lô)
               </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
@@ -455,7 +449,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label htmlFor="aligner-roman-text" className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                    1. 羅馬字 歌詞 (POJ / TL)
+                    1. 羅馬字 歌詞 (POJ)
                   </label>
                   <span className="text-[11px] text-zinc-400">換行代表分句</span>
                 </div>
@@ -471,7 +465,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label htmlFor="aligner-hanlo-text" className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                    2. 漢羅 歌詞 (Han-lô / 漢字)
+                    2. 漢羅 歌詞 (Han-lô)
                   </label>
                   <span className="text-[11px] text-zinc-400">音節數對齊羅馬字</span>
                 </div>
@@ -491,9 +485,9 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               <div className="flex items-center justify-between mb-1">
                 <label htmlFor="aligner-input-text" className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
                   {targetField === 'roman' || targetField === 'poj' || targetField === 'tl'
-                    ? '貼上 羅馬字 歌詞 (POJ / TL)'
+                    ? '貼上 羅馬字 歌詞 (POJ)'
                     : targetField === 'hanlo' || targetField === 'custom' || targetField === 'hanji'
-                    ? '貼上 漢羅 歌詞 (Han-lô / 漢字)'
+                    ? '貼上 漢羅 歌詞 (Han-lô)'
                     : '貼上歌詞文字 (AI 將自動分析生成 羅馬字 與 漢羅)'}
                 </label>
                 <div className="flex items-center gap-2">
@@ -654,9 +648,9 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                             >
                               <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-mono">#{tokIdx + 1}</span>
                               <span className="font-bold text-sm leading-tight">
-                                {tok.custom || tok.hanji || (tok.poj || tok.tl || '—')}
+                                {tok.hanlo || tok.custom || tok.hanji || (tok.poj || tok.tl || '—')}
                               </span>
-                              {(tok.custom || tok.hanji) && (tok.poj || tok.tl) && (
+                              {(tok.hanlo || tok.custom || tok.hanji) && (tok.poj || tok.tl) && (
                                 <span className="font-serif italic text-emerald-600 dark:text-emerald-400 text-[10px] leading-tight">
                                   {tok.poj || tok.tl}
                                 </span>

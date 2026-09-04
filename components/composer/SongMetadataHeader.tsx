@@ -460,7 +460,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   type="button"
                   onClick={() => setDisplayMode('roman')}
                   className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'tl_only'
+                    displayMode === 'roman'
                       ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                   }`}
@@ -484,7 +484,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   type="button"
                   onClick={() => setDisplayMode('roman_major_hanlo')}
                   className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    displayMode === 'roman_major_hanlo' || displayMode === 'all' || displayMode === 'hanji_tl'
+                    displayMode === 'roman_major_hanlo' || displayMode === 'all'
                       ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                   }`}

@@ -16,10 +16,14 @@ export interface GraceNote {
 export type ArticulationType = 'none' | 'staccato' | 'tenuto' | 'accent' | 'fermata' | 'portamento_up' | 'portamento_down';
 
 export interface LyricSyllable {
-  hanji?: string;   // 漢字 e.g. "望"
-  poj?: string;     // 白話字 e.g. "Bāng"
-  tl?: string;      // 臺灣閩南語羅馬字 (臺羅) e.g. "Bāng"
-  custom?: string;  // 漢羅合用 / 自訂 e.g. "阮ê", "chhun-hong", 標點 "，", "—"
+  poj?: string;     // 羅馬字 (白話字 / POJ / Pe̍h-ōe-jī) e.g. "Bāng", "Ú", "chhun-hong"
+  hanlo?: string;   // 漢羅 (Hàn-lô: 純漢字或漢羅合用) e.g. "望", "雨", "阮ê"
+  /** @deprecated Legacy Hanji field for backward compatibility */
+  hanji?: string;
+  /** @deprecated Legacy custom/Hanlo field for backward compatibility */
+  custom?: string;
+  /** @deprecated Legacy Tâi-lô field for backward compatibility */
+  tl?: string;
 }
 
 export interface JianpuNote {
@@ -79,10 +83,8 @@ export type LyricDisplayMode =
   | 'hanlo_major_roman'   // 4. 漢羅（主）+ 羅馬字 (漢羅 is major, 羅馬字 is smaller sub on top)
   | 'all'
   | 'hanji_poj'
-  | 'hanji_tl'
   | 'hanji_only'
   | 'poj_only'
-  | 'tl_only'
   | 'custom_only';
 
 export type InstrumentType = 'piano' | 'flute' | 'whistle' | 'guitar' | 'synth' | 'bell';
@@ -110,9 +112,10 @@ export interface VerseItem {
   section?: string;
   chords: string[];
   lyricSummary: {
-    hanji: string;
     poj: string;
-    tl: string;
-    custom: string;
+    hanlo: string;
+    hanji?: string;
+    custom?: string;
+    tl?: string;
   };
 }

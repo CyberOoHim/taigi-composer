@@ -700,45 +700,29 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const handleUpdateLyricAt = (
     mIdx: number,
     nIdx: number,
-    type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo',
+    type: 'roman' | 'hanlo' | 'poj' | 'hanji' | 'custom',
     val: string
   ) => {
     updateNoteAt(mIdx, nIdx, n => {
       const updatedLyric = {
         ...n.lyric,
       };
-      if (type === 'roman') {
+      if (type === 'roman' || type === 'poj') {
         updatedLyric.poj = val;
-        updatedLyric.tl = val;
-      } else if (type === 'hanlo') {
+      } else if (type === 'hanlo' || type === 'hanji' || type === 'custom') {
+        updatedLyric.hanlo = val;
         updatedLyric.hanji = val;
-        updatedLyric.custom = val;
-      } else if (type === 'poj') {
-        updatedLyric.poj = val;
-      } else if (type === 'tl') {
-        updatedLyric.tl = val;
-      } else if (type === 'hanji') {
-        updatedLyric.hanji = val;
-      } else if (type === 'custom') {
         updatedLyric.custom = val;
       }
-      const rawHanji = updatedLyric.hanji ?? '';
-      const rawCustom = updatedLyric.custom ?? '';
+      const rawHanlo = updatedLyric.hanlo ?? updatedLyric.custom ?? updatedLyric.hanji ?? '';
       const rawPoj = updatedLyric.poj ?? '';
-      const rawTl = updatedLyric.tl ?? '';
 
-      const hasAnyLyric =
-        rawHanji.length > 0 ||
-        rawCustom.length > 0 ||
-        rawPoj.length > 0 ||
-        rawTl.length > 0;
+      const hasAnyLyric = rawHanlo.length > 0 || rawPoj.length > 0;
 
       const isPurePunct =
         hasAnyLyric &&
-        (!rawHanji || isPunctuationOrSpacer(rawHanji)) &&
-        (!rawCustom || isPunctuationOrSpacer(rawCustom)) &&
-        (!rawPoj || isPunctuationOrSpacer(rawPoj)) &&
-        (!rawTl || isPunctuationOrSpacer(rawTl));
+        (!rawHanlo || isPunctuationOrSpacer(rawHanlo)) &&
+        (!rawPoj || isPunctuationOrSpacer(rawPoj));
 
       return {
         ...n,
@@ -830,7 +814,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   };
 
   // Navigate to next note (focus lyric input)
-  const handleGoToNextNote = (currentMIdx: number, currentNIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo') => {
+  const handleGoToNextNote = (currentMIdx: number, currentNIdx: number, type: 'roman' | 'hanlo') => {
     const curM = song.measures[currentMIdx];
     if (!curM) return;
 
@@ -846,7 +830,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   };
 
   // Navigate to previous note
-  const handleGoToPrevNote = (currentMIdx: number, currentNIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo') => {
+  const handleGoToPrevNote = (currentMIdx: number, currentNIdx: number, type: 'roman' | 'hanlo') => {
     if (currentNIdx > 0) {
       const prevNIdx = currentNIdx - 1;
       setSelectedCoord([currentMIdx, prevNIdx]);
@@ -901,9 +885,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         note.duration = isPunct ? (0 as NoteDuration) : note.duration;
         note.lyric = {
           ...note.lyric,
-          hanji: isHan || isPunct ? tokStr : note.lyric.hanji || '',
           poj: !isHan && !isPunct ? tokStr : note.lyric.poj || '',
-          tl: !isHan && !isPunct ? tokStr : note.lyric.tl || '',
+          hanlo: isHan || isPunct ? tokStr : (note.lyric.hanlo || tokStr),
+          hanji: isHan || isPunct ? tokStr : (note.lyric.hanji || tokStr),
           custom: tokStr,
         };
         newNotes.push(note);
@@ -931,9 +915,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             duration: 0 as NoteDuration,
             octave: 0,
             lyric: {
-              hanji: isHan || isPunct ? tokStr : '',
               poj: !isHan && !isPunct ? tokStr : '',
-              tl: !isHan && !isPunct ? tokStr : '',
+              hanlo: tokStr,
+              hanji: isHan || isPunct ? tokStr : '',
               custom: tokStr,
             },
           });
@@ -989,9 +973,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       targetNote.lyric = {
         ...targetNote.lyric,
-        hanji: isHan || isPunct ? tokStr : targetNote.lyric.hanji || '',
         poj: !isHan && !isPunct ? tokStr : targetNote.lyric.poj || '',
-        tl: !isHan && !isPunct ? tokStr : targetNote.lyric.tl || '',
+        hanlo: isHan || isPunct ? tokStr : (targetNote.lyric.hanlo || tokStr),
+        hanji: isHan || isPunct ? tokStr : (targetNote.lyric.hanji || tokStr),
         custom: tokStr,
       };
       if (isPunct) {
@@ -1055,9 +1039,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           duration: 0 as NoteDuration,
           octave: 0,
           lyric: {
-            hanji: isHan || isPunct ? tokStr : '',
             poj: !isHan && !isPunct ? tokStr : '',
-            tl: !isHan && !isPunct ? tokStr : '',
+            hanlo: tokStr,
+            hanji: isHan || isPunct ? tokStr : '',
             custom: tokStr,
           },
         });

@@ -175,7 +175,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
       const sharesMeasureWithNext = mIndices.some(idx => nextIndices.includes(idx));
 
       const lyricPreview =
-        verse.lyricSummary.hanji || verse.lyricSummary.custom || verse.lyricSummary.poj || '';
+        verse.lyricSummary.hanlo || verse.lyricSummary.hanji || verse.lyricSummary.custom || verse.lyricSummary.poj || '';
 
       return {
         verse,

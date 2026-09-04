@@ -89,11 +89,9 @@ ${pageCountNote}
 Task: Extract all Taiwanese song lyrics from the provided image(s).
 1. Read all lyrics lines/verses in order.
 2. For each line, break it down into syllables aligned one-by-one.
-3. For each syllable, transcribe:
-   - "hanji": Traditional Chinese Hanji character (e.g. "望", "春", "風")
-   - "poj": Pe̍h-ōe-jī with accurate tone diacritics (e.g. "Bāng", "Chhun", "hong")
-   - "tl": Tâi-lô (臺灣閩南語羅馬字) with accurate tone marks (e.g. "Bāng", "Tshun", "hong")
-   - "custom": Han-lô mixed representation or punctuation
+3. For each syllable, transcribe strictly two fields:
+   - "hanlo": 漢羅 (Traditional Chinese Hanji character or Han-lô mixed representation, e.g. "望", "春", "風", "阮ê")
+   - "poj": 羅馬字 / Pe̍h-ōe-jī with accurate tone diacritics (e.g. "Bāng", "Chhun", "hong")
 4. Extract title, composer, lyricist if visible.
 
 Output strictly valid JSON matching this schema:
@@ -106,8 +104,8 @@ Output strictly valid JSON matching this schema:
     {
       "lineIndex": 0,
       "syllables": [
-        { "hanji": "獨", "poj": "To̍k", "tl": "To̍k", "custom": "獨" },
-        { "hanji": "夜", "poj": "iā", "tl": "iā", "custom": "夜" }
+        { "hanlo": "獨", "poj": "To̍k" },
+        { "hanlo": "夜", "poj": "iā" }
       ]
     }
   ]
@@ -143,10 +141,8 @@ Rules for Numbered Notation & Taiwanese Music Transcription:
      ${
        includeLyrics
          ? `* "lyric": Aligned Taiwanese lyric syllable for this note:
-       - "hanji": Chinese Han character
-       - "poj": Pe̍h-ōe-jī with tone marks
-       - "tl": Tâi-lô with tone marks
-       - "custom": Han-lô mixed representation`
+       - "hanlo": 漢羅 (Traditional Hanji or Han-lô mixed representation, e.g. "獨")
+       - "poj": 羅馬字 (Pe̍h-ōe-jī with tone marks, e.g. "To̍k")`
          : `* "lyric": {}`
      }
 
@@ -171,7 +167,7 @@ Return strictly valid JSON matching this schema:
           "duration": 1,
           "isDotted": false,
           "isTied": false,
-          "lyric": { "hanji": "獨", "poj": "To̍k", "tl": "To̍k", "custom": "獨" }
+          "lyric": { "hanlo": "獨", "poj": "To̍k" }
         }
       ]
     }
@@ -244,10 +240,8 @@ Return strictly valid JSON matching this schema:
 
           const rawLyric = (n.lyric as Record<string, string>) || {};
           const lyric: LyricSyllable = {
-            hanji: typeof rawLyric.hanji === 'string' ? rawLyric.hanji : undefined,
-            poj: typeof rawLyric.poj === 'string' ? rawLyric.poj : undefined,
-            tl: typeof rawLyric.tl === 'string' ? rawLyric.tl : undefined,
-            custom: typeof rawLyric.custom === 'string' ? rawLyric.custom : undefined,
+            poj: typeof rawLyric.poj === 'string' ? rawLyric.poj : typeof rawLyric.tl === 'string' ? rawLyric.tl : undefined,
+            hanlo: typeof rawLyric.hanlo === 'string' ? rawLyric.hanlo : typeof rawLyric.hanji === 'string' ? rawLyric.hanji : typeof rawLyric.custom === 'string' ? rawLyric.custom : undefined,
           };
 
           const rawNote: JianpuNote = {

@@ -243,12 +243,12 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
           }
           if (totalTokenIndex < flatTokens.length) {
             const tok = flatTokens[totalTokenIndex++];
+            const targetHanlo = tok.hanlo || tok.hanji || tok.custom;
+            const targetPoj = tok.poj || tok.tl;
             note.lyric = {
               ...note.lyric,
-              ...(tok.hanji ? { hanji: tok.hanji } : {}),
-              ...(tok.poj ? { poj: tok.poj } : {}),
-              ...(tok.tl ? { tl: tok.tl } : {}),
-              ...(tok.custom ? { custom: tok.custom } : {}),
+              ...(targetHanlo ? { hanlo: targetHanlo } : {}),
+              ...(targetPoj ? { poj: targetPoj } : {}),
             };
           }
         });
@@ -893,9 +893,9 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                                       {n.octave === -2 ? '••' : '•'}
                                     </span>
                                   )}
-                                  {(n.lyric.custom || n.lyric.hanji) && (
+                                  {(n.lyric.hanlo || n.lyric.custom || n.lyric.hanji) && (
                                     <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 mt-0.5">
-                                      {n.lyric.custom || n.lyric.hanji}
+                                      {n.lyric.hanlo || n.lyric.custom || n.lyric.hanji}
                                     </span>
                                   )}
                                   {(n.lyric.poj || n.lyric.tl) && (
@@ -959,9 +959,9 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                                 </span>
                               )}
                               {/* Lyric */}
-                              {(n.lyric.custom || n.lyric.hanji) && (
+                              {(n.lyric.hanlo || n.lyric.custom || n.lyric.hanji) && (
                                 <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 mt-0.5">
-                                  {n.lyric.custom || n.lyric.hanji}
+                                  {n.lyric.hanlo || n.lyric.custom || n.lyric.hanji}
                                 </span>
                               )}
                               {(n.lyric.poj || n.lyric.tl) && (
@@ -1026,7 +1026,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                             key={sIdx}
                             className="flex flex-col items-center px-2 py-1 rounded bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 text-xs"
                           >
-                            <span className="font-bold text-sm">{syl.hanji || syl.custom || '—'}</span>
+                            <span className="font-bold text-sm">{syl.hanlo || syl.hanji || syl.custom || '—'}</span>
                             {(syl.poj || syl.tl) && (
                               <span className="font-serif italic text-emerald-600 dark:text-emerald-400 text-[10px]">
                                 {syl.poj || syl.tl}

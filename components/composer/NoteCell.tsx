@@ -23,10 +23,10 @@ interface NoteCellProps {
   isPlaybackActive: boolean;
   displayMode: LyricDisplayMode;
   onSelectNote: (mIdx: number, nIdx: number) => void;
-  onUpdateLyric: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo', val: string) => void;
+  onUpdateLyric: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo', val: string) => void;
   onUpdateAnnotation?: (mIdx: number, nIdx: number, val: string) => void;
-  onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo') => void;
-  onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo') => void;
+  onGoToNextNote: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo') => void;
+  onGoToPrevNote: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo') => void;
   keyPrefix?: string;
   showToneOverlay?: boolean;
 }
@@ -81,8 +81,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
       : 0
     : 0;
 
-  const hanji = note.lyric?.hanji || '';
-  const custom = note.lyric?.custom || '';
+  const hanlo = note.lyric?.hanlo || note.lyric?.hanji || note.lyric?.custom || '';
 
   // 1. Standalone zero-time annotation note (performance/vocal/section marker)
   if (isStandaloneAnnotationNote(note)) {
@@ -147,7 +146,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
 
   // 2. Single-character zero-time punctuation / spacer note
   if (isPunctuationZeroNote(note)) {
-    const rawChar = note.lyric?.hanji || note.lyric?.custom || '';
+    const rawChar = note.lyric?.hanlo || note.lyric?.hanji || note.lyric?.custom || '';
     const displayChar = getPunctuationDisplayChar(note);
 
     return (
@@ -344,10 +343,10 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                 {isNonNotation
                   ? note.annotation
                     ? ''
-                    : hanji === '\n' || hanji === '↵' || custom === '\n' || custom === '↵'
+                    : hanlo === '\n' || hanlo === '↵'
                     ? '↵'
-                    : isPunctuationOrSpacer(hanji || custom)
-                    ? hanji || custom
+                    : isPunctuationOrSpacer(hanlo)
+                    ? hanlo
                     : '␣'
                   : note.pitch}
               </span>
@@ -461,9 +460,9 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                 }
               }
             }}
-            placeholder="羅馬字"
+            placeholder="羅馬字 (POJ)"
             className="w-full text-center font-serif italic text-xs font-semibold px-1 py-1 rounded-lg bg-emerald-50/60 dark:bg-[#0c1410] border border-emerald-200/90 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800 min-h-[32px] touch-manipulation"
-            title="羅馬字 (Romanization) - Space, hyphen, or Tab moves to next note"
+            title="羅馬字 (POJ) - Space, hyphen, or Tab moves to next note"
           />
           {showToneOverlay && romanTone && (
             <div
@@ -481,7 +480,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
           <input
             id={`lyric-input-${mIdx}-${nIdx}-hanlo`}
             type="text"
-            value={note.lyric.hanji || note.lyric.custom || ''}
+            value={note.lyric.hanlo || note.lyric.hanji || note.lyric.custom || ''}
             onFocus={() => {
               onSelectNote(mIdx, nIdx);
               setFocusedField('hanlo');
