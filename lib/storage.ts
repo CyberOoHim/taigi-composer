@@ -75,13 +75,14 @@ export function setStoredActiveTab(tab: ActiveTabMode): void {
 // ============================================================================
 export function getStoredDisplayMode(): LyricDisplayMode {
   const val = safeGetItem(STORAGE_KEYS.LYRIC_DISPLAY_MODE);
-  if (val === 'roman' || val === 'hanlo' || val === 'roman_major_hanlo') {
+  if (val === 'roman' || val === 'hanlo' || val === 'roman_major_hanlo' || val === 'hanlo_major_roman') {
     return val;
   }
   // Migration support for legacy stored preferences:
   if (val === 'poj_only' || val === 'pij_only') return 'roman';
   if (val === 'hanji_only' || val === 'custom_only') return 'hanlo';
-  if (val === 'all' || val === 'hanji_poj' || val === 'hanji_pij') return 'roman_major_hanlo';
+  if (val === 'hanji_poj') return 'hanlo_major_roman';
+  if (val === 'all' || val === 'hanji_pij') return 'roman_major_hanlo';
 
   return 'roman_major_hanlo';
 }

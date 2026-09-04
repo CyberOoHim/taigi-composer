@@ -89,8 +89,10 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
     const primaryText = hanji || custom || annotation || poj || pij || '';
     const isPunctuation = isPunctuationOrSpacer(primaryText);
 
-    const effectiveMode =
-      displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
+    const effectiveMode: 'roman' | 'hanlo' | 'roman_major_hanlo' | 'hanlo_major_roman' =
+      displayMode === 'hanlo_major_roman' || displayMode === 'hanji_poj'
+        ? 'hanlo_major_roman'
+        : displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
         ? 'hanlo'
         : displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'pij_only'
         ? 'roman'
@@ -115,6 +117,28 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
           >
             {hanji || custom || annotation || poj || pij || '—'}
           </span>
+        );
+      case 'hanlo_major_roman':
+        return (
+          <div className="flex flex-col items-center leading-tight gap-0.5">
+            {/* 羅馬字 smaller sub on top */}
+            {(poj || pij) && (
+              <span className="text-[11px] font-serif italic text-emerald-600 dark:text-emerald-400 font-medium">
+                {poj || pij}
+              </span>
+            )}
+            {/* 漢羅 major text below */}
+            <span
+              className={cn(
+                'font-bold text-sm tracking-wide',
+                isPunctuation
+                  ? 'text-amber-700 dark:text-amber-400 font-black'
+                  : 'text-zinc-900 dark:text-zinc-100'
+              )}
+            >
+              {hanji || custom || poj || pij || annotation || '—'}
+            </span>
+          </div>
         );
       case 'roman_major_hanlo':
       default:

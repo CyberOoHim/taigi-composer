@@ -470,12 +470,24 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   type="button"
                   onClick={() => setDisplayMode('roman_major_hanlo')}
                   className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    displayMode === 'roman_major_hanlo' || displayMode === 'all' || displayMode === 'hanji_poj' || displayMode === 'hanji_pij'
+                    displayMode === 'roman_major_hanlo' || displayMode === 'all' || displayMode === 'hanji_pij'
                       ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                   }`}
                 >
                   3. 羅馬字（主）+ 漢羅
+                </button>
+                <button
+                  id="composer-mode-hanlo-major-roman"
+                  type="button"
+                  onClick={() => setDisplayMode('hanlo_major_roman')}
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                    displayMode === 'hanlo_major_roman' || displayMode === 'hanji_poj'
+                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                  }`}
+                >
+                  4. 漢羅（主）+ 羅馬字
                 </button>
               </div>
             </div>

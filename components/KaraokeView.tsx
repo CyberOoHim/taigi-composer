@@ -718,12 +718,24 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               type="button"
               onClick={() => setDisplayMode('roman_major_hanlo')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                displayMode === 'roman_major_hanlo' || displayMode === 'all' || displayMode === 'hanji_poj' || displayMode === 'hanji_pij'
+                displayMode === 'roman_major_hanlo' || displayMode === 'all' || displayMode === 'hanji_pij'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
               3. 羅馬字（主）+ 漢羅
+            </button>
+            <button
+              id="ktv-mode-hanlo-major-roman"
+              type="button"
+              onClick={() => setDisplayMode('hanlo_major_roman')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
+                displayMode === 'hanlo_major_roman' || displayMode === 'hanji_poj'
+                  ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              4. 漢羅（主）+ 羅馬字
             </button>
           </div>
 

@@ -76,6 +76,7 @@ export type LyricDisplayMode =
   | 'roman'               // 1. 羅馬字
   | 'hanlo'               // 2. 漢羅
   | 'roman_major_hanlo'   // 3. 羅馬字（主）+ 漢羅 (羅馬字 is major, 漢羅 is smaller sub on top)
+  | 'hanlo_major_roman'   // 4. 漢羅（主）+ 羅馬字 (漢羅 is major, 羅馬字 is smaller sub on top)
   | 'all'
   | 'hanji_poj'
   | 'hanji_pij'
