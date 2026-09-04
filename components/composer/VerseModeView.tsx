@@ -7,7 +7,7 @@ import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
 import { scrollToCardElement } from '@/lib/utils';
 import { NoteCell } from './NoteCell';
 import { NoteEditorHud } from './NoteEditorHud';
-import { Play, Square, Plus, MessageSquareQuote, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Square, Plus, MessageSquareQuote, ChevronLeft, ChevronRight, Copy, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 
 interface VerseModeViewProps {
   verses: VerseItem[];
@@ -57,6 +57,9 @@ interface VerseModeViewProps {
   futureCount?: number;
   showNotice: (msg: string) => void;
   onSplitMeasureAtNote?: (mIdx: number, splitAtIndex: number) => void;
+  onDuplicateVerse?: (verse: VerseItem) => void;
+  onMoveVerseOrder?: (fromVerseIdx: number, toVerseIdx: number) => void;
+  onDeleteVerse?: (verse: VerseItem) => void;
 }
 
 export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
@@ -107,6 +110,9 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   futureCount = 0,
   showNotice,
   onSplitMeasureAtNote,
+  onDuplicateVerse,
+  onMoveVerseOrder,
+  onDeleteVerse,
 }) => {
   return (
     <div id="verse-mode-container" className="flex flex-col gap-6">
@@ -222,6 +228,39 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   </button>
                 </div>
 
+                {/* Reorder Verse (Move Earlier / Move Later) */}
+                {onMoveVerseOrder && (
+                  <div
+                    className="flex items-center bg-zinc-100 dark:bg-[#0a0c10] p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-700 shadow-2xs"
+                    title="Reorder verse"
+                  >
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onMoveVerseOrder(vIdx, vIdx - 1);
+                      }}
+                      disabled={vIdx === 0}
+                      className="p-1 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      title="Move verse backward (earlier)"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onMoveVerseOrder(vIdx, vIdx + 1);
+                      }}
+                      disabled={vIdx === verses.length - 1}
+                      className="p-1 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      title="Move verse forward (later)"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
                 {verse.section && (
                   <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-bold text-xs border border-indigo-200 dark:border-indigo-800">
                     {verse.section}
@@ -251,6 +290,38 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Note</span>
                 </button>
+
+                {/* Duplicate Verse */}
+                {onDuplicateVerse && (
+                  <button
+                    id={`verse-duplicate-btn-${vIdx}`}
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      onDuplicateVerse(verse);
+                    }}
+                    className="p-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer touch-manipulation min-h-[40px] min-w-[40px] flex items-center justify-center"
+                    title="Duplicate this verse"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {/* Delete Verse */}
+                {onDeleteVerse && verses.length > 1 && (
+                  <button
+                    id={`verse-delete-btn-${vIdx}`}
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      onDeleteVerse(verse);
+                    }}
+                    className="p-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-400 rounded-xl border border-rose-200 dark:border-rose-900/50 transition-colors cursor-pointer touch-manipulation min-h-[40px] min-w-[40px] flex items-center justify-center"
+                    title="Delete this verse"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -338,6 +409,13 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   futureCount={futureCount}
                   showNotice={showNotice}
                   inCard={true}
+                  containerType="verse"
+                  containerLabel={`Verse ${vIdx + 1}`}
+                  onDuplicateContainer={() => onDuplicateVerse?.(verse)}
+                  onMoveContainerBackward={vIdx > 0 ? () => onMoveVerseOrder?.(vIdx, vIdx - 1) : undefined}
+                  onMoveContainerForward={vIdx < verses.length - 1 ? () => onMoveVerseOrder?.(vIdx, vIdx + 1) : undefined}
+                  canMoveContainerBackward={vIdx > 0}
+                  canMoveContainerForward={vIdx < verses.length - 1}
                 />
               </div>
             )}

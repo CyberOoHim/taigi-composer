@@ -33,6 +33,9 @@ import {
   Sliders,
   Wand2,
   Disc,
+  ArrowLeft,
+  ArrowRight,
+  Copy,
 } from 'lucide-react';
 
 export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
@@ -72,6 +75,15 @@ export interface NoteEditorHudProps {
   futureCount?: number;
   showNotice: (msg: string) => void;
   inCard?: boolean;
+
+  // Container (Measure / Verse) actions
+  containerType?: 'measure' | 'verse';
+  containerLabel?: string;
+  onDuplicateContainer?: () => void;
+  onMoveContainerBackward?: () => void;
+  onMoveContainerForward?: () => void;
+  canMoveContainerBackward?: boolean;
+  canMoveContainerForward?: boolean;
 }
 
 export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
@@ -109,6 +121,13 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   futureCount = 0,
   showNotice,
   inCard = true,
+  containerType,
+  containerLabel,
+  onDuplicateContainer,
+  onMoveContainerBackward,
+  onMoveContainerForward,
+  canMoveContainerBackward = false,
+  canMoveContainerForward = false,
 }) => {
   const [activeTab, setActiveTabState] = useState<DeckTabMode>(() => {
     if (typeof window !== 'undefined') return getStoredDeckTab();
@@ -478,6 +497,53 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             >
               <Scissors className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span className="hidden sm:inline">Split Measure</span>
+            </button>
+          )}
+
+          {/* Measure / Verse Actions: Move Backward / Forward */}
+          {(onMoveContainerBackward || onMoveContainerForward) && (
+            <div
+              id="hud-move-container-group"
+              className="flex items-center bg-zinc-200/80 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs"
+            >
+              <button
+                id="hud-move-backward-btn"
+                type="button"
+                onClick={onMoveContainerBackward}
+                disabled={!canMoveContainerBackward}
+                title={canMoveContainerBackward ? `Move ${containerLabel || (containerType === 'verse' ? 'verse' : 'measure')} backward (earlier in song)` : 'Cannot move backward (already at first position)'}
+                className="p-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] min-w-[36px] flex items-center justify-center"
+              >
+                <ArrowLeft className="w-4 h-4 shrink-0" />
+              </button>
+              <span className="text-[11px] font-bold px-1.5 text-zinc-700 dark:text-zinc-200 select-none whitespace-nowrap">
+                Move {containerType === 'verse' ? 'Verse' : 'Measure'}
+              </span>
+              <button
+                id="hud-move-forward-btn"
+                type="button"
+                onClick={onMoveContainerForward}
+                disabled={!canMoveContainerForward}
+                title={canMoveContainerForward ? `Move ${containerLabel || (containerType === 'verse' ? 'verse' : 'measure')} forward (later in song)` : 'Already at last position'}
+                className="p-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] min-w-[36px] flex items-center justify-center"
+              >
+                <ArrowRight className="w-4 h-4 shrink-0" />
+              </button>
+            </div>
+          )}
+
+          {/* Measure / Verse Actions: Duplicate */}
+          {onDuplicateContainer && (
+            <button
+              id="hud-duplicate-container-btn"
+              type="button"
+              onClick={onDuplicateContainer}
+              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold border border-zinc-300 dark:border-zinc-700 transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
+              title={`Duplicate current ${containerType === 'verse' ? 'verse' : 'measure'}`}
+            >
+              <Copy className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span className="hidden sm:inline">Duplicate {containerType === 'verse' ? 'Verse' : 'Measure'}</span>
+              <span className="sm:hidden">Dup {containerType === 'verse' ? 'Verse' : 'Bar'}</span>
             </button>
           )}
 

@@ -1043,6 +1043,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
     onUpdateSong({ ...song, measures: renumbered });
     setSelectedCoord([mIdx + 1, 0]);
+    showNotice(`Duplicated Measure #${mIdx + 1}`);
+    setTimeout(() => {
+      scrollToCardElement(`measure-card-${mIdx + 1}`);
+    }, 100);
   };
 
   // Measure Management: Delete Measure
@@ -1225,6 +1229,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       onUpdateSong({ ...song, measures: renumbered });
       setSelectedCoord([toIdx, 0]);
       showNotice(`Moved Measure ${fromIdx + 1} to position ${toIdx + 1}`);
+      setTimeout(() => {
+        scrollToCardElement(`measure-card-${toIdx}`);
+      }, 100);
     },
     [song, onUpdateSong, showNotice]
   );
@@ -1376,7 +1383,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       const currentMeasures = song.measures;
       let newMeasures: Measure[] = [];
-
+      let newSelectedMIdx = minTo;
       if (fromVerseIdx > toVerseIdx) {
         // Moving up: from block placed before to block
         const beforeTo = currentMeasures.slice(0, minTo);
@@ -1384,6 +1391,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         const betweenToAndFrom = currentMeasures.slice(minTo, minFrom);
         const afterFrom = currentMeasures.slice(maxFrom + 1);
         newMeasures = [...beforeTo, ...fromBlock, ...betweenToAndFrom, ...afterFrom];
+        newSelectedMIdx = minTo;
       } else {
         // Moving down: from block placed after to block
         const beforeFrom = currentMeasures.slice(0, minFrom);
@@ -1391,11 +1399,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         const fromBlock = currentMeasures.slice(minFrom, maxFrom + 1);
         const afterTo = currentMeasures.slice(maxTo + 1);
         newMeasures = [...beforeFrom, ...betweenFromAndTo, ...fromBlock, ...afterTo];
+        newSelectedMIdx = minFrom + (maxTo - maxFrom);
       }
 
       const renumbered = renumberMeasures(newMeasures);
       onUpdateSong({ ...song, measures: renumbered });
+      setSelectedCoord([newSelectedMIdx, 0]);
       showNotice(`Moved Verse #${fromVerseIdx + 1} to position #${toVerseIdx + 1}`);
+      setTimeout(() => {
+        scrollToCardElement(`verse-card-${toVerseIdx}`);
+      }, 100);
     },
     [verses, song, onUpdateSong, showNotice]
   );
@@ -1508,7 +1521,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       const renumbered = renumberMeasures(newMeasures);
       onUpdateSong({ ...song, measures: renumbered });
+      setSelectedCoord([maxMIdx + 1, 0]);
       showNotice(`Duplicated Verse #${verse.verseIndex + 1} (${clonedMeasures.length} measures)`);
+      setTimeout(() => {
+        scrollToCardElement(`verse-card-${verse.verseIndex + 1}`);
+      }, 100);
     },
     [song, onUpdateSong, showNotice]
   );
@@ -1977,6 +1994,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             futureCount={futureCount}
             showNotice={showNotice}
             onSplitMeasureAtNote={handleSplitMeasureAtNote}
+            onDuplicateVerse={handleDuplicateVerse}
+            onMoveVerseOrder={handleMoveVerseOrder}
+            onDeleteVerse={handleDeleteVerse}
           />
         ) : (
           <MeasureModeView

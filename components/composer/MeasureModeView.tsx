@@ -844,6 +844,13 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     futureCount={futureCount}
                     showNotice={showNotice}
                     inCard={true}
+                    containerType="measure"
+                    containerLabel={`Measure #${mIdx + 1}`}
+                    onDuplicateContainer={() => onDuplicateMeasure(mIdx)}
+                    onMoveContainerBackward={mIdx > 0 ? () => onMoveMeasureOrder?.(mIdx, mIdx - 1) : undefined}
+                    onMoveContainerForward={mIdx < song.measures.length - 1 ? () => onMoveMeasureOrder?.(mIdx, mIdx + 1) : undefined}
+                    canMoveContainerBackward={mIdx > 0}
+                    canMoveContainerForward={mIdx < song.measures.length - 1}
                   />
                 </div>
               )}
