@@ -14,6 +14,7 @@ import {
   saveSongToCustomLibrary,
   deleteSongFromCustomLibrary,
 } from '@/lib/storage';
+import { useGeminiAuth } from '@/hooks/useGeminiAuth';
 import {
   Download,
   Upload,
@@ -49,6 +50,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   onOpenScanner,
   onStartFreshSong,
 }) => {
+  const { hasApiKey } = useGeminiAuth();
   const [activeTab, setActiveTab] = useState<'presets' | 'custom' | 'export' | 'import' | 'ai_scan'>('presets');
   const [exportFormat, setExportFormat] = useState<'json' | 'text'>('json');
   const [copied, setCopied] = useState(false);
@@ -213,12 +215,17 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             onClick={() => setActiveTab('ai_scan')}
             className={`flex items-center gap-1.5 px-3 py-2.5 border-b-2 whitespace-nowrap transition-all ${
               activeTab === 'ai_scan'
-                ? 'border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
-                : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                ? hasApiKey
+                  ? 'border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
+                  : 'border-zinc-400 text-zinc-500 dark:text-zinc-400 font-bold'
+                : hasApiKey
+                ? 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                : 'border-transparent text-zinc-400 dark:text-zinc-500 opacity-60'
             }`}
+            title={hasApiKey ? 'AI Score OCR' : 'AI Score OCR is muted (Gemini API Key not available)'}
           >
-            <ScanLine className="w-4 h-4 text-amber-500 shrink-0" />
-            <span>AI Score OCR</span>
+            <ScanLine className={`w-4 h-4 shrink-0 ${hasApiKey ? 'text-amber-500' : 'text-zinc-400 dark:text-zinc-500'}`} />
+            <span>{hasApiKey ? 'AI Score OCR' : 'AI Score OCR (Muted)'}</span>
           </button>
         </div>
 
@@ -524,6 +531,13 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           {/* TAB 4: AI IMAGE SCORE SCAN */}
           {activeTab === 'ai_scan' && (
             <div id="ai-scan-panel" className="flex flex-col gap-4">
+              {!hasApiKey && (
+                <div className="p-3.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-400 flex items-center gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>Gemini API key is not configured in the environment. AI Score OCR scanning is currently muted.</span>
+                </div>
+              )}
+
               <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300/70 dark:border-amber-700/70 flex flex-col gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-500 text-zinc-950 flex items-center justify-center font-black shadow-md shadow-amber-500/20">
@@ -561,14 +575,21 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   <button
                     id="launch-ai-scanner-btn"
                     type="button"
+                    disabled={!hasApiKey}
                     onClick={() => {
+                      if (!hasApiKey) return;
                       onClose();
                       if (onOpenScanner) onOpenScanner();
                     }}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-extrabold text-sm shadow-md transition-all active:scale-98 cursor-pointer"
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-extrabold text-sm shadow-md transition-all ${
+                      hasApiKey
+                        ? 'bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 active:scale-98 cursor-pointer'
+                        : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-60'
+                    }`}
+                    title={hasApiKey ? 'Open AI Score Scanner' : 'AI Score Scanner is muted (Gemini API key not configured in environment)'}
                   >
                     <ScanLine className="w-4 h-4" />
-                    <span>Open AI Score Scanner →</span>
+                    <span>{hasApiKey ? 'Open AI Score Scanner →' : 'AI Scanner Muted (No Environment Key)'}</span>
                   </button>
                 </div>
               </div>

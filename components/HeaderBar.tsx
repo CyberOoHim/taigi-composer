@@ -73,7 +73,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   batteryLevel,
   isCharging,
 }) => {
-  const { isAuthenticated } = useGeminiAuth();
+  const { isAuthenticated, hasApiKey } = useGeminiAuth();
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
 
   return (
@@ -278,12 +278,24 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <button
               id="header-open-scanner-btn"
               type="button"
-              onClick={onOpenScanner}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-amber-400/20 hover:from-amber-500/30 hover:to-amber-400/30 text-amber-900 dark:text-amber-200 rounded-xl border border-amber-400/60 dark:border-amber-600/60 text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0"
-              title="AI Score OCR (Multi-page score & lyrics transcription)"
+              onClick={hasApiKey ? onOpenScanner : undefined}
+              disabled={!hasApiKey}
+              aria-disabled={!hasApiKey}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+                hasApiKey
+                  ? 'bg-gradient-to-r from-amber-500/20 to-amber-400/20 hover:from-amber-500/30 hover:to-amber-400/30 text-amber-900 dark:text-amber-200 border-amber-400/60 dark:border-amber-600/60 active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px]'
+                  : 'bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-400 dark:text-zinc-500 border-zinc-200/80 dark:border-zinc-800/80 opacity-50 cursor-not-allowed min-h-[38px] sm:min-h-[40px] select-none'
+              }`}
+              title={
+                hasApiKey
+                  ? 'AI Score OCR (Multi-page score & lyrics transcription)'
+                  : 'AI Score Scanner muted (Gemini API key not configured in environment)'
+              }
             >
-              <ScanLine className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-              <span className="hidden md:inline whitespace-nowrap">AI Scanner</span>
+              <ScanLine className={`w-4 h-4 shrink-0 ${hasApiKey ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400 dark:text-zinc-500'}`} />
+              <span className="hidden md:inline whitespace-nowrap">
+                {hasApiKey ? 'AI Scanner' : 'AI Scanner (Muted)'}
+              </span>
             </button>
           )}
 
@@ -320,19 +332,29 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               type="button"
               onClick={onOpenGeminiAuth}
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0 ${
-                isAuthenticated
+                !hasApiKey
+                  ? 'bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-400 dark:text-zinc-500 border-zinc-200/80 dark:border-zinc-800/80 opacity-60 hover:opacity-90 hover:border-zinc-400 dark:hover:border-zinc-700'
+                  : isAuthenticated
                   ? 'bg-emerald-500/15 hover:bg-emerald-500/25 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-400/80 dark:border-emerald-700/80'
                   : 'bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border-amber-300/80 dark:border-amber-700/80'
               }`}
-              title={isAuthenticated ? 'Gemini AI Unlocked · Manage passcode & settings' : 'Gemini AI Passcode & Settings'}
+              title={
+                !hasApiKey
+                  ? 'Gemini AI & Passcode Auth muted (No Gemini API key configured in environment)'
+                  : isAuthenticated
+                  ? 'Gemini AI Unlocked · Manage passcode & settings'
+                  : 'Gemini AI Passcode & Settings'
+              }
             >
-              {isAuthenticated ? (
+              {!hasApiKey ? (
+                <Sparkles className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
+              ) : isAuthenticated ? (
                 <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               ) : (
                 <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
               )}
               <span className="hidden xl:inline whitespace-nowrap">
-                {isAuthenticated ? 'AI Unlocked' : 'AI Passcode'}
+                {!hasApiKey ? 'AI Muted' : isAuthenticated ? 'AI Unlocked' : 'AI Passcode'}
               </span>
             </button>
           )}

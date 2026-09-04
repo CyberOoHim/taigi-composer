@@ -58,6 +58,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   // Synchronized Gemini AI Auth & Configuration
   const {
     isAuthenticated: isAiAuthenticated,
+    hasApiKey,
     activeModel: aiModel,
     thinkingEffort,
     apiKey: customApiKey,
@@ -66,7 +67,13 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   const [inputText, setInputText] = useState('');
   const [romanText, setRomanText] = useState('');
   const [hanloText, setHanloText] = useState('');
-  const [targetField, setTargetField] = useState<TargetAlignMode>('auto_ai');
+  const [selectedTargetField, setSelectedTargetField] = useState<TargetAlignMode>(() => {
+    return hasApiKey ? 'auto_ai' : 'roman';
+  });
+  // If AI key is unavailable and auto_ai was selected, fallback to roman mode without cascading renders
+  const targetField: TargetAlignMode = !hasApiKey && selectedTargetField === 'auto_ai' ? 'roman' : selectedTargetField;
+  const setTargetField = (mode: TargetAlignMode) => setSelectedTargetField(mode);
+
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [versePreviews, setVersePreviews] = useState<VersePreviewItem[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -143,7 +150,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
     if (targetField === 'auto_ai') {
       // Check passcode authentication before calling Gemini
       if (!isAiAuthenticated) {
-        setAiError('Gemini 密碼尚未驗證，無法呼叫 AI 分析。請先設定 API 金鑰或密碼。');
+        setAiError('Gemini 通行密碼尚未驗證，無法呼叫 AI 分析。請先輸入通行密碼解鎖。');
         if (onOpenGeminiAuth) onOpenGeminiAuth();
         return;
       }
@@ -381,15 +388,21 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               <button
                 id="align-mode-auto-ai"
                 type="button"
-                onClick={() => setTargetField('auto_ai')}
-                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border font-bold transition-all cursor-pointer ${
-                  targetField === 'auto_ai'
-                    ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
+                disabled={!hasApiKey}
+                onClick={() => {
+                  if (hasApiKey) setTargetField('auto_ai');
+                }}
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border font-bold transition-all ${
+                  !hasApiKey
+                    ? 'bg-zinc-100/60 dark:bg-zinc-900/40 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-800 opacity-50 cursor-not-allowed select-none'
+                    : targetField === 'auto_ai'
+                    ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs cursor-pointer'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400 cursor-pointer'
                 }`}
+                title={hasApiKey ? 'AI 自動分析並生成 羅馬字 與 漢羅' : 'AI 自動對齊已靜音 (伺服器未設定 Gemini API 金鑰)'}
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>AI 自動 (羅馬字+漢羅)</span>
+                <Sparkles className={`w-3.5 h-3.5 ${hasApiKey ? 'text-amber-500' : 'text-zinc-400 dark:text-zinc-500'}`} />
+                <span>{hasApiKey ? 'AI 自動 (羅馬字+漢羅)' : 'AI 自動 (已靜音)'}</span>
               </button>
 
               <button
@@ -487,14 +500,21 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                   {onOpenScanner && (
                     <button
                       type="button"
+                      disabled={!hasApiKey}
                       onClick={() => {
+                        if (!hasApiKey) return;
                         onClose();
                         onOpenScanner();
                       }}
-                      className="flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 hover:underline cursor-pointer"
+                      className={`flex items-center gap-1 text-[11px] font-bold ${
+                        hasApiKey
+                          ? 'text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 hover:underline cursor-pointer'
+                          : 'text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-50 select-none'
+                      }`}
+                      title={hasApiKey ? '樂譜影像辨識 (OCR)' : '樂譜影像辨識已靜音 (伺服器未設定 Gemini API 金鑰)'}
                     >
                       <ScanLine className="w-3 h-3" />
-                      <span>樂譜影像辨識 (OCR)</span>
+                      <span>{hasApiKey ? '樂譜影像辨識 (OCR)' : 'OCR 辨識 (已靜音)'}</span>
                     </button>
                   )}
                   <span className="hidden sm:inline text-[11px] text-amber-600 dark:text-amber-400 font-medium">
@@ -523,7 +543,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           {targetField === 'auto_ai' && (
             <GeminiAuthCard
               title="Gemini AI 臺語音節辨識設定"
-              description="輸入密碼或設定 API 金鑰以啟用 Gemini AI 自動標注 羅馬字 與 漢羅。"
+              description="輸入通行密碼以啟用 Gemini AI 自動標注 羅馬字 與 漢羅。"
               onOpenFullSettings={onOpenGeminiAuth}
               idPrefix="aligner"
             />
@@ -534,7 +554,9 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             id="aligner-parse-btn"
             type="button"
             disabled={
-              targetField === 'dual'
+              targetField === 'auto_ai' && !hasApiKey
+                ? true
+                : targetField === 'dual'
                 ? (!romanText.trim() && !hanloText.trim()) || isLoadingAi
                 : !inputText.trim() || isLoadingAi
             }
@@ -548,9 +570,11 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4 text-amber-400" />
+                <Sparkles className={`w-4 h-4 ${hasApiKey ? 'text-amber-400' : 'text-zinc-400'}`} />
                 <span>
-                  {targetField === 'auto_ai' && !isAiAuthenticated
+                  {targetField === 'auto_ai' && !hasApiKey
+                    ? 'AI 功能已靜音 (伺服器未設定 Gemini API 金鑰)'
+                    : targetField === 'auto_ai' && !isAiAuthenticated
                     ? '需要驗證 Gemini 密碼'
                     : '分詞並預覽對齊 (Parse Syllables & Preview)'}
                 </span>

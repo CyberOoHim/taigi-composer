@@ -32,7 +32,7 @@ export interface GeminiAuthCardProps {
 
 export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
   title = 'Gemini AI Configuration',
-  description = 'Enter the passcode to enable Gemini AI features (Default hint: taigi or personal API Key).',
+  description = 'Enter the passcode to enable Gemini AI features (Default hint: taigi).',
   onOpenFullSettings,
   showModelControls = true,
   idPrefix = 'gemini-auth',
@@ -40,19 +40,17 @@ export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
 }) => {
   const {
     isAuthenticated,
+    hasApiKey,
     activeModel,
     thinkingEffort,
-    apiKey,
     verifyPasscode,
     revokeAuth,
     setModel,
     setThinkingEffort,
-    setApiKey,
   } = useGeminiAuth();
 
   const [passcode, setPasscode] = useState('');
   const [showPasscode, setShowPasscode] = useState(false);
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [isAuthExpanded, setIsAuthExpanded] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);
@@ -106,14 +104,6 @@ export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
               <span>All AI Settings</span>
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setShowApiKeyInput(prev => !prev)}
-            className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 hover:underline cursor-pointer"
-          >
-            <Key className="w-3 h-3" />
-            <span>{showApiKeyInput ? 'Hide Key' : 'Custom Key'}</span>
-          </button>
         </div>
       </div>
 
@@ -186,9 +176,18 @@ export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
           <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
             {description}{' '}
             <span className="inline-block">
-              (Hint: <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 rounded font-mono font-bold">taigi</code> or personal API Key).
+              (Hint: <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 rounded font-mono font-bold">taigi</code>).
             </span>
           </p>
+
+          {!hasApiKey && (
+            <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-[11px] text-zinc-600 dark:text-zinc-400 flex items-start gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-500" />
+              <span>
+                通行密碼與 AI 功能已靜音（伺服器環境變數未設定 GEMINI_API_KEY）。
+              </span>
+            </div>
+          )}
 
           <form onSubmit={handleVerify} className="flex gap-2">
             <div className="relative flex-1 flex items-center">
@@ -197,13 +196,23 @@ export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
                 type={showPasscode ? 'text' : 'password'}
                 value={passcode}
                 onChange={e => setPasscode(e.target.value)}
-                placeholder="Enter passcode (e.g. taigi) or API Key"
-                className="w-full pl-3 pr-8 py-2 text-xs bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-mono"
+                disabled={!hasApiKey}
+                placeholder={
+                  !hasApiKey
+                    ? '密碼驗證已靜音 (無環境金鑰)'
+                    : 'Enter passcode (e.g. taigi)'
+                }
+                className={`w-full pl-3 pr-8 py-2 text-xs rounded-lg font-mono border ${
+                  !hasApiKey
+                    ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border-zinc-200 dark:border-zinc-700 cursor-not-allowed opacity-60'
+                    : 'bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500'
+                }`}
               />
               <button
                 type="button"
                 onClick={() => setShowPasscode(!showPasscode)}
-                className="absolute right-2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+                disabled={!hasApiKey}
+                className="absolute right-2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer disabled:opacity-40"
                 title={showPasscode ? 'Hide passcode' : 'Show passcode'}
               >
                 {showPasscode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -212,11 +221,15 @@ export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
             <button
               id={`${idPrefix}-verify-passcode-btn`}
               type="submit"
-              disabled={!passcode.trim()}
-              className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-xs rounded-lg shadow-xs transition-all disabled:opacity-50 cursor-pointer shrink-0"
+              disabled={!passcode.trim() || !hasApiKey}
+              className={`flex items-center gap-1.5 px-3 py-2 font-bold text-xs rounded-lg shadow-xs transition-all shrink-0 ${
+                !hasApiKey
+                  ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed opacity-60'
+                  : 'bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 disabled:opacity-50 cursor-pointer'
+              }`}
             >
               <Unlock className="w-3.5 h-3.5" />
-              <span>Verify & Unlock</span>
+              <span>{!hasApiKey ? '密碼已靜音' : 'Verify & Unlock'}</span>
             </button>
           </form>
 
@@ -284,26 +297,6 @@ export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
               <option value="OFF">OFF (No thinking pause)</option>
             </select>
           </div>
-        </div>
-      )}
-
-      {/* Optional Custom Key Input */}
-      {showApiKeyInput && (
-        <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/50 flex flex-col gap-1">
-          <label
-            htmlFor={`${idPrefix}-custom-key-input`}
-            className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400"
-          >
-            Gemini API Key (Custom Personal Key)
-          </label>
-          <input
-            id={`${idPrefix}-custom-key-input`}
-            type="password"
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-            placeholder="AIzaSy... (leave empty to use default env key)"
-            className="w-full px-3 py-2 text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-mono"
-          />
         </div>
       )}
     </div>

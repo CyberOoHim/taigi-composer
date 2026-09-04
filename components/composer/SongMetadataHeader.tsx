@@ -15,6 +15,7 @@ import {
   Play,
   Square,
 } from 'lucide-react';
+import { useGeminiAuth } from '@/hooks/useGeminiAuth';
 
 interface SongMetadataHeaderProps {
   song: Song;
@@ -45,6 +46,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   onStopPlayback,
   incompleteMeasuresCount = 0,
 }) => {
+  const { hasApiKey } = useGeminiAuth();
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   return (
@@ -175,12 +177,24 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
             <button
               id="composer-open-scanner-btn"
               type="button"
-              onClick={onOpenScanner}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 font-bold text-xs rounded-xl shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-              title="AI Score OCR Import (Up to 3 pages)"
+              onClick={hasApiKey ? onOpenScanner : undefined}
+              disabled={!hasApiKey}
+              aria-disabled={!hasApiKey}
+              className={`flex items-center gap-1.5 px-3 py-1.5 font-bold text-xs rounded-xl shadow-2xs transition-all min-h-[40px] ${
+                hasApiKey
+                  ? 'bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 active:scale-95 cursor-pointer touch-manipulation'
+                  : 'bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-400 dark:text-zinc-500 border border-zinc-200/80 dark:border-zinc-800/80 opacity-50 cursor-not-allowed select-none'
+              }`}
+              title={
+                hasApiKey
+                  ? 'AI Score OCR Import (Up to 3 pages)'
+                  : 'AI Score Scanner muted (Gemini API Key not available)'
+              }
             >
-              <ScanLine className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              <span className="hidden sm:inline">AI Scanner</span>
+              <ScanLine className={`w-4 h-4 ${hasApiKey ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400 dark:text-zinc-500'}`} />
+              <span className="hidden sm:inline">
+                {hasApiKey ? 'AI Scanner' : 'AI Scanner (Muted)'}
+              </span>
             </button>
           )}
 

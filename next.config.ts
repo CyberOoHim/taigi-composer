@@ -3,6 +3,12 @@ import type {NextConfig} from 'next';
 const isStaticExport = process.env.STATIC_EXPORT === 'true' || process.env.GITHUB_PAGES === 'true';
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_GEMINI_API_KEY:
+      process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
+      process.env.GEMINI_API_KEY ||
+      '',
+  },
   reactStrictMode: true,
   eslint: {
     ignoreDuringBuilds: true,

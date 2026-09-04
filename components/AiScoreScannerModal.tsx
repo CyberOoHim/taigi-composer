@@ -81,6 +81,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
   // Synchronized Gemini AI Auth & Configuration
   const {
     isAuthenticated: isAiAuthenticated,
+    hasApiKey,
     activeModel: aiModel,
     thinkingEffort,
     apiKey: customApiKey,
@@ -164,6 +165,14 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
     setUploadError(null);
     if (images.length === 0) {
       setUploadError('Please upload 1 to 3 score images first');
+      return;
+    }
+
+    if (!hasApiKey) {
+      setUploadError('AI recognition is muted because no Gemini API key is configured in the environment.');
+      if (onOpenGeminiAuth) {
+        onOpenGeminiAuth();
+      }
       return;
     }
 
@@ -327,6 +336,24 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
 
         {/* Modal Scrollable Body */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-5">
+          {!hasApiKey && (
+            <div className="p-3.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-400 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>Gemini API key is not configured in the environment. AI Score Scanner and Passcode Authentication are currently muted.</span>
+              </div>
+              {onOpenGeminiAuth && (
+                <button
+                  type="button"
+                  onClick={onOpenGeminiAuth}
+                  className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline shrink-0 cursor-pointer"
+                >
+                  View Status →
+                </button>
+              )}
+            </div>
+          )}
+
           {/* 1. THREE-PAGE UPLOAD & ORDERING DECK */}
           <div className="flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
@@ -573,9 +600,14 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
           <button
             id="scanner-start-scan-btn"
             type="button"
-            disabled={images.length === 0 || isScanning || !isAiAuthenticated}
+            disabled={!hasApiKey || images.length === 0 || isScanning || !isAiAuthenticated}
             onClick={handleStartScan}
-            className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-sm shadow-md transition-all active:scale-98 disabled:opacity-50 cursor-pointer"
+            className={`flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-black text-sm shadow-md transition-all ${
+              !hasApiKey
+                ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed opacity-60'
+                : 'bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 active:scale-98 disabled:opacity-50 cursor-pointer'
+            }`}
+            title={!hasApiKey ? 'AI Score Scanner muted (Gemini API key not configured in environment)' : undefined}
           >
             {isScanning ? (
               <>
@@ -586,7 +618,9 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
               <>
                 <ScanLine className="w-5 h-5" />
                 <span>
-                  {!isAiAuthenticated
+                  {!hasApiKey
+                    ? 'AI 辨識已靜音 (無環境金鑰)'
+                    : !isAiAuthenticated
                     ? 'Passcode Verification Required'
                     : `Start AI Score Recognition (${images.length} Pages)`}
                 </span>

@@ -325,7 +325,7 @@ export async function extractScoreFromImagesWithAi(
   if (!apiKey) {
     return {
       success: false,
-      error: '請先輸入並驗證 Gemini 通行密碼或提供 API Key (Gemini API key is required)',
+      error: '環境中未設定 Gemini API 金鑰，或尚未驗證通行密碼 (Gemini API key is required in environment)',
     };
   }
 

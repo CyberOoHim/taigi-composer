@@ -23,7 +23,6 @@ export const STORAGE_KEYS = {
   DECK_TAB: 'taigi_composer_deck_tab',
   GEMINI_AUTH_VERIFIED: 'taigi_gemini_auth_verified',
   GEMINI_AUTH_PASSCODE: 'taigi_gemini_auth_passcode',
-  GEMINI_API_KEY: 'taigi_gemini_api_key',
   GEMINI_MODEL: 'taigi_gemini_model',
   GEMINI_THINKING_EFFORT: 'taigi_gemini_thinking_effort',
 } as const;

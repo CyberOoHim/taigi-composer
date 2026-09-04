@@ -3,12 +3,14 @@
 import { useSyncExternalStore, useCallback } from 'react';
 import {
   isGeminiAuthenticated,
+  hasGeminiApiKey,
+  hasEnvGeminiApiKey,
+  isAiAvailable as checkIsAiAvailable,
   getGeminiModel,
   setGeminiModel,
   getGeminiThinkingEffort,
   setGeminiThinkingEffort,
   getActiveGeminiApiKey,
-  setCustomApiKey,
   verifyGeminiPasscode,
   revokeGeminiAuth,
   GEMINI_AUTH_CHANGE_EVENT,
@@ -27,6 +29,22 @@ function subscribe(callback: () => void) {
 }
 
 export function useGeminiAuth() {
+  const hasApiKey = useSyncExternalStore(
+    subscribe,
+    hasGeminiApiKey,
+    () => hasEnvGeminiApiKey()
+  );
+
+  const hasEnvKey = useSyncExternalStore(
+    subscribe,
+    hasEnvGeminiApiKey,
+    () => hasEnvGeminiApiKey()
+  );
+
+  const isAiAvailable = hasApiKey;
+  const isMuted = !hasApiKey;
+  const isPasscodeAuthMuted = !hasApiKey;
+
   const isAuthenticated = useSyncExternalStore(
     subscribe,
     isGeminiAuthenticated,
@@ -51,8 +69,8 @@ export function useGeminiAuth() {
     () => ''
   );
 
-  const verify = useCallback((passcodeOrKey: string): GeminiAuthResult => {
-    return verifyGeminiPasscode(passcodeOrKey);
+  const verify = useCallback((passcode: string): GeminiAuthResult => {
+    return verifyGeminiPasscode(passcode);
   }, []);
 
   const revoke = useCallback((): void => {
@@ -67,12 +85,13 @@ export function useGeminiAuth() {
     setGeminiThinkingEffort(effort);
   }, []);
 
-  const updateApiKey = useCallback((key: string): void => {
-    setCustomApiKey(key);
-  }, []);
-
   return {
     isAuthenticated,
+    hasApiKey,
+    hasEnvKey,
+    isAiAvailable,
+    isMuted,
+    isPasscodeAuthMuted,
     activeModel,
     thinkingEffort,
     apiKey,
@@ -80,6 +99,5 @@ export function useGeminiAuth() {
     revokeAuth: revoke,
     setModel,
     setThinkingEffort: setEffort,
-    setApiKey: updateApiKey,
   };
 }

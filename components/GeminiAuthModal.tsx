@@ -34,14 +34,13 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
 }) => {
   const {
     isAuthenticated,
+    hasApiKey,
     activeModel,
     thinkingEffort,
-    apiKey,
     verifyPasscode,
     revokeAuth,
     setModel,
     setThinkingEffort,
-    setApiKey,
   } = useGeminiAuth();
 
   const [passcode, setPasscode] = useState('');
@@ -183,21 +182,35 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
               onSubmit={handleVerify}
               className="flex flex-col gap-4 animate-in fade-in duration-200"
             >
-              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-300/60 dark:border-amber-700/60 dark:bg-amber-950/30">
-                <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                <div className="flex flex-col gap-1">
-                  <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                    {isAuthenticated ? 'Update Authorization' : 'Enter Passcode Once for All Features'}
-                  </h4>
-                  <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                    Enter the default passcode (Hint:{' '}
-                    <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 rounded font-mono font-bold text-amber-800 dark:text-amber-300">
-                      taigi
-                    </code>
-                    ) or your personal Gemini API Key. Once authenticated, access is automatically synchronized across the AI Score Scanner and Quick Lyric Aligner.
-                  </p>
+              {!hasApiKey ? (
+                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700">
+                  <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="flex flex-col gap-1">
+                    <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                      AI 功能與通行密碼已靜音 (AI & Passcode Auth Muted)
+                    </h4>
+                    <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      伺服器環境中未設定 Gemini API 金鑰 (<code>GEMINI_API_KEY</code>)。依安全性設計，前端不提供手動輸入 API 金鑰，全站 AI 功能及通行密碼驗證目前已靜音停用。請由系統管理員於伺服器環境變數設定金鑰後重新載入。
+                    </p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-300/60 dark:border-amber-700/60 dark:bg-amber-950/30">
+                  <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex flex-col gap-1">
+                    <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                      {isAuthenticated ? 'Update Authorization' : 'Enter Passcode Once for All Features'}
+                    </h4>
+                    <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      Enter the default passcode (Hint:{' '}
+                      <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 rounded font-mono font-bold text-amber-800 dark:text-amber-300">
+                        taigi
+                      </code>
+                      ). Once authenticated, access is automatically synchronized across the AI Score Scanner and Quick Lyric Aligner.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Passcode Input Field */}
               <div className="flex flex-col gap-1.5">
@@ -207,7 +220,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                 >
                   <span className="flex items-center gap-1.5">
                     <Key className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Passcode / API Key</span>
+                    <span>Passcode</span>
                   </span>
                   {isAuthenticated && (
                     <button
@@ -227,14 +240,24 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                     type={showPasscode ? 'text' : 'password'}
                     value={passcode}
                     onChange={e => setPasscode(e.target.value)}
-                    placeholder="Enter passcode (e.g. taigi) or AIzaSy... key"
-                    autoFocus
-                    className="w-full pl-3 pr-10 py-2.5 text-sm bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-mono"
+                    disabled={!hasApiKey}
+                    placeholder={
+                      !hasApiKey
+                        ? '密碼驗證已靜音 (未設定環境金鑰)'
+                        : 'Enter passcode (e.g. taigi)'
+                    }
+                    autoFocus={hasApiKey}
+                    className={`w-full pl-3 pr-10 py-2.5 text-sm rounded-xl font-mono border ${
+                      !hasApiKey
+                        ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border-zinc-200 dark:border-zinc-700 cursor-not-allowed opacity-60'
+                        : 'bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500'
+                    }`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPasscode(!showPasscode)}
-                    className="absolute right-3 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+                    disabled={!hasApiKey}
+                    className="absolute right-3 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer disabled:opacity-40"
                   >
                     {showPasscode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -284,25 +307,6 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                 </div>
               </div>
 
-              {/* Optional Custom API Key Display / Input */}
-              <div className="flex flex-col gap-1 pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                <label
-                  htmlFor="gemini-auth-key-input"
-                  className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1"
-                >
-                  <Key className="w-3 h-3 text-amber-500" />
-                  <span>Custom Gemini API Key (Optional)</span>
-                </label>
-                <input
-                  id="gemini-auth-key-input"
-                  type="password"
-                  value={apiKey}
-                  onChange={e => setApiKey(e.target.value)}
-                  placeholder="AIzaSy... (leave empty to use default env key)"
-                  className="w-full px-2.5 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-200 font-mono"
-                />
-              </div>
-
               {/* Feedback Notifications */}
               {errorMsg && (
                 <div
@@ -328,11 +332,15 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
               <button
                 id="gemini-auth-verify-btn"
                 type="submit"
-                disabled={!passcode.trim()}
-                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-sm shadow-md transition-all disabled:opacity-50 cursor-pointer"
+                disabled={!passcode.trim() || !hasApiKey}
+                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm shadow-md transition-all ${
+                  !hasApiKey
+                    ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed opacity-60'
+                    : 'bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 disabled:opacity-50 cursor-pointer'
+                }`}
               >
                 <Unlock className="w-4 h-4" />
-                <span>Verify & Unlock App-Wide</span>
+                <span>{!hasApiKey ? '密碼驗證已靜音' : 'Verify & Unlock App-Wide'}</span>
               </button>
             </form>
           )}
