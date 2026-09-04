@@ -89,15 +89,26 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
       <div
         key={`${keyPrefix}${note.id}-${mIdx}-${nIdx}`}
         id={`wysiwyg-note-cell-${mIdx}-${nIdx}`}
-        onClick={() => onSelectNote(mIdx, nIdx)}
-        className={`group relative flex flex-col items-center justify-between p-2 rounded-2xl border transition-all duration-150 min-w-[72px] max-w-[160px] shrink-0 self-stretch cursor-pointer select-none ${
+        role="button"
+        tabIndex={0}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectNote(mIdx, nIdx);
+        }}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+            e.preventDefault();
+            onSelectNote(mIdx, nIdx);
+          }
+        }}
+        className={`group relative flex flex-col items-center justify-between p-2 rounded-2xl border transition-all duration-150 min-w-[72px] max-w-[160px] shrink-0 self-stretch cursor-pointer select-none touch-manipulation ${
           isPlaybackActive
             ? 'bg-amber-500/20 ring-2 ring-amber-400 scale-[1.02] shadow-md border-amber-500 z-10'
             : isSelected
             ? 'border-indigo-500 bg-indigo-50/95 dark:bg-[#161a30] shadow-md ring-2 ring-indigo-400/80 z-10'
             : 'border-indigo-200/80 dark:border-indigo-800/60 bg-indigo-50/40 dark:bg-indigo-950/30 hover:border-indigo-400 dark:hover:border-indigo-700'
         }`}
-        title={`Annotation: ${note.annotation} (0 beats) - Click to select or edit`}
+        title={`Annotation: ${note.annotation} (0 beats) - Click or tap to select or edit`}
       >
         {isSelected && (
           <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-indigo-500 rotate-45 rounded-xs z-20 pointer-events-none shadow-xs" />
@@ -113,6 +124,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
             id={`lyric-input-${mIdx}-${nIdx}-annotation`}
             type="text"
             value={note.annotation || ''}
+            onClick={e => e.stopPropagation()}
             onFocus={() => {
               onSelectNote(mIdx, nIdx);
               setFocusedField('hanlo');
@@ -153,15 +165,26 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
       <div
         key={`${keyPrefix}${note.id}-${mIdx}-${nIdx}`}
         id={`wysiwyg-note-cell-${mIdx}-${nIdx}`}
-        onClick={() => onSelectNote(mIdx, nIdx)}
-        className={`group relative flex flex-col items-center justify-between p-1 rounded-xl border border-dashed transition-all duration-150 w-9 sm:w-10 min-w-[36px] max-w-[44px] shrink-0 self-stretch cursor-pointer select-none ${
+        role="button"
+        tabIndex={0}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectNote(mIdx, nIdx);
+        }}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+            e.preventDefault();
+            onSelectNote(mIdx, nIdx);
+          }
+        }}
+        className={`group relative flex flex-col items-center justify-between p-1 rounded-xl border border-dashed transition-all duration-150 w-9 sm:w-10 min-w-[36px] max-w-[44px] shrink-0 self-stretch cursor-pointer select-none touch-manipulation ${
           isPlaybackActive
             ? 'bg-amber-500/20 ring-2 ring-amber-400 border-amber-500'
             : isSelected
             ? 'border-amber-500 bg-amber-50/95 dark:bg-[#1c1a14] shadow-md ring-2 ring-amber-400/80 z-10'
             : 'border-zinc-300 dark:border-zinc-700/80 bg-zinc-50/60 dark:bg-[#0c0e14]/50 hover:border-amber-400'
         }`}
-        title={`Zero-time note: "${displayChar}" (0 beats) - Click to edit or select`}
+        title={`Zero-time note: "${displayChar}" (0 beats) - Click or tap to edit or select`}
       >
         {isSelected && (
           <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-amber-500 rotate-45 rounded-xs z-20 pointer-events-none shadow-xs" />
@@ -178,6 +201,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
             maxLength={2}
             value={rawChar === '\n' || rawChar === '\r' ? '↵' : (rawChar || (displayChar === '␣' ? '' : displayChar))}
             placeholder={displayChar === '␣' ? '␣' : ''}
+            onClick={e => e.stopPropagation()}
             onFocus={() => {
               onSelectNote(mIdx, nIdx);
               setFocusedField('hanlo');
@@ -213,7 +237,19 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
     <div
       key={`${keyPrefix}${note.id}-${mIdx}-${nIdx}`}
       id={`wysiwyg-note-cell-${mIdx}-${nIdx}`}
-      className={`group relative flex flex-col items-center justify-between p-2.5 rounded-2xl border transition-all duration-150 min-w-[76px] sm:min-w-[92px] flex-1 select-none ${
+      role="button"
+      tabIndex={0}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelectNote(mIdx, nIdx);
+      }}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+          e.preventDefault();
+          onSelectNote(mIdx, nIdx);
+        }
+      }}
+      className={`group relative flex flex-col items-center justify-between p-2.5 rounded-2xl border transition-all duration-150 min-w-[76px] sm:min-w-[92px] flex-1 select-none cursor-pointer touch-manipulation ${
         isPlaybackActive
           ? 'bg-amber-500/20 ring-2 ring-amber-400 scale-[1.03] shadow-md border-amber-500 z-10'
           : isSelected
@@ -230,9 +266,12 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
 
       {/* UPPER TOUCH ZONE: PITCH & ANNOTATION (Select note without focusing inputs) */}
       <div
-        onClick={() => onSelectNote(mIdx, nIdx)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectNote(mIdx, nIdx);
+        }}
         className="w-full flex flex-col items-center justify-center cursor-pointer py-1 touch-manipulation active:scale-95 transition-transform"
-        title="Click to select note and preview"
+        title="Click or tap to select note and preview"
       >
         {/* Articulation mark (Fermata, Accent, Staccato, Tenuto, Portamento) */}
         {note.articulation && note.articulation !== 'none' && !isNonNotation && (
@@ -441,6 +480,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
             id={`lyric-input-${mIdx}-${nIdx}-roman`}
             type="text"
             value={note.lyric.poj || note.lyric.tl || ''}
+            onClick={e => e.stopPropagation()}
             onFocus={() => {
               onSelectNote(mIdx, nIdx);
               setFocusedField('roman');
@@ -481,6 +521,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
             id={`lyric-input-${mIdx}-${nIdx}-hanlo`}
             type="text"
             value={note.lyric.hanlo || note.lyric.hanji || note.lyric.custom || ''}
+            onClick={e => e.stopPropagation()}
             onFocus={() => {
               onSelectNote(mIdx, nIdx);
               setFocusedField('hanlo');

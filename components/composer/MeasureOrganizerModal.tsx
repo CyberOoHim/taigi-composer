@@ -787,7 +787,13 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                     <div
                       key={measure.id}
                       id={`organizer-measure-row-${idx}`}
-                      className={`p-3 sm:p-4 rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs ${
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        onSelectMeasure(idx);
+                        handleClose();
+                      }}
+                      className={`p-3 sm:p-4 rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs cursor-pointer touch-manipulation hover:border-amber-400 ${
                         report.isFull
                           ? 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90'
                           : report.isUnder
@@ -861,7 +867,10 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                       </div>
 
                       {/* Right: Controls & Adjustments */}
-                      <div className="flex items-center gap-2 flex-wrap self-end sm:self-center">
+                      <div
+                        onClick={e => e.stopPropagation()}
+                        className="flex items-center gap-2 flex-wrap self-end sm:self-center"
+                      >
                         {/* Auto-fill rest button if under-beat */}
                         {report.isUnder && (
                           <button

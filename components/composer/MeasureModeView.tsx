@@ -12,6 +12,8 @@ import {
   getNoteBeatDuration,
   getMeasureChords,
   formatMeasureChords,
+  isNonNotationItem,
+  isPunctuationOrSpacer,
 } from '@/lib/taigiUtils';
 import { NoteCell } from './NoteCell';
 import { NoteEditorHud } from './NoteEditorHud';
@@ -100,6 +102,7 @@ interface MeasureModeViewProps {
   // Measure multi-selection & quick duration actions
   selectedMeasureIndices?: Set<number>;
   onToggleSelectMeasure?: (mIdx: number) => void;
+  onSelectMeasure?: (mIdx: number) => void;
   onQuickToggleMeasureDuration?: (mIdx?: number) => void;
   onScaleMeasureDuration?: (factor: 0.5 | 2.0, mIdx?: number) => void;
   onSetUniformMeasureDuration?: (duration: NoteDuration, mIdx?: number) => void;
@@ -168,12 +171,35 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   onTrimExcessNotes,
   selectedMeasureIndices = new Set<number>(),
   onToggleSelectMeasure,
+  onSelectMeasure,
   onQuickToggleMeasureDuration,
   onScaleMeasureDuration,
   onSetUniformMeasureDuration,
 }) => {
   const [hoveredSplitIndex, setHoveredSplitIndex] = useState<string | null>(null);
   const [chordMode, setChordMode] = useState<'append' | 'replace'>('append');
+
+  const getFirstPlayableNoteIdx = (m: (typeof song.measures)[0]): number => {
+    if (!m.notes || m.notes.length === 0) return 0;
+    const idx = m.notes.findIndex(
+      n =>
+        !isNonNotationItem(n) &&
+        ((typeof n.pitch === 'number' && n.pitch > 0) ||
+          Boolean(n.lyric?.hanji && !isPunctuationOrSpacer(n.lyric.hanji)))
+    );
+    return idx !== -1 ? idx : 0;
+  };
+
+  const handleSelectMeasureCard = (mIdx: number) => {
+    if (selectedMeasureIndex !== mIdx) {
+      if (onSelectMeasure) {
+        onSelectMeasure(mIdx);
+      } else {
+        const targetNoteIdx = getFirstPlayableNoteIdx(song.measures[mIdx]);
+        onSelectNote(mIdx, targetNoteIdx);
+      }
+    }
+  };
 
   const cycleBarline = (mIdx: number, current: BarlineType = 'single') => {
     if (!onUpdateBarlineType) return;
@@ -199,16 +225,19 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
           <React.Fragment key={measure.id}>
             <div
               id={`measure-card-${mIdx}`}
-              className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs scroll-mt-28 sm:scroll-mt-32 ${
+              role="region"
+              aria-label={`Measure ${mIdx + 1}`}
+              onClick={() => handleSelectMeasureCard(mIdx)}
+              className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs cursor-pointer touch-manipulation scroll-mt-28 sm:scroll-mt-32 ${
                 isPlayingThisMeasure
                   ? 'border-amber-500 ring-2 ring-amber-400 bg-amber-500/10 dark:bg-amber-950/30 shadow-md'
                   : isSelectedMeasure
-                  ? 'border-amber-400/90 dark:border-amber-500/70 bg-amber-50/15 dark:bg-[#161922]'
+                  ? 'border-amber-400/90 dark:border-amber-500/70 bg-amber-50/15 dark:bg-[#161922] ring-1 ring-amber-400/40'
                   : rhythm.isFull
-                  ? 'border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-[#141720]'
+                  ? 'border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-[#141720] hover:border-amber-300/60 dark:hover:border-zinc-700'
                   : rhythm.isUnder
-                  ? 'border-amber-300/80 dark:border-amber-800/70 bg-white dark:bg-[#141720]'
-                  : 'border-rose-300/80 dark:border-rose-800/70 bg-white dark:bg-[#141720]'
+                  ? 'border-amber-300/80 dark:border-amber-800/70 bg-white dark:bg-[#141720] hover:border-amber-400'
+                  : 'border-rose-300/80 dark:border-rose-800/70 bg-white dark:bg-[#141720] hover:border-rose-400'
               }`}
             >
               {/* Measure Header Toolbar */}
@@ -222,6 +251,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                       onClick={e => {
                         e.stopPropagation();
                         onToggleSelectMeasure(mIdx);
+                        handleSelectMeasureCard(mIdx);
                       }}
                       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[40px] ${
                         selectedMeasureIndices.has(mIdx)
@@ -280,9 +310,17 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <span className="daw-lcd px-2.5 py-1 text-xs font-mono font-bold rounded-lg mx-0.5">
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleSelectMeasureCard(mIdx);
+                      }}
+                      className="daw-lcd px-2.5 py-1 text-xs font-mono font-bold rounded-lg mx-0.5 cursor-pointer hover:ring-1 hover:ring-amber-400 touch-manipulation active:scale-95 transition-all"
+                      title={`Measure #${mIdx + 1} - Tap to select`}
+                    >
                       #{mIdx + 1}
-                    </span>
+                    </button>
                     <button
                       type="button"
                       onClick={e => {
@@ -418,6 +456,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                   <select
                     id={`measure-section-select-${mIdx}`}
                     value={measure.section || ''}
+                    onClick={e => e.stopPropagation()}
                     onChange={e => onUpdateMeasureSection(mIdx, e.target.value)}
                     className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold rounded-xl px-2.5 py-1.5 text-xs cursor-pointer min-h-[36px]"
                     title="Section label"
@@ -433,7 +472,10 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                   </select>
 
                   {/* Multi-Chord Selector & Chips Editor */}
-                  <div className="flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-1 text-xs min-h-[36px] flex-wrap">
+                  <div
+                    onClick={e => e.stopPropagation()}
+                    className="flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-1 text-xs min-h-[36px] flex-wrap"
+                  >
                     <span className="text-zinc-600 dark:text-zinc-400 font-medium shrink-0">Chord:</span>
                     
                     {/* Current Chords Badges */}
@@ -571,7 +613,10 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                   <button
                     id={`measure-add-note-btn-${mIdx}`}
                     type="button"
-                    onClick={() => onAddNoteToMeasure(mIdx)}
+                    onClick={e => {
+                      e.stopPropagation();
+                      onAddNoteToMeasure(mIdx);
+                    }}
                     className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl font-bold text-xs border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer touch-manipulation min-h-[36px]"
                     title="Add note to end of this measure"
                   >
@@ -583,7 +628,10 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                   <button
                     id={`measure-duplicate-btn-${mIdx}`}
                     type="button"
-                    onClick={() => onDuplicateMeasure(mIdx)}
+                    onClick={e => {
+                      e.stopPropagation();
+                      onDuplicateMeasure(mIdx);
+                    }}
                     className="p-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer touch-manipulation min-h-[36px] min-w-[36px] flex items-center justify-center"
                     title="Duplicate this measure"
                   >
@@ -594,7 +642,10 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                   <button
                     id={`measure-delete-btn-${mIdx}`}
                     type="button"
-                    onClick={() => onDeleteMeasure(mIdx)}
+                    onClick={e => {
+                      e.stopPropagation();
+                      onDeleteMeasure(mIdx);
+                    }}
                     className="p-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-400 rounded-xl border border-rose-200 dark:border-rose-900/50 transition-colors cursor-pointer touch-manipulation min-h-[36px] min-w-[36px] flex items-center justify-center"
                     title="Delete this measure"
                   >
@@ -642,7 +693,10 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
               </div>
 
               {/* One-Tap Diatonic Chord Palette */}
-              <div className="flex items-center gap-1.5 flex-wrap px-2 py-1.5 mb-3 bg-zinc-50/90 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/70 dark:border-zinc-800/70">
+              <div
+                onClick={e => e.stopPropagation()}
+                className="flex items-center gap-1.5 flex-wrap px-2 py-1.5 mb-3 bg-zinc-50/90 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/70 dark:border-zinc-800/70"
+              >
                 <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold shrink-0 ml-1">
                   {keySignature} Diatonic Chords:
                 </span>
@@ -675,6 +729,9 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                             : [c.chord];
                           onUpdateMeasureChord(mIdx, formatMeasureChords(updated));
                           audioEngine.previewChord(c.chord);
+                          if (selectedMeasureIndex !== mIdx) {
+                            handleSelectMeasureCard(mIdx);
+                          }
                         }}
                         className={`px-2 py-1 rounded-lg text-xs font-mono font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${
                           isCurrentChord
@@ -707,13 +764,18 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
                 {/* Opening Barline */}
-                <div
-                  className="flex flex-col items-center justify-center px-1.5 py-2 text-zinc-400 dark:text-zinc-600 font-mono text-[10px] shrink-0 self-stretch rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/50 dark:border-zinc-700/50"
-                  title={`Measure #${mIdx + 1} start`}
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleSelectMeasureCard(mIdx);
+                  }}
+                  className="flex flex-col items-center justify-center px-1.5 py-2 text-zinc-400 dark:text-zinc-600 font-mono text-[10px] shrink-0 self-stretch rounded-lg bg-zinc-50 hover:bg-amber-500/10 dark:bg-zinc-800/40 dark:hover:bg-zinc-800 border border-zinc-200/50 dark:border-zinc-700/50 hover:border-amber-400/60 transition-colors cursor-pointer touch-manipulation active:scale-95"
+                  title={`Measure #${mIdx + 1} start - Click or tap to select`}
                 >
                   <span className="font-black text-zinc-500 dark:text-zinc-400">#{mIdx + 1}</span>
                   <div className="w-[2px] flex-1 bg-zinc-300 dark:bg-zinc-600 my-1 rounded-full" />
-                </div>
+                </button>
 
                 {measure.notes.map((note, nIdx) => {
                   const isSelected = selectedMeasureIndex === mIdx && selectedNoteIndex === nIdx;
@@ -769,6 +831,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                 {/* Closing Barline Component & Cross-Measure Note Controls */}
                 <div
                   id={`measure-closing-barline-${mIdx}`}
+                  onClick={e => e.stopPropagation()}
                   className="flex flex-col items-center justify-between p-1.5 ml-1 self-stretch rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 shrink-0 min-w-[50px] shadow-2xs"
                 >
                   {/* Visual Barline Glyphs */}
@@ -913,7 +976,10 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
               )}
 
               {/* Quick Measure-Wide Batch Lyric Input Row */}
-              <div className="flex items-center gap-2 pt-3 mt-2 border-t border-zinc-200/80 dark:border-zinc-800 text-xs">
+              <div
+                onClick={e => e.stopPropagation()}
+                className="flex items-center gap-2 pt-3 mt-2 border-t border-zinc-200/80 dark:border-zinc-800 text-xs"
+              >
                 <span className="text-xs font-bold text-amber-700 dark:text-amber-300 shrink-0">
                   小節歌詞填入 (羅馬字 / 漢羅):
                 </span>

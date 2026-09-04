@@ -364,7 +364,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       }
       return next;
     });
-  }, []);
+    handleSelectNote(mIdx, 0);
+  }, [handleSelectNote]);
 
   const handleSelectAllMeasures = useCallback(() => {
     setSelectedMeasureIndices(new Set(song.measures.map((_, i) => i)));
@@ -2334,6 +2335,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onTrimExcessNotes={handleTrimExcessNotes}
             selectedMeasureIndices={selectedMeasureIndices}
             onToggleSelectMeasure={handleToggleSelectMeasure}
+            onSelectMeasure={handleJumpToMeasure}
             onQuickToggleMeasureDuration={handleQuickToggleMeasureDuration}
             onScaleMeasureDuration={handleScaleMeasureDuration}
             onSetUniformMeasureDuration={handleSetUniformMeasureDuration}
