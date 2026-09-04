@@ -9,6 +9,5 @@ coverage/
 !.env.example
 GEMINI.md
 gemini.md
-
-
-
+package-lock.json
+yarn.lock

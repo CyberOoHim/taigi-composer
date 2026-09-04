@@ -13,7 +13,7 @@
     "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "clean": "next clean"
+    "clean": "rm -rf .next out *.tsbuildinfo"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
