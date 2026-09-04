@@ -82,9 +82,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         {/* Left: Studio Brand & Active Song Status */}
         <div className="flex items-center gap-2 shrink-0">
           <div className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-zinc-950 font-black shadow-md shadow-amber-500/20 ring-1 ring-amber-400/50 shrink-0">
-            <Music className={`w-4 sm:w-5 h-4 sm:h-5 shrink-0 ${isPlaying ? 'animate-bounce' : ''}`} />
-            {isPlaying && (
+            <Music className={`w-4 sm:w-5 h-4 sm:h-5 shrink-0 ${isPlaying && !isEcoMode ? 'animate-bounce' : ''}`} />
+            {isPlaying && !isEcoMode && (
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-zinc-950 animate-ping" />
+            )}
+            {isPlaying && isEcoMode && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-zinc-950" />
             )}
           </div>
           <div className="hidden sm:flex flex-col shrink-0">

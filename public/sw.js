@@ -43,8 +43,12 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (!url.protocol.startsWith('http')) return;
 
-  // Ignore Next.js HMR or dev server websockets
-  if (url.pathname.includes('/_next/webpack-hmr') || url.pathname.includes('/__nextjs')) {
+  // Ignore Next.js HMR, dev server websockets, and API endpoints
+  if (
+    url.pathname.includes('/_next/webpack-hmr') ||
+    url.pathname.includes('/__nextjs') ||
+    url.pathname.startsWith('/api/')
+  ) {
     return;
   }
 
@@ -61,17 +65,35 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => {
           return caches.match(event.request).then((cached) => {
-            return cached || caches.match('./');
+            return (
+              cached ||
+              caches.match('./') ||
+              new Response('Offline', { status: 503, statusText: 'Service Unavailable' })
+            );
           });
         })
     );
     return;
   }
 
-  // Stale-while-revalidate for static assets (_next/static, fonts, icons, audio)
+  // Stale-while-revalidate for static assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request)
+      if (cachedResponse) {
+        // Asynchronously update cache in background
+        fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              const responseClone = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+            }
+          })
+          .catch(() => {});
+        return cachedResponse;
+      }
+
+      // Not cached: fetch from network with safe offline fallback
+      return fetch(event.request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();
@@ -80,11 +102,16 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // Offline fallback
-          return cachedResponse;
+          return caches.match('./').then((fallback) => {
+            return (
+              fallback ||
+              new Response('Network error and asset not cached offline.', {
+                status: 503,
+                statusText: 'Offline Unavailable',
+              })
+            );
+          });
         });
-
-      return cachedResponse || fetchPromise;
     })
   );
 });

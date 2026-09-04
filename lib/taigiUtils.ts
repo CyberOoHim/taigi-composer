@@ -1,17 +1,22 @@
 import { ArticulationType, GraceNote, InstrumentType, JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, VerseItem, VerseNoteRef } from '@/types/song';
 
 // Semitones relative to C4 (MIDI note 60)
-export const KEY_SEMITONES: Record<KeySignature, number> = {
+export const KEY_SEMITONES: Record<string, number> = {
   'C': 0,
+  'C#': 1,
   'Db': 1,
   'D': 2,
+  'D#': 3,
   'Eb': 3,
   'E': 4,
   'F': 5,
   'F#': 6,
+  'Gb': 6,
   'G': 7,
+  'G#': 8,
   'Ab': 8,
   'A': 9,
+  'A#': 10,
   'Bb': 10,
   'B': 11,
 };
@@ -487,7 +492,7 @@ export function isMelismaContinuation(note: JianpuNote | null | undefined, prevN
   const noteHasOwnLyric = Boolean(
     note.lyric?.hanji?.trim() ||
     note.lyric?.poj?.trim() ||
-    note.lyric?.pij?.trim() ||
+    note.lyric?.tl?.trim() ||
     note.lyric?.custom?.trim()
   );
   return prevSlurred && !noteHasOwnLyric;
@@ -534,20 +539,20 @@ export function isNonNotationItem(note: JianpuNote | null | undefined): boolean 
   const rawHanji = note.lyric?.hanji ?? '';
   const rawCustom = note.lyric?.custom ?? '';
   const rawPoj = note.lyric?.poj ?? '';
-  const rawPij = note.lyric?.pij ?? '';
+  const rawTl = note.lyric?.tl ?? '';
 
   const hasAnyLyric =
     rawHanji.length > 0 ||
     rawCustom.length > 0 ||
     rawPoj.length > 0 ||
-    rawPij.length > 0;
+    rawTl.length > 0;
 
   const isPurePunctuationLyric =
     hasAnyLyric &&
     (!rawHanji || isPunctuationOrSpacer(rawHanji)) &&
     (!rawCustom || isPunctuationOrSpacer(rawCustom)) &&
     (!rawPoj || isPunctuationOrSpacer(rawPoj)) &&
-    (!rawPij || isPunctuationOrSpacer(rawPij));
+    (!rawTl || isPunctuationOrSpacer(rawTl));
 
   if (isPurePunctuationLyric) {
     return true;
@@ -628,14 +633,14 @@ export function isVerseBreakNote(note: JianpuNote | null | undefined): boolean {
   const hanji = note.lyric?.hanji || '';
   const custom = note.lyric?.custom || '';
   const poj = note.lyric?.poj || '';
-  const pij = note.lyric?.pij || '';
+  const tl = note.lyric?.tl || '';
   const annot = note.annotation || '';
 
   return (
     isNewlineBreak(hanji) ||
     isNewlineBreak(custom) ||
     isNewlineBreak(poj) ||
-    isNewlineBreak(pij) ||
+    isNewlineBreak(tl) ||
     isNewlineBreak(annot)
   );
 }
@@ -669,17 +674,17 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
 
     const hanjiParts: string[] = [];
     const pojParts: string[] = [];
-    const pijParts: string[] = [];
+    const tlParts: string[] = [];
     const customParts: string[] = [];
 
     currentNotes.forEach(n => {
       const h = n.note.lyric.hanji;
       const p = n.note.lyric.poj;
-      const tl = n.note.lyric.pij;
+      const tl = n.note.lyric.tl;
       const c = n.note.lyric.custom;
       if (h && !isNewlineBreak(h)) hanjiParts.push(h);
       if (p && !isNewlineBreak(p)) pojParts.push(p);
-      if (tl && !isNewlineBreak(tl)) pijParts.push(tl);
+      if (tl && !isNewlineBreak(tl)) tlParts.push(tl);
       if (c && !isNewlineBreak(c)) customParts.push(c);
     });
 
@@ -695,7 +700,7 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
       lyricSummary: {
         hanji: hanjiParts.join(''),
         poj: pojParts.join(' '),
-        pij: pijParts.join(' '),
+        tl: tlParts.join(' '),
         custom: customParts.join(' '),
       },
     });
@@ -789,7 +794,7 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
         lyricSummary: {
           hanji: allNotes.map(n => n.note.lyric.hanji || '').filter(h => !isNewlineBreak(h)).join(''),
           poj: allNotes.map(n => n.note.lyric.poj || '').filter(p => !isNewlineBreak(p)).join(' '),
-          pij: allNotes.map(n => n.note.lyric.pij || '').filter(tl => !isNewlineBreak(tl)).join(' '),
+          tl: allNotes.map(n => n.note.lyric.tl || '').filter(tl => !isNewlineBreak(tl)).join(' '),
           custom: allNotes.map(n => n.note.lyric.custom || '').filter(c => !isNewlineBreak(c)).join(' '),
         },
       });
@@ -897,9 +902,9 @@ export function normalizeNoteDuration(note: JianpuNote): JianpuNote {
 export function normalizeSongDurations(song: Song): Song {
   return {
     ...song,
-    measures: song.measures.map(m => ({
+    measures: (song.measures || []).map(m => ({
       ...m,
-      notes: m.notes.map(normalizeNoteDuration),
+      notes: Array.isArray(m?.notes) ? m.notes.map(normalizeNoteDuration) : [],
     })),
   };
 }

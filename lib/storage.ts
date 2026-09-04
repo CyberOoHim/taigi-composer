@@ -33,24 +33,27 @@ export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
 /**
  * Safe local storage getter with fallback
  */
-function safeGetItem(key: string): string | null {
+export function safeGetItem(key: string): string | null {
   if (typeof window === 'undefined') return null;
   try {
     return localStorage.getItem(key);
-  } catch {
+  } catch (err) {
+    console.warn(`[storage] Failed to read key "${key}":`, err);
     return null;
   }
 }
 
 /**
- * Safe local storage setter
+ * Safe local storage setter with boolean success status
  */
-function safeSetItem(key: string, value: string): void {
-  if (typeof window === 'undefined') return;
+export function safeSetItem(key: string, value: string): boolean {
+  if (typeof window === 'undefined') return false;
   try {
     localStorage.setItem(key, value);
-  } catch {
-    // ignore quota/privacy errors
+    return true;
+  } catch (err) {
+    console.error(`[storage] Storage quota exceeded or blocked for key "${key}":`, err);
+    return false;
   }
 }
 
@@ -78,10 +81,10 @@ export function getStoredDisplayMode(): LyricDisplayMode {
     return val;
   }
   // Migration support for legacy stored preferences:
-  if (val === 'poj_only' || val === 'pij_only') return 'roman';
+  if (val === 'poj_only' || val === 'tl_only') return 'roman';
   if (val === 'hanji_only' || val === 'custom_only') return 'hanlo';
   if (val === 'hanji_poj') return 'hanlo_major_roman';
-  if (val === 'all' || val === 'hanji_pij') return 'roman_major_hanlo';
+  if (val === 'all' || val === 'hanji_tl') return 'roman_major_hanlo';
 
   return 'roman_major_hanlo';
 }
@@ -99,27 +102,7 @@ export function getStoredCurrentSong(): Song {
     try {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.id && Array.isArray(parsed.measures) && parsed.measures.length > 0) {
-        // If the user had the previous default ('bang-chhun-hong') or old/dirty 'u-ia-hoe',
-        // refresh to the new cleaned default 'u-ia-hoe' (key 'Bb').
-        const hasDirtyPunct =
-          parsed.id === 'u-ia-hoe' &&
-          (parsed.subtitle?.includes('范炎燁') ||
-            parsed.measures.some((m: Measure) =>
-              m.notes?.some(
-                (n: JianpuNote) =>
-                  n.lyric?.hanji === '—' || n.lyric?.hanji === '，' || n.lyric?.hanji === '。'
-              )
-            ));
-
-        if (
-          parsed.id === 'bang-chhun-hong' ||
-          parsed.id === 'ai-pian-tsiah-e-iann' ||
-          parsed.id === 'blank-composer' ||
-          (parsed.id === 'u-ia-hoe' && (parsed.key !== 'Bb' || parsed.measures.length !== 32 || hasDirtyPunct))
-        ) {
-          setStoredCurrentSong(PRESET_SONGS[0]);
-          return PRESET_SONGS[0];
-        }
+        // Return user's parsed song directly without destructive overwrite
         return parsed as Song;
       }
     } catch {
@@ -129,11 +112,11 @@ export function getStoredCurrentSong(): Song {
   return PRESET_SONGS[0];
 }
 
-export function setStoredCurrentSong(song: Song): void {
+export function setStoredCurrentSong(song: Song): boolean {
   try {
-    safeSetItem(STORAGE_KEYS.CURRENT_SONG, JSON.stringify(song));
+    return safeSetItem(STORAGE_KEYS.CURRENT_SONG, JSON.stringify(song));
   } catch {
-    // ignore storage limit error
+    return false;
   }
 }
 
@@ -155,15 +138,22 @@ export function getStoredCustomLibrary(): Song[] {
   return [];
 }
 
-export function setStoredCustomLibrary(songs: Song[]): void {
+export function setStoredCustomLibrary(songs: Song[]): boolean {
   try {
-    safeSetItem(STORAGE_KEYS.CUSTOM_LIBRARY, JSON.stringify(songs));
-  } catch {
-    // ignore
+    return safeSetItem(STORAGE_KEYS.CUSTOM_LIBRARY, JSON.stringify(songs));
+  } catch (err) {
+    console.error('[storage] Failed to serialize custom library:', err);
+    return false;
   }
 }
 
-export function saveSongToCustomLibrary(song: Song): Song[] {
+export interface SaveSongResult {
+  success: boolean;
+  library: Song[];
+  error?: string;
+}
+
+export function saveSongToCustomLibraryWithResult(song: Song): SaveSongResult {
   const library = getStoredCustomLibrary();
   const existingIdx = library.findIndex(s => s.id === song.id);
   let updated: Song[];
@@ -173,8 +163,17 @@ export function saveSongToCustomLibrary(song: Song): Song[] {
   } else {
     updated = [song, ...library];
   }
-  setStoredCustomLibrary(updated);
-  return updated;
+  const success = setStoredCustomLibrary(updated);
+  return {
+    success,
+    library: success ? updated : library,
+    error: success ? undefined : '儲存失敗：本機儲存空間（localStorage）已滿，請清理或改用 JSON 匯出備份。',
+  };
+}
+
+export function saveSongToCustomLibrary(song: Song): Song[] {
+  const res = saveSongToCustomLibraryWithResult(song);
+  return res.library;
 }
 
 export function deleteSongFromCustomLibrary(songId: string): Song[] {

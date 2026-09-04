@@ -87,44 +87,55 @@ export function scrollToCardElement(
     return true;
   };
 
-  let resizeObserver: ResizeObserver | null = null;
+  // Clean up any previously active scroll session
+  if (activeObserver) {
+    activeObserver.disconnect();
+    activeObserver = null;
+  }
+  activeTimeouts.forEach(id => clearTimeout(id));
+  activeTimeouts = [];
+
   const attachObserverIfNeeded = (targetEl: HTMLElement) => {
-    if (resizeObserver || typeof ResizeObserver === 'undefined') return;
+    if (activeObserver || typeof ResizeObserver === 'undefined') return;
     let lastHeight = 0;
-    resizeObserver = new ResizeObserver(entries => {
+    activeObserver = new ResizeObserver(entries => {
       for (const entry of entries) {
         const height = entry.contentRect.height;
-        if (Math.abs(height - lastHeight) > 4) {
+        if (Math.abs(height - lastHeight) > 6) {
           lastHeight = height;
           computeAndScroll('smooth');
         }
       }
     });
 
-    resizeObserver.observe(targetEl);
+    activeObserver.observe(targetEl);
     if (targetEl.parentElement) {
-      resizeObserver.observe(targetEl.parentElement);
+      activeObserver.observe(targetEl.parentElement);
     }
   };
 
   // Immediate attempt
   computeAndScroll(behavior);
 
-  // Milestones: after React commits (~40ms), mid-transition (~100ms),
-  // post-transition-200 (~230ms), and final settlement (~360ms)
-  const milestones = [40, 100, 230, 360];
-  const timeoutIds: ReturnType<typeof setTimeout>[] = [];
-
+  // Throttled milestones for layout shifts
+  const milestones = [60, 180, 320];
   milestones.forEach(ms => {
     const tid = setTimeout(() => {
       computeAndScroll('smooth');
     }, ms);
-    timeoutIds.push(tid);
+    activeTimeouts.push(tid);
   });
 
-  // Cleanup after transition period (600ms)
-  setTimeout(() => {
-    resizeObserver?.disconnect();
-    timeoutIds.forEach(tid => clearTimeout(tid));
-  }, 600);
+  // Cleanup after transition period (450ms)
+  const cleanupId = setTimeout(() => {
+    if (activeObserver) {
+      activeObserver.disconnect();
+      activeObserver = null;
+    }
+    activeTimeouts = [];
+  }, 450);
+  activeTimeouts.push(cleanupId);
 }
+
+let activeObserver: ResizeObserver | null = null;
+let activeTimeouts: ReturnType<typeof setTimeout>[] = [];

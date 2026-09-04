@@ -86,7 +86,7 @@ export function computeVersesTiming(
       const endTimeSec = accumulatedTime + durationSec;
 
       const rawHanji = note.lyric.hanji ?? note.lyric.custom ?? '';
-      const rawRoman = note.lyric.poj ?? note.lyric.pij ?? '';
+      const rawRoman = note.lyric.poj ?? note.lyric.tl ?? '';
       const hasLyricText =
         Boolean(rawHanji && !isPunctuationOrSpacer(rawHanji) && rawHanji !== '\n' && rawHanji !== '↵') ||
         Boolean(rawRoman && !isPunctuationOrSpacer(rawRoman) && rawRoman !== '\n' && rawRoman !== '↵');
@@ -158,10 +158,10 @@ export function computeVersesTiming(
         noteObj.lyric.hanji ||
         noteObj.lyric.custom ||
         noteObj.lyric.poj ||
-        noteObj.lyric.pij ||
+        noteObj.lyric.tl ||
         (noteObj.pitch && noteObj.pitch !== 'empty' ? String(noteObj.pitch) : '');
 
-      firstVocalRoman = noteObj.lyric.poj || noteObj.lyric.pij || '';
+      firstVocalRoman = noteObj.lyric.poj || noteObj.lyric.tl || '';
       firstVocalPitchDisplay =
         noteObj.pitch && noteObj.pitch !== 'empty' && noteObj.pitch > 0
           ? `${noteObj.accidental || ''}${noteObj.pitch}`

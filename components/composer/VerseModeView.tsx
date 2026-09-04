@@ -26,10 +26,10 @@ interface VerseModeViewProps {
   onAddNoteToVerseEnd: (verse: VerseItem) => void;
   onDistributeVerseLyrics: (verse: VerseItem, vIdx: number) => void;
   onInsertPunctuationToNote: (punct: string) => void;
-  onUpdateLyric: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo', val: string) => void;
+  onUpdateLyric: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo', val: string) => void;
   onUpdateAnnotation?: (mIdx: number, nIdx: number, val: string) => void;
-  onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => void;
-  onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => void;
+  onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo') => void;
+  onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo') => void;
   onUpdateSelectedNote: (updater: (note: JianpuNote) => JianpuNote) => void;
   onSetPitch: (pitch: PitchNumber) => void;
   onSetOctave: (delta: number) => void;

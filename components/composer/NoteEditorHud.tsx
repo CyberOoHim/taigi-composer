@@ -1494,7 +1494,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     <span>本音歌詞設定 (羅馬字 / 漢羅)</span>
                   </span>
                   {(() => {
-                    const tone = extractTaigiTone(currentNote.lyric?.poj || currentNote.lyric?.pij || '');
+                    const tone = extractTaigiTone(currentNote.lyric?.poj || currentNote.lyric?.tl || '');
                     if (!tone) return null;
                     return (
                       <span
@@ -1515,7 +1515,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     <input
                       type="text"
                       placeholder="例：teng-ē 或 siú..."
-                      value={currentNote.lyric?.poj || currentNote.lyric?.pij || ''}
+                      value={currentNote.lyric?.poj || currentNote.lyric?.tl || ''}
                       onChange={e => {
                         const val = e.target.value;
                         onUpdateSelectedNote(n => ({
@@ -1523,7 +1523,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                           lyric: {
                             ...n.lyric,
                             poj: val,
-                            pij: val,
+                            tl: val,
                           },
                         }));
                       }}

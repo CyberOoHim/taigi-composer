@@ -9,6 +9,7 @@ class WakeLockManager {
   private isRequested = false;
   private isSupported = typeof window !== 'undefined' && 'wakeLock' in navigator;
   private reacquireTimer: NodeJS.Timeout | null = null;
+  private activeRequest: Promise<boolean> | null = null;
 
   constructor() {
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -79,25 +80,46 @@ class WakeLockManager {
       return false;
     }
 
-    try {
-      if (this.sentinel && !this.sentinel.released) {
-        return true;
-      }
-
-      if (typeof document !== 'undefined' && document.hidden) {
-        return false;
-      }
-
-      this.sentinel = await navigator.wakeLock.request('screen');
-      this.sentinel.addEventListener('release', () => {
-        this.sentinel = null;
-      });
+    if (this.sentinel && !this.sentinel.released) {
       return true;
-    } catch {
-      // Wake lock request may be denied or not allowed (e.g. low battery / background / un-activated tab)
-      this.sentinel = null;
-      return false;
     }
+
+    if (this.activeRequest) {
+      return this.activeRequest;
+    }
+
+    this.activeRequest = (async () => {
+      try {
+        if (typeof document !== 'undefined' && document.hidden) {
+          return false;
+        }
+
+        const sentinel = await navigator.wakeLock.request('screen');
+        if (!this.isRequested) {
+          // Was released while request was resolving
+          await sentinel.release().catch(() => {});
+          return false;
+        }
+
+        if (this.sentinel && this.sentinel !== sentinel) {
+          await this.sentinel.release().catch(() => {});
+        }
+
+        this.sentinel = sentinel;
+        this.sentinel.addEventListener('release', () => {
+          if (this.sentinel === sentinel) {
+            this.sentinel = null;
+          }
+        });
+        return true;
+      } catch {
+        return false;
+      } finally {
+        this.activeRequest = null;
+      }
+    })();
+
+    return this.activeRequest;
   }
 
   /**

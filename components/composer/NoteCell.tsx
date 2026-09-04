@@ -23,10 +23,10 @@ interface NoteCellProps {
   isPlaybackActive: boolean;
   displayMode: LyricDisplayMode;
   onSelectNote: (mIdx: number, nIdx: number) => void;
-  onUpdateLyric: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo', val: string) => void;
+  onUpdateLyric: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo', val: string) => void;
   onUpdateAnnotation?: (mIdx: number, nIdx: number, val: string) => void;
-  onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => void;
-  onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => void;
+  onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo') => void;
+  onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo') => void;
   keyPrefix?: string;
   showToneOverlay?: boolean;
 }
@@ -54,7 +54,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
   const octaveTopDots = isPitched && note.octave > 0 ? note.octave : 0;
   const octaveBottomDots = isPitched && note.octave < 0 ? Math.abs(note.octave) : 0;
 
-  const romanTone = extractTaigiTone(note.lyric?.poj || note.lyric?.pij || '');
+  const romanTone = extractTaigiTone(note.lyric?.poj || note.lyric?.tl || '');
 
   const isThirtySecond = !isNonNotation && typeof note.duration === 'number' && note.duration > 0 && note.duration <= 0.125;
   const isSixteenth = !isNonNotation && typeof note.duration === 'number' && ((note.duration <= 0.25 && note.duration > 0.125) || note.duration === 0.375);
@@ -441,7 +441,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
           <input
             id={`lyric-input-${mIdx}-${nIdx}-roman`}
             type="text"
-            value={note.lyric.poj || note.lyric.pij || ''}
+            value={note.lyric.poj || note.lyric.tl || ''}
             onFocus={() => {
               onSelectNote(mIdx, nIdx);
               setFocusedField('roman');

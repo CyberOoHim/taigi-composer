@@ -646,9 +646,9 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                             <span className="text-zinc-700 dark:text-zinc-300 font-medium truncate">
                               {lyricPreview ? `"${lyricPreview}"` : <span className="italic text-zinc-400">(無歌詞)</span>}
                             </span>
-                            {(verse.lyricSummary.poj || verse.lyricSummary.pij) && (
+                            {(verse.lyricSummary.poj || verse.lyricSummary.tl) && (
                               <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-serif italic truncate hidden md:inline">
-                                ({verse.lyricSummary.poj || verse.lyricSummary.pij})
+                                ({verse.lyricSummary.poj || verse.lyricSummary.tl})
                               </span>
                             )}
                           </div>

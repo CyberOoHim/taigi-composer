@@ -12,6 +12,7 @@ import {
 import {
   getStoredCustomLibrary,
   saveSongToCustomLibrary,
+  saveSongToCustomLibraryWithResult,
   deleteSongFromCustomLibrary,
 } from '@/lib/storage';
 import { useGeminiAuth } from '@/hooks/useGeminiAuth';
@@ -55,6 +56,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   const [exportFormat, setExportFormat] = useState<'json' | 'text'>('json');
   const [copied, setCopied] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   // Refresh custom songs when opening modal or performing actions
   const [customSongs, setCustomSongs] = useState<Song[]>(() => {
     if (typeof window !== 'undefined') return getStoredCustomLibrary();
@@ -62,10 +64,16 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   });
 
   const handleSaveToCustomLibrary = () => {
-    const updated = saveSongToCustomLibrary(currentSong);
-    setCustomSongs(updated);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+    const res = saveSongToCustomLibraryWithResult(currentSong);
+    setCustomSongs(res.library);
+    if (res.success) {
+      setSaveError(null);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 2500);
+    } else {
+      setSaveError(res.error || 'Failed to save to local library (Quota exceeded).');
+      setTimeout(() => setSaveError(null), 5000);
+    }
   };
 
   const handleDeleteFromCustomLibrary = (e: React.MouseEvent, songId: string) => {
@@ -339,6 +347,12 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                   </button>
                 </div>
               </div>
+
+              {saveError && (
+                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-medium">
+                  {saveError}
+                </div>
+              )}
 
               {customSongs.length === 0 ? (
                 <div className="p-8 text-center border border-dashed border-zinc-300 dark:border-zinc-700 rounded-2xl flex flex-col items-center gap-3">

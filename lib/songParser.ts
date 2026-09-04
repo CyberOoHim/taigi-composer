@@ -25,7 +25,15 @@ export function importSongFromJson(jsonString: string): Song {
     key: (parsed.key as KeySignature) || 'C',
     timeSignature: (parsed.timeSignature as TimeSignature) || '4/4',
     bpm: Number(parsed.bpm) || 80,
-    measures: parsed.measures,
+    measures: (parsed.measures || []).map((m: Record<string, unknown>, idx: number) => ({
+      id: typeof m?.id === 'string' ? m.id : `m-${idx + 1}-${Date.now()}`,
+      measureNumber: typeof m?.measureNumber === 'number' ? m.measureNumber : idx + 1,
+      chord: typeof m?.chord === 'string' ? m.chord : undefined,
+      section: typeof m?.section === 'string' ? m.section : undefined,
+      notes: Array.isArray(m?.notes) ? m.notes : [],
+      isLineBreak: Boolean(m?.isLineBreak),
+      barlineType: (m?.barlineType || m?.barline) as Measure['barlineType'],
+    })),
     notesPerLine: parsed.notesPerLine || 4,
     description: parsed.description || '',
   };
@@ -103,7 +111,7 @@ export function exportSongToText(song: Song): string {
     lines.push(`[Measure ${idx + 1}]${m.section ? ` (${m.section})` : ''}${m.chord ? ` Chord: ${m.chord}` : ''}`);
 
     const jianpuTokens = m.notes.map(n => formatNoteToJianpuString(n));
-    const romanTokens = m.notes.map(n => n.lyric.poj || n.lyric.pij || '—');
+    const romanTokens = m.notes.map(n => n.lyric.poj || n.lyric.tl || '—');
     const hanloTokens = m.notes.map(n => n.lyric.hanji || n.lyric.custom || '—');
 
     lines.push(`Numbered Notation:  ${jianpuTokens.join('  ')}`);
@@ -131,6 +139,42 @@ export function importSongFromText(text: string): Song {
 
   let currentMeasure: Partial<Measure> | null = null;
   let measureIndex = 1;
+  let pendingRoman: string[] | null = null;
+  let pendingHanlo: string[] | null = null;
+  let pendingTl: string[] | null = null;
+  let pendingCustom: string[] | null = null;
+
+  const applyPendingLyrics = () => {
+    if (!currentMeasure?.notes || currentMeasure.notes.length === 0) return;
+    if (pendingRoman) {
+      pendingRoman.forEach((tok, idx) => {
+        if (currentMeasure!.notes![idx]) {
+          currentMeasure!.notes![idx].lyric.poj = tok === '—' ? '' : tok;
+        }
+      });
+    }
+    if (pendingHanlo) {
+      pendingHanlo.forEach((tok, idx) => {
+        if (currentMeasure!.notes![idx]) {
+          currentMeasure!.notes![idx].lyric.hanji = tok === '—' ? '' : tok;
+        }
+      });
+    }
+    if (pendingTl) {
+      pendingTl.forEach((tok, idx) => {
+        if (currentMeasure!.notes![idx]) {
+          currentMeasure!.notes![idx].lyric.tl = tok === '—' ? '' : tok;
+        }
+      });
+    }
+    if (pendingCustom) {
+      pendingCustom.forEach((tok, idx) => {
+        if (currentMeasure!.notes![idx]) {
+          currentMeasure!.notes![idx].lyric.custom = tok === '—' ? '' : tok;
+        }
+      });
+    }
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -154,8 +198,14 @@ export function importSongFromText(text: string): Song {
       song.bpm = parseInt(line.replace('BPM:', '').trim(), 10) || 80;
     } else if (line.startsWith('[Measure') || line.startsWith('[Bar') || line.startsWith('[')) {
       if (currentMeasure && currentMeasure.notes && currentMeasure.notes.length > 0) {
+        applyPendingLyrics();
         song.measures.push(currentMeasure as Measure);
       }
+
+      pendingRoman = null;
+      pendingHanlo = null;
+      pendingTl = null;
+      pendingCustom = null;
 
       const chordMatch = line.match(/Chord:\s*([A-Za-z0-9#b]+)/i);
       const sectionMatch = line.match(/\(([^)]+)\)/);
@@ -171,39 +221,25 @@ export function importSongFromText(text: string): Song {
       if (line.startsWith('Numbered Notation:') || line.startsWith('Jianpu:')) {
         const tokens = line.replace(/^(Numbered Notation:|Jianpu:)/, '').trim().split(/\s+/).filter(Boolean);
         currentMeasure.notes = tokens.map((tok, nIdx) => parseJianpuToken(tok, `${currentMeasure!.id}-n${nIdx}`));
-      } else if ((line.startsWith('羅馬字:') || line.startsWith('Roman:') || line.startsWith('POJ:')) && currentMeasure.notes) {
-        const tokens = line.replace(/^(羅馬字:|Roman:|POJ:)/, '').trim().split(/\s+/).filter(Boolean);
-        tokens.forEach((tok, idx) => {
-          if (currentMeasure!.notes![idx]) {
-            currentMeasure!.notes![idx].lyric.poj = tok === '—' ? '' : tok;
-          }
-        });
-      } else if ((line.startsWith('漢羅:') || line.startsWith('Hanlo:') || line.startsWith('Hanji:')) && currentMeasure.notes) {
-        const tokens = line.replace(/^(漢羅:|Hanlo:|Hanji:)/, '').trim().split(/\s+/).filter(Boolean);
-        tokens.forEach((tok, idx) => {
-          if (currentMeasure!.notes![idx]) {
-            currentMeasure!.notes![idx].lyric.hanji = tok === '—' ? '' : tok;
-          }
-        });
-      } else if ((line.startsWith('TL:') || line.startsWith('PIJ:')) && currentMeasure.notes) {
-        const tokens = line.replace(/^(TL|PIJ):/, '').trim().split(/\s+/).filter(Boolean);
-        tokens.forEach((tok, idx) => {
-          if (currentMeasure!.notes![idx]) {
-            currentMeasure!.notes![idx].lyric.pij = tok === '—' ? '' : tok;
-          }
-        });
-      } else if (line.startsWith('Custom:') && currentMeasure.notes) {
-        const tokens = line.replace('Custom:', '').trim().split(/\s+/).filter(Boolean);
-        tokens.forEach((tok, idx) => {
-          if (currentMeasure!.notes![idx]) {
-            currentMeasure!.notes![idx].lyric.custom = tok === '—' ? '' : tok;
-          }
-        });
+        applyPendingLyrics();
+      } else if (line.startsWith('羅馬字:') || line.startsWith('Roman:') || line.startsWith('POJ:')) {
+        pendingRoman = line.replace(/^(羅馬字:|Roman:|POJ:)/, '').trim().split(/\s+/).filter(Boolean);
+        applyPendingLyrics();
+      } else if (line.startsWith('漢羅:') || line.startsWith('Hanlo:') || line.startsWith('Hanji:')) {
+        pendingHanlo = line.replace(/^(漢羅:|Hanlo:|Hanji:)/, '').trim().split(/\s+/).filter(Boolean);
+        applyPendingLyrics();
+      } else if (line.startsWith('TL:')) {
+        pendingTl = line.replace(/^TL:/, '').trim().split(/\s+/).filter(Boolean);
+        applyPendingLyrics();
+      } else if (line.startsWith('Custom:')) {
+        pendingCustom = line.replace('Custom:', '').trim().split(/\s+/).filter(Boolean);
+        applyPendingLyrics();
       }
     }
   }
 
   if (currentMeasure && currentMeasure.notes && currentMeasure.notes.length > 0) {
+    applyPendingLyrics();
     song.measures.push(currentMeasure as Measure);
   }
 

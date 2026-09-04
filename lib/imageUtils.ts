@@ -74,88 +74,68 @@ export async function compressAndPrepareImage(
   quality: number = DEFAULT_QUALITY
 ): Promise<PreparedImage> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
 
-    reader.onerror = () => reject(new Error(`Failed to read image file "${file.name}"`));
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error(`Failed to parse image "${file.name}"`));
+    };
 
-    reader.onload = (e) => {
-      const srcUrl = e.target?.result as string;
-      if (!srcUrl) {
-        reject(new Error(`File data is empty "${file.name}"`));
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let width = img.naturalWidth || img.width;
+      let height = img.naturalHeight || img.height;
+
+      // Calculate downscaled dimensions if exceeding maxDim
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error(`Failed to initialize 2D canvas context for "${file.name}"`));
         return;
       }
 
-      const img = new Image();
-      img.onerror = () => reject(new Error(`Failed to parse image "${file.name}"`));
+      // Fill white background for transparent PNGs
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, width, height);
 
-      img.onload = () => {
-        let width = img.naturalWidth || img.width;
-        let height = img.naturalHeight || img.height;
+      // Medium quality smoothing saves CPU/battery on mobile devices with identical OCR fidelity
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'medium';
+      ctx.drawImage(img, 0, 0, width, height);
 
-        // Calculate downscaled dimensions if exceeding maxDim
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
+      // Export as JPEG
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+      const cleanBase64 = compressedDataUrl.replace(/^data:image\/jpeg;base64,/, '');
+      const compressedSize = Math.round((cleanBase64.length * 3) / 4);
 
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          // Fallback if canvas context fails
-          const cleanBase64 = srcUrl.replace(/^data:[^;]+;base64,/, '');
-          resolve({
-            id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            name: file.name,
-            mimeType: file.type || 'image/jpeg',
-            base64: cleanBase64,
-            previewUrl: srcUrl,
-            size: file.size,
-            originalSize: file.size,
-            width: img.width,
-            height: img.height,
-          });
-          return;
-        }
-
-        // Fill white background for transparent PNGs
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, width, height);
-
-        // High quality smoothing
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Export as JPEG
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-        const cleanBase64 = compressedDataUrl.replace(/^data:image\/jpeg;base64,/, '');
-        const compressedSize = Math.round((cleanBase64.length * 3) / 4);
-
-        resolve({
-          id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          name: file.name,
-          mimeType: 'image/jpeg',
-          base64: cleanBase64,
-          previewUrl: compressedDataUrl,
-          size: compressedSize,
-          originalSize: file.size,
-          width,
-          height,
-        });
-      };
-
-      img.src = srcUrl;
+      resolve({
+        id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        name: file.name,
+        mimeType: 'image/jpeg',
+        base64: cleanBase64,
+        previewUrl: compressedDataUrl,
+        size: compressedSize,
+        originalSize: file.size,
+        width,
+        height,
+      });
     };
 
-    reader.readAsDataURL(file);
+    img.src = objectUrl;
   });
 }
 
@@ -163,10 +143,10 @@ export async function compressAndPrepareImage(
  * Format bytes to readable string (e.g. 1.2 MB or 450 KB).
  */
 export function formatBytes(bytes: number, decimals: number = 1): string {
-  if (bytes === 0) return '0 B';
+  if (!bytes || bytes <= 0) return '0 B';
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const i = Math.min(sizes.length - 1, Math.max(0, Math.floor(Math.log(bytes) / Math.log(k))));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }

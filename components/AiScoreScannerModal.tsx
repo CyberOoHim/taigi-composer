@@ -19,7 +19,7 @@ import { useGeminiAuth } from '@/hooks/useGeminiAuth';
 import { GeminiAuthCard } from '@/components/GeminiAuthCard';
 
 import { exportSongToJson, exportSongToText } from '@/lib/songParser';
-import { calculateMeasureBeats, getExpectedMeasureBeats } from '@/lib/taigiUtils';
+import { calculateMeasureBeats, getExpectedMeasureBeats, isNonNotationItem } from '@/lib/taigiUtils';
 import {
   AlertCircle,
   ArrowLeftRight,
@@ -238,13 +238,16 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
 
       newMeasures.forEach(m => {
         m.notes.forEach(note => {
+          if (note.pitch === 0 || note.pitch === 'empty' || isNonNotationItem(note)) {
+            return;
+          }
           if (totalTokenIndex < flatTokens.length) {
             const tok = flatTokens[totalTokenIndex++];
             note.lyric = {
               ...note.lyric,
               ...(tok.hanji ? { hanji: tok.hanji } : {}),
               ...(tok.poj ? { poj: tok.poj } : {}),
-              ...(tok.pij ? { pij: tok.pij } : {}),
+              ...(tok.tl ? { tl: tok.tl } : {}),
               ...(tok.custom ? { custom: tok.custom } : {}),
             };
           }
@@ -895,9 +898,9 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                                       {n.lyric.custom || n.lyric.hanji}
                                     </span>
                                   )}
-                                  {(n.lyric.poj || n.lyric.pij) && (
+                                  {(n.lyric.poj || n.lyric.tl) && (
                                     <span className="text-[9px] font-serif italic text-emerald-600 dark:text-emerald-400">
-                                      {n.lyric.poj || n.lyric.pij}
+                                      {n.lyric.poj || n.lyric.tl}
                                     </span>
                                   )}
                                 </div>
@@ -961,9 +964,9 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                                   {n.lyric.custom || n.lyric.hanji}
                                 </span>
                               )}
-                              {(n.lyric.poj || n.lyric.pij) && (
+                              {(n.lyric.poj || n.lyric.tl) && (
                                 <span className="text-[9px] font-serif italic text-emerald-600 dark:text-emerald-400">
-                                  {n.lyric.poj || n.lyric.pij}
+                                  {n.lyric.poj || n.lyric.tl}
                                 </span>
                               )}
                             </div>
@@ -1024,9 +1027,9 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                             className="flex flex-col items-center px-2 py-1 rounded bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 text-xs"
                           >
                             <span className="font-bold text-sm">{syl.hanji || syl.custom || '—'}</span>
-                            {(syl.poj || syl.pij) && (
+                            {(syl.poj || syl.tl) && (
                               <span className="font-serif italic text-emerald-600 dark:text-emerald-400 text-[10px]">
-                                {syl.poj || syl.pij}
+                                {syl.poj || syl.tl}
                               </span>
                             )}
                           </div>

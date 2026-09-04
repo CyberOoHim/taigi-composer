@@ -398,9 +398,10 @@ export class AudioEngine {
     if (!this.isPlaying) return this.pausedSongTime || 0;
 
     const rawSongTime = this.ctx.currentTime - this.startAudioTime;
+    const targetStart = this.pausedSongTime || 0;
     const currentSongTime =
-      this.ctx.currentTime < this.startAudioTime
-        ? Math.max(0, this.pausedSongTime || 0)
+      rawSongTime < targetStart
+        ? Math.max(0, targetStart)
         : Math.max(0, rawSongTime);
 
     const total = this.currentSong ? this.calculateSongDuration(this.currentSong) : 0;
@@ -1380,10 +1381,12 @@ export class AudioEngine {
       if (!this.isPlaying || !this.ctx) return;
 
       const rawSongTime = this.ctx.currentTime - this.startAudioTime;
+      const targetStart = this.pausedSongTime || 0;
       // Before startAudioTime (e.g. during the 80ms lookahead audio lead-in), cursor sits at the intended start time
-      const currentSongTime = this.ctx.currentTime < this.startAudioTime
-        ? Math.max(0, this.pausedSongTime || 0)
-        : Math.max(0, rawSongTime);
+      const currentSongTime =
+        rawSongTime < targetStart
+          ? Math.max(0, targetStart)
+          : Math.max(0, rawSongTime);
 
       if (currentSongTime >= totalDuration) {
         this.stop();

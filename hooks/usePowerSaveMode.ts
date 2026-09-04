@@ -52,29 +52,36 @@ export function usePowerSaveMode() {
 
     const nav = navigator as NavigatorWithBattery;
     if (typeof nav.getBattery === 'function') {
+      let isMounted = true;
       let batteryRef: BatteryManager | null = null;
       let handleLevelChange: (() => void) | null = null;
       let handleChargingChange: (() => void) | null = null;
 
       nav.getBattery().then(battery => {
+        if (!isMounted) return;
         batteryRef = battery;
         setBatteryLevel(battery.level);
         setIsCharging(battery.charging);
 
         // If battery is low (<= 20%) and not charging, and no explicit preference is set, suggest/enable eco mode
-        const saved = localStorage.getItem(STORAGE_KEY);
+        let saved: string | null = null;
+        try { saved = localStorage.getItem(STORAGE_KEY); } catch { /* storage blocked */ }
         if (saved === null && battery.level <= 0.2 && !battery.charging) {
           setIsEcoMode(true);
         }
 
         handleLevelChange = () => {
+          if (!isMounted) return;
           setBatteryLevel(battery.level);
-          if (localStorage.getItem(STORAGE_KEY) === null && battery.level <= 0.2 && !battery.charging) {
+          let savedPref: string | null = null;
+          try { savedPref = localStorage.getItem(STORAGE_KEY); } catch { /* storage blocked */ }
+          if (savedPref === null && battery.level <= 0.2 && !battery.charging) {
             setIsEcoMode(true);
           }
         };
 
         handleChargingChange = () => {
+          if (!isMounted) return;
           setIsCharging(battery.charging);
         };
 
@@ -85,6 +92,7 @@ export function usePowerSaveMode() {
       });
 
       return () => {
+        isMounted = false;
         if (batteryRef) {
           if (handleLevelChange) batteryRef.removeEventListener('levelchange', handleLevelChange);
           if (handleChargingChange) batteryRef.removeEventListener('chargingchange', handleChargingChange);
@@ -99,7 +107,8 @@ export function usePowerSaveMode() {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     const handleChange = (e: MediaQueryListEvent) => {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      let saved: string | null = null;
+      try { saved = localStorage.getItem(STORAGE_KEY); } catch { /* storage blocked */ }
       if (saved === null) {
         setIsEcoMode(e.matches);
       }

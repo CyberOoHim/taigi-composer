@@ -24,7 +24,7 @@ interface State {
 type Action =
   | { type: 'UNDO' }
   | { type: 'REDO' }
-  | { type: 'SET_SONG'; payload: Song }
+  | { type: 'SET_SONG'; payload: Song | ((current: Song) => Song) }
   | { type: 'LOAD_SONG'; payload: Song };
 
 function historyReducer(state: State, action: Action): State {
@@ -50,7 +50,8 @@ function historyReducer(state: State, action: Action): State {
       };
     }
     case 'SET_SONG': {
-      if (JSON.stringify(state.present) === JSON.stringify(action.payload)) {
+      const nextSong = typeof action.payload === 'function' ? action.payload(state.present) : action.payload;
+      if (state.present === nextSong) {
         return state;
       }
       const newPast = [...state.past, state.present];
@@ -59,7 +60,7 @@ function historyReducer(state: State, action: Action): State {
           newPast.length > MAX_HISTORY_LENGTH
             ? newPast.slice(newPast.length - MAX_HISTORY_LENGTH)
             : newPast,
-        present: action.payload,
+        present: nextSong,
         future: [],
       };
     }
@@ -88,17 +89,9 @@ export function useSongHistory(initialSong: Song): SongHistoryState {
 
   const setSong = useCallback(
     (newSongOrUpdater: Song | ((current: Song) => Song)) => {
-      if (typeof newSongOrUpdater === 'function') {
-        // Evaluate updater against current present
-        dispatch({
-          type: 'SET_SONG',
-          payload: newSongOrUpdater(state.present),
-        });
-      } else {
-        dispatch({ type: 'SET_SONG', payload: newSongOrUpdater });
-      }
+      dispatch({ type: 'SET_SONG', payload: newSongOrUpdater });
     },
-    [state.present]
+    []
   );
 
   const undo = useCallback((): boolean => {

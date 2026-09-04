@@ -1,12 +1,23 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { JianpuNote, KeySignature, LyricSyllable, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
 import { normalizeNoteDuration, normalizeSongDurations, splitTaigiLyricSyllables } from './taigiUtils';
-import { getActiveGeminiApiKey } from './geminiAuth';
+import { getActiveGeminiApiKey, PASSCODE_STORAGE_KEY } from './geminiAuth';
+import { safeGetItem } from './storage';
 
 export type GeminiModelChoice = 'gemini-3.7-flash' | 'gemini-3.7-flash-lite';
 export type GeminiThinkingEffort = 'HIGH' | 'MEDIUM' | 'LOW' | 'OFF' | 'AUTO';
 
 export const DEFAULT_GEMINI_MODEL: GeminiModelChoice = 'gemini-3.7-flash';
+
+const genAiInstances = new Map<string, GoogleGenAI>();
+export function getGenAiInstance(apiKey: string): GoogleGenAI {
+  let instance = genAiInstances.get(apiKey);
+  if (!instance) {
+    instance = new GoogleGenAI({ apiKey });
+    genAiInstances.set(apiKey, instance);
+  }
+  return instance;
+}
 
 export interface GeminiAiOptions {
   model?: GeminiModelChoice | string;
@@ -101,27 +112,50 @@ export async function convertTaigiLyricsByVersesWithAi(
   userApiKey?: string,
   options?: GeminiAiOptions
 ): Promise<LyricSyllable[][]> {
+  const model = options?.model || DEFAULT_GEMINI_MODEL;
+  const thinkingEffort = options?.thinkingEffort || 'MEDIUM';
+
+  if (lines.length === 0) return [];
+
+  // 1. Try server-side API route first when in browser and no explicit userApiKey is provided
+  if (typeof window !== 'undefined' && !userApiKey) {
+    try {
+      const passcode = safeGetItem(PASSCODE_STORAGE_KEY) || undefined;
+      const res = await fetch('/api/gemini/convert-lyrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lines, model, thinkingEffort, passcode }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.verses && Array.isArray(data.verses)) {
+          return data.verses;
+        }
+      }
+    } catch {
+      // Fall through to client direct or fallback tokenizer
+    }
+  }
+
   const apiKey =
     userApiKey ||
     getActiveGeminiApiKey() ||
     (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
-  const model = options?.model || DEFAULT_GEMINI_MODEL;
-  const thinkingEffort = options?.thinkingEffort || 'MEDIUM';
 
-  if (!apiKey || lines.length === 0) {
+  if (!apiKey) {
     return lines.map((line) => {
       const rawSyllables = splitTaigiLyricSyllables(line);
       return rawSyllables.map((s) => ({
         hanji: s,
         poj: s,
-        pij: s,
+        tl: s,
         custom: s,
       }));
     });
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getGenAiInstance(apiKey);
     const formattedLines = lines.map((l, i) => `Line ${i + 1}: ${l}`).join('\n');
     const prompt = `You are an expert Taiwanese Hokkien (Taigi / 臺灣話) linguist and music lyricist.
 The user provided the following Taigi lyrics structured line-by-line (each line represents a musical phrase/verse):
@@ -132,7 +166,7 @@ Task:
 2. For each syllable, output:
    - "hanji": The Han character (if applicable, or matching Hanji)
    - "poj": Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc.)
-   - "pij": Tâi-lô (臺灣閩南語羅馬字拼音方案) with correct tone marks (á, à, â, ā, a̍, a̋, oo, nn, etc.)
+   - "tl": Tâi-lô (臺灣閩南語羅馬字拼音方案) with correct tone marks (á, à, â, ā, a̍, a̋, oo, nn, etc.)
    - "custom": Han-lô mixed representation
 
 Return strictly valid JSON in the following schema:
@@ -141,9 +175,9 @@ Return strictly valid JSON in the following schema:
     {
       "lineIndex": 0,
       "syllables": [
-        { "hanji": "望", "poj": "Bāng", "pij": "Bāng", "custom": "望" },
-        { "hanji": "春", "poj": "Chhun", "pij": "Tshun", "custom": "春" },
-        { "hanji": "風", "poj": "hong", "pij": "hong", "custom": "風" }
+        { "hanji": "望", "poj": "Bāng", "tl": "Bāng", "custom": "望" },
+        { "hanji": "春", "poj": "Chhun", "tl": "Tshun", "custom": "春" },
+        { "hanji": "風", "poj": "hong", "tl": "hong", "custom": "風" }
       ]
     }
   ]
@@ -169,7 +203,7 @@ Return strictly valid JSON in the following schema:
           result.push(found.syllables);
         } else {
           const rawSyllables = splitTaigiLyricSyllables(lines[i]);
-          result.push(rawSyllables.map((s) => ({ hanji: s, poj: s, pij: s, custom: s })));
+          result.push(rawSyllables.map((s) => ({ hanji: s, poj: s, tl: s, custom: s })));
         }
       }
       return result;
@@ -183,7 +217,7 @@ Return strictly valid JSON in the following schema:
     return rawSyllables.map((s) => ({
       hanji: s,
       poj: s,
-      pij: s,
+      tl: s,
       custom: s,
     }));
   });
@@ -194,12 +228,33 @@ export async function convertTaigiLyricsWithAi(
   userApiKey?: string,
   options?: GeminiAiOptions
 ): Promise<LyricSyllable[]> {
+  const model = options?.model || DEFAULT_GEMINI_MODEL;
+  const thinkingEffort = options?.thinkingEffort || 'MEDIUM';
+
+  // 1. Try server-side API route first when in browser and no explicit userApiKey is provided
+  if (typeof window !== 'undefined' && !userApiKey) {
+    try {
+      const passcode = safeGetItem(PASSCODE_STORAGE_KEY) || undefined;
+      const res = await fetch('/api/gemini/convert-lyrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, model, thinkingEffort, passcode }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.syllables && Array.isArray(data.syllables)) {
+          return data.syllables;
+        }
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
   const apiKey =
     userApiKey ||
     getActiveGeminiApiKey() ||
     (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
-  const model = options?.model || DEFAULT_GEMINI_MODEL;
-  const thinkingEffort = options?.thinkingEffort || 'MEDIUM';
 
   if (!apiKey) {
     // Fall back to rule-based tokenizer when no API key is present
@@ -207,13 +262,13 @@ export async function convertTaigiLyricsWithAi(
     return rawSyllables.map((s) => ({
       hanji: s,
       poj: s,
-      pij: s,
+      tl: s,
       custom: s,
     }));
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getGenAiInstance(apiKey);
     const prompt = `You are an expert Taiwanese Hokkien (Taigi / 臺灣話) linguist and music lyricist.
 The user provided the following Taigi lyrics (which may be Hanji, POJ, TL, or Han-lô mixed):
 "${text}"
@@ -223,15 +278,15 @@ Task:
 2. For each syllable, output:
    - "hanji": The Han character (if applicable, or matching Hanji)
    - "poj": Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc.)
-   - "pij": Tâi-lô (臺灣閩南語羅馬字拼音方案) with correct tone marks (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc.)
+   - "tl": Tâi-lô (臺灣閩南語羅馬字拼音方案) with correct tone marks (á, à, â, ā, a̍, a̋, oo, nn, etc.)
    - "custom": Han-lô mixed representation
 
 Return strictly valid JSON in the following schema:
 {
   "syllables": [
-    { "hanji": "望", "poj": "Bāng", "pij": "Bāng", "custom": "望" },
-    { "hanji": "春", "poj": "Chhun", "pij": "Tshun", "custom": "春" },
-    { "hanji": "風", "poj": "hong", "pij": "hong", "custom": "風" }
+    { "hanji": "望", "poj": "Bāng", "tl": "Bāng", "custom": "望" },
+    { "hanji": "春", "poj": "Chhun", "tl": "Tshun", "custom": "春" },
+    { "hanji": "風", "poj": "hong", "tl": "hong", "custom": "風" }
   ]
 }
 `;
@@ -259,7 +314,7 @@ Return strictly valid JSON in the following schema:
   return rawSyllables.map((s) => ({
     hanji: s,
     poj: s,
-    pij: s,
+    tl: s,
     custom: s,
   }));
 }
@@ -315,19 +370,8 @@ export async function extractScoreFromImagesWithAi(
   userApiKey?: string,
   options?: GeminiAiOptions
 ): Promise<AiScoreExtractionResult> {
-  const apiKey =
-    userApiKey ||
-    getActiveGeminiApiKey() ||
-    (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
   const model = options?.model || DEFAULT_GEMINI_MODEL;
   const thinkingEffort = options?.thinkingEffort || 'HIGH';
-
-  if (!apiKey) {
-    return {
-      success: false,
-      error: '環境中未設定 Gemini API 金鑰，或尚未驗證通行密碼 (Gemini API key is required in environment)',
-    };
-  }
 
   if (!images || images.length === 0) {
     return {
@@ -343,8 +387,38 @@ export async function extractScoreFromImagesWithAi(
     };
   }
 
+  // 1. Try server-side API route first when in browser and no explicit userApiKey is provided
+  if (typeof window !== 'undefined' && !userApiKey) {
+    try {
+      const passcode = safeGetItem(PASSCODE_STORAGE_KEY) || undefined;
+      const res = await fetch('/api/gemini/scan-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images, mode, model, thinkingEffort, passcode }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data;
+      }
+    } catch {
+      // Fall through to direct call
+    }
+  }
+
+  const apiKey =
+    userApiKey ||
+    getActiveGeminiApiKey() ||
+    (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
+
+  if (!apiKey) {
+    return {
+      success: false,
+      error: '環境中未設定 Gemini API 金鑰，或尚未驗證通行密碼 (Gemini API key is required in environment)',
+    };
+  }
+
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getGenAiInstance(apiKey);
 
     // Build multimodal contents with clean base64 image data
     const imageParts = images.map((img) => ({
@@ -370,7 +444,7 @@ Task: Extract all Taiwanese song lyrics from the provided image(s).
 3. For each syllable, transcribe:
    - "hanji": Traditional Chinese Hanji character (e.g. "望", "春", "風")
    - "poj": Pe̍h-ōe-jī with accurate tone diacritics (e.g. "Bāng", "Chhun", "hong")
-   - "pij": Tâi-lô (臺灣閩南語羅馬字) with accurate tone marks (e.g. "Bāng", "Tshun", "hong")
+   - "tl": Tâi-lô (臺灣閩南語羅馬字) with accurate tone marks (e.g. "Bāng", "Tshun", "hong")
    - "custom": Han-lô mixed representation or punctuation
 4. Extract title, composer, lyricist if visible.
 
@@ -384,8 +458,8 @@ Output strictly valid JSON matching this schema:
     {
       "lineIndex": 0,
       "syllables": [
-        { "hanji": "獨", "poj": "To̍k", "pij": "To̍k", "custom": "獨" },
-        { "hanji": "夜", "poj": "iā", "pij": "iā", "custom": "夜" }
+        { "hanji": "獨", "poj": "To̍k", "tl": "To̍k", "custom": "獨" },
+        { "hanji": "夜", "poj": "iā", "tl": "iā", "custom": "夜" }
       ]
     }
   ]
@@ -433,7 +507,7 @@ Rules for Numbered Notation & Taiwanese Music Transcription:
          ? `* "lyric": Aligned Taiwanese lyric syllable for this note:
        - "hanji": Chinese Han character (e.g. "望")
        - "poj": Pe̍h-ōe-jī with tone marks (e.g. "Bāng")
-       - "pij": Tâi-lô with tone marks (e.g. "Bāng")
+       - "tl": Tâi-lô with tone marks (e.g. "Bāng")
        - "custom": Han-lô mixed representation (e.g. "望")
        If a note is an extension / melisma / tie on the same word, you can leave lyric empty {} or use "~" / "—".`
          : `* "lyric": {} (Empty object since score-only mode was selected).`
@@ -460,7 +534,7 @@ Return strictly valid JSON matching this schema:
           "duration": 1,
           "isDotted": false,
           "isTied": false,
-          "lyric": { "hanji": "獨", "poj": "To̍k", "pij": "To̍k", "custom": "獨" }
+          "lyric": { "hanji": "獨", "poj": "To̍k", "tl": "To̍k", "custom": "獨" }
         }
       ]
     }
@@ -538,7 +612,7 @@ Return strictly valid JSON matching this schema:
           const lyric: LyricSyllable = {
             hanji: typeof rawLyric.hanji === 'string' ? rawLyric.hanji : undefined,
             poj: typeof rawLyric.poj === 'string' ? rawLyric.poj : undefined,
-            pij: typeof rawLyric.pij === 'string' ? rawLyric.pij : undefined,
+            tl: typeof rawLyric.tl === 'string' ? rawLyric.tl : undefined,
             custom: typeof rawLyric.custom === 'string' ? rawLyric.custom : undefined,
           };
 

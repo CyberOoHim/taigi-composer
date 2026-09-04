@@ -79,7 +79,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
       const n = item.note;
       const isNonNotation = isNonNotationItem(n) || n.pitch === 'empty' || (typeof n.duration === 'number' && n.duration <= 0);
       const rawHanji = n.lyric.hanji ?? n.lyric.custom ?? '';
-      const rawRoman = n.lyric.poj ?? n.lyric.pij ?? '';
+      const rawRoman = n.lyric.poj ?? n.lyric.tl ?? '';
       const hasLyric =
         (rawHanji && !isPunctuationOrSpacer(rawHanji) && rawHanji !== '\n' && rawHanji !== '↵') ||
         (rawRoman && !isPunctuationOrSpacer(rawRoman) && rawRoman !== '\n' && rawRoman !== '↵');
@@ -94,7 +94,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
       const n = item.note;
       const isNonNotation = isNonNotationItem(n) || n.pitch === 'empty' || (typeof n.duration === 'number' && n.duration <= 0);
       const rawHanji = n.lyric.hanji ?? n.lyric.custom ?? '';
-      const rawRoman = n.lyric.poj ?? n.lyric.pij ?? '';
+      const rawRoman = n.lyric.poj ?? n.lyric.tl ?? '';
       const hasLyric =
         (rawHanji && !isPunctuationOrSpacer(rawHanji) && rawHanji !== '\n' && rawHanji !== '↵') ||
         (rawRoman && !isPunctuationOrSpacer(rawRoman) && rawRoman !== '\n' && rawRoman !== '↵');
@@ -102,6 +102,13 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
       return !isNonNotation && (hasLyric || isPitched) && n.duration > 0;
     });
   }, [nextVerse]);
+
+  const effectiveMode: 'roman' | 'hanlo' | 'roman_major_hanlo' | 'hanlo_major_roman' = React.useMemo(() => {
+    if (displayMode === 'hanlo_major_roman' || displayMode === 'hanji_poj') return 'hanlo_major_roman';
+    if (displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only') return 'hanlo';
+    if (displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'tl_only') return 'roman';
+    return 'roman_major_hanlo';
+  }, [displayMode]);
 
   return (
     <div className="relative flex flex-col items-center justify-between p-5 sm:p-8 md:p-10 min-h-[320px] sm:min-h-[360px] md:min-h-[380px] bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900 border-b border-zinc-800/80 select-none overflow-hidden transition-all">
@@ -140,7 +147,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
               animate={{ opacity: 0.75, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               whileHover={{ opacity: 0.95 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              transition={{ duration: isEcoMode ? 0 : 0.22, ease: 'easeOut' }}
               className="w-fit max-w-full flex flex-wrap items-center justify-center gap-x-3 sm:gap-x-4 gap-y-2 px-4 py-1.5 rounded-xl bg-zinc-900/40 border border-zinc-800/50 hover:border-zinc-700/60 transition-all shadow-xs"
             >
 
@@ -150,9 +157,9 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 const isNonNotation = isNonNotationItem(note);
                 const rawHanji = note.lyric.hanji ?? note.lyric.custom ?? '';
                 const rawRoman =
-                  displayMode === 'hanji_pij' || displayMode === 'pij_only'
-                    ? note.lyric.pij ?? note.lyric.poj ?? ''
-                    : note.lyric.poj ?? note.lyric.pij ?? '';
+                  displayMode === 'hanji_tl' || displayMode === 'tl_only'
+                    ? note.lyric.tl ?? note.lyric.poj ?? ''
+                    : note.lyric.poj ?? note.lyric.tl ?? '';
 
                 const hasHanji = Boolean(rawHanji && rawHanji.trim());
                 const hasRoman = Boolean(rawRoman && rawRoman.trim());
@@ -179,15 +186,6 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                     : 0
                   : 0;
                 const accidentalSymbol = note.accidental === '#' ? '♯' : note.accidental === 'b' ? '♭' : '';
-
-                const effectiveMode: 'roman' | 'hanlo' | 'roman_major_hanlo' | 'hanlo_major_roman' =
-                  displayMode === 'hanlo_major_roman' || displayMode === 'hanji_poj'
-                    ? 'hanlo_major_roman'
-                    : displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
-                    ? 'hanlo'
-                    : displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'pij_only'
-                    ? 'roman'
-                    : 'roman_major_hanlo';
 
                 let subRubyDisplay = '\u00A0';
                 let mainWordDisplay = '\u00A0';
@@ -339,7 +337,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -14 }}
-              transition={{ duration: 0.28, ease: 'easeOut' }}
+              transition={{ duration: isEcoMode ? 0 : 0.28, ease: 'easeOut' }}
               className={`flex flex-wrap items-center justify-center ${rowGapClass} text-center w-full`}
             >
               {currentVerse.notes.map((item, idx) => {
@@ -359,9 +357,9 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
 
                 const rawHanji = note.lyric.hanji ?? note.lyric.custom ?? '';
                 const rawRoman =
-                  displayMode === 'hanji_pij' || displayMode === 'pij_only'
-                    ? note.lyric.pij ?? note.lyric.poj ?? ''
-                    : note.lyric.poj ?? note.lyric.pij ?? '';
+                  displayMode === 'hanji_tl' || displayMode === 'tl_only'
+                    ? note.lyric.tl ?? note.lyric.poj ?? ''
+                    : note.lyric.poj ?? note.lyric.tl ?? '';
 
                 const hasHanji = Boolean(rawHanji && rawHanji.trim());
                 const hasRoman = Boolean(rawRoman && rawRoman.trim());
@@ -408,15 +406,6 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                     : 0
                   : 0;
                 const accidentalSymbol = note.accidental === '#' ? '♯' : note.accidental === 'b' ? '♭' : '';
-
-                const effectiveMode: 'roman' | 'hanlo' | 'roman_major_hanlo' | 'hanlo_major_roman' =
-                  displayMode === 'hanlo_major_roman' || displayMode === 'hanji_poj'
-                    ? 'hanlo_major_roman'
-                    : displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
-                    ? 'hanlo'
-                    : displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'pij_only'
-                    ? 'roman'
-                    : 'roman_major_hanlo';
 
                 let subRubyDisplay = '\u00A0';
                 let mainWordDisplay = '\u00A0';

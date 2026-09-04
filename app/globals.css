@@ -35,10 +35,16 @@ html, body {
 
 /* Disable continuous looping non-essential animations in Eco Mode */
 .eco-mode .animate-spin,
+.eco-mode .animate-spin-slow,
 .eco-mode .animate-ping,
 .eco-mode .animate-bounce,
-.eco-mode .animate-pulse {
+.eco-mode .animate-pulse,
+.eco-mode [class*="animate-spin"],
+.eco-mode [class*="animate-ping"],
+.eco-mode [class*="animate-pulse"],
+.eco-mode [class*="animate-bounce"] {
   animation: none !important;
+  transition: none !important;
 }
 
 /* Flatten heavy drop shadows in Eco Mode to cut GPU rasterization costs */

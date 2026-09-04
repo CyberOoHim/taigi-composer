@@ -18,7 +18,7 @@ export type ArticulationType = 'none' | 'staccato' | 'tenuto' | 'accent' | 'ferm
 export interface LyricSyllable {
   hanji?: string;   // 漢字 e.g. "望"
   poj?: string;     // 白話字 e.g. "Bāng"
-  pij?: string;     // 臺灣閩南語羅馬字 (臺羅) e.g. "Bāng"
+  tl?: string;      // 臺灣閩南語羅馬字 (臺羅) e.g. "Bāng"
   custom?: string;  // 漢羅合用 / 自訂 e.g. "阮ê", "chhun-hong", 標點 "，", "—"
 }
 
@@ -79,10 +79,10 @@ export type LyricDisplayMode =
   | 'hanlo_major_roman'   // 4. 漢羅（主）+ 羅馬字 (漢羅 is major, 羅馬字 is smaller sub on top)
   | 'all'
   | 'hanji_poj'
-  | 'hanji_pij'
+  | 'hanji_tl'
   | 'hanji_only'
   | 'poj_only'
-  | 'pij_only'
+  | 'tl_only'
   | 'custom_only';
 
 export type InstrumentType = 'piano' | 'flute' | 'whistle' | 'guitar' | 'synth' | 'bell';
@@ -112,7 +112,7 @@ export interface VerseItem {
   lyricSummary: {
     hanji: string;
     poj: string;
-    pij: string;
+    tl: string;
     custom: string;
   };
 }

@@ -28,7 +28,19 @@ export const PwaManager: React.FC = () => {
         (window.navigator as unknown as { standalone?: boolean }).standalone === true
     );
   });
-  const [showBanner, setShowBanner] = useState(false);
+  const [isIosPrompt, setIsIosPrompt] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isStandalone = Boolean(
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+        (window.navigator as unknown as { standalone?: boolean }).standalone === true
+    );
+    let dismissed: string | null = null;
+    try { dismissed = sessionStorage.getItem('pwa_prompt_dismissed'); } catch { /* storage blocked */ }
+    return Boolean(isIos && !isStandalone && !dismissed);
+  });
+  const [showBanner, setShowBanner] = useState<boolean>(() => isIosPrompt);
+  const [hasUpdate, setHasUpdate] = useState(false);
   const [isOffline, setIsOffline] = useState(() => {
     if (typeof window === 'undefined') return false;
     return !navigator.onLine;
@@ -50,7 +62,7 @@ export const PwaManager: React.FC = () => {
             if (installingWorker) {
               installingWorker.onstatechange = () => {
                 if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  console.log('New content available; reloading may be needed.');
+                  setHasUpdate(true);
                 }
               };
             }
@@ -83,7 +95,8 @@ export const PwaManager: React.FC = () => {
       setIsInstallable(true);
 
       // Check if user previously dismissed in this session
-      const dismissed = sessionStorage.getItem('pwa_prompt_dismissed');
+      let dismissed: string | null = null;
+      try { dismissed = sessionStorage.getItem('pwa_prompt_dismissed'); } catch { /* storage blocked */ }
       if (!dismissed) {
         setShowBanner(true);
       }
@@ -123,11 +136,28 @@ export const PwaManager: React.FC = () => {
 
   const handleDismiss = () => {
     setShowBanner(false);
-    sessionStorage.setItem('pwa_prompt_dismissed', 'true');
+    try { sessionStorage.setItem('pwa_prompt_dismissed', 'true'); } catch { /* storage blocked */ }
   };
 
   return (
     <>
+      {/* Service Worker Update Toast */}
+      {hasUpdate && (
+        <div
+          id="pwa-update-indicator"
+          className="fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-2 rounded-2xl bg-amber-500 text-zinc-950 text-xs font-bold shadow-xl border border-amber-400 animate-in fade-in duration-200"
+        >
+          <span>發現新版本更新！</span>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-2.5 py-1 rounded-lg bg-zinc-950 text-amber-400 text-xs font-black hover:bg-zinc-900 transition-all cursor-pointer"
+          >
+            立即重新載入
+          </button>
+        </div>
+      )}
+
       {/* Offline Status Pill Notification */}
       {isOffline && (
         <div
@@ -139,8 +169,8 @@ export const PwaManager: React.FC = () => {
         </div>
       )}
 
-      {/* PWA Install Notification Card */}
-      {showBanner && isInstallable && !isInstalled && (
+      {/* PWA Install Notification Card (Android / Desktop or iOS/iPad) */}
+      {showBanner && !isInstalled && (isInstallable || isIosPrompt) && (
         <aside
           id="pwa-install-banner"
           aria-label="PWA Install Prompt"
@@ -153,13 +183,15 @@ export const PwaManager: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-sm font-bold text-zinc-100 flex items-center gap-1.5">
-                  <span>Install Taigi Composer App</span>
+                  <span>安裝 Taigi Composer</span>
                   <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 rounded-full font-mono">
-                    PWA
+                    iPad / PWA
                   </span>
                 </h2>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  Install on desktop or mobile for offline notation editing and live karaoke playback!
+                  {isIosPrompt
+                    ? '點擊 Safari 分享按鈕 ⎋ 並選擇「加入主畫面」，即可享受全螢幕專業琴鍵與離線練習！'
+                    : '安裝至本機即可在離線狀態下順暢編輯簡譜與卡拉OK伴奏！'}
                 </p>
               </div>
             </div>
@@ -177,16 +209,18 @@ export const PwaManager: React.FC = () => {
               onClick={handleDismiss}
               className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 font-medium transition-colors cursor-pointer"
             >
-              Later
+              稍後 (Later)
             </button>
-            <button
-              id="pwa-install-confirm-btn"
-              onClick={handleInstallClick}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 text-zinc-950 font-bold text-xs shadow-md shadow-amber-500/20 hover:from-amber-400 hover:to-amber-300 transition-all active:scale-95 cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Install Now</span>
-            </button>
+            {!isIosPrompt && (
+              <button
+                id="pwa-install-confirm-btn"
+                onClick={handleInstallClick}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 text-zinc-950 font-bold text-xs shadow-md shadow-amber-500/20 hover:from-amber-400 hover:to-amber-300 transition-all active:scale-95 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>立即安裝</span>
+              </button>
+            )}
           </div>
         </aside>
       )}

@@ -396,7 +396,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         const m = song.measures[mIdx];
         if (!m) continue;
         for (const note of m.notes) {
-          const w = note.lyric.hanji || note.lyric.custom || note.lyric.poj || note.lyric.pij;
+          const w = note.lyric.hanji || note.lyric.custom || note.lyric.poj || note.lyric.tl;
           if (w && w.trim() && w !== '—' && w !== '，' && w !== '。') {
             lyricWords.push(w);
             if (lyricWords.length >= 6) break;
@@ -684,7 +684,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       <div className="flex flex-wrap items-center justify-between px-5 py-3.5 bg-[#10121a]/95 border-b border-zinc-800/80 backdrop-blur-md gap-3 select-none">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-md">
-            <Radio className={`w-5 h-5 ${playbackState.isPlaying ? 'animate-spin' : ''}`} />
+            <Radio className={`w-5 h-5 ${playbackState.isPlaying && !isEcoMode ? 'animate-spin' : ''}`} />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -711,7 +711,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               type="button"
               onClick={() => setDisplayMode('roman')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'pij_only'
+                displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'tl_only'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}
@@ -735,7 +735,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               type="button"
               onClick={() => setDisplayMode('roman_major_hanlo')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                displayMode === 'roman_major_hanlo' || displayMode === 'all' || displayMode === 'hanji_pij'
+                displayMode === 'roman_major_hanlo' || displayMode === 'all' || displayMode === 'hanji_tl'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}

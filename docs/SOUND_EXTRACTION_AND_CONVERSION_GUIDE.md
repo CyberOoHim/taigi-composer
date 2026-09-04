@@ -308,7 +308,7 @@ $$\text{MIDI} = \text{KeyBaseMidi} + \text{ScaleInterval}[\text{pitch}] + (\text
 - **文化與音樂特徵**：
   - 台語傳統歌曲注重「轉音」（哭腔、依韻入樂）。同一個漢字常橫跨多個音符（如《雨夜花》中的「花」，唱名從 $3 \rightarrow 2 \rightarrow 1 \rightarrow 6 \rightarrow 5$ 連續延伸）。
 - **正確處理規則**：
-  - 首個起音音符填入歌詞漢字與羅馬字（`hanji: "花", poj: "hoe", pij: "hue"`）。
+  - 首個起音音符填入歌詞漢字與羅馬字（`hanji: "花", poj: "hoe", tl: "hue"`）。
   - 後續延伸之轉音音符將 `isTied` 設為 `true`，其 `lyric` 物件留空 `{}` 或標記空字串。
   - **嚴禁**在後續延伸音符填入重複漢字、破折號或逗號，否則卡拉OK滾動條會發生文字跳動。
 
@@ -397,7 +397,7 @@ def convert_audio_to_song_json(audio_path, song_title="轉換歌曲", bpm=72, ke
             "pitch": pitch_num,
             "octave": octave_offset,
             "duration": duration_beats,
-            "lyric": {"hanji": "", "poj": "", "pij": "", "custom": ""}
+            "lyric": {"hanji": "", "poj": "", "tl": "", "custom": ""}
         }
         
         current_notes.append(note_obj)
@@ -599,7 +599,7 @@ export interface JianpuNote {
   lyric: {
     hanji?: string;        // 漢字 (例如 "雨")
     poj?: string;          // 白話字 (例如 "Hō͘")
-    pij?: string;          // 臺羅拼音 (例如 "Hōo")
+    tl?: string;           // 臺羅拼音 (例如 "Hōo")
     custom?: string;       // 漢羅或自訂字
   };
   annotation?: string;     // 演奏表情記號 (如 "漸慢", "V", "rit.")

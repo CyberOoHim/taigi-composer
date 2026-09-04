@@ -45,7 +45,7 @@ interface VersePreviewItem {
   tokens: LyricSyllable[];
 }
 
-export type TargetAlignMode = 'auto_ai' | 'roman' | 'hanlo' | 'dual' | 'hanji' | 'poj' | 'pij' | 'custom';
+export type TargetAlignMode = 'auto_ai' | 'roman' | 'hanlo' | 'dual' | 'hanji' | 'poj' | 'tl' | 'custom';
 
 export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   isOpen,
@@ -112,7 +112,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           const h = hSyllables[sIdx] || '';
           tokens.push({
             poj: r,
-            pij: r,
+            tl: r,
             hanji: h,
             custom: h,
           });
@@ -203,7 +203,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           const tokens: LyricSyllable[] = rawSyllables.map(s => ({
             hanji: s,
             poj: s,
-            pij: s,
+            tl: s,
             custom: s,
           }));
           const matchedVerse = songVerses[idx];
@@ -227,14 +227,14 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
       }
     } else {
       // Local splitting: roman or hanlo
-      const isRomanTarget = targetField === 'roman' || targetField === 'poj' || targetField === 'pij';
+      const isRomanTarget = targetField === 'roman' || targetField === 'poj' || targetField === 'tl';
       const previews: VersePreviewItem[] = lines.map((line, idx) => {
         const rawSyllables = splitTaigiLyricSyllables(line);
         const tokens: LyricSyllable[] = rawSyllables.map(s => {
           if (isRomanTarget) {
             return {
               poj: s,
-              pij: s,
+              tl: s,
             };
           } else {
             // hanlo / custom / hanji
@@ -301,11 +301,11 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             ...note.lyric,
             ...(tok.hanji !== undefined ? { hanji: tok.hanji } : {}),
             ...(tok.poj !== undefined ? { poj: tok.poj } : {}),
-            ...(tok.pij !== undefined ? { pij: tok.pij } : {}),
+            ...(tok.tl !== undefined ? { tl: tok.tl } : {}),
             ...(tok.custom !== undefined ? { custom: tok.custom } : {}),
           };
 
-          if (isTokenPunct) {
+          if (isTokenPunct && isNoteNonNotation) {
             note.pitch = 'empty';
             note.duration = 0 as NoteDuration;
           }
@@ -331,11 +331,11 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               ...note.lyric,
               ...(tok.hanji !== undefined ? { hanji: tok.hanji } : {}),
               ...(tok.poj !== undefined ? { poj: tok.poj } : {}),
-              ...(tok.pij !== undefined ? { pij: tok.pij } : {}),
+              ...(tok.tl !== undefined ? { tl: tok.tl } : {}),
               ...(tok.custom !== undefined ? { custom: tok.custom } : {}),
             };
 
-            if (isTokenPunct) {
+            if (isTokenPunct && isNoteNonNotation) {
               note.pitch = 'empty';
               note.duration = 0 as NoteDuration;
             }
@@ -410,7 +410,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 type="button"
                 onClick={() => setTargetField('roman')}
                 className={`p-2 rounded-xl border font-bold transition-all cursor-pointer ${
-                  targetField === 'roman' || targetField === 'poj' || targetField === 'pij'
+                  targetField === 'roman' || targetField === 'poj' || targetField === 'tl'
                     ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs'
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                 }`}
@@ -490,7 +490,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label htmlFor="aligner-input-text" className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                  {targetField === 'roman' || targetField === 'poj' || targetField === 'pij'
+                  {targetField === 'roman' || targetField === 'poj' || targetField === 'tl'
                     ? '貼上 羅馬字 歌詞 (POJ / TL)'
                     : targetField === 'hanlo' || targetField === 'custom' || targetField === 'hanji'
                     ? '貼上 漢羅 歌詞 (Han-lô / 漢字)'
@@ -528,7 +528,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
                 placeholder={
-                  targetField === 'roman' || targetField === 'poj' || targetField === 'pij'
+                  targetField === 'roman' || targetField === 'poj' || targetField === 'tl'
                     ? `例：\nTo̍k iā bô phōaⁿ siú teng-ē\nChheng-hong tùi bīn chhoe`
                     : targetField === 'hanlo' || targetField === 'custom' || targetField === 'hanji'
                     ? `例：\n獨夜無伴守燈下\n清風對面吹`
@@ -654,11 +654,11 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                             >
                               <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-mono">#{tokIdx + 1}</span>
                               <span className="font-bold text-sm leading-tight">
-                                {tok.custom || tok.hanji || (tok.poj || tok.pij || '—')}
+                                {tok.custom || tok.hanji || (tok.poj || tok.tl || '—')}
                               </span>
-                              {(tok.custom || tok.hanji) && (tok.poj || tok.pij) && (
+                              {(tok.custom || tok.hanji) && (tok.poj || tok.tl) && (
                                 <span className="font-serif italic text-emerald-600 dark:text-emerald-400 text-[10px] leading-tight">
-                                  {tok.poj || tok.pij}
+                                  {tok.poj || tok.tl}
                                 </span>
                               )}
                             </div>

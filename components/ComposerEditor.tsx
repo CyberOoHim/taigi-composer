@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   BarlineType,
   EditorEditMode,
@@ -146,12 +146,30 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     return song.measures.filter(m => !getMeasureRhythmReport(m, song.timeSignature || '4/4').isFull).length;
   }, [song.measures, song.timeSignature]);
 
+  const activeTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const safeTimeout = useCallback((callback: () => void, ms: number) => {
+    const id = setTimeout(() => {
+      activeTimersRef.current.delete(id);
+      callback();
+    }, ms);
+    activeTimersRef.current.add(id);
+    return id;
+  }, []);
+
+  useEffect(() => {
+    const timers = activeTimersRef.current;
+    return () => {
+      timers.forEach(id => clearTimeout(id));
+      timers.clear();
+    };
+  }, []);
+
   const showNotice = useCallback((msg: string) => {
     setNotification(msg);
-    setTimeout(() => {
+    safeTimeout(() => {
       setNotification(prev => (prev === msg ? null : prev));
     }, 3500);
-  }, []);
+  }, [safeTimeout]);
 
   // Compute segmented verses based on punctuation or whitespace/rest pause
   const verses = useMemo(() => groupSongIntoVerses(song), [song]);
@@ -186,7 +204,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const validMeasureIdx = Math.min(song.measures.length - 1, Math.max(0, targetMeasureIndex));
 
       // Smooth scroll and select corresponding note
-      const timer = setTimeout(() => {
+      const timer = safeTimeout(() => {
         // Find the first pitched/content note in this measure, defaulting to note 0
         const m = song.measures[validMeasureIdx];
         let targetNoteIdx = 0;
@@ -220,7 +238,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             const el = document.getElementById(`verse-card-${vIdx}`);
             if (el) {
               el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
-              setTimeout(() => {
+              safeTimeout(() => {
                 el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
               }, 2200);
             }
@@ -230,7 +248,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           const el = document.getElementById(`measure-card-${validMeasureIdx}`);
           if (el) {
             el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
-            setTimeout(() => {
+            safeTimeout(() => {
               el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
             }, 2200);
           }
@@ -244,9 +262,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         }
       }, 50);
 
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+      };
     }
-  }, [targetMeasureIndex, editMode, verses, song, audioEngine, showNotice, onTargetMeasureHandled]);
+  }, [targetMeasureIndex, editMode, verses, song, audioEngine, showNotice, onTargetMeasureHandled, safeTimeout]);
 
   const selectedMeasureIndex = selectedCoord ? selectedCoord[0] : null;
   const selectedNoteIndex = selectedCoord ? selectedCoord[1] : null;
@@ -523,12 +543,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       });
 
       if (autoStepAdvance) {
-        setTimeout(() => {
+        safeTimeout(() => {
           handleNavigateNextNote();
         }, 120);
       }
     },
-    [updateSelectedNote, audioEngine, song.key, autoStepAdvance, handleNavigateNextNote]
+    [updateSelectedNote, audioEngine, song.key, autoStepAdvance, handleNavigateNextNote, safeTimeout]
   );
 
   // Change octave
@@ -680,7 +700,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const handleUpdateLyricAt = (
     mIdx: number,
     nIdx: number,
-    type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo',
+    type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo',
     val: string
   ) => {
     updateNoteAt(mIdx, nIdx, n => {
@@ -689,14 +709,14 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       };
       if (type === 'roman') {
         updatedLyric.poj = val;
-        updatedLyric.pij = val;
+        updatedLyric.tl = val;
       } else if (type === 'hanlo') {
         updatedLyric.hanji = val;
         updatedLyric.custom = val;
       } else if (type === 'poj') {
         updatedLyric.poj = val;
-      } else if (type === 'pij') {
-        updatedLyric.pij = val;
+      } else if (type === 'tl') {
+        updatedLyric.tl = val;
       } else if (type === 'hanji') {
         updatedLyric.hanji = val;
       } else if (type === 'custom') {
@@ -705,20 +725,20 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const rawHanji = updatedLyric.hanji ?? '';
       const rawCustom = updatedLyric.custom ?? '';
       const rawPoj = updatedLyric.poj ?? '';
-      const rawPij = updatedLyric.pij ?? '';
+      const rawTl = updatedLyric.tl ?? '';
 
       const hasAnyLyric =
         rawHanji.length > 0 ||
         rawCustom.length > 0 ||
         rawPoj.length > 0 ||
-        rawPij.length > 0;
+        rawTl.length > 0;
 
       const isPurePunct =
         hasAnyLyric &&
         (!rawHanji || isPunctuationOrSpacer(rawHanji)) &&
         (!rawCustom || isPunctuationOrSpacer(rawCustom)) &&
         (!rawPoj || isPunctuationOrSpacer(rawPoj)) &&
-        (!rawPij || isPunctuationOrSpacer(rawPij));
+        (!rawTl || isPunctuationOrSpacer(rawTl));
 
       return {
         ...n,
@@ -794,7 +814,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
   // Helper to focus appropriate input on destination note
   const focusNoteInput = (mIdx: number, nIdx: number, type: string) => {
-    setTimeout(() => {
+    safeTimeout(() => {
       const preferredId = `lyric-input-${mIdx}-${nIdx}-${type}`;
       const el =
         (document.getElementById(preferredId) as HTMLInputElement) ||
@@ -810,7 +830,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   };
 
   // Navigate to next note (focus lyric input)
-  const handleGoToNextNote = (currentMIdx: number, currentNIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => {
+  const handleGoToNextNote = (currentMIdx: number, currentNIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo') => {
     const curM = song.measures[currentMIdx];
     if (!curM) return;
 
@@ -826,7 +846,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   };
 
   // Navigate to previous note
-  const handleGoToPrevNote = (currentMIdx: number, currentNIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => {
+  const handleGoToPrevNote = (currentMIdx: number, currentNIdx: number, type: 'hanji' | 'poj' | 'tl' | 'custom' | 'roman' | 'hanlo') => {
     if (currentNIdx > 0) {
       const prevNIdx = currentNIdx - 1;
       setSelectedCoord([currentMIdx, prevNIdx]);
@@ -883,7 +903,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           ...note.lyric,
           hanji: isHan || isPunct ? tokStr : note.lyric.hanji || '',
           poj: !isHan && !isPunct ? tokStr : note.lyric.poj || '',
-          pij: !isHan && !isPunct ? tokStr : note.lyric.pij || '',
+          tl: !isHan && !isPunct ? tokStr : note.lyric.tl || '',
           custom: tokStr,
         };
         newNotes.push(note);
@@ -913,7 +933,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             lyric: {
               hanji: isHan || isPunct ? tokStr : '',
               poj: !isHan && !isPunct ? tokStr : '',
-              pij: !isHan && !isPunct ? tokStr : '',
+              tl: !isHan && !isPunct ? tokStr : '',
               custom: tokStr,
             },
           });
@@ -971,7 +991,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         ...targetNote.lyric,
         hanji: isHan || isPunct ? tokStr : targetNote.lyric.hanji || '',
         poj: !isHan && !isPunct ? tokStr : targetNote.lyric.poj || '',
-        pij: !isHan && !isPunct ? tokStr : targetNote.lyric.pij || '',
+        tl: !isHan && !isPunct ? tokStr : targetNote.lyric.tl || '',
         custom: tokStr,
       };
       if (isPunct) {
@@ -1037,7 +1057,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           lyric: {
             hanji: isHan || isPunct ? tokStr : '',
             poj: !isHan && !isPunct ? tokStr : '',
-            pij: !isHan && !isPunct ? tokStr : '',
+            tl: !isHan && !isPunct ? tokStr : '',
             custom: tokStr,
           },
         });
@@ -1200,7 +1220,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     onUpdateSong({ ...song, measures: renumbered });
     setSelectedCoord([mIdx + 1, 0]);
     showNotice(`Duplicated Measure #${mIdx + 1}`);
-    setTimeout(() => {
+    safeTimeout(() => {
       scrollToCardElement(`measure-card-${mIdx + 1}`);
     }, 100);
   };
@@ -1385,11 +1405,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       onUpdateSong({ ...song, measures: renumbered });
       setSelectedCoord([toIdx, 0]);
       showNotice(`Moved Measure ${fromIdx + 1} to position ${toIdx + 1}`);
-      setTimeout(() => {
+      safeTimeout(() => {
         scrollToCardElement(`measure-card-${toIdx}`);
       }, 100);
     },
-    [song, onUpdateSong, showNotice]
+    [song, onUpdateSong, showNotice, safeTimeout]
   );
 
   // Toggle measure line break
@@ -1562,11 +1582,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       onUpdateSong({ ...song, measures: renumbered });
       setSelectedCoord([newSelectedMIdx, 0]);
       showNotice(`Moved Verse #${fromVerseIdx + 1} to position #${toVerseIdx + 1}`);
-      setTimeout(() => {
+      safeTimeout(() => {
         scrollToCardElement(`verse-card-${toVerseIdx}`);
       }, 100);
     },
-    [verses, song, onUpdateSong, showNotice]
+    [verses, song, onUpdateSong, showNotice, safeTimeout]
   );
 
   // Jump to edit verse in score editor
@@ -1583,11 +1603,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         ) || verse.notes[0];
 
       handleSelectNote(firstNote.measureIndex, firstNote.noteIndex);
-      setTimeout(() => {
+      safeTimeout(() => {
         scrollToCardElement(`verse-card-${verse.verseIndex}`);
       }, 100);
     },
-    [handleSelectNote, setEditMode]
+    [handleSelectNote, setEditMode, safeTimeout]
   );
 
   // Toggle verse line break (sets isLineBreak on the last measure of the verse)
@@ -1679,11 +1699,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       onUpdateSong({ ...song, measures: renumbered });
       setSelectedCoord([maxMIdx + 1, 0]);
       showNotice(`Duplicated Verse #${verse.verseIndex + 1} (${clonedMeasures.length} measures)`);
-      setTimeout(() => {
+      safeTimeout(() => {
         scrollToCardElement(`verse-card-${verse.verseIndex + 1}`);
       }, 100);
     },
-    [song, onUpdateSong, showNotice]
+    [song, onUpdateSong, showNotice, safeTimeout]
   );
 
   // Delete entire verse
