@@ -784,6 +784,31 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     }));
   };
 
+  // Set annotation on note at (mIdx, nIdx)
+  const handleUpdateAnnotationAt = (mIdx: number, nIdx: number, val: string) => {
+    updateNoteAt(mIdx, nIdx, n => ({
+      ...n,
+      annotation: val,
+    }));
+  };
+
+  // Helper to focus appropriate input on destination note
+  const focusNoteInput = (mIdx: number, nIdx: number, type: string) => {
+    setTimeout(() => {
+      const preferredId = `lyric-input-${mIdx}-${nIdx}-${type}`;
+      const el =
+        (document.getElementById(preferredId) as HTMLInputElement) ||
+        (document.getElementById(`lyric-input-${mIdx}-${nIdx}-punct`) as HTMLInputElement) ||
+        (document.getElementById(`lyric-input-${mIdx}-${nIdx}-annotation`) as HTMLInputElement) ||
+        (document.getElementById(`lyric-input-${mIdx}-${nIdx}-hanlo`) as HTMLInputElement) ||
+        (document.getElementById(`lyric-input-${mIdx}-${nIdx}-roman`) as HTMLInputElement);
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }, 30);
+  };
+
   // Navigate to next note (focus lyric input)
   const handleGoToNextNote = (currentMIdx: number, currentNIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => {
     const curM = song.measures[currentMIdx];
@@ -792,25 +817,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     if (currentNIdx < curM.notes.length - 1) {
       const nextNIdx = currentNIdx + 1;
       setSelectedCoord([currentMIdx, nextNIdx]);
-      const nextInputId = `lyric-input-${currentMIdx}-${nextNIdx}-${type}`;
-      setTimeout(() => {
-        const el = document.getElementById(nextInputId) as HTMLInputElement;
-        if (el) {
-          el.focus();
-          el.select();
-        }
-      }, 30);
+      focusNoteInput(currentMIdx, nextNIdx, type);
     } else if (currentMIdx < song.measures.length - 1) {
       const nextMIdx = currentMIdx + 1;
       setSelectedCoord([nextMIdx, 0]);
-      const nextInputId = `lyric-input-${nextMIdx}-0-${type}`;
-      setTimeout(() => {
-        const el = document.getElementById(nextInputId) as HTMLInputElement;
-        if (el) {
-          el.focus();
-          el.select();
-        }
-      }, 30);
+      focusNoteInput(nextMIdx, 0, type);
     }
   };
 
@@ -819,28 +830,14 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     if (currentNIdx > 0) {
       const prevNIdx = currentNIdx - 1;
       setSelectedCoord([currentMIdx, prevNIdx]);
-      const prevInputId = `lyric-input-${currentMIdx}-${prevNIdx}-${type}`;
-      setTimeout(() => {
-        const el = document.getElementById(prevInputId) as HTMLInputElement;
-        if (el) {
-          el.focus();
-          el.select();
-        }
-      }, 30);
+      focusNoteInput(currentMIdx, prevNIdx, type);
     } else if (currentMIdx > 0) {
       const prevMIdx = currentMIdx - 1;
       const prevM = song.measures[prevMIdx];
       if (prevM && prevM.notes.length > 0) {
         const prevNIdx = prevM.notes.length - 1;
         setSelectedCoord([prevMIdx, prevNIdx]);
-        const prevInputId = `lyric-input-${prevMIdx}-${prevNIdx}-${type}`;
-        setTimeout(() => {
-          const el = document.getElementById(prevInputId) as HTMLInputElement;
-          if (el) {
-            el.focus();
-            el.select();
-          }
-        }, 30);
+        focusNoteInput(prevMIdx, prevNIdx, type);
       }
     }
   };
@@ -2230,6 +2227,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onDistributeVerseLyrics={handleDistributeVerseLyrics}
             onInsertPunctuationToNote={handleInsertPunctuationToNote}
             onUpdateLyric={handleUpdateLyricAt}
+            onUpdateAnnotation={handleUpdateAnnotationAt}
             onGoToNextNote={handleGoToNextNote}
             onGoToPrevNote={handleGoToPrevNote}
             onUpdateSelectedNote={updateSelectedNote}
@@ -2290,6 +2288,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onUpdateMeasureChord={handleUpdateMeasureChord}
             onDistributeMeasureLyrics={handleDistributeMeasureLyrics}
             onUpdateLyric={handleUpdateLyricAt}
+            onUpdateAnnotation={handleUpdateAnnotationAt}
             onGoToNextNote={handleGoToNextNote}
             onGoToPrevNote={handleGoToPrevNote}
             onUpdateSelectedNote={updateSelectedNote}

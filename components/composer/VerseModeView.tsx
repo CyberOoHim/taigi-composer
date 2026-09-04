@@ -27,6 +27,7 @@ interface VerseModeViewProps {
   onDistributeVerseLyrics: (verse: VerseItem, vIdx: number) => void;
   onInsertPunctuationToNote: (punct: string) => void;
   onUpdateLyric: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo', val: string) => void;
+  onUpdateAnnotation?: (mIdx: number, nIdx: number, val: string) => void;
   onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => void;
   onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => void;
   onUpdateSelectedNote: (updater: (note: JianpuNote) => JianpuNote) => void;
@@ -86,6 +87,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   onDistributeVerseLyrics,
   onInsertPunctuationToNote,
   onUpdateLyric,
+  onUpdateAnnotation,
   onGoToNextNote,
   onGoToPrevNote,
   onUpdateSelectedNote,
@@ -370,6 +372,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                       displayMode={displayMode}
                       onSelectNote={onSelectNote}
                       onUpdateLyric={onUpdateLyric}
+                      onUpdateAnnotation={onUpdateAnnotation}
                       onGoToNextNote={onGoToNextNote}
                       onGoToPrevNote={onGoToPrevNote}
                       keyPrefix={`v-${vIdx}-`}

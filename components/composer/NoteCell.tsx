@@ -2,8 +2,17 @@
 
 import React, { useState } from 'react';
 import { JianpuNote, LyricDisplayMode } from '@/types/song';
-import { isNonNotationItem, isPunctuationOrSpacer, extractTaigiTone, isMelismaContinuation, INSTRUMENT_LABELS } from '@/lib/taigiUtils';
-import { Volume2 } from 'lucide-react';
+import {
+  isNonNotationItem,
+  isPunctuationOrSpacer,
+  isPunctuationZeroNote,
+  isStandaloneAnnotationNote,
+  getPunctuationDisplayChar,
+  extractTaigiTone,
+  isMelismaContinuation,
+  INSTRUMENT_LABELS,
+} from '@/lib/taigiUtils';
+import { Volume2, FileText } from 'lucide-react';
 
 interface NoteCellProps {
   note: JianpuNote;
@@ -15,6 +24,7 @@ interface NoteCellProps {
   displayMode: LyricDisplayMode;
   onSelectNote: (mIdx: number, nIdx: number) => void;
   onUpdateLyric: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo', val: string) => void;
+  onUpdateAnnotation?: (mIdx: number, nIdx: number, val: string) => void;
   onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => void;
   onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => void;
   keyPrefix?: string;
@@ -31,6 +41,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
   displayMode,
   onSelectNote,
   onUpdateLyric,
+  onUpdateAnnotation,
   onGoToNextNote,
   onGoToPrevNote,
   keyPrefix = '',
@@ -72,6 +83,132 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
 
   const hanji = note.lyric?.hanji || '';
   const custom = note.lyric?.custom || '';
+
+  // 1. Standalone zero-time annotation note (performance/vocal/section marker)
+  if (isStandaloneAnnotationNote(note)) {
+    return (
+      <div
+        key={`${keyPrefix}${note.id}-${mIdx}-${nIdx}`}
+        id={`wysiwyg-note-cell-${mIdx}-${nIdx}`}
+        onClick={() => onSelectNote(mIdx, nIdx)}
+        className={`group relative flex flex-col items-center justify-between p-2 rounded-2xl border transition-all duration-150 min-w-[72px] max-w-[160px] shrink-0 self-stretch cursor-pointer select-none ${
+          isPlaybackActive
+            ? 'bg-amber-500/20 ring-2 ring-amber-400 scale-[1.02] shadow-md border-amber-500 z-10'
+            : isSelected
+            ? 'border-indigo-500 bg-indigo-50/95 dark:bg-[#161a30] shadow-md ring-2 ring-indigo-400/80 z-10'
+            : 'border-indigo-200/80 dark:border-indigo-800/60 bg-indigo-50/40 dark:bg-indigo-950/30 hover:border-indigo-400 dark:hover:border-indigo-700'
+        }`}
+        title={`Annotation: ${note.annotation} (0 beats) - Click to select or edit`}
+      >
+        {isSelected && (
+          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-indigo-500 rotate-45 rounded-xs z-20 pointer-events-none shadow-xs" />
+        )}
+
+        <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 mb-1">
+          <FileText className="w-3 h-3 shrink-0" />
+          <span>標記 (0拍)</span>
+        </div>
+
+        <div className="w-full flex flex-col items-center justify-center my-auto">
+          <input
+            id={`lyric-input-${mIdx}-${nIdx}-annotation`}
+            type="text"
+            value={note.annotation || ''}
+            onFocus={() => {
+              onSelectNote(mIdx, nIdx);
+              setFocusedField('hanlo');
+            }}
+            onChange={e => {
+              if (onUpdateAnnotation) {
+                onUpdateAnnotation(mIdx, nIdx, e.target.value);
+              } else {
+                onUpdateLyric(mIdx, nIdx, 'hanlo', e.target.value);
+              }
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === 'Tab') {
+                e.preventDefault();
+                if (!e.shiftKey) onGoToNextNote(mIdx, nIdx, 'hanlo');
+                else onGoToPrevNote(mIdx, nIdx, 'hanlo');
+              }
+            }}
+            placeholder="標記..."
+            className="w-full text-center font-bold text-xs px-2 py-1 rounded-lg bg-white/90 dark:bg-[#0e1017] border border-indigo-200 dark:border-indigo-800/80 text-indigo-950 dark:text-indigo-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 min-h-[30px]"
+            title="Performance Annotation (0 beats)"
+          />
+        </div>
+
+        <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-mono mt-1 select-none">
+          Annotation
+        </span>
+      </div>
+    );
+  }
+
+  // 2. Single-character zero-time punctuation / spacer note
+  if (isPunctuationZeroNote(note)) {
+    const rawChar = note.lyric?.hanji || note.lyric?.custom || '';
+    const displayChar = getPunctuationDisplayChar(note);
+
+    return (
+      <div
+        key={`${keyPrefix}${note.id}-${mIdx}-${nIdx}`}
+        id={`wysiwyg-note-cell-${mIdx}-${nIdx}`}
+        onClick={() => onSelectNote(mIdx, nIdx)}
+        className={`group relative flex flex-col items-center justify-between p-1 rounded-xl border border-dashed transition-all duration-150 w-9 sm:w-10 min-w-[36px] max-w-[44px] shrink-0 self-stretch cursor-pointer select-none ${
+          isPlaybackActive
+            ? 'bg-amber-500/20 ring-2 ring-amber-400 border-amber-500'
+            : isSelected
+            ? 'border-amber-500 bg-amber-50/95 dark:bg-[#1c1a14] shadow-md ring-2 ring-amber-400/80 z-10'
+            : 'border-zinc-300 dark:border-zinc-700/80 bg-zinc-50/60 dark:bg-[#0c0e14]/50 hover:border-amber-400'
+        }`}
+        title={`Zero-time note: "${displayChar}" (0 beats) - Click to edit or select`}
+      >
+        {isSelected && (
+          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-amber-500 rotate-45 rounded-xs z-20 pointer-events-none shadow-xs" />
+        )}
+
+        <span className="text-[8px] font-mono text-zinc-400 dark:text-zinc-500 select-none">
+          0拍
+        </span>
+
+        <div className="w-full flex items-center justify-center my-auto">
+          <input
+            id={`lyric-input-${mIdx}-${nIdx}-punct`}
+            type="text"
+            maxLength={2}
+            value={rawChar === '\n' || rawChar === '\r' ? '↵' : (rawChar || (displayChar === '␣' ? '' : displayChar))}
+            placeholder={displayChar === '␣' ? '␣' : ''}
+            onFocus={() => {
+              onSelectNote(mIdx, nIdx);
+              setFocusedField('hanlo');
+            }}
+            onChange={e => {
+              const val = e.target.value;
+              const char = val.slice(-1) || '';
+              onUpdateLyric(mIdx, nIdx, 'hanlo', char);
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ') {
+                e.preventDefault();
+                if (!e.shiftKey) {
+                  onGoToNextNote(mIdx, nIdx, 'hanlo');
+                } else {
+                  onGoToPrevNote(mIdx, nIdx, 'hanlo');
+                }
+              }
+            }}
+            className="w-full text-center font-bold text-lg text-amber-700 dark:text-amber-400 bg-transparent focus:outline-hidden focus:ring-1 focus:ring-amber-500 rounded cursor-text min-h-[36px]"
+            title="Single-character punctuation / delimiter (0 beats) - Type 1 character"
+          />
+        </div>
+
+        <span className="text-[9px] font-mono text-zinc-400 dark:text-zinc-600 select-none">
+          ·
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div

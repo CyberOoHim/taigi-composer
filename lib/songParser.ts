@@ -38,6 +38,7 @@ export function importSongFromJson(jsonString: string): Song {
  */
 export function formatNoteToJianpuString(note: JianpuNote): string {
   if (note.pitch === 'empty' || (typeof note.duration === 'number' && note.duration <= 0)) {
+    if (note.annotation) return `[${note.annotation}]`;
     const hanji = note.lyric.hanji || note.lyric.custom || '';
     if (hanji === '\n' || hanji === '↵') return '↵';
     if (hanji && isPunctuationOrSpacer(hanji)) return hanji;
@@ -221,6 +222,22 @@ function parseJianpuToken(token: string, id: string): JianpuNote {
   let isDotted = false;
 
   let clean = token.trim();
+
+  // If token is explicitly an annotation [xxx]
+  if (clean.startsWith('[') && clean.endsWith(']')) {
+    const annot = clean.slice(1, -1).trim();
+    return {
+      id,
+      pitch: 'empty',
+      octave: 0,
+      accidental: '',
+      duration: 0 as NoteDuration,
+      isDotted: false,
+      isTied: false,
+      annotation: annot,
+      lyric: { hanji: annot, custom: annot },
+    };
+  }
 
   // If token is explicitly a spacer, newline, or punctuation
   if (

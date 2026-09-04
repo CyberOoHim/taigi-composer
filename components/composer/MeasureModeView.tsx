@@ -54,6 +54,7 @@ interface MeasureModeViewProps {
   onUpdateMeasureChord: (mIdx: number, chord: string) => void;
   onDistributeMeasureLyrics: (mIdx: number) => void;
   onUpdateLyric: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo', val: string) => void;
+  onUpdateAnnotation?: (mIdx: number, nIdx: number, val: string) => void;
   onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => void;
   onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => void;
   onUpdateSelectedNote: (updater: (note: JianpuNote) => JianpuNote) => void;
@@ -125,6 +126,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   onUpdateMeasureChord,
   onDistributeMeasureLyrics,
   onUpdateLyric,
+  onUpdateAnnotation,
   onGoToNextNote,
   onGoToPrevNote,
   onUpdateSelectedNote,
@@ -755,6 +757,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                         displayMode={displayMode}
                         onSelectNote={onSelectNote}
                         onUpdateLyric={onUpdateLyric}
+                        onUpdateAnnotation={onUpdateAnnotation}
                         onGoToNextNote={onGoToNextNote}
                         onGoToPrevNote={onGoToPrevNote}
                         keyPrefix={`m-${mIdx}-`}

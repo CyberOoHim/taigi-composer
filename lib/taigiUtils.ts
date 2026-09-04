@@ -557,6 +557,38 @@ export function isNonNotationItem(note: JianpuNote | null | undefined): boolean 
 }
 
 /**
+ * Check if a note is a zero-time punctuation / delimiter / spacer (not an annotation)
+ */
+export function isPunctuationZeroNote(note: JianpuNote | null | undefined): boolean {
+  if (!note) return false;
+  const isZeroTime = isNonNotationItem(note);
+  return isZeroTime && !note.annotation;
+}
+
+/**
+ * Check if a note is a standalone zero-time annotation note (performance/vocal direction)
+ */
+export function isStandaloneAnnotationNote(note: JianpuNote | null | undefined): boolean {
+  if (!note) return false;
+  const isZeroTime = isNonNotationItem(note);
+  return isZeroTime && Boolean(note.annotation);
+}
+
+/**
+ * Get clean 1-character display symbol for a zero-time punctuation note
+ */
+export function getPunctuationDisplayChar(note: JianpuNote | null | undefined): string {
+  if (!note) return '';
+  const hanji = note.lyric?.hanji ?? '';
+  const custom = note.lyric?.custom ?? '';
+  const raw = hanji || custom || '';
+  if (raw === '\n' || raw === '\r' || raw === '↵') return '↵';
+  if (raw === ' ') return '␣';
+  if (raw.trim()) return raw.trim().slice(-1);
+  return '␣';
+}
+
+/**
  * Check if a character or string is a punctuation mark, newline, or spacer
  */
 export function isPunctuationOrSpacer(str?: string): boolean {

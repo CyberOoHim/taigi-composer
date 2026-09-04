@@ -3,7 +3,15 @@
 import React from 'react';
 import { JianpuNote, LyricDisplayMode } from '@/types/song';
 import { cn } from '@/lib/utils';
-import { isMelismaContinuation, isNonNotationItem, isPunctuationOrSpacer, INSTRUMENT_LABELS } from '@/lib/taigiUtils';
+import {
+  isMelismaContinuation,
+  isNonNotationItem,
+  isPunctuationOrSpacer,
+  isPunctuationZeroNote,
+  isStandaloneAnnotationNote,
+  getPunctuationDisplayChar,
+  INSTRUMENT_LABELS,
+} from '@/lib/taigiUtils';
 
 interface JianpuNoteComponentProps {
   note: JianpuNote;
@@ -165,6 +173,50 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
         );
     }
   };
+
+  // 1. Standalone zero-time annotation note (performance/vocal/section marker)
+  if (isStandaloneAnnotationNote(note)) {
+    return (
+      <div
+        onClick={onClick}
+        className={cn(
+          'group relative flex items-center justify-center rounded-lg cursor-pointer transition-all duration-150 select-none touch-manipulation px-2.5 py-1.5 self-center shrink-0 border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-200 hover:border-indigo-400 shadow-2xs',
+          isSelected && 'border-indigo-500 ring-2 ring-indigo-400/80 bg-indigo-100/80 dark:bg-indigo-900/50 shadow-xs',
+          isActive && 'ring-2 ring-amber-500 scale-[1.04]',
+          className
+        )}
+        title={`Annotation: ${note.annotation} (0 beats)`}
+      >
+        <span className="text-xs font-bold whitespace-nowrap">
+          {note.annotation}
+        </span>
+      </div>
+    );
+  }
+
+  // 2. Single-character zero-time punctuation / spacer note
+  if (isPunctuationZeroNote(note)) {
+    const charDisplay = getPunctuationDisplayChar(note);
+    return (
+      <div
+        onClick={onClick}
+        className={cn(
+          'group relative flex flex-col items-center justify-center rounded-lg cursor-pointer transition-all duration-150 select-none touch-manipulation w-7 sm:w-8 min-w-[28px] max-w-[34px] px-0.5 py-1 shrink-0 self-stretch border border-dashed border-zinc-300 dark:border-zinc-700/80 bg-zinc-50/50 dark:bg-[#0c0e14]/40 hover:border-amber-400',
+          isSelected && 'border-amber-500 bg-amber-50/80 dark:bg-[#1f1d18] ring-2 ring-amber-400/50 shadow-xs',
+          isActive && 'bg-amber-400/20 ring-2 ring-amber-500 scale-[1.04]',
+          className
+        )}
+        title={`Zero-time punctuation: "${charDisplay}" (0 beats)`}
+      >
+        <span className="font-bold text-base text-amber-700 dark:text-amber-400 select-none">
+          {charDisplay}
+        </span>
+        <span className="text-[8px] font-mono text-zinc-400 dark:text-zinc-500 leading-none mt-0.5 select-none">
+          0
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div

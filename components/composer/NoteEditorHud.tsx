@@ -11,6 +11,9 @@ import {
   INSTRUMENT_OPTIONS,
   INSTRUMENT_LABELS,
   extractTaigiTone,
+  isPunctuationZeroNote,
+  isStandaloneAnnotationNote,
+  getPunctuationDisplayChar,
 } from '@/lib/taigiUtils';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { getStoredDeckTab, setStoredDeckTab } from '@/lib/storage';
@@ -164,13 +167,19 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
       currentNote.lyric?.custom === '\n' ||
       currentNote.lyric?.custom === '↵');
 
+  const punctChar = getPunctuationDisplayChar(currentNote);
+
   const pitchLabel =
     currentNote.pitch === 0
       ? '0 (Rest)'
+      : isStandaloneAnnotationNote(currentNote)
+      ? `標記: ${currentNote.annotation} (0拍)`
       : isLineBreakNote
-      ? '↵ (Line Break)'
+      ? '↵ (Line Break · 0拍)'
+      : isPunctuationZeroNote(currentNote)
+      ? `"${punctChar}" (標點符號 · 0拍)`
       : currentNote.pitch === 'empty'
-      ? '␣ (Empty / Punctuation)'
+      ? '␣ (Empty / 0拍)'
       : `${currentNote.accidental || ''}${currentNote.pitch}${
           currentNote.octave > 0
             ? '̇'.repeat(currentNote.octave)
@@ -394,9 +403,21 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             </span>
           )}
 
-          {currentNote.annotation && (
+          {isStandaloneAnnotationNote(currentNote) && (
+            <span className="text-xs bg-indigo-600 text-white dark:bg-indigo-500 px-2.5 py-1 rounded-md font-bold shadow-xs">
+              標記 · 0拍: {currentNote.annotation}
+            </span>
+          )}
+
+          {isPunctuationZeroNote(currentNote) && (
+            <span className="text-xs bg-amber-500/20 text-amber-800 dark:text-amber-300 px-2.5 py-1 rounded-md font-bold border border-amber-400/40">
+              標點/間隔 (0拍) · 僅佔 1 字元
+            </span>
+          )}
+
+          {currentNote.annotation && !isStandaloneAnnotationNote(currentNote) && (
             <span className="text-xs bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-md font-bold border border-indigo-400/30">
-              {currentNote.annotation}
+              附屬標記: {currentNote.annotation}
             </span>
           )}
         </div>
@@ -1599,6 +1620,19 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                 >
                   Set Annotation
                 </button>
+                {currentNote.annotation && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSetAnnotation('');
+                      showNotice('Cleared annotation');
+                    }}
+                    className="px-3 py-2 bg-zinc-200 hover:bg-rose-100 hover:text-rose-700 dark:bg-zinc-800 dark:hover:bg-rose-950/50 text-zinc-700 dark:text-zinc-300 font-bold rounded-xl text-xs transition-colors cursor-pointer min-h-[40px] shadow-2xs active:scale-95 touch-manipulation shrink-0"
+                    title="Clear annotation"
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
             </div>
           )}
