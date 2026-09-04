@@ -61,10 +61,14 @@ export class AudioEngine {
   // Listeners
   private stateListeners: ((state: PlaybackState) => void)[] = [];
   private endedListeners: (() => void)[] = [];
+  private tabInterruptionListeners: ((info: { pausedAtTime: number }) => void)[] = [];
   public onNoteStart?: (measureIndex: number, noteIndex: number, note: JianpuNote, durationSec: number) => void;
   public onMeasureStart?: (measureIndex: number) => void;
   public onLoopIteration?: (iterationCount: number) => void;
   private currentLoopIteration = 0;
+
+  private wasInterruptedByTabSwitch = false;
+  private interruptedSongTime = 0;
 
   private currentState: PlaybackState = {
     isPlaying: false,
@@ -110,6 +114,21 @@ export class AudioEngine {
     };
   }
 
+  public subscribeTabInterruption(listener: (info: { pausedAtTime: number }) => void): () => void {
+    this.tabInterruptionListeners.push(listener);
+    return () => {
+      this.tabInterruptionListeners = this.tabInterruptionListeners.filter(l => l !== listener);
+    };
+  }
+
+  public getWasInterrupted(): boolean {
+    return this.wasInterruptedByTabSwitch;
+  }
+
+  public clearInterruption(): void {
+    this.wasInterruptedByTabSwitch = false;
+  }
+
   public setLoopIterationListener(callback?: (iterationCount: number) => void) {
     this.onLoopIteration = callback;
   }
@@ -123,24 +142,148 @@ export class AudioEngine {
     this.endedListeners.forEach(l => l());
   }
 
+  /**
+   * Transparent iOS Web Audio unlocker triggered on first user interaction.
+   * Plays a 1ms inaudible buffer to wake up the iOS/iPadOS audio mixer if interrupted.
+   */
+  public unlockOnUserGesture = () => {
+    if (typeof window === 'undefined') return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const state = this.ctx.state as string;
+    if (state === 'suspended' || state === 'interrupted') {
+      this.ctx.resume().catch(() => {});
+    }
+
+    try {
+      const buffer = this.ctx.createBuffer(1, 1, 22050);
+      const source = this.ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(this.ctx.destination);
+      source.start(0);
+    } catch {
+      // ignore
+    }
+  };
+
   constructor() {
-    // AudioContext will be initialized on first user interaction
+    // AudioContext and lifecycle management
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          // If page is hidden and audio is not actively playing, suspend AudioContext immediately to save battery
-          if (!this.isPlaying && this.ctx && this.ctx.state === 'running') {
-            this.ctx.suspend().catch(() => {});
-          }
-        } else {
-          // If page became visible again and was playing, ensure AudioContext is active
-          if (this.isPlaying && this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume().catch(() => {});
-          }
-        }
-      });
+      // Document visibility change (switching tabs, minimizing browser, screen lock)
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+
+      // Mobile Safari / iPadOS Page Lifecycle events
+      window.addEventListener('pageshow', this.handlePageShow);
+      window.addEventListener('pagehide', this.handlePageHide);
+      window.addEventListener('focus', this.handleWindowFocus);
+      window.addEventListener('blur', this.handleWindowBlur);
+
+      // Global iOS Safari audio unlock on user gesture (passive, capture)
+      window.addEventListener('pointerdown', this.unlockOnUserGesture, { capture: true, passive: true });
+      window.addEventListener('touchstart', this.unlockOnUserGesture, { capture: true, passive: true });
+      window.addEventListener('keydown', this.unlockOnUserGesture, { capture: true, passive: true });
     }
   }
+
+  private handleVisibilityChange = () => {
+    if (typeof document === 'undefined') return;
+    if (document.hidden) {
+      this.handleLeavingTab();
+    } else {
+      this.handleReturningToTab();
+    }
+  };
+
+  private handlePageHide = () => {
+    this.handleLeavingTab();
+  };
+
+  private handlePageShow = () => {
+    if (typeof document !== 'undefined' && !document.hidden) {
+      this.handleReturningToTab();
+    }
+  };
+
+  private handleWindowFocus = () => {
+    if (typeof document !== 'undefined' && !document.hidden) {
+      this.ensureContextActive().catch(() => {});
+    }
+  };
+
+  private handleWindowBlur = () => {
+    this.cancelAutoSuspend();
+  };
+
+  private handleLeavingTab = () => {
+    this.cancelAutoSuspend();
+
+    if (this.isPlaying) {
+      // Accurately capture current playback timestamp before iOS freezes timers
+      const currentPos = this.getCurrentPlaybackTime();
+      this.interruptedSongTime = currentPos;
+      this.pausedSongTime = currentPos;
+      this.wasInterruptedByTabSwitch = true;
+
+      // Cleanly stop scheduled audio oscillators and animation frame
+      this.isPlaying = false;
+      this.isPaused = true;
+      this.stopAudioNodes();
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+      }
+      this.scheduledTimeoutIds.forEach(id => clearTimeout(id));
+      this.scheduledTimeoutIds = [];
+
+      const duration = this.currentSong ? this.calculateSongDuration(this.currentSong) : 0;
+      const loc = this.currentSong
+        ? this.getPlaybackLocationAtTime(this.currentSong, currentPos)
+        : {
+            measureIndex: this.currentState.currentMeasureIndex,
+            noteIndex: this.currentState.currentNoteIndex,
+            noteId: this.currentState.currentNoteId,
+          };
+
+      this.notifyState({
+        isPlaying: false,
+        isPaused: true,
+        currentMeasureIndex: loc.measureIndex,
+        currentNoteIndex: loc.noteIndex,
+        currentNoteId: loc.noteId,
+        currentTime: currentPos,
+        totalDuration: duration,
+        progressPercent: duration > 0 ? (currentPos / duration) * 100 : 0,
+      });
+    }
+
+    // Cleanly suspend context to release iPad audio hardware session
+    if (this.ctx && this.ctx.state === 'running') {
+      this.ctx.suspend().catch(() => {});
+    }
+  };
+
+  private handleReturningToTab = () => {
+    // 1. Recover / inspect AudioContext
+    if (!this.ctx || this.ctx.state === 'closed') {
+      this.initContext(true);
+    } else {
+      const state = this.ctx.state as string;
+      if (state === 'suspended' || state === 'interrupted') {
+        this.ctx.resume().catch(() => {});
+      }
+    }
+
+    // 2. If playback was paused when leaving tab, notify listeners with the exact paused timestamp
+    if (this.wasInterruptedByTabSwitch) {
+      const pausedAt = this.interruptedSongTime;
+      this.tabInterruptionListeners.forEach(listener => {
+        try {
+          listener({ pausedAtTime: pausedAt });
+        } catch {}
+      });
+    }
+  };
 
   /**
    * Schedule automatic AudioContext suspension after inactivity (e.g. 3000ms)
@@ -166,35 +309,102 @@ export class AudioEngine {
     }
   }
 
-  private initContext() {
+  /**
+   * Initializes or recreates the AudioContext with proper graph wiring.
+   * If forceRecreate is true or the context was closed, a fresh AudioContext is spawned.
+   */
+  public initContext(forceRecreate = false) {
     if (typeof window === 'undefined') return;
     this.cancelAutoSuspend();
 
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!AudioCtx) return;
-      this.ctx = new AudioCtx();
-
-      this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
-      this.masterGain.connect(this.ctx.destination);
-
-      this.melodyGain = this.ctx.createGain();
-      this.melodyGain.gain.setValueAtTime(this.options.melodyVolume, this.ctx.currentTime);
-      this.melodyGain.connect(this.masterGain);
-
-      this.backingGain = this.ctx.createGain();
-      this.backingGain.gain.setValueAtTime(this.options.backingVolume, this.ctx.currentTime);
-      this.backingGain.connect(this.masterGain);
-
-      this.metronomeGain = this.ctx.createGain();
-      this.metronomeGain.gain.setValueAtTime(this.options.metronomeVolume, this.ctx.currentTime);
-      this.metronomeGain.connect(this.masterGain);
+    if (forceRecreate && this.ctx) {
+      try {
+        this.ctx.close().catch(() => {});
+      } catch {}
+      this.ctx = null;
     }
 
-    if (this.ctx && this.ctx.state === 'suspended') {
+    if (!this.ctx || this.ctx.state === 'closed') {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+
+      try {
+        this.ctx = new AudioCtx();
+      } catch (err) {
+        console.warn('[AudioEngine] Failed to instantiate AudioContext:', err);
+        return;
+      }
+
+      try {
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
+        this.masterGain.connect(this.ctx.destination);
+
+        this.melodyGain = this.ctx.createGain();
+        this.melodyGain.gain.setValueAtTime(this.options.melodyVolume, this.ctx.currentTime);
+        this.melodyGain.connect(this.masterGain);
+
+        this.backingGain = this.ctx.createGain();
+        this.backingGain.gain.setValueAtTime(this.options.backingVolume, this.ctx.currentTime);
+        this.backingGain.connect(this.masterGain);
+
+        this.metronomeGain = this.ctx.createGain();
+        this.metronomeGain.gain.setValueAtTime(this.options.metronomeVolume, this.ctx.currentTime);
+        this.metronomeGain.connect(this.masterGain);
+      } catch (e) {
+        console.warn('[AudioEngine] Gain node initialization warning:', e);
+      }
+    }
+
+    const state = this.ctx.state as string;
+    if (state === 'suspended' || state === 'interrupted') {
       this.ctx.resume().catch(() => {});
     }
+  }
+
+  /**
+   * Ensures AudioContext is active and ready to produce sound.
+   * Handles iOS / iPadOS WebKit 'interrupted' state and closed state recovery.
+   */
+  public async ensureContextActive(): Promise<boolean> {
+    if (typeof window === 'undefined') return false;
+    this.cancelAutoSuspend();
+
+    if (!this.ctx || this.ctx.state === 'closed') {
+      this.initContext(true);
+    }
+    if (!this.ctx) return false;
+
+    const state = this.ctx.state as string;
+    if (state === 'suspended' || state === 'interrupted') {
+      try {
+        await this.ctx.resume();
+      } catch (err) {
+        console.warn('[AudioEngine] ctx.resume() waiting for user interaction:', err);
+        return false;
+      }
+    }
+
+    return (this.ctx.state as string) === 'running';
+  }
+
+  /**
+   * Accurately calculates current playback time in seconds
+   */
+  public getCurrentPlaybackTime(): number {
+    if (!this.ctx) return this.pausedSongTime || 0;
+    if (!this.isPlaying) return this.pausedSongTime || 0;
+
+    const rawSongTime = this.ctx.currentTime - this.startAudioTime;
+    const currentSongTime =
+      this.ctx.currentTime < this.startAudioTime
+        ? Math.max(0, this.pausedSongTime || 0)
+        : Math.max(0, rawSongTime);
+
+    const total = this.currentSong ? this.calculateSongDuration(this.currentSong) : 0;
+    return total > 0 ? Math.min(Math.max(0, currentSongTime), total) : Math.max(0, currentSongTime);
   }
 
   public setOptions(opts: Partial<AudioEngineOptions>) {
@@ -668,7 +878,7 @@ export class AudioEngine {
     this.stop(); // Stop any existing playback
 
     const targetMeasure = song.measures[measureIndex];
-    if (!targetMeasure || targetMeasure.notes.length === 0) return;
+    if (!targetMeasure || targetMeasure.notes.length === 0 || !this.ctx) return;
 
     this.currentSong = song;
     this.isPlaying = true;
@@ -803,7 +1013,7 @@ export class AudioEngine {
     this.initContext();
     this.stop(); // Stop any existing playback
 
-    if (!verseNotes || verseNotes.length === 0) return;
+    if (!verseNotes || verseNotes.length === 0 || !this.ctx) return;
 
     this.currentSong = song;
     this.isPlaying = true;
@@ -991,6 +1201,8 @@ export class AudioEngine {
   public play(song: Song, startFromSec: number = 0) {
     this.initContext();
     this.stop(); // Stop any existing playback
+
+    if (!this.ctx) return;
 
     this.currentSong = song;
     this.isPlaying = true;
@@ -1263,22 +1475,34 @@ export class AudioEngine {
   }
 
   public pause() {
-    if (!this.isPlaying || this.isPaused || !this.ctx) return;
-    this.pausedSongTime = Math.max(0, this.ctx.currentTime - this.startAudioTime);
+    if (!this.isPlaying || this.isPaused) return;
+    this.pausedSongTime = this.getCurrentPlaybackTime();
     this.isPaused = true;
     this.isPlaying = false;
+    this.wasInterruptedByTabSwitch = false;
     this.stopAudioNodes();
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+    this.scheduledTimeoutIds.forEach(id => clearTimeout(id));
+    this.scheduledTimeoutIds = [];
+
     const duration = this.currentSong ? this.calculateSongDuration(this.currentSong) : 0;
+    const loc = this.currentSong
+      ? this.getPlaybackLocationAtTime(this.currentSong, this.pausedSongTime)
+      : {
+          measureIndex: this.currentState.currentMeasureIndex,
+          noteIndex: this.currentState.currentNoteIndex,
+          noteId: this.currentState.currentNoteId,
+        };
+
     this.notifyState({
       isPlaying: false,
       isPaused: true,
-      currentMeasureIndex: 0,
-      currentNoteIndex: 0,
-      currentNoteId: null,
+      currentMeasureIndex: loc.measureIndex,
+      currentNoteIndex: loc.noteIndex,
+      currentNoteId: loc.noteId,
       currentTime: this.pausedSongTime,
       totalDuration: duration,
       progressPercent: duration > 0 ? (this.pausedSongTime / duration) * 100 : 0,
@@ -1287,6 +1511,7 @@ export class AudioEngine {
   }
 
   public resume() {
+    this.wasInterruptedByTabSwitch = false;
     if (this.currentSong && (this.isPaused || !this.isPlaying)) {
       this.play(this.currentSong, this.pausedSongTime);
     }
@@ -1296,6 +1521,7 @@ export class AudioEngine {
     this.isPlaying = false;
     this.isPaused = false;
     this.pausedSongTime = 0;
+    this.wasInterruptedByTabSwitch = false;
     this.stopAudioNodes();
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);

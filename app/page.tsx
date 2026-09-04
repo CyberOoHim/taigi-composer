@@ -117,6 +117,50 @@ export default function Home() {
     }
   }, [song]);
 
+  // Flush song state to storage immediately when switching tabs or apps (especially critical on iPad)
+  useEffect(() => {
+    const flushSongToStorage = () => {
+      if (song) {
+        setStoredCurrentSong(song);
+      }
+    };
+
+    window.addEventListener('pagehide', flushSongToStorage);
+    window.addEventListener('beforeunload', flushSongToStorage);
+    const handleVisibility = () => {
+      if (document.hidden) {
+        flushSongToStorage();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('pagehide', flushSongToStorage);
+      window.removeEventListener('beforeunload', flushSongToStorage);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [song]);
+
+  // Listen to cross-tab storage changes (e.g. if user edited or imported in another tab)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'jianpu_current_song_v2' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && parsed.id && parsed.id !== song.id) {
+            loadNewSong(parsed);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [song.id, loadNewSong]);
+
   const handleApplyScannedSong = useCallback(
     (
       resultSong: Song,

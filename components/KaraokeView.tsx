@@ -37,6 +37,8 @@ import {
   Maximize2,
   Minimize2,
   ZoomIn,
+  Play,
+  X,
 } from 'lucide-react';
 
 export type { KaraokeSection } from './karaoke/SectionJumpBar';
@@ -201,10 +203,25 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     };
   }, [playbackState.isPlaying]);
 
+  // Background tab switch interruption recovery state
+  const [tabInterruptedPrompt, setTabInterruptedPrompt] = useState<{ pausedAtTime: number } | null>(null);
+
+  useEffect(() => {
+    const unsubInterruption = audioEngine.subscribeTabInterruption(info => {
+      setTabInterruptedPrompt(info);
+    });
+    return () => {
+      unsubInterruption();
+    };
+  }, [audioEngine]);
+
   // Sync state with AudioEngine
   useEffect(() => {
     const unsubState = audioEngine.subscribeState(state => {
       setPlaybackState(state);
+      if (state.isPlaying) {
+        setTabInterruptedPrompt(null);
+      }
     });
 
     const unsubEnded = audioEngine.subscribeEnded(() => {
@@ -768,6 +785,42 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Background Tab Interruption Recovery Pill / Banner */}
+      {tabInterruptedPrompt && playbackState.isPaused && (
+        <div
+          id="ktv-tab-interrupted-banner"
+          role="alert"
+          className="flex items-center justify-between gap-3 px-4 py-2.5 bg-amber-500/15 border border-amber-500/40 rounded-2xl text-amber-200 text-xs sm:text-sm animate-in fade-in slide-in-from-top-2 duration-200 shadow-lg backdrop-blur-sm"
+        >
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+            <span className="font-medium">播放已在切換分頁／App時暫停（位置已保留）</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              id="ktv-tab-resume-btn"
+              type="button"
+              onClick={() => {
+                setTabInterruptedPrompt(null);
+                audioEngine.resume();
+              }}
+              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-zinc-950 font-bold rounded-xl text-xs transition-all shadow-xs cursor-pointer touch-manipulation flex items-center gap-1.5"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              繼續播放
+            </button>
+            <button
+              type="button"
+              onClick={() => setTabInterruptedPrompt(null)}
+              className="p-1 hover:text-white text-zinc-400 rounded-lg transition-colors cursor-pointer"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main KTV Stage Arena (Always 2 Verses: Next on top, Current in center) */}
       <KaraokeStage

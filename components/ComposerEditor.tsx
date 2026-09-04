@@ -974,6 +974,31 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     audioEngine.previewNote(song.key, newNote);
   };
 
+  // Note management: Insert Break (Line break note ↵) directly after specific note
+  const handleInsertBreakAt = (mIdx: number, nIdx: number) => {
+    const newBreakNote: JianpuNote = {
+      id: generateId('n'),
+      pitch: 'empty',
+      octave: 0,
+      duration: 0,
+      lyric: {
+        hanji: '\n',
+        custom: '\n',
+      },
+    };
+
+    const newMeasures = song.measures.map((m, currentMIdx) => {
+      if (currentMIdx !== mIdx) return m;
+      const notes = [...m.notes];
+      notes.splice(nIdx + 1, 0, newBreakNote);
+      return { ...m, notes };
+    });
+
+    onUpdateSong({ ...song, measures: newMeasures });
+    setSelectedCoord([mIdx, nIdx + 1]);
+    showNotice('Inserted line break note "↵" after current note (splits verse, 0 beats)');
+  };
+
   // Note management: Delete Note at specific position
   const handleDeleteNoteAt = (mIdx: number, nIdx: number) => {
     const targetMeasure = song.measures[mIdx];
@@ -1981,6 +2006,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onInsertAnnotation={handleInsertAnnotationToNote}
             onSetAnnotation={handleSetAnnotation}
             onInsertNoteAt={handleInsertNoteAt}
+            onInsertBreakAt={handleInsertBreakAt}
             onDeleteNoteAt={handleDeleteNoteAt}
             onNavigateNextNote={handleNavigateNextNote}
             onNavigatePrevNote={handleNavigatePrevNote}
@@ -2037,6 +2063,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onInsertAnnotation={handleInsertAnnotationToNote}
             onSetAnnotation={handleSetAnnotation}
             onInsertNoteAt={handleInsertNoteAt}
+            onInsertBreakAt={handleInsertBreakAt}
             onDeleteNoteAt={handleDeleteNoteAt}
             onNavigateNextNote={handleNavigateNextNote}
             onNavigatePrevNote={handleNavigatePrevNote}

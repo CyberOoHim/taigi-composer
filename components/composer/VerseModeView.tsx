@@ -44,6 +44,7 @@ interface VerseModeViewProps {
   onInsertAnnotation: (annot: string) => void;
   onSetAnnotation: (annot: string) => void;
   onInsertNoteAt: (mIdx: number, nIdx: number) => void;
+  onInsertBreakAt?: (mIdx: number, nIdx: number) => void;
   onDeleteNoteAt: (mIdx: number, nIdx: number) => void;
   onNavigateNextNote?: () => void;
   onNavigatePrevNote?: () => void;
@@ -97,6 +98,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   onInsertAnnotation,
   onSetAnnotation,
   onInsertNoteAt,
+  onInsertBreakAt,
   onDeleteNoteAt,
   onNavigateNextNote,
   onNavigatePrevNote,
@@ -393,6 +395,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   onInsertAnnotation={onInsertAnnotation}
                   onSetAnnotation={onSetAnnotation}
                   onInsertNoteAt={onInsertNoteAt}
+                  onInsertBreakAt={onInsertBreakAt}
                   onDeleteNoteAt={onDeleteNoteAt}
                   onSplitMeasureBeforeNote={(m, n) => {
                     if (onSplitMeasureAtNote) onSplitMeasureAtNote(m, n);

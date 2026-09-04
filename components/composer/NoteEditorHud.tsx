@@ -36,6 +36,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Copy,
+  CornerDownLeft,
 } from 'lucide-react';
 
 export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
@@ -61,6 +62,7 @@ export interface NoteEditorHudProps {
   onInsertAnnotation: (annot: string) => void;
   onSetAnnotation: (annot: string) => void;
   onInsertNoteAt: (mIdx: number, nIdx: number) => void;
+  onInsertBreakAt?: (mIdx: number, nIdx: number) => void;
   onDeleteNoteAt: (mIdx: number, nIdx: number) => void;
   onSplitMeasureBeforeNote?: (mIdx: number, nIdx: number) => void;
   onNavigateNextNote?: () => void;
@@ -107,6 +109,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   onInsertAnnotation,
   onSetAnnotation,
   onInsertNoteAt,
+  onInsertBreakAt,
   onDeleteNoteAt,
   onSplitMeasureBeforeNote,
   onNavigateNextNote,
@@ -145,9 +148,18 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   const durationInfo = getDurationChineseInfo(currentNote.duration);
 
   // Pitch formatted label
+  const isLineBreakNote =
+    currentNote.pitch === 'empty' &&
+    (currentNote.lyric?.hanji === '\n' ||
+      currentNote.lyric?.hanji === '↵' ||
+      currentNote.lyric?.custom === '\n' ||
+      currentNote.lyric?.custom === '↵');
+
   const pitchLabel =
     currentNote.pitch === 0
       ? '0 (Rest)'
+      : isLineBreakNote
+      ? '↵ (Line Break)'
       : currentNote.pitch === 'empty'
       ? '␣ (Empty / Punctuation)'
       : `${currentNote.accidental || ''}${currentNote.pitch}${
@@ -426,6 +438,21 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             <PlusCircle className="w-4 h-4" />
             <span className="hidden sm:inline">Insert Note</span>
           </button>
+
+          {/* Insert Break (Line break note directly after current note) */}
+          {onInsertBreakAt && (
+            <button
+              id="hud-insert-break-btn"
+              type="button"
+              onClick={() => onInsertBreakAt(selectedMeasureIndex, selectedNoteIndex ?? 0)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/80 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
+              title="Insert line break note (↵) directly after current note (splits verse, 0 beats)"
+            >
+              <CornerDownLeft className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span className="hidden sm:inline">Insert Break</span>
+              <span className="sm:hidden">Break</span>
+            </button>
+          )}
 
           {/* Delete Note */}
           <button
