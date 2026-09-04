@@ -45,6 +45,8 @@ interface VersePreviewItem {
   tokens: LyricSyllable[];
 }
 
+export type TargetAlignMode = 'auto_ai' | 'roman' | 'hanlo' | 'dual' | 'hanji' | 'poj' | 'pij' | 'custom';
+
 export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   isOpen,
   onClose,
@@ -62,7 +64,9 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   } = useGeminiAuth();
 
   const [inputText, setInputText] = useState('');
-  const [targetField, setTargetField] = useState<'hanji' | 'poj' | 'pij' | 'custom' | 'auto_ai'>('auto_ai');
+  const [romanText, setRomanText] = useState('');
+  const [hanloText, setHanloText] = useState('');
+  const [targetField, setTargetField] = useState<TargetAlignMode>('auto_ai');
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [versePreviews, setVersePreviews] = useState<VersePreviewItem[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -78,6 +82,54 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   // Handle preview generation with newline as verse splitter
   const handleGeneratePreview = async () => {
     setAiError(null);
+
+    // DUAL MODE: User provides both Romanization and Han-lo separately
+    if (targetField === 'dual') {
+      if (!romanText.trim() && !hanloText.trim()) return;
+
+      const rLines = romanText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const hLines = hanloText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const lineCount = Math.max(rLines.length, hLines.length);
+
+      const previews: VersePreviewItem[] = [];
+      for (let idx = 0; idx < lineCount; idx++) {
+        const rLine = rLines[idx] || '';
+        const hLine = hLines[idx] || '';
+        const rSyllables = rLine ? splitTaigiLyricSyllables(rLine) : [];
+        const hSyllables = hLine ? splitTaigiLyricSyllables(hLine) : [];
+        const maxSyl = Math.max(rSyllables.length, hSyllables.length);
+
+        const tokens: LyricSyllable[] = [];
+        for (let sIdx = 0; sIdx < maxSyl; sIdx++) {
+          const r = rSyllables[sIdx] || '';
+          const h = hSyllables[sIdx] || '';
+          tokens.push({
+            poj: r,
+            pij: r,
+            hanji: h,
+            custom: h,
+          });
+        }
+
+        const matchedVerse = songVerses[idx];
+        previews.push({
+          verseIndex: idx,
+          verseTitle: matchedVerse
+            ? `Verse ${idx + 1}${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
+            : `Verse ${idx + 1} (超出歌曲段落數)`,
+          section: matchedVerse?.section,
+          measureRange: matchedVerse
+            ? `Measures ${matchedVerse.startMeasureNumber}-${matchedVerse.endMeasureNumber}`
+            : '',
+          noteCount: matchedVerse ? matchedVerse.notes.length : 0,
+          tokens,
+        });
+      }
+
+      setVersePreviews(previews);
+      return;
+    }
+
     if (!inputText.trim()) return;
 
     // Split input text by newlines into non-empty lines (each line is a verse)
@@ -91,11 +143,10 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
     if (targetField === 'auto_ai') {
       // Check passcode authentication before calling Gemini
       if (!isAiAuthenticated) {
-        setAiError('Passcode not verified. Cannot call Gemini API.');
+        setAiError('Gemini 密碼尚未驗證，無法呼叫 AI 分析。請先設定 API 金鑰或密碼。');
         if (onOpenGeminiAuth) onOpenGeminiAuth();
         return;
       }
-
 
       setIsLoadingAi(true);
       try {
@@ -127,7 +178,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             verseIndex: idx,
             verseTitle: matchedVerse
               ? `Verse ${idx + 1}${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
-              : `Verse ${idx + 1} (Exceeds song verse count)`,
+              : `Verse ${idx + 1} (超出歌曲段落數)`,
             section: matchedVerse?.section,
             measureRange: matchedVerse
               ? `Measures ${matchedVerse.startMeasureNumber}-${matchedVerse.endMeasureNumber}`
@@ -138,7 +189,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
         });
 
         setVersePreviews(previews);
-      } catch (err: unknown) {
+      } catch {
         // Fallback to local rule-based tokenizer
         const previews: VersePreviewItem[] = lines.map((line, idx) => {
           const rawSyllables = splitTaigiLyricSyllables(line);
@@ -153,7 +204,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             verseIndex: idx,
             verseTitle: matchedVerse
               ? `Verse ${idx + 1}${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
-              : `Verse ${idx + 1} (Exceeds song verse count)`,
+              : `Verse ${idx + 1} (超出歌曲段落數)`,
             section: matchedVerse?.section,
             measureRange: matchedVerse
               ? `Measures ${matchedVerse.startMeasureNumber}-${matchedVerse.endMeasureNumber}`
@@ -163,25 +214,35 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           };
         });
         setVersePreviews(previews);
-        setAiError('AI connection failed or key invalid. Switched to local rule-based tokenizer.');
+        setAiError('AI 連線失敗或金鑰無效，已切換至本機規則分詞。');
       } finally {
         setIsLoadingAi(false);
       }
     } else {
-      // Local splitting
+      // Local splitting: roman or hanlo
+      const isRomanTarget = targetField === 'roman' || targetField === 'poj' || targetField === 'pij';
       const previews: VersePreviewItem[] = lines.map((line, idx) => {
         const rawSyllables = splitTaigiLyricSyllables(line);
         const tokens: LyricSyllable[] = rawSyllables.map(s => {
-          const item: LyricSyllable = {};
-          item[targetField] = s;
-          return item;
+          if (isRomanTarget) {
+            return {
+              poj: s,
+              pij: s,
+            };
+          } else {
+            // hanlo / custom / hanji
+            return {
+              hanji: s,
+              custom: s,
+            };
+          }
         });
         const matchedVerse = songVerses[idx];
         return {
           verseIndex: idx,
           verseTitle: matchedVerse
             ? `Verse ${idx + 1}${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
-            : `Verse ${idx + 1} (Exceeds song verse count)`,
+            : `Verse ${idx + 1} (超出歌曲段落數)`,
           section: matchedVerse?.section,
           measureRange: matchedVerse
             ? `Measures ${matchedVerse.startMeasureNumber}-${matchedVerse.endMeasureNumber}`
@@ -293,7 +354,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60">
           <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold text-lg">
             <AlignLeft className="w-5 h-5 text-amber-500" />
-            <span>Taigi Lyric Syllable Aligner</span>
+            <span>臺語歌詞對齊台 (Lyric Aligner Deck)</span>
           </div>
           <button
             id="quick-aligner-close-btn"
@@ -306,145 +367,192 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label htmlFor="aligner-input-text" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                Paste Lyrics Text (Hanji / POJ / TL / Han-lô)
-              </label>
-              <div className="flex items-center gap-2">
-                {onOpenScanner && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onOpenScanner();
-                    }}
-                    className="flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 hover:underline cursor-pointer"
-                  >
-                    <ScanLine className="w-3 h-3" />
-                    <span>Extract Lyrics from Score Image (OCR)</span>
-                  </button>
-                )}
-                <span className="hidden sm:inline text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                  💡 Newlines split verses
-                </span>
-              </div>
-            </div>
-            <textarea
-              id="aligner-input-text"
-              rows={4}
-              value={inputText}
-              onChange={e => setInputText(e.target.value)}
-              placeholder={`Example:\nTo̍k iā bô phōaⁿ siú teng-ē\nChheng-hong tùi bīn chhoe\n\nKhuànn-tio̍h thâu-tsîng thinn tō beh kng`}
-              className="w-full px-3 py-2.5 text-sm bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 font-serif"
-            />
-          </div>
-
           {/* Target Field Mode Selection */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-              Alignment Target Mode
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                對齊目標模式 (Alignment Mode)
+              </label>
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                支援 羅馬字 (POJ/TL) 與 漢羅 (Han-lô)
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <button
                 id="align-mode-auto-ai"
                 type="button"
                 onClick={() => setTargetField('auto_ai')}
-                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border font-medium transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border font-bold transition-all cursor-pointer ${
                   targetField === 'auto_ai'
                     ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs'
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Auto (Hanji + POJ + TL)</span>
+                <span>AI 自動 (羅馬字+漢羅)</span>
               </button>
 
               <button
-                id="align-mode-hanji"
+                id="align-mode-roman"
                 type="button"
-                onClick={() => setTargetField('hanji')}
-                className={`p-2 rounded-xl border font-medium transition-all cursor-pointer ${
-                  targetField === 'hanji'
-                    ? 'bg-amber-500 text-zinc-950 border-amber-500'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
+                onClick={() => setTargetField('roman')}
+                className={`p-2 rounded-xl border font-bold transition-all cursor-pointer ${
+                  targetField === 'roman' || targetField === 'poj' || targetField === 'pij'
+                    ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                 }`}
               >
-                Fill Hanji
+                填入 羅馬字
               </button>
 
               <button
-                id="align-mode-poj"
+                id="align-mode-hanlo"
                 type="button"
-                onClick={() => setTargetField('poj')}
-                className={`p-2 rounded-xl border font-medium transition-all cursor-pointer ${
-                  targetField === 'poj'
-                    ? 'bg-amber-500 text-zinc-950 border-amber-500'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
+                onClick={() => setTargetField('hanlo')}
+                className={`p-2 rounded-xl border font-bold transition-all cursor-pointer ${
+                  targetField === 'hanlo' || targetField === 'custom' || targetField === 'hanji'
+                    ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                 }`}
               >
-                Fill POJ
+                填入 漢羅
               </button>
 
               <button
-                id="align-mode-pij"
+                id="align-mode-dual"
                 type="button"
-                onClick={() => setTargetField('pij')}
-                className={`p-2 rounded-xl border font-medium transition-all cursor-pointer ${
-                  targetField === 'pij'
-                    ? 'bg-amber-500 text-zinc-950 border-amber-500'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
+                onClick={() => {
+                  setTargetField('dual');
+                  if (!romanText && inputText) setRomanText(inputText);
+                }}
+                className={`p-2 rounded-xl border font-bold transition-all cursor-pointer ${
+                  targetField === 'dual'
+                    ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                 }`}
               >
-                Fill TL
-              </button>
-
-              <button
-                id="align-mode-custom"
-                type="button"
-                onClick={() => setTargetField('custom')}
-                className={`p-2 rounded-xl border font-medium transition-all cursor-pointer ${
-                  targetField === 'custom'
-                    ? 'bg-amber-500 text-zinc-950 border-amber-500'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
-                }`}
-              >
-                Fill Han-lô
+                雙欄同步 (羅馬字 + 漢羅)
               </button>
             </div>
           </div>
 
+          {/* DUAL MODE INPUT: Separate Romanization & Han-lo */}
+          {targetField === 'dual' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="aligner-roman-text" className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                    1. 羅馬字 歌詞 (POJ / TL)
+                  </label>
+                  <span className="text-[11px] text-zinc-400">換行代表分句</span>
+                </div>
+                <textarea
+                  id="aligner-roman-text"
+                  rows={5}
+                  value={romanText}
+                  onChange={e => setRomanText(e.target.value)}
+                  placeholder={`例：\nTo̍k iā bô phōaⁿ siú teng-ē\nChheng-hong tùi bīn chhoe\n\nKhuànn-tio̍h thâu-tsîng thinn tō beh kng`}
+                  className="w-full px-3 py-2.5 text-sm bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 font-serif"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="aligner-hanlo-text" className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                    2. 漢羅 歌詞 (Han-lô / 漢字)
+                  </label>
+                  <span className="text-[11px] text-zinc-400">音節數對齊羅馬字</span>
+                </div>
+                <textarea
+                  id="aligner-hanlo-text"
+                  rows={5}
+                  value={hanloText}
+                  onChange={e => setHanloText(e.target.value)}
+                  placeholder={`例：\n獨夜無伴守燈下\n清風對面吹\n\n看著頭前天著欲光`}
+                  className="w-full px-3 py-2.5 text-sm bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 font-serif"
+                />
+              </div>
+            </div>
+          ) : (
+            /* SINGLE TEXTAREA INPUT */
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor="aligner-input-text" className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                  {targetField === 'roman' || targetField === 'poj' || targetField === 'pij'
+                    ? '貼上 羅馬字 歌詞 (POJ / TL)'
+                    : targetField === 'hanlo' || targetField === 'custom' || targetField === 'hanji'
+                    ? '貼上 漢羅 歌詞 (Han-lô / 漢字)'
+                    : '貼上歌詞文字 (AI 將自動分析生成 羅馬字 與 漢羅)'}
+                </label>
+                <div className="flex items-center gap-2">
+                  {onOpenScanner && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenScanner();
+                      }}
+                      className="flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 hover:underline cursor-pointer"
+                    >
+                      <ScanLine className="w-3 h-3" />
+                      <span>樂譜影像辨識 (OCR)</span>
+                    </button>
+                  )}
+                  <span className="hidden sm:inline text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                    💡 換行代表分句/分段
+                  </span>
+                </div>
+              </div>
+              <textarea
+                id="aligner-input-text"
+                rows={4}
+                value={inputText}
+                onChange={e => setInputText(e.target.value)}
+                placeholder={
+                  targetField === 'roman' || targetField === 'poj' || targetField === 'pij'
+                    ? `例：\nTo̍k iā bô phōaⁿ siú teng-ē\nChheng-hong tùi bīn chhoe`
+                    : targetField === 'hanlo' || targetField === 'custom' || targetField === 'hanji'
+                    ? `例：\n獨夜無伴守燈下\n清風對面吹`
+                    : `例：\n獨夜無伴守燈下\n清風對面吹\n\n或貼上 羅馬字 / 漢羅，AI 將自動辨識`
+                }
+                className="w-full px-3 py-2.5 text-sm bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 font-serif"
+              />
+            </div>
+          )}
+
           {/* AI Passcode Auth & Model Configuration Panel */}
           {targetField === 'auto_ai' && (
             <GeminiAuthCard
-              title="Gemini AI Configuration"
-              description="Enter the passcode to enable Gemini AI syllable analysis and tone tagging."
+              title="Gemini AI 臺語音節辨識設定"
+              description="輸入密碼或設定 API 金鑰以啟用 Gemini AI 自動標注 羅馬字 與 漢羅。"
               onOpenFullSettings={onOpenGeminiAuth}
               idPrefix="aligner"
             />
           )}
 
-
           {/* Action Trigger Button */}
           <button
             id="aligner-parse-btn"
             type="button"
-            disabled={!inputText.trim() || isLoadingAi}
+            disabled={
+              targetField === 'dual'
+                ? (!romanText.trim() && !hanloText.trim()) || isLoadingAi
+                : !inputText.trim() || isLoadingAi
+            }
             onClick={handleGeneratePreview}
-            className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 font-semibold text-sm transition-all disabled:opacity-50 cursor-pointer"
+            className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 font-bold text-sm transition-all disabled:opacity-50 cursor-pointer"
           >
             {isLoadingAi ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>AI analyzing syllables and tone marks...</span>
+                <span>AI 正在分析 羅馬字 與 漢羅 調符音節...</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4 text-amber-400" />
                 <span>
                   {targetField === 'auto_ai' && !isAiAuthenticated
-                    ? 'Passcode Required'
-                    : 'Parse Syllables & Preview Alignment'}
+                    ? '需要驗證 Gemini 密碼'
+                    : '分詞並預覽對齊 (Parse Syllables & Preview)'}
                 </span>
               </>
             )}
@@ -521,8 +629,10 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                               title={isExceedingNote ? 'Syllable exceeds note limit for this verse' : undefined}
                             >
                               <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-mono">#{tokIdx + 1}</span>
-                              <span className="font-bold text-sm leading-tight">{tok.hanji || tok.custom || '—'}</span>
-                              {(tok.poj || tok.pij) && (
+                              <span className="font-bold text-sm leading-tight">
+                                {tok.custom || tok.hanji || (tok.poj || tok.pij || '—')}
+                              </span>
+                              {(tok.custom || tok.hanji) && (tok.poj || tok.pij) && (
                                 <span className="font-serif italic text-emerald-600 dark:text-emerald-400 text-[10px] leading-tight">
                                   {tok.poj || tok.pij}
                                 </span>

@@ -12,7 +12,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: 'Taigi Composer & Karaoke Studio',
-  description: 'Compose, edit, and play aligned Taigi (Hanji/POJ/TL) lyrics with numbered musical notation (Numbered Notation) and interactive Karaoke engine.',
+  description: 'Compose, edit, and play aligned Taigi (羅馬字 / 漢羅) lyrics with numbered musical notation (Numbered Notation) and interactive Karaoke engine.',
   applicationName: 'Taigi Composer',
   appleWebApp: {
     capable: true,
@@ -36,14 +36,14 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Taigi Composer & Karaoke Studio',
-    description: 'Compose, edit, and play aligned Taigi (Hanji/POJ/TL) lyrics with numbered musical notation (Numbered Notation) and interactive Karaoke engine.',
+    description: 'Compose, edit, and play aligned Taigi (羅馬字 / 漢羅) lyrics with numbered musical notation (Numbered Notation) and interactive Karaoke engine.',
     type: 'website',
     siteName: 'Taigi Composer',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Taigi Composer & Karaoke Studio',
-    description: 'Compose, edit, and play aligned Taigi (Hanji/POJ/TL) lyrics with numbered musical notation (Numbered Notation) and interactive Karaoke engine.',
+    description: 'Compose, edit, and play aligned Taigi (羅馬字 / 漢羅) lyrics with numbered musical notation (Numbered Notation) and interactive Karaoke engine.',
   },
 };
 

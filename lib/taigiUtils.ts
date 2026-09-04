@@ -1183,3 +1183,135 @@ export function formatMeasureChords(chords: string[]): string {
   return chords.map(c => c.trim()).filter(Boolean).join(' ');
 }
 
+/**
+ * Scales a note duration down by half (÷2), preserving dotted relationships and non-notation spacers.
+ * e.g., 4 -> 2, 3 -> 1.5 (dotted), 2 -> 1, 1.5 -> 0.75 (dotted), 1 -> 0.5, 0.75 -> 0.375 (dotted), 0.5 -> 0.25, 0.25 -> 0.125
+ */
+export function halveNoteDuration(note: JianpuNote): JianpuNote {
+  if (isNonNotationItem(note) || note.pitch === 'empty' || (typeof note.duration === 'number' && note.duration <= 0)) {
+    return note;
+  }
+  const curDur = typeof note.duration === 'number' ? note.duration : 1;
+  let nextDur: NoteDuration = 0.5;
+  let isDotted = false;
+
+  if (curDur >= 4) {
+    nextDur = 2;
+  } else if (curDur >= 3) {
+    nextDur = 1.5;
+    isDotted = true;
+  } else if (curDur >= 2) {
+    nextDur = 1;
+  } else if (curDur >= 1.75) {
+    nextDur = 0.75;
+    isDotted = true;
+  } else if (curDur >= 1.5) {
+    nextDur = 0.75;
+    isDotted = true;
+  } else if (curDur >= 1) {
+    nextDur = 0.5;
+  } else if (curDur >= 0.75) {
+    nextDur = 0.375;
+    isDotted = true;
+  } else if (curDur >= 0.5) {
+    nextDur = 0.25;
+  } else if (curDur >= 0.375) {
+    nextDur = 0.125;
+  } else if (curDur >= 0.25) {
+    nextDur = 0.125;
+  } else {
+    nextDur = 0.125;
+  }
+
+  return {
+    ...note,
+    duration: nextDur,
+    isDotted,
+    isDoubleDotted: false,
+  };
+}
+
+/**
+ * Doubles a note duration (×2), preserving dotted relationships and non-notation spacers.
+ * e.g., 0.125 -> 0.25, 0.25 -> 0.5, 0.375 -> 0.75 (dotted), 0.5 -> 1, 0.75 -> 1.5 (dotted), 1 -> 2, 1.5 -> 3 (dotted), 2 -> 4
+ */
+export function doubleNoteDuration(note: JianpuNote): JianpuNote {
+  if (isNonNotationItem(note) || note.pitch === 'empty' || (typeof note.duration === 'number' && note.duration <= 0)) {
+    return note;
+  }
+  const curDur = typeof note.duration === 'number' ? note.duration : 1;
+  let nextDur: NoteDuration = 1;
+  let isDotted = false;
+
+  if (curDur <= 0.125) {
+    nextDur = 0.25;
+  } else if (curDur <= 0.25) {
+    nextDur = 0.5;
+  } else if (curDur <= 0.375) {
+    nextDur = 0.75;
+    isDotted = true;
+  } else if (curDur <= 0.5) {
+    nextDur = 1;
+  } else if (curDur <= 0.75) {
+    nextDur = 1.5;
+    isDotted = true;
+  } else if (curDur <= 1) {
+    nextDur = 2;
+  } else if (curDur <= 1.5) {
+    nextDur = 3;
+    isDotted = true;
+  } else if (curDur <= 2) {
+    nextDur = 4;
+  } else {
+    nextDur = 4;
+  }
+
+  return {
+    ...note,
+    duration: nextDur,
+    isDotted,
+    isDoubleDotted: false,
+  };
+}
+
+/**
+ * Sets uniform duration for a note, preserving lyrics, pitches, and zero-beat spacers.
+ */
+export function setUniformNoteDuration(note: JianpuNote, targetDur: NoteDuration): JianpuNote {
+  if (isNonNotationItem(note) || note.pitch === 'empty' || (typeof note.duration === 'number' && note.duration <= 0)) {
+    return note;
+  }
+  const isDotted = targetDur === 1.5 || targetDur === 0.75 || targetDur === 3 || targetDur === 0.375;
+  const isDoubleDotted = targetDur === 1.75 || targetDur === 3.5;
+  return {
+    ...note,
+    duration: targetDur,
+    isDotted,
+    isDoubleDotted,
+  };
+}
+
+/**
+ * Determines whether a measure (or set of measures) should toggle to 0.5 (8th note) or 1.0 (quarter note).
+ * If most pitched/rest notes are >= 0.8, toggles to 0.5. Otherwise, toggles to 1.0.
+ */
+export function determineTargetQuarterEighthDuration(measures: Measure[]): 0.5 | 1.0 {
+  let quarterOrHigherCount = 0;
+  let eighthOrLowerCount = 0;
+
+  for (const m of measures) {
+    for (const n of m.notes) {
+      if (isNonNotationItem(n) || n.pitch === 'empty' || (typeof n.duration === 'number' && n.duration <= 0)) continue;
+      const dur = typeof n.duration === 'number' ? n.duration : 1;
+      if (dur >= 0.8) {
+        quarterOrHigherCount++;
+      } else {
+        eighthOrLowerCount++;
+      }
+    }
+  }
+
+  // If mostly quarter or longer, toggle to eighth note (0.5); else toggle to quarter note (1.0)
+  return quarterOrHigherCount >= eighthOrLowerCount ? 0.5 : 1.0;
+}
+

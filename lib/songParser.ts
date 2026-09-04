@@ -102,16 +102,12 @@ export function exportSongToText(song: Song): string {
     lines.push(`[Measure ${idx + 1}]${m.section ? ` (${m.section})` : ''}${m.chord ? ` Chord: ${m.chord}` : ''}`);
 
     const jianpuTokens = m.notes.map(n => formatNoteToJianpuString(n));
-    const hanjiTokens = m.notes.map(n => n.lyric.hanji || '—');
-    const pojTokens = m.notes.map(n => n.lyric.poj || '—');
-    const pijTokens = m.notes.map(n => n.lyric.pij || '—');
-    const customTokens = m.notes.map(n => n.lyric.custom || '—');
+    const romanTokens = m.notes.map(n => n.lyric.poj || n.lyric.pij || '—');
+    const hanloTokens = m.notes.map(n => n.lyric.hanji || n.lyric.custom || '—');
 
     lines.push(`Numbered Notation:  ${jianpuTokens.join('  ')}`);
-    lines.push(`Hanji:   ${hanjiTokens.join('  ')}`);
-    lines.push(`POJ:     ${pojTokens.join('  ')}`);
-    lines.push(`TL:      ${pijTokens.join('  ')}`);
-    lines.push(`Custom:  ${customTokens.join('  ')}`);
+    lines.push(`羅馬字:  ${romanTokens.join('  ')}`);
+    lines.push(`漢羅:    ${hanloTokens.join('  ')}`);
     lines.push(``);
   });
 
@@ -174,18 +170,18 @@ export function importSongFromText(text: string): Song {
       if (line.startsWith('Numbered Notation:') || line.startsWith('Jianpu:')) {
         const tokens = line.replace(/^(Numbered Notation:|Jianpu:)/, '').trim().split(/\s+/).filter(Boolean);
         currentMeasure.notes = tokens.map((tok, nIdx) => parseJianpuToken(tok, `${currentMeasure!.id}-n${nIdx}`));
-      } else if (line.startsWith('Hanji:') && currentMeasure.notes) {
-        const tokens = line.replace('Hanji:', '').trim().split(/\s+/).filter(Boolean);
-        tokens.forEach((tok, idx) => {
-          if (currentMeasure!.notes![idx]) {
-            currentMeasure!.notes![idx].lyric.hanji = tok === '—' ? '' : tok;
-          }
-        });
-      } else if (line.startsWith('POJ:') && currentMeasure.notes) {
-        const tokens = line.replace('POJ:', '').trim().split(/\s+/).filter(Boolean);
+      } else if ((line.startsWith('羅馬字:') || line.startsWith('Roman:') || line.startsWith('POJ:')) && currentMeasure.notes) {
+        const tokens = line.replace(/^(羅馬字:|Roman:|POJ:)/, '').trim().split(/\s+/).filter(Boolean);
         tokens.forEach((tok, idx) => {
           if (currentMeasure!.notes![idx]) {
             currentMeasure!.notes![idx].lyric.poj = tok === '—' ? '' : tok;
+          }
+        });
+      } else if ((line.startsWith('漢羅:') || line.startsWith('Hanlo:') || line.startsWith('Hanji:')) && currentMeasure.notes) {
+        const tokens = line.replace(/^(漢羅:|Hanlo:|Hanji:)/, '').trim().split(/\s+/).filter(Boolean);
+        tokens.forEach((tok, idx) => {
+          if (currentMeasure!.notes![idx]) {
+            currentMeasure!.notes![idx].lyric.hanji = tok === '—' ? '' : tok;
           }
         });
       } else if ((line.startsWith('TL:') || line.startsWith('PIJ:')) && currentMeasure.notes) {

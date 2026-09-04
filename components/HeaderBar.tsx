@@ -411,8 +411,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               </div>
 
               <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60">
-                <span>Next Lyric Syllable</span>
-                <kbd className="px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono font-bold text-zinc-800 dark:text-zinc-200">Tab / Enter</kbd>
+                <span>Next Lyric (羅馬字 / 漢羅)</span>
+                <kbd className="px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono font-bold text-zinc-800 dark:text-zinc-200">Tab / Space / Enter</kbd>
               </div>
             </div>
 

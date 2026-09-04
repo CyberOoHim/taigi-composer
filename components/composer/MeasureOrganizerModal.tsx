@@ -642,13 +642,13 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                         <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-zinc-100 dark:border-zinc-800 text-xs">
                           {/* Lyric preview snippet */}
                           <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                            <span className="text-[11px] font-bold text-zinc-400 shrink-0">Lyrics:</span>
+                            <span className="text-[11px] font-bold text-zinc-400 shrink-0">歌詞:</span>
                             <span className="text-zinc-700 dark:text-zinc-300 font-medium truncate">
-                              {lyricPreview ? `"${lyricPreview}"` : <span className="italic text-zinc-400">(No lyrics assigned)</span>}
+                              {lyricPreview ? `"${lyricPreview}"` : <span className="italic text-zinc-400">(無歌詞)</span>}
                             </span>
-                            {verse.lyricSummary.poj && (
-                              <span className="text-zinc-400 dark:text-zinc-500 text-[11px] truncate hidden md:inline">
-                                ({verse.lyricSummary.poj})
+                            {(verse.lyricSummary.poj || verse.lyricSummary.pij) && (
+                              <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-serif italic truncate hidden md:inline">
+                                ({verse.lyricSummary.poj || verse.lyricSummary.pij})
                               </span>
                             )}
                           </div>
@@ -669,8 +669,8 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                                     handleDistributeLyric(verse, vIdx);
                                   }
                                 }}
-                                placeholder="Paste lyrics to distribute..."
-                                className="flex-1 px-2.5 py-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs focus:ring-2 focus:ring-amber-500"
+                                placeholder="填入段落歌詞 (羅馬字 / 漢羅)..."
+                                className="flex-1 px-2.5 py-1 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs focus:ring-2 focus:ring-amber-500 font-serif"
                               />
                               <button
                                 id={`organizer-verse-distribute-btn-${vIdx}`}
@@ -679,7 +679,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                                 disabled={!(verseLyricInputs[vIdx] || '').trim()}
                                 className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-35 text-zinc-950 font-bold rounded-lg text-xs transition-colors shrink-0 cursor-pointer"
                               >
-                                Distribute
+                                分發歌詞
                               </button>
                             </div>
                           )}

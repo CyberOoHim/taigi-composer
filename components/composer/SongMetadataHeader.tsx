@@ -190,10 +190,10 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
             type="button"
             onClick={onOpenAligner}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-xs rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-            title="Lyric Aligner Import"
+            title="歌詞對齊台 (支援 羅馬字 與 漢羅)"
           >
             <AlignLeft className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
-            <span className="hidden sm:inline">Lyric Aligner</span>
+            <span className="hidden sm:inline">歌詞對齊 (羅馬字/漢羅)</span>
           </button>
 
           {/* Verse & Measure Organizer and Layout Trigger */}

@@ -61,6 +61,11 @@ interface VerseModeViewProps {
   onDuplicateVerse?: (verse: VerseItem) => void;
   onMoveVerseOrder?: (fromVerseIdx: number, toVerseIdx: number) => void;
   onDeleteVerse?: (verse: VerseItem) => void;
+
+  // Duration actions for selected measure
+  onQuickToggleMeasureDuration?: (mIdx?: number) => void;
+  onScaleMeasureDuration?: (factor: 0.5 | 2.0, mIdx?: number) => void;
+  onSetUniformMeasureDuration?: (duration: NoteDuration, mIdx?: number) => void;
 }
 
 export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
@@ -115,6 +120,9 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   onDuplicateVerse,
   onMoveVerseOrder,
   onDeleteVerse,
+  onQuickToggleMeasureDuration,
+  onScaleMeasureDuration,
+  onSetUniformMeasureDuration,
 }) => {
   return (
     <div id="verse-mode-container" className="flex flex-col gap-6">
@@ -412,6 +420,9 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   futureCount={futureCount}
                   showNotice={showNotice}
                   inCard={true}
+                  onQuickToggleMeasureDuration={onQuickToggleMeasureDuration}
+                  onScaleMeasureDuration={onScaleMeasureDuration}
+                  onSetUniformMeasureDuration={onSetUniformMeasureDuration}
                   containerType="verse"
                   containerLabel={`Verse ${vIdx + 1}`}
                   onDuplicateContainer={() => onDuplicateVerse?.(verse)}
@@ -428,7 +439,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
               <div className="flex items-center gap-2 flex-1 min-w-[280px]">
                 <span className="text-xs font-bold text-amber-700 dark:text-amber-300 shrink-0 flex items-center gap-1">
                   <MessageSquareQuote className="w-3.5 h-3.5" />
-                  <span>Batch Lyric Fill:</span>
+                  <span>段落歌詞填入 (羅馬字 / 漢羅):</span>
                 </span>
                 <input
                   type="text"
@@ -442,8 +453,8 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                       onDistributeVerseLyrics(verse, vIdx);
                     }
                   }}
-                  placeholder={`Enter full lyrics for Verse ${vIdx + 1} (e.g. To̍k iā bô phōaⁿ...)`}
-                  className="flex-1 px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800"
+                  placeholder={`輸入 Verse ${vIdx + 1} 歌詞 (例：To̍k iā bô phōaⁿ... 或 獨夜無伴...)`}
+                  className="flex-1 px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800 font-serif"
                 />
                 <button
                   type="button"
@@ -451,7 +462,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   disabled={!(verseBatchTexts[vIdx] || '').trim()}
                   className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-zinc-950 font-bold rounded-xl text-xs transition-colors shrink-0 shadow-xs cursor-pointer touch-manipulation min-h-[38px]"
                 >
-                  Distribute to Verse
+                  分發至此段音符
                 </button>
               </div>
 

@@ -512,7 +512,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                   {mode === 'full_score' && <Check className="w-4 h-4 text-amber-600" />}
                 </div>
                 <p className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
-                  Transcribes key, time signature, BPM, notes, chords, and aligned Taigi Hanji/POJ/TL lyrics.
+                  Transcribes key, time signature, BPM, notes, chords, and aligned Taigi 羅馬字 (POJ/TL) &amp; 漢羅 lyrics.
                 </p>
               </button>
 
@@ -528,7 +528,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-extrabold text-sm">
                     <Music className="w-4 h-4 text-amber-500" />
-                    Notation & Measures Only
+                    Notation &amp; Measures Only
                   </span>
                   {mode === 'score_only' && <Check className="w-4 h-4 text-amber-600" />}
                 </div>
@@ -549,12 +549,12 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-extrabold text-sm">
                     <Layers className="w-4 h-4 text-amber-500" />
-                    Lyrics & Syllables Only
+                    Lyrics &amp; Syllables Only (羅馬字 / 漢羅)
                   </span>
                   {mode === 'lyrics_only' && <Check className="w-4 h-4 text-amber-600" />}
                 </div>
                 <p className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
-                  Extracts Taigi lyrics from songbook images and splits into syllables with tone annotations.
+                  Extracts Taigi lyrics from songbook images into 羅馬字 and 漢羅 syllables with tone annotations.
                 </p>
               </button>
             </div>
@@ -856,9 +856,9 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                                       {n.octave === -2 ? '••' : '•'}
                                     </span>
                                   )}
-                                  {n.lyric.hanji && (
+                                  {(n.lyric.custom || n.lyric.hanji) && (
                                     <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 mt-0.5">
-                                      {n.lyric.hanji}
+                                      {n.lyric.custom || n.lyric.hanji}
                                     </span>
                                   )}
                                   {(n.lyric.poj || n.lyric.pij) && (
@@ -922,9 +922,9 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
                                 </span>
                               )}
                               {/* Lyric */}
-                              {n.lyric.hanji && (
+                              {(n.lyric.custom || n.lyric.hanji) && (
                                 <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 mt-0.5">
-                                  {n.lyric.hanji}
+                                  {n.lyric.custom || n.lyric.hanji}
                                 </span>
                               )}
                               {(n.lyric.poj || n.lyric.pij) && (

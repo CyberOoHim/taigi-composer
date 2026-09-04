@@ -1,6 +1,6 @@
 {
   "name": "Taigi Composer & Karaoke Studio",
-  "description": "Compose, edit, and play aligned Taigi (Hanji/POJ/TL) lyrics with numbered musical notation (Numbered Notation) and interactive Karaoke engine.",
+  "description": "Compose, edit, and play aligned Taigi (羅馬字 / 漢羅) lyrics with numbered musical notation (Numbered Notation) and interactive Karaoke engine.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

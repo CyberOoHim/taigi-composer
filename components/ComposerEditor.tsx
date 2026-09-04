@@ -27,6 +27,10 @@ import {
   getNoteBeatDuration,
   getMeasureChords,
   isVerseBreakNote,
+  halveNoteDuration,
+  doubleNoteDuration,
+  setUniformNoteDuration,
+  determineTargetQuarterEighthDuration,
 } from '@/lib/taigiUtils';
 import { scrollToCardElement } from '@/lib/utils';
 import {
@@ -54,6 +58,7 @@ import {
   Mic2,
   Play,
   Square,
+  Clock,
 } from 'lucide-react';
 
 interface ComposerEditorProps {
@@ -324,6 +329,135 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       updateNoteAt(selectedMeasureIndex, selectedNoteIndex, updater);
     },
     [selectedMeasureIndex, selectedNoteIndex, updateNoteAt]
+  );
+
+  // Measure Multi-Selection State for batch operations
+  const [selectedMeasureIndices, setSelectedMeasureIndices] = useState<Set<number>>(new Set());
+
+  const handleToggleSelectMeasure = useCallback((mIdx: number) => {
+    setSelectedMeasureIndices(prev => {
+      const next = new Set(prev);
+      if (next.has(mIdx)) {
+        next.delete(mIdx);
+      } else {
+        next.add(mIdx);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAllMeasures = useCallback(() => {
+    setSelectedMeasureIndices(new Set(song.measures.map((_, i) => i)));
+  }, [song.measures]);
+
+  const handleClearMeasureSelection = useCallback(() => {
+    setSelectedMeasureIndices(new Set());
+  }, []);
+
+  // Determine which measures to apply duration changes to:
+  // If user passed a specific measure index, use that.
+  // Otherwise if multi-selection has measures, use those.
+  // Otherwise fallback to currently active/selected measure (or measure 0).
+  const getTargetMeasureIndices = useCallback(
+    (specificMIdx?: number): number[] => {
+      if (typeof specificMIdx === 'number' && specificMIdx >= 0 && specificMIdx < song.measures.length) {
+        return [specificMIdx];
+      }
+      if (selectedMeasureIndices.size > 0) {
+        return Array.from(selectedMeasureIndices)
+          .filter(i => i >= 0 && i < song.measures.length)
+          .sort((a, b) => a - b);
+      }
+      const activeIdx =
+        selectedMeasureIndex !== null && selectedMeasureIndex >= 0 && selectedMeasureIndex < song.measures.length
+          ? selectedMeasureIndex
+          : 0;
+      return [activeIdx];
+    },
+    [selectedMeasureIndices, selectedMeasureIndex, song.measures.length]
+  );
+
+  // 1-Tap Toggle: Quarter (1.0) ↔ 8th (0.5)
+  const handleQuickToggleMeasureDuration = useCallback(
+    (specificMIdx?: number) => {
+      const targetIndices = getTargetMeasureIndices(specificMIdx);
+      if (targetIndices.length === 0) return;
+
+      const targetMeasures = targetIndices.map(idx => song.measures[idx]).filter(Boolean);
+      const targetDur = determineTargetQuarterEighthDuration(targetMeasures);
+
+      const targetSet = new Set(targetIndices);
+      const updatedMeasures = song.measures.map((m, idx) => {
+        if (!targetSet.has(idx)) return m;
+        return {
+          ...m,
+          notes: m.notes.map(n => setUniformNoteDuration(n, targetDur)),
+        };
+      });
+
+      onUpdateSong({ ...song, measures: updatedMeasures });
+
+      const label =
+        targetIndices.length === 1
+          ? `Measure #${targetIndices[0] + 1}`
+          : `${targetIndices.length} measures (#${targetIndices.map(i => i + 1).join(', ')})`;
+      showNotice(
+        `Toggled ${label}: Converted to ${targetDur === 0.5 ? 'Eighth notes (0.5 beats)' : 'Quarter notes (1.0 beat)'}`
+      );
+    },
+    [getTargetMeasureIndices, song, onUpdateSong, showNotice]
+  );
+
+  // Proportional Scale: Halve (÷2) or Double (×2)
+  const handleScaleMeasureDuration = useCallback(
+    (factor: 0.5 | 2.0, specificMIdx?: number) => {
+      const targetIndices = getTargetMeasureIndices(specificMIdx);
+      if (targetIndices.length === 0) return;
+
+      const targetSet = new Set(targetIndices);
+      const updatedMeasures = song.measures.map((m, idx) => {
+        if (!targetSet.has(idx)) return m;
+        return {
+          ...m,
+          notes: m.notes.map(n => (factor === 0.5 ? halveNoteDuration(n) : doubleNoteDuration(n))),
+        };
+      });
+
+      onUpdateSong({ ...song, measures: updatedMeasures });
+
+      const label =
+        targetIndices.length === 1
+          ? `Measure #${targetIndices[0] + 1}`
+          : `${targetIndices.length} measures (#${targetIndices.map(i => i + 1).join(', ')})`;
+      showNotice(`${factor === 0.5 ? 'Halved (÷2)' : 'Doubled (×2)'} durations in ${label}`);
+    },
+    [getTargetMeasureIndices, song, onUpdateSong, showNotice]
+  );
+
+  // Set Uniform Duration (e.g. 0.25, 0.5, 1.0, 2.0)
+  const handleSetUniformMeasureDuration = useCallback(
+    (duration: NoteDuration, specificMIdx?: number) => {
+      const targetIndices = getTargetMeasureIndices(specificMIdx);
+      if (targetIndices.length === 0) return;
+
+      const targetSet = new Set(targetIndices);
+      const updatedMeasures = song.measures.map((m, idx) => {
+        if (!targetSet.has(idx)) return m;
+        return {
+          ...m,
+          notes: m.notes.map(n => setUniformNoteDuration(n, duration)),
+        };
+      });
+
+      onUpdateSong({ ...song, measures: updatedMeasures });
+
+      const label =
+        targetIndices.length === 1
+          ? `Measure #${targetIndices[0] + 1}`
+          : `${targetIndices.length} measures (#${targetIndices.map(i => i + 1).join(', ')})`;
+      showNotice(`Set note durations to ${duration} beat(s) in ${label}`);
+    },
+    [getTargetMeasureIndices, song, onUpdateSong, showNotice]
   );
 
   // Note Navigation: Previous and Next note
@@ -1969,6 +2103,113 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           </div>
         </div>
 
+        {/* QUICK MEASURE DURATION BAR */}
+        <div
+          id="composer-quick-duration-bar"
+          className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2.5 bg-white dark:bg-[#141720] rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xs"
+        >
+          {/* Left: Scope indicator & Multi-selection controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 shrink-0">
+              <Clock className="w-3.5 h-3.5 text-amber-500" />
+              <span>Measure Duration:</span>
+            </span>
+
+            {/* Target Scope Pill */}
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 rounded-xl text-xs font-bold">
+              <span>Target:</span>
+              {selectedMeasureIndices.size > 0 ? (
+                <span className="font-mono font-black">
+                  {selectedMeasureIndices.size} selected (M.{Array.from(selectedMeasureIndices).map(i => i + 1).join(', ')})
+                </span>
+              ) : (
+                <span className="font-mono font-black">
+                  Active M.{(selectedMeasureIndex !== null ? selectedMeasureIndex : 0) + 1}
+                </span>
+              )}
+            </div>
+
+            {/* Selection Quick Buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleSelectAllMeasures}
+                className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                title="Select all measures for batch duration change"
+              >
+                Select All
+              </button>
+              {selectedMeasureIndices.size > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearMeasureSelection}
+                  className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                  title="Clear measure selection"
+                >
+                  Clear ({selectedMeasureIndices.size})
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Right: The Duration Actions */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Proportional Scaling: Halve & Double */}
+            <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/90 p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-700 shadow-2xs">
+              <button
+                id="quick-halve-duration-btn"
+                type="button"
+                onClick={() => handleScaleMeasureDuration(0.5)}
+                className="flex items-center gap-1 px-2.5 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer min-h-[32px]"
+                title="Proportionally halve (÷2) all note durations in targeted measure(s) (e.g. 1 → 0.5, 0.5 → 0.25)"
+              >
+                <span className="font-mono font-black text-amber-600 dark:text-amber-400">÷2</span>
+                <span>Halve</span>
+              </button>
+
+              <button
+                id="quick-double-duration-btn"
+                type="button"
+                onClick={() => handleScaleMeasureDuration(2.0)}
+                className="flex items-center gap-1 px-2.5 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer min-h-[32px]"
+                title="Proportionally double (×2) all note durations in targeted measure(s) (e.g. 0.5 → 1, 1 → 2)"
+              >
+                <span className="font-mono font-black text-amber-600 dark:text-amber-400">×2</span>
+                <span>Double</span>
+              </button>
+            </div>
+
+            {/* Direct Uniform Duration Presets */}
+            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/90 p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-700 shadow-2xs">
+              <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 px-1.5">All to:</span>
+              <button
+                type="button"
+                onClick={() => handleSetUniformMeasureDuration(0.5)}
+                className="px-2 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                title="Set all notes in targeted measure(s) to 8th note (0.5 beats)"
+              >
+                ♪ 0.5
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetUniformMeasureDuration(1.0)}
+                className="px-2 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                title="Set all notes in targeted measure(s) to Quarter note (1.0 beat)"
+              >
+                ♩ 1.0
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetUniformMeasureDuration(2.0)}
+                className="px-2 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                title="Set all notes in targeted measure(s) to Half note (2.0 beats)"
+              >
+                𝅗𝅥 2.0
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Score Grid: Conditional by Edit Mode ('verse' vs 'measure') with In-Card Note Editing */}
         {editMode === 'verse' ? (
           <VerseModeView
@@ -2023,6 +2264,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onDuplicateVerse={handleDuplicateVerse}
             onMoveVerseOrder={handleMoveVerseOrder}
             onDeleteVerse={handleDeleteVerse}
+            onQuickToggleMeasureDuration={handleQuickToggleMeasureDuration}
+            onScaleMeasureDuration={handleScaleMeasureDuration}
+            onSetUniformMeasureDuration={handleSetUniformMeasureDuration}
           />
         ) : (
           <MeasureModeView
@@ -2085,6 +2329,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onUpdateBarlineType={handleUpdateBarlineType}
             onAutoFillRest={handleAutoFillMeasureRest}
             onTrimExcessNotes={handleTrimExcessNotes}
+            selectedMeasureIndices={selectedMeasureIndices}
+            onToggleSelectMeasure={handleToggleSelectMeasure}
+            onQuickToggleMeasureDuration={handleQuickToggleMeasureDuration}
+            onScaleMeasureDuration={handleScaleMeasureDuration}
+            onSetUniformMeasureDuration={handleSetUniformMeasureDuration}
           />
         )}
 

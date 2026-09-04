@@ -95,6 +95,13 @@ interface MeasureModeViewProps {
   onUpdateBarlineType?: (mIdx: number, barlineType: BarlineType) => void;
   onAutoFillRest?: (mIdx: number) => void;
   onTrimExcessNotes?: (mIdx: number) => void;
+
+  // Measure multi-selection & quick duration actions
+  selectedMeasureIndices?: Set<number>;
+  onToggleSelectMeasure?: (mIdx: number) => void;
+  onQuickToggleMeasureDuration?: (mIdx?: number) => void;
+  onScaleMeasureDuration?: (factor: 0.5 | 2.0, mIdx?: number) => void;
+  onSetUniformMeasureDuration?: (duration: NoteDuration, mIdx?: number) => void;
 }
 
 export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
@@ -157,6 +164,11 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   onUpdateBarlineType,
   onAutoFillRest,
   onTrimExcessNotes,
+  selectedMeasureIndices = new Set<number>(),
+  onToggleSelectMeasure,
+  onQuickToggleMeasureDuration,
+  onScaleMeasureDuration,
+  onSetUniformMeasureDuration,
 }) => {
   const [hoveredSplitIndex, setHoveredSplitIndex] = useState<string | null>(null);
   const [chordMode, setChordMode] = useState<'append' | 'replace'>('append');
@@ -201,6 +213,26 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
               <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-2 border-b border-zinc-200/80 dark:border-zinc-800 text-xs">
                 {/* Left: Measure Play, Number Switcher, Relative Location & Beat Status */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  {/* Measure Multi-Select Checkbox */}
+                  {onToggleSelectMeasure && (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onToggleSelectMeasure(mIdx);
+                      }}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[40px] ${
+                        selectedMeasureIndices.has(mIdx)
+                          ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 font-black shadow-xs'
+                          : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs'
+                      }`}
+                      title={selectedMeasureIndices.has(mIdx) ? `Measure #${mIdx + 1} selected (click to deselect)` : `Select Measure #${mIdx + 1} for batch duration actions`}
+                    >
+                      <span className="font-mono text-sm leading-none">{selectedMeasureIndices.has(mIdx) ? '☑' : '☐'}</span>
+                      <span className="font-bold">Select</span>
+                    </button>
+                  )}
+
                   {/* Play Button */}
                   <button
                     id={`measure-play-btn-${mIdx}`}
@@ -360,6 +392,22 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                       >
                         <Scissors className="w-3 h-3" />
                         <span>Split Excess</span>
+                      </button>
+                    )}
+
+                    {/* 1-Tap Measure Duration Toggle: Quarter (1) ↔ 8th (0.5) */}
+                    {onQuickToggleMeasureDuration && (
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          onQuickToggleMeasureDuration(mIdx);
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-950 dark:text-amber-100 border border-amber-300 dark:border-amber-700/80 rounded-xl text-xs font-black shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[32px]"
+                        title={`Quick 1-Tap Duration Toggle for Measure #${mIdx + 1}: Convert between Quarter (1.0) ↔ 8th (0.5)`}
+                      >
+                        <span className="font-mono text-sm leading-none">♩ ↔ ♪</span>
+                        <span className="hidden md:inline text-[11px] font-bold">1-Tap Dur</span>
                       </button>
                     )}
                   </div>
@@ -847,6 +895,9 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     futureCount={futureCount}
                     showNotice={showNotice}
                     inCard={true}
+                    onQuickToggleMeasureDuration={onQuickToggleMeasureDuration}
+                    onScaleMeasureDuration={onScaleMeasureDuration}
+                    onSetUniformMeasureDuration={onSetUniformMeasureDuration}
                     containerType="measure"
                     containerLabel={`Measure #${mIdx + 1}`}
                     onDuplicateContainer={() => onDuplicateMeasure(mIdx)}
@@ -860,8 +911,8 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
 
               {/* Quick Measure-Wide Batch Lyric Input Row */}
               <div className="flex items-center gap-2 pt-3 mt-2 border-t border-zinc-200/80 dark:border-zinc-800 text-xs">
-                <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400 shrink-0">
-                  Batch Lyric Fill:
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-300 shrink-0">
+                  小節歌詞填入 (羅馬字 / 漢羅):
                 </span>
                 <input
                   type="text"
@@ -875,8 +926,8 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                       onDistributeMeasureLyrics(mIdx);
                     }
                   }}
-                  placeholder={`Enter full lyrics for Measure ${mIdx + 1} (e.g. To̍k iā bô phōaⁿ)`}
-                  className="flex-1 px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800"
+                  placeholder={`輸入 Measure #${mIdx + 1} 歌詞 (例：To̍k iā bô phōaⁿ 或 獨夜無伴)`}
+                  className="flex-1 px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800 font-serif"
                 />
                 <button
                   type="button"
@@ -884,7 +935,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                   disabled={!(measureBatchTexts[mIdx] || '').trim()}
                   className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-zinc-950 font-bold rounded-xl text-xs transition-colors shrink-0 shadow-xs cursor-pointer touch-manipulation min-h-[38px]"
                 >
-                  Distribute to Measure
+                  分發至此小節
                 </button>
               </div>
             </div>

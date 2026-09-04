@@ -10,6 +10,7 @@ import {
   formatGraceNotes,
   INSTRUMENT_OPTIONS,
   INSTRUMENT_LABELS,
+  extractTaigiTone,
 } from '@/lib/taigiUtils';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { getStoredDeckTab, setStoredDeckTab } from '@/lib/storage';
@@ -78,6 +79,11 @@ export interface NoteEditorHudProps {
   showNotice: (msg: string) => void;
   inCard?: boolean;
 
+  // Measure-level Quick Duration actions
+  onQuickToggleMeasureDuration?: (mIdx?: number) => void;
+  onScaleMeasureDuration?: (factor: 0.5 | 2.0, mIdx?: number) => void;
+  onSetUniformMeasureDuration?: (duration: NoteDuration, mIdx?: number) => void;
+
   // Container (Measure / Verse) actions
   containerType?: 'measure' | 'verse';
   containerLabel?: string;
@@ -124,6 +130,9 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   futureCount = 0,
   showNotice,
   inCard = true,
+  onQuickToggleMeasureDuration,
+  onScaleMeasureDuration,
+  onSetUniformMeasureDuration,
   containerType,
   containerLabel,
   onDuplicateContainer,
@@ -657,7 +666,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                 }`}
               >
                 <MessageSquareQuote className="w-4 h-4" />
-                <span>Punctuation &amp; Annotations</span>
+                <span>歌詞 (羅馬字 / 漢羅) 與標點</span>
               </button>
             </div>
 
@@ -960,6 +969,75 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* Row 2.5: Whole Measure Quick Duration Batch Strip */}
+              {(onScaleMeasureDuration || onSetUniformMeasureDuration) && (
+                <div
+                  id="hud-measure-duration-quick-strip"
+                  className="flex flex-wrap items-center gap-2 pt-1.5 pb-1 px-2.5 bg-amber-500/10 dark:bg-amber-950/25 border border-amber-300/80 dark:border-amber-800/60 rounded-xl"
+                >
+                  <span className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase tracking-wider shrink-0 flex items-center gap-1">
+                    <span>M.{selectedMeasureIndex + 1} Batch:</span>
+                  </span>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Proportional Scaling: Halve & Double */}
+                    {onScaleMeasureDuration && (
+                      <div className="flex items-center bg-white dark:bg-zinc-800 p-0.5 rounded-lg border border-amber-300/80 dark:border-zinc-700 shadow-2xs gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => onScaleMeasureDuration(0.5, selectedMeasureIndex)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-amber-50 dark:hover:bg-zinc-700 rounded-md text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[30px]"
+                          title={`Proportionally halve (÷2) all note durations in Measure #${selectedMeasureIndex + 1} (e.g. 1 → 0.5, 0.5 → 0.25)`}
+                        >
+                          <span className="font-mono font-black text-amber-600 dark:text-amber-400">÷2</span>
+                          <span>Halve</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onScaleMeasureDuration(2.0, selectedMeasureIndex)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-amber-50 dark:hover:bg-zinc-700 rounded-md text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[30px]"
+                          title={`Proportionally double (×2) all note durations in Measure #${selectedMeasureIndex + 1} (e.g. 0.5 → 1, 1 → 2)`}
+                        >
+                          <span className="font-mono font-black text-amber-600 dark:text-amber-400">×2</span>
+                          <span>Double</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Direct Uniform Duration Presets: All to: ♪ 0.5 | ♩ 1.0 | 𝅗𝅥 2.0 */}
+                    {onSetUniformMeasureDuration && (
+                      <div className="flex items-center bg-white dark:bg-zinc-800 p-0.5 rounded-lg border border-amber-300/80 dark:border-zinc-700 shadow-2xs gap-0.5">
+                        <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 px-1.5">All to:</span>
+                        <button
+                          type="button"
+                          onClick={() => onSetUniformMeasureDuration(0.5, selectedMeasureIndex)}
+                          className="px-2 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-amber-50 dark:hover:bg-zinc-700 rounded-md text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                          title={`Set all notes in Measure #${selectedMeasureIndex + 1} to 8th note (0.5 beats)`}
+                        >
+                          ♪ 0.5
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSetUniformMeasureDuration(1.0, selectedMeasureIndex)}
+                          className="px-2 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-amber-50 dark:hover:bg-zinc-700 rounded-md text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                          title={`Set all notes in Measure #${selectedMeasureIndex + 1} to Quarter note (1.0 beat)`}
+                        >
+                          ♩ 1.0
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSetUniformMeasureDuration(2.0, selectedMeasureIndex)}
+                          className="px-2 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-amber-50 dark:hover:bg-zinc-700 rounded-md text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                          title={`Set all notes in Measure #${selectedMeasureIndex + 1} to Half note (2.0 beats)`}
+                        >
+                          𝅗𝅥 2.0
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Row 3: Articulations Palette */}
               <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-800/80">
@@ -1387,6 +1465,76 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
           {/* TAB 4: LYRICS & ANNOTATIONS */}
           {activeTab === 'lyrics' && (
             <div className="flex flex-col gap-3.5">
+              {/* Single-Note Direct Lyric Syllable Editor (羅馬字 / 漢羅) */}
+              <div className="p-3 bg-zinc-50 dark:bg-[#0c0e14] rounded-xl border border-zinc-200/90 dark:border-zinc-800 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                    <MessageSquareQuote className="w-4 h-4 text-amber-500" />
+                    <span>本音歌詞設定 (羅馬字 / 漢羅)</span>
+                  </span>
+                  {(() => {
+                    const tone = extractTaigiTone(currentNote.lyric?.poj || currentNote.lyric?.pij || '');
+                    if (!tone) return null;
+                    return (
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono font-black border border-emerald-500/30"
+                        title={`${tone.name} (聲調符號 ${tone.symbol})`}
+                      >
+                        第 {tone.toneNumber} 調 {tone.symbol}
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                      羅馬字 (Romanization / POJ / TL):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="例：teng-ē 或 siú..."
+                      value={currentNote.lyric?.poj || currentNote.lyric?.pij || ''}
+                      onChange={e => {
+                        const val = e.target.value;
+                        onUpdateSelectedNote(n => ({
+                          ...n,
+                          lyric: {
+                            ...n.lyric,
+                            poj: val,
+                            pij: val,
+                          },
+                        }));
+                      }}
+                      className="px-3.5 py-2 text-xs bg-white dark:bg-[#141720] border border-zinc-200/90 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 font-serif min-h-[38px]"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      漢羅 (Han-lô / 漢字):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="例：燈下 或 守..."
+                      value={currentNote.lyric?.custom || currentNote.lyric?.hanji || ''}
+                      onChange={e => {
+                        const val = e.target.value;
+                        onUpdateSelectedNote(n => ({
+                          ...n,
+                          lyric: {
+                            ...n.lyric,
+                            hanji: val,
+                            custom: val,
+                          },
+                        }));
+                      }}
+                      className="px-3.5 py-2 text-xs bg-white dark:bg-[#141720] border border-zinc-200/90 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 font-serif min-h-[38px]"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Punctuation Row */}
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5 shrink-0 w-24">
