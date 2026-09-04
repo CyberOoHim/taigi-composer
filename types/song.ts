@@ -72,7 +72,17 @@ export interface Song {
   description?: string;
 }
 
-export type LyricDisplayMode = 'all' | 'hanji_poj' | 'hanji_pij' | 'hanji_only' | 'poj_only' | 'pij_only' | 'custom_only';
+export type LyricDisplayMode =
+  | 'roman'               // 1. 羅馬字
+  | 'hanlo'               // 2. 漢羅
+  | 'roman_major_hanlo'   // 3. 羅馬字（主）+ 漢羅 (羅馬字 is major, 漢羅 is smaller sub on top)
+  | 'all'
+  | 'hanji_poj'
+  | 'hanji_pij'
+  | 'hanji_only'
+  | 'poj_only'
+  | 'pij_only'
+  | 'custom_only';
 
 export type InstrumentType = 'piano' | 'flute' | 'whistle' | 'guitar' | 'synth' | 'bell';
 

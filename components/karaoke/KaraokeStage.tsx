@@ -206,14 +206,22 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                   : 0;
                 const accidentalSymbol = note.accidental === '#' ? '♯' : note.accidental === 'b' ? '♭' : '';
 
-                const romanDisplay = hasRoman ? rawRoman : '\u00A0';
+                const effectiveMode =
+                  displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
+                    ? 'hanlo'
+                    : displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'pij_only'
+                    ? 'roman'
+                    : 'roman_major_hanlo';
+
+                const subRubyDisplay = effectiveMode === 'roman_major_hanlo' && hasHanji ? rawHanji : '\u00A0';
                 let mainWordDisplay = '\u00A0';
-                if (displayMode === 'poj_only' || displayMode === 'pij_only') {
-                  mainWordDisplay = hasRoman ? rawRoman : '\u00A0';
-                } else if (hasHanji) {
-                  mainWordDisplay = rawHanji;
-                } else if (hasRoman) {
-                  mainWordDisplay = rawRoman;
+                if (effectiveMode === 'roman') {
+                  mainWordDisplay = hasRoman ? rawRoman : (hasHanji ? rawHanji : '\u00A0');
+                } else if (effectiveMode === 'hanlo') {
+                  mainWordDisplay = hasHanji ? rawHanji : (hasRoman ? rawRoman : '\u00A0');
+                } else {
+                  // roman_major_hanlo: 羅馬字 is major
+                  mainWordDisplay = hasRoman ? rawRoman : (hasHanji ? rawHanji : '\u00A0');
                 }
 
                 const isFirstSungNote = idx === nextFirstVocalIndex;
@@ -252,19 +260,21 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                       </span>
                     )}
 
-                    {/* Romanization Ruby preview */}
-                    {(displayMode === 'all' || displayMode === 'hanji_poj' || displayMode === 'hanji_pij') && (
-                      <span className="text-[10px] sm:text-xs font-serif italic text-zinc-500 leading-tight select-none">
-                        {romanDisplay}
+                    {/* Top sub ruby (漢羅 smaller sub on top for roman_major_hanlo) */}
+                    {effectiveMode === 'roman_major_hanlo' && (
+                      <span className="text-[10px] sm:text-xs font-sans text-zinc-500 leading-tight select-none">
+                        {subRubyDisplay}
                       </span>
                     )}
 
-                    {/* Hanji / Main Lyric Word preview */}
+                    {/* Main Lyric Word preview */}
                     <span
-                      className={`text-base sm:text-lg font-semibold tracking-wide select-none ${
+                      className={`text-base sm:text-lg select-none ${
                         isFirstSungNote ? 'text-amber-300/90 font-bold' : 'text-zinc-400'
                       } ${
-                        displayMode === 'poj_only' || displayMode === 'pij_only' ? 'font-serif italic text-sm sm:text-base' : ''
+                        effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo'
+                          ? 'font-serif italic font-semibold'
+                          : 'font-semibold tracking-wide'
                       }`}
                     >
                       {mainWordDisplay}
@@ -416,14 +426,22 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                   : 0;
                 const accidentalSymbol = note.accidental === '#' ? '♯' : note.accidental === 'b' ? '♭' : '';
 
-                const romanDisplay = hasRoman ? rawRoman : '\u00A0';
+                const effectiveMode =
+                  displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
+                    ? 'hanlo'
+                    : displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'pij_only'
+                    ? 'roman'
+                    : 'roman_major_hanlo';
+
+                const subRubyDisplay = effectiveMode === 'roman_major_hanlo' && hasHanji ? rawHanji : '\u00A0';
                 let mainWordDisplay = '\u00A0';
-                if (displayMode === 'poj_only' || displayMode === 'pij_only') {
-                  mainWordDisplay = hasRoman ? rawRoman : '\u00A0';
-                } else if (hasHanji) {
-                  mainWordDisplay = rawHanji;
-                } else if (hasRoman) {
-                  mainWordDisplay = rawRoman;
+                if (effectiveMode === 'roman') {
+                  mainWordDisplay = hasRoman ? rawRoman : (hasHanji ? rawHanji : '\u00A0');
+                } else if (effectiveMode === 'hanlo') {
+                  mainWordDisplay = hasHanji ? rawHanji : (hasRoman ? rawRoman : '\u00A0');
+                } else {
+                  // roman_major_hanlo: 羅馬字 is major
+                  mainWordDisplay = hasRoman ? rawRoman : (hasHanji ? rawHanji : '\u00A0');
                 }
 
                 // Clean visual hint on the first vocal character when awaiting singing
@@ -463,10 +481,10 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                       </span>
                     )}
 
-                    {/* Romanization (POJ / TL) Ruby above */}
-                    {(displayMode === 'all' || displayMode === 'hanji_poj' || displayMode === 'hanji_pij') && (
+                    {/* Top Sub Ruby: 漢羅 smaller sub on top (only for roman_major_hanlo) */}
+                    {effectiveMode === 'roman_major_hanlo' && (
                       <span
-                        className={`${romanSizeClass} font-serif italic mb-0.5 min-h-[1.25rem] transition-colors select-none ${
+                        className={`${romanSizeClass} font-sans font-medium mb-0.5 min-h-[1.25rem] transition-colors select-none ${
                           isNoteActive
                             ? isEcoMode
                               ? 'text-amber-300 font-bold'
@@ -478,14 +496,16 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                             : 'text-zinc-400'
                         }`}
                       >
-                        {romanDisplay}
+                        {subRubyDisplay}
                       </span>
                     )}
 
-                    {/* Hanji / Main Lyric Word */}
+                    {/* Main Lyric Word (羅馬字 for roman & roman_major_hanlo; 漢羅 for hanlo) */}
                     <span
-                      className={`${hanjiSizeClass} font-black tracking-wider flex items-center justify-center transition-all duration-150 select-none px-1 ${
-                        displayMode === 'poj_only' || displayMode === 'pij_only' ? 'font-serif italic text-xl sm:text-3xl md:text-4xl' : ''
+                      className={`${hanjiSizeClass} tracking-wide flex items-center justify-center transition-all duration-150 select-none px-1 ${
+                        effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo'
+                          ? 'font-serif italic font-bold'
+                          : 'font-black tracking-wider'
                       } ${
                         isNoteActive
                           ? isEcoMode

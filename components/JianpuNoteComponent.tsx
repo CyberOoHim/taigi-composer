@@ -89,94 +89,54 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
     const primaryText = hanji || custom || annotation || poj || pij || '';
     const isPunctuation = isPunctuationOrSpacer(primaryText);
 
-    switch (displayMode) {
-      case 'hanji_only':
+    const effectiveMode =
+      displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
+        ? 'hanlo'
+        : displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'pij_only'
+        ? 'roman'
+        : 'roman_major_hanlo';
+
+    switch (effectiveMode) {
+      case 'roman':
+        return (
+          <span className="font-serif italic text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
+            {poj || pij || custom || hanji || annotation || '—'}
+          </span>
+        );
+      case 'hanlo':
         return (
           <span
             className={cn(
-              'font-medium text-sm tracking-wide',
+              'font-semibold text-sm tracking-wide',
               isPunctuation
                 ? 'text-amber-700 dark:text-amber-400 font-bold'
                 : 'text-zinc-900 dark:text-zinc-100'
             )}
           >
-            {primaryText || '—'}
+            {hanji || custom || annotation || poj || pij || '—'}
           </span>
         );
-      case 'poj_only':
-        return (
-          <span className="font-serif italic text-emerald-700 dark:text-emerald-400 text-xs">
-            {poj || custom || hanji || annotation || '—'}
-          </span>
-        );
-      case 'pij_only':
-        return (
-          <span className="font-serif italic text-cyan-700 dark:text-cyan-400 text-xs">
-            {pij || custom || hanji || annotation || '—'}
-          </span>
-        );
-      case 'custom_only':
-        return (
-          <span className="font-medium text-amber-700 dark:text-amber-300 text-xs">
-            {custom || hanji || poj || annotation || '—'}
-          </span>
-        );
-      case 'hanji_poj':
-        return (
-          <div className="flex flex-col items-center leading-tight">
-            {poj && <span className="text-[11px] font-serif text-emerald-600 dark:text-emerald-400 font-medium">{poj}</span>}
-            <span
-              className={cn(
-                'font-medium text-sm',
-                isPunctuation
-                  ? 'text-amber-700 dark:text-amber-400 font-bold'
-                  : 'text-zinc-900 dark:text-zinc-100'
-              )}
-            >
-              {primaryText || '—'}
-            </span>
-          </div>
-        );
-      case 'hanji_pij':
-        return (
-          <div className="flex flex-col items-center leading-tight">
-            {pij && <span className="text-[11px] font-serif text-cyan-600 dark:text-cyan-400 font-medium">{pij}</span>}
-            <span
-              className={cn(
-                'font-medium text-sm',
-                isPunctuation
-                  ? 'text-amber-700 dark:text-amber-400 font-bold'
-                  : 'text-zinc-900 dark:text-zinc-100'
-              )}
-            >
-              {primaryText || '—'}
-            </span>
-          </div>
-        );
-      case 'all':
+      case 'roman_major_hanlo':
       default:
         return (
-          <div className="flex flex-col items-center leading-none gap-0.5">
-            {poj && (
-              <span className="text-[10px] font-serif text-emerald-600 dark:text-emerald-400 font-medium max-w-[56px] truncate" title={poj}>
-                {poj}
+          <div className="flex flex-col items-center leading-tight gap-0.5">
+            {/* 漢羅 smaller sub on top */}
+            {(hanji || custom) && (
+              <span className="text-[11px] font-sans text-zinc-600 dark:text-zinc-400 font-medium">
+                {hanji || custom}
               </span>
             )}
+            {/* 羅馬字 major text below */}
             <span
               className={cn(
-                'font-semibold text-sm',
+                'font-serif italic text-sm font-bold',
                 isPunctuation
-                  ? 'text-amber-700 dark:text-amber-400 font-black'
-                  : 'text-zinc-900 dark:text-zinc-100'
+                  ? 'text-amber-700 dark:text-amber-400 font-bold'
+                  : 'text-emerald-700 dark:text-emerald-300'
               )}
             >
-              {primaryText || '—'}
+              {poj || pij || hanji || custom || annotation || '—'}
             </span>
-            {pij && pij !== poj && (
-              <span className="text-[9px] font-serif text-cyan-600 dark:text-cyan-400 max-w-[56px] truncate" title={pij}>
-                {pij}
-              </span>
-            )}
           </div>
         );
     }

@@ -546,14 +546,28 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const handleUpdateLyricAt = (
     mIdx: number,
     nIdx: number,
-    type: 'hanji' | 'poj' | 'pij' | 'custom',
+    type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo',
     val: string
   ) => {
     updateNoteAt(mIdx, nIdx, n => {
       const updatedLyric = {
         ...n.lyric,
-        [type]: val,
       };
+      if (type === 'roman') {
+        updatedLyric.poj = val;
+        updatedLyric.pij = val;
+      } else if (type === 'hanlo') {
+        updatedLyric.hanji = val;
+        updatedLyric.custom = val;
+      } else if (type === 'poj') {
+        updatedLyric.poj = val;
+      } else if (type === 'pij') {
+        updatedLyric.pij = val;
+      } else if (type === 'hanji') {
+        updatedLyric.hanji = val;
+      } else if (type === 'custom') {
+        updatedLyric.custom = val;
+      }
       const rawHanji = updatedLyric.hanji ?? '';
       const rawCustom = updatedLyric.custom ?? '';
       const rawPoj = updatedLyric.poj ?? '';
@@ -637,7 +651,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   };
 
   // Navigate to next note (focus lyric input)
-  const handleGoToNextNote = (currentMIdx: number, currentNIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom') => {
+  const handleGoToNextNote = (currentMIdx: number, currentNIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => {
     const curM = song.measures[currentMIdx];
     if (!curM) return;
 
@@ -667,7 +681,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   };
 
   // Navigate to previous note
-  const handleGoToPrevNote = (currentMIdx: number, currentNIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom') => {
+  const handleGoToPrevNote = (currentMIdx: number, currentNIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => {
     if (currentNIdx > 0) {
       const prevNIdx = currentNIdx - 1;
       setSelectedCoord([currentMIdx, prevNIdx]);

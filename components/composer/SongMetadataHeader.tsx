@@ -437,69 +437,48 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
           {/* Section 4: Lyric Display Mode Selector & Collapse Button */}
           <div className="flex flex-wrap items-center justify-between pt-2 border-t border-zinc-200/80 dark:border-zinc-800 text-xs gap-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-zinc-600 dark:text-zinc-400">Lyrics Format:</span>
-              <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl border border-zinc-200/60 dark:border-zinc-700/60 flex-wrap">
+            {/* Lyrics Display Mode Options */}
+            <div className="flex flex-col gap-1.5 text-xs">
+              <span className="font-bold text-zinc-600 dark:text-zinc-400">Karaoke & Score Display:</span>
+              <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl border border-zinc-200/60 dark:border-zinc-700/60 flex-wrap gap-1">
                 <button
-                  id="composer-mode-all"
+                  id="composer-mode-roman"
                   type="button"
-                  onClick={() => setDisplayMode('all')}
+                  onClick={() => setDisplayMode('roman')}
                   className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    displayMode === 'all'
+                    displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'pij_only'
                       ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                   }`}
                 >
-                  All (Hanji + POJ + TL)
+                  1. 羅馬字
                 </button>
                 <button
-                  id="composer-mode-hanji-poj"
+                  id="composer-mode-hanlo"
                   type="button"
-                  onClick={() => setDisplayMode('hanji_poj')}
+                  onClick={() => setDisplayMode('hanlo')}
                   className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    displayMode === 'hanji_poj'
+                    displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
                       ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                   }`}
                 >
-                  Hanji + POJ
+                  2. 漢羅
                 </button>
                 <button
-                  id="composer-mode-hanji-pij"
+                  id="composer-mode-roman-major-hanlo"
                   type="button"
-                  onClick={() => setDisplayMode('hanji_pij')}
+                  onClick={() => setDisplayMode('roman_major_hanlo')}
                   className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    displayMode === 'hanji_pij'
+                    displayMode === 'roman_major_hanlo' || displayMode === 'all' || displayMode === 'hanji_poj' || displayMode === 'hanji_pij'
                       ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
                   }`}
                 >
-                  Hanji + TL
-                </button>
-                <button
-                  id="composer-mode-hanji-only"
-                  type="button"
-                  onClick={() => setDisplayMode('hanji_only')}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    displayMode === 'hanji_only'
-                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
-                >
-                  Hanji Only
-                </button>
-                <button
-                  id="composer-mode-poj-only"
-                  type="button"
-                  onClick={() => setDisplayMode('poj_only')}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    displayMode === 'poj_only'
-                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
-                >
-                  POJ Only
+                  3. 羅馬字（主）+ 漢羅
                 </button>
               </div>
+            </div>
             </div>
 
             {/* Done & Collapse Button */}

@@ -14,9 +14,9 @@ interface NoteCellProps {
   isPlaybackActive: boolean;
   displayMode: LyricDisplayMode;
   onSelectNote: (mIdx: number, nIdx: number) => void;
-  onUpdateLyric: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom', val: string) => void;
-  onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom') => void;
-  onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom') => void;
+  onUpdateLyric: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo', val: string) => void;
+  onGoToNextNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => void;
+  onGoToPrevNote: (mIdx: number, nIdx: number, type: 'hanji' | 'poj' | 'pij' | 'custom' | 'roman' | 'hanlo') => void;
   keyPrefix?: string;
   showToneOverlay?: boolean;
 }
@@ -36,15 +36,14 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
   keyPrefix = '',
   showToneOverlay = true,
 }) => {
-  const [focusedField, setFocusedField] = useState<'hanji' | 'poj' | 'pij' | 'custom' | null>(null);
+  const [focusedField, setFocusedField] = useState<'roman' | 'hanlo' | null>(null);
 
   const isNonNotation = isNonNotationItem(note);
   const isPitched = !isNonNotation && typeof note.pitch === 'number' && note.pitch > 0;
   const octaveTopDots = isPitched && note.octave > 0 ? note.octave : 0;
   const octaveBottomDots = isPitched && note.octave < 0 ? Math.abs(note.octave) : 0;
 
-  const pojTone = extractTaigiTone(note.lyric?.poj || '');
-  const pijTone = extractTaigiTone(note.lyric?.pij || '');
+  const romanTone = extractTaigiTone(note.lyric?.poj || note.lyric?.pij || '');
 
   const isThirtySecond = !isNonNotation && typeof note.duration === 'number' && note.duration > 0 && note.duration <= 0.125;
   const isSixteenth = !isNonNotation && typeof note.duration === 'number' && ((note.duration <= 0.25 && note.duration > 0.125) || note.duration === 0.375);
@@ -73,13 +72,6 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
 
   const hanji = note.lyric?.hanji || '';
   const custom = note.lyric?.custom || '';
-
-  // Handle inserting quick Taigi diacritic character to active field
-  const handleInsertDiacritic = (char: string) => {
-    if (!focusedField) return;
-    const currentVal = note.lyric[focusedField] || '';
-    onUpdateLyric(mIdx, nIdx, focusedField, currentVal + char);
-  };
 
   return (
     <div
@@ -305,148 +297,78 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
         </div>
       </div>
 
-      {/* LOWER ZONE: DIRECT IN-SCORE EDITABLE LYRIC INPUTS */}
+      {/* LOWER ZONE: DIRECT IN-SCORE EDITABLE LYRIC INPUTS (ALWAYS ONLY 羅馬字 AND 漢羅) */}
       <div className="w-full flex flex-col gap-1.5 mt-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-800/80">
-        {/* POJ Lyric Input */}
-        {(displayMode === 'all' ||
-          displayMode === 'hanji_poj' ||
-          displayMode === 'poj_only') && (
-          <div className="w-full flex flex-col gap-0.5">
-            <input
-              id={`lyric-input-${mIdx}-${nIdx}-poj`}
-              type="text"
-              value={note.lyric.poj || ''}
-              onFocus={() => {
-                onSelectNote(mIdx, nIdx);
-                setFocusedField('poj');
-              }}
-              onBlur={() => setFocusedField(null)}
-              onChange={e =>
-                onUpdateLyric(mIdx, nIdx, 'poj', e.target.value)
-              }
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ' || e.key === '-') {
-                  if (!e.shiftKey) {
-                    e.preventDefault();
-                    onGoToNextNote(mIdx, nIdx, 'poj');
-                  } else {
-                    e.preventDefault();
-                    onGoToPrevNote(mIdx, nIdx, 'poj');
-                  }
+        {/* 羅馬字 Lyric Input */}
+        <div className="w-full flex flex-col gap-0.5">
+          <input
+            id={`lyric-input-${mIdx}-${nIdx}-roman`}
+            type="text"
+            value={note.lyric.poj || note.lyric.pij || ''}
+            onFocus={() => {
+              onSelectNote(mIdx, nIdx);
+              setFocusedField('roman');
+            }}
+            onBlur={() => setFocusedField(null)}
+            onChange={e =>
+              onUpdateLyric(mIdx, nIdx, 'roman', e.target.value)
+            }
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ' || e.key === '-') {
+                if (!e.shiftKey) {
+                  e.preventDefault();
+                  onGoToNextNote(mIdx, nIdx, 'roman');
+                } else {
+                  e.preventDefault();
+                  onGoToPrevNote(mIdx, nIdx, 'roman');
                 }
-              }}
-              placeholder="POJ"
-              className="w-full text-center font-serif italic text-xs font-semibold px-1 py-1 rounded-lg bg-emerald-50/60 dark:bg-[#0c1410] border border-emerald-200/90 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800 min-h-[32px] touch-manipulation"
-              title="POJ romanization - Space, hyphen, or Tab moves to next note"
-            />
-            {showToneOverlay && pojTone && (
-              <div
-                className="flex items-center justify-center gap-0.5 text-[9px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-xs select-none border border-emerald-300/40"
-                title={`${pojTone.name} (Pitch contour ${pojTone.contour} ${pojTone.symbol})`}
-              >
-                <span>{pojTone.superscript}</span>
-                <span className="text-[8px] opacity-75">{pojTone.symbol}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Hanji Lyric Input */}
-        {(displayMode === 'all' ||
-          displayMode === 'hanji_poj' ||
-          displayMode === 'hanji_pij' ||
-          displayMode === 'hanji_only') && (
-          <div className="w-full flex flex-col">
-            <input
-              id={`lyric-input-${mIdx}-${nIdx}-hanji`}
-              type="text"
-              value={note.lyric.hanji || ''}
-              onFocus={() => {
-                onSelectNote(mIdx, nIdx);
-                setFocusedField('hanji');
-              }}
-              onBlur={() => setFocusedField(null)}
-              onChange={e =>
-                onUpdateLyric(mIdx, nIdx, 'hanji', e.target.value)
               }
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ') {
-                  if (!e.shiftKey) {
-                    e.preventDefault();
-                    onGoToNextNote(mIdx, nIdx, 'hanji');
-                  } else {
-                    e.preventDefault();
-                    onGoToPrevNote(mIdx, nIdx, 'hanji');
-                  }
-                }
-              }}
-              placeholder="Hanji"
-              className="w-full text-center font-bold text-sm px-1 py-1 rounded-lg bg-zinc-50 dark:bg-[#0a0c10] border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800 min-h-[34px] touch-manipulation"
-              title="Hanji character - Space or Tab moves to next note"
-            />
-          </div>
-        )}
+            }}
+            placeholder="羅馬字"
+            className="w-full text-center font-serif italic text-xs font-semibold px-1 py-1 rounded-lg bg-emerald-50/60 dark:bg-[#0c1410] border border-emerald-200/90 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800 min-h-[32px] touch-manipulation"
+            title="羅馬字 (Romanization) - Space, hyphen, or Tab moves to next note"
+          />
+          {showToneOverlay && romanTone && (
+            <div
+              className="flex items-center justify-center gap-0.5 text-[9px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-xs select-none border border-emerald-300/40"
+              title={`${romanTone.name} (Pitch contour ${romanTone.contour} ${romanTone.symbol})`}
+            >
+              <span>{romanTone.superscript}</span>
+              <span className="text-[8px] opacity-75">{romanTone.symbol}</span>
+            </div>
+          )}
+        </div>
 
-        {/* TL Lyric Input */}
-        {(displayMode === 'all' || displayMode === 'hanji_pij') && (
-          <div className="w-full flex flex-col gap-0.5">
-            <input
-              id={`lyric-input-${mIdx}-${nIdx}-pij`}
-              type="text"
-              value={note.lyric.pij || ''}
-              onFocus={() => {
-                onSelectNote(mIdx, nIdx);
-                setFocusedField('pij');
-              }}
-              onBlur={() => setFocusedField(null)}
-              onChange={e =>
-                onUpdateLyric(mIdx, nIdx, 'pij', e.target.value)
+        {/* 漢羅 Lyric Input */}
+        <div className="w-full flex flex-col">
+          <input
+            id={`lyric-input-${mIdx}-${nIdx}-hanlo`}
+            type="text"
+            value={note.lyric.hanji || note.lyric.custom || ''}
+            onFocus={() => {
+              onSelectNote(mIdx, nIdx);
+              setFocusedField('hanlo');
+            }}
+            onBlur={() => setFocusedField(null)}
+            onChange={e =>
+              onUpdateLyric(mIdx, nIdx, 'hanlo', e.target.value)
+            }
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ') {
+                if (!e.shiftKey) {
+                  e.preventDefault();
+                  onGoToNextNote(mIdx, nIdx, 'hanlo');
+                } else {
+                  e.preventDefault();
+                  onGoToPrevNote(mIdx, nIdx, 'hanlo');
+                }
               }
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ' || e.key === '-') {
-                  if (!e.shiftKey) {
-                    e.preventDefault();
-                    onGoToNextNote(mIdx, nIdx, 'pij');
-                  } else {
-                    e.preventDefault();
-                    onGoToPrevNote(mIdx, nIdx, 'pij');
-                  }
-                }
-              }}
-              placeholder="TL"
-              className="w-full text-center font-serif text-[11px] px-1 py-1 rounded-lg bg-cyan-50/60 dark:bg-[#0c1316] border border-cyan-200/90 dark:border-cyan-800/60 text-cyan-800 dark:text-cyan-300 focus:outline-hidden focus:ring-2 focus:ring-cyan-500 focus:bg-white dark:focus:bg-zinc-800 min-h-[32px] touch-manipulation"
-              title="TL romanization - Space, hyphen, or Tab moves to next note"
-            />
-            {showToneOverlay && pijTone && (
-              <div
-                className="flex items-center justify-center gap-0.5 text-[9px] font-mono font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-100/70 dark:bg-cyan-950/60 px-1.5 py-0.5 rounded-xs select-none border border-cyan-300/40"
-                title={`${pijTone.name} (Pitch contour ${pijTone.contour} ${pijTone.symbol})`}
-              >
-                <span>{pijTone.superscript}</span>
-                <span className="text-[8px] opacity-75">{pijTone.symbol}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Quick Taigi Diacritics Ribbon (Touch-friendly 34px buttons for iPad) */}
-        {focusedField && (focusedField === 'poj' || focusedField === 'pij') && (
-          <div className="flex items-center justify-center gap-1.5 mt-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-700/80 overflow-x-auto py-0.5">
-            {['á', 'à', 'â', 'ā', 'a̍', 'o͘', 'ⁿ'].map(c => (
-              <button
-                key={c}
-                type="button"
-                onMouseDown={e => {
-                  e.preventDefault(); // prevent losing input focus
-                  handleInsertDiacritic(c);
-                }}
-                className="min-w-[34px] min-h-[34px] px-1 rounded-lg bg-zinc-200 hover:bg-amber-400 hover:text-zinc-950 dark:bg-zinc-800 dark:hover:bg-amber-500 dark:hover:text-zinc-950 text-zinc-900 dark:text-zinc-100 font-serif text-xs font-bold transition-all active:scale-95 shadow-2xs cursor-pointer touch-manipulation flex items-center justify-center"
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-        )}
+            }}
+            placeholder="漢羅"
+            className="w-full text-center font-bold text-sm px-1 py-1 rounded-lg bg-zinc-50 dark:bg-[#0a0c10] border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800 min-h-[34px] touch-manipulation"
+            title="漢羅 (Han-lô) - Space or Tab moves to next note"
+          />
+        </div>
       </div>
     </div>
   );

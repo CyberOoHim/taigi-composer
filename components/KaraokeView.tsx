@@ -687,67 +687,43 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
 
         {/* Display Mode & Fullscreen Tabs */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Display Mode Selector */}
+          {/* Display Mode Selector: 1. 羅馬字, 2. 漢羅, 3. 羅馬字（主）+ 漢羅 */}
           <div id="ktv-display-mode-selector" className="flex items-center bg-[#0a0c10] p-1 rounded-xl border border-zinc-800 text-xs">
             <button
-              id="ktv-mode-all"
+              id="ktv-mode-roman"
               type="button"
-              onClick={() => setDisplayMode('all')}
+              onClick={() => setDisplayMode('roman')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                displayMode === 'all'
+                displayMode === 'roman' || displayMode === 'poj_only' || displayMode === 'pij_only'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              All
+              1. 羅馬字
             </button>
             <button
-              id="ktv-mode-hanji-poj"
+              id="ktv-mode-hanlo"
               type="button"
-              onClick={() => setDisplayMode('hanji_poj')}
+              onClick={() => setDisplayMode('hanlo')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                displayMode === 'hanji_poj'
+                displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Hanji + POJ
+              2. 漢羅
             </button>
             <button
-              id="ktv-mode-hanji-pij"
+              id="ktv-mode-roman-major-hanlo"
               type="button"
-              onClick={() => setDisplayMode('hanji_pij')}
+              onClick={() => setDisplayMode('roman_major_hanlo')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                displayMode === 'hanji_pij'
+                displayMode === 'roman_major_hanlo' || displayMode === 'all' || displayMode === 'hanji_poj' || displayMode === 'hanji_pij'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Hanji + TL
-            </button>
-            <button
-              id="ktv-mode-hanji-only"
-              type="button"
-              onClick={() => setDisplayMode('hanji_only')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                displayMode === 'hanji_only'
-                  ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              Hanji Only
-            </button>
-            <button
-              id="ktv-mode-poj-only"
-              type="button"
-              onClick={() => setDisplayMode('poj_only')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                displayMode === 'poj_only'
-                  ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              POJ Only
+              3. 羅馬字（主）+ 漢羅
             </button>
           </div>
 
