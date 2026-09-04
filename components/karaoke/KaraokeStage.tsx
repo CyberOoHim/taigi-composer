@@ -6,7 +6,7 @@ import { PlaybackState } from '@/lib/audioEngine';
 import { VerseTiming } from '@/lib/karaokeSequencer';
 import { KaraokeSection } from './SectionJumpBar';
 import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
-import { Sparkles, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface KaraokeStageProps {
@@ -48,12 +48,15 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
       ? 'text-2xl sm:text-4xl md:text-5xl lg:text-6xl min-h-[3rem] sm:min-h-[3.75rem]'
       : 'text-2xl sm:text-4xl md:text-5xl min-h-[2.5rem] sm:min-h-[3.25rem]';
 
-  const romanSizeClass =
-    zoomScale >= 1.5
-      ? 'text-sm sm:text-base md:text-lg'
+  // Sub Lyric (Han-Lo ruby in Mode 3, or Roman ruby in Mode 4) - Doubled size
+  const subLyricSizeClass =
+    zoomScale >= 1.75
+      ? 'text-3xl sm:text-4xl md:text-5xl min-h-[2.5rem] sm:min-h-[3.25rem]'
+      : zoomScale >= 1.5
+      ? 'text-2xl sm:text-3xl md:text-4xl min-h-[2.25rem] sm:min-h-[3rem]'
       : zoomScale >= 1.25
-      ? 'text-xs sm:text-sm md:text-base'
-      : 'text-xs sm:text-sm';
+      ? 'text-xl sm:text-2xl md:text-3xl min-h-[2rem] sm:min-h-[2.75rem]'
+      : 'text-xl sm:text-2xl min-h-[1.75rem] sm:min-h-[2.25rem]';
 
   const noteMinWClass =
     zoomScale >= 1.5
@@ -101,7 +104,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   }, [nextVerse]);
 
   return (
-    <div className="relative flex flex-col items-center justify-center p-5 sm:p-8 md:p-10 min-h-[280px] sm:min-h-[320px] bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900 border-b border-zinc-800/80 select-none overflow-hidden transition-all">
+    <div className="relative flex flex-col items-center justify-between p-5 sm:p-8 md:p-10 min-h-[320px] sm:min-h-[360px] md:min-h-[380px] bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900 border-b border-zinc-800/80 select-none overflow-hidden transition-all">
       {/* Background Ambience (Omitted in Eco Mode to save GPU power) */}
       {!isEcoMode && (
         <>
@@ -110,36 +113,25 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
         </>
       )}
 
-      {/* TOP META BAR: Section Badge, Verse Status */}
-      <div className="flex flex-wrap items-center justify-center gap-2 mb-3.5 z-20">
-        {/* Current Active Section Badge */}
-        {activeSection && (
-          <button
-            id="ktv-stage-active-section-badge"
-            type="button"
-            onClick={() => onJumpToSection(activeSection)}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-800/90 hover:bg-zinc-700/90 border border-amber-500/40 text-xs font-semibold text-amber-300 shadow-md transition-all active:scale-95 cursor-pointer"
-            title={`Click to restart from "${activeSection.name}"`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>{activeSection.name}</span>
-            <span className="text-[10px] text-zinc-400 font-mono">
-              (#{activeSection.startMeasureNumber}~#{activeSection.endMeasureNumber})
-            </span>
-          </button>
-        )}
-
-        {/* Verse Completed Badge */}
+      {/* Verse Completed Floating Celebration Badge (Non-displacing overlay) */}
+      <AnimatePresence>
         {isVerseCompleted && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs font-semibold shadow-xs">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Phrase Complete</span>
-          </span>
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.9 }}
+            className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
+          >
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/90 border border-emerald-500/60 text-emerald-300 text-xs font-semibold shadow-lg backdrop-blur-md">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Phrase Complete</span>
+            </span>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
-      {/* TOP ROW: SUCCEEDING / COMING VERSE PREVIEW (Faded on top to maintain focus on the current verse) */}
-      <div className="w-full max-w-5xl flex flex-col items-center justify-center mb-4 sm:mb-6 min-h-[50px] sm:min-h-[58px] z-10">
+      {/* SLOT 1 (TOP): SUCCEEDING / COMING VERSE PREVIEW (Centered, badges removed) */}
+      <div className="flex-1 w-full flex items-center justify-center z-10 min-h-[52px]">
         <AnimatePresence mode="wait">
           {nextVerse && nextVerse.notes.length > 0 ? (
             <motion.div
@@ -149,26 +141,8 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
               exit={{ opacity: 0, y: -6 }}
               whileHover={{ opacity: 0.95 }}
               transition={{ duration: 0.22, ease: 'easeOut' }}
-              className="w-full flex flex-wrap items-center justify-center gap-x-3 sm:gap-x-4 gap-y-2 px-3 py-1.5 rounded-xl bg-zinc-900/40 border border-zinc-800/50 hover:border-zinc-700/60 transition-all shadow-xs"
+              className="w-fit max-w-full flex flex-wrap items-center justify-center gap-x-3 sm:gap-x-4 gap-y-2 px-4 py-1.5 rounded-xl bg-zinc-900/40 border border-zinc-800/50 hover:border-zinc-700/60 transition-all shadow-xs"
             >
-              {/* Next verse header label */}
-              <div className="flex items-center gap-1.5 shrink-0 select-none">
-                <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-medium tracking-wider px-2 py-0.5 rounded-md bg-zinc-800/60 text-zinc-400 border border-zinc-800">
-                  <span className="text-amber-400/80 font-bold">Next Verse</span>
-                  <span className="text-[9px] text-zinc-500 font-mono">
-                    #{nextVerse.startMeasureNumber}~#{nextVerse.endMeasureNumber}
-                  </span>
-                </span>
-                {nextVerseTiming && nextVerseTiming.firstVocalWord && (
-                  <span className="hidden md:inline-flex items-center gap-1 text-[10px] text-amber-400/80 font-medium px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-900/40">
-                    <span>First:</span>
-                    <strong className="text-amber-300/90">{nextVerseTiming.firstVocalWord}</strong>
-                    {nextVerseTiming.firstVocalPitchDisplay && (
-                      <span className="font-mono text-zinc-400">({nextVerseTiming.firstVocalPitchDisplay})</span>
-                    )}
-                  </span>
-                )}
-              </div>
 
               {/* Note previews */}
               {nextVerse.notes.map((item, idx) => {
@@ -269,7 +243,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
 
                     {/* Top sub ruby (漢羅 on top for mode 3, or 羅馬字 on top for mode 4) */}
                     {(effectiveMode === 'roman_major_hanlo' || effectiveMode === 'hanlo_major_roman') && (
-                      <span className={`text-[10px] sm:text-xs leading-tight select-none ${
+                      <span className={`text-xs sm:text-sm leading-tight select-none ${
                         effectiveMode === 'hanlo_major_roman' ? 'font-serif italic text-zinc-500' : 'font-sans text-zinc-500'
                       }`}>
                         {subRubyDisplay}
@@ -348,7 +322,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.65 }}
               exit={{ opacity: 0 }}
-              className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 italic select-none"
+              className="flex items-center justify-center gap-1.5 text-xs font-medium text-zinc-500 italic select-none"
             >
               <span>(Final Verse of Song)</span>
             </motion.div>
@@ -356,8 +330,8 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
         </AnimatePresence>
       </div>
 
-      {/* CENTER ROW: CURRENT ACTIVE / TARGET VERSE (Big KTV Sweeping Lyrics with Smooth Transition) */}
-      <div className="w-full max-w-6xl z-10 min-h-[96px] sm:min-h-[115px] flex items-center justify-center">
+      {/* SLOT 2 (CENTER): CURRENT ACTIVE / TARGET VERSE (Vertically centered at midpoint) */}
+      <div className="shrink-0 w-full max-w-6xl z-10 flex items-center justify-center py-1">
         <AnimatePresence mode="wait">
           {currentVerse && currentVerse.notes.length > 0 ? (
             <motion.div
@@ -485,7 +459,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                   >
                     {/* First character visual hint */}
                     {isTargetFirstVocal && (
-                      <span className="absolute -top-5 text-[9px] sm:text-[10px] font-bold text-amber-300 bg-amber-950/90 px-1.5 py-0.5 rounded border border-amber-500/60 shadow-xs whitespace-nowrap select-none">
+                      <span className="absolute -top-6 sm:-top-7 text-[9px] sm:text-[10px] font-bold text-amber-300 bg-amber-950/90 px-1.5 py-0.5 rounded border border-amber-500/60 shadow-xs whitespace-nowrap select-none">
                         First
                       </span>
                     )}
@@ -497,12 +471,12 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                       </span>
                     )}
 
-                    {/* Top Sub Ruby: 漢羅 on top for mode 3, or 羅馬字 on top for mode 4 */}
+                    {/* Top Sub Ruby: 漢羅 on top for mode 3, or 羅馬字 on top for mode 4 (Doubled size) */}
                     {(effectiveMode === 'roman_major_hanlo' || effectiveMode === 'hanlo_major_roman') && (
                       <span
-                        className={`${romanSizeClass} ${
+                        className={`${subLyricSizeClass} ${
                           effectiveMode === 'hanlo_major_roman' ? 'font-serif italic' : 'font-sans font-medium'
-                        } mb-0.5 min-h-[1.25rem] transition-colors select-none ${
+                        } mb-0.5 leading-tight transition-colors select-none ${
                           isNoteActive
                             ? isEcoMode
                               ? 'text-amber-300 font-bold'
@@ -695,6 +669,9 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
           )}
         </AnimatePresence>
       </div>
+
+      {/* SLOT 3 (BOTTOM): BALANCED SPACER (Ensures Slot 2 remains at exact vertical center) */}
+      <div className="flex-1 w-full flex items-center justify-center pointer-events-none min-h-[52px]" aria-hidden="true" />
     </div>
   );
 });
