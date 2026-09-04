@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "license": "MIT",
   "private": true,
+  "packageManager": "bun@1.4.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "clean": "next clean"
   },
   "dependencies": {
