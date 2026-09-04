@@ -116,8 +116,9 @@ export function getStoredCurrentSong(): Song {
           parsed.id === 'bang-chhun-hong' ||
           parsed.id === 'ai-pian-tsiah-e-iann' ||
           parsed.id === 'blank-composer' ||
-          (parsed.id === 'u-ia-hoe' && (parsed.key !== 'Bb' || parsed.measures.length < 20 || hasDirtyPunct))
+          (parsed.id === 'u-ia-hoe' && (parsed.key !== 'Bb' || parsed.measures.length !== 32 || hasDirtyPunct))
         ) {
+          setStoredCurrentSong(PRESET_SONGS[0]);
           return PRESET_SONGS[0];
         }
         return parsed as Song;
