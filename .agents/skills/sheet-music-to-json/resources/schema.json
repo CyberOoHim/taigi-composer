@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TaigiSong",
+  "description": "JSON schema for Taigi Numbered Notation (Jianpu) score format compatible with the Taigi Composer app.",
+  "type": "object",
+  "required": ["id", "title", "key", "timeSignature", "bpm", "measures"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the song (e.g. song-1718000000000)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Song title (e.g. 望春風)"
+    },
+    "subtitle": {
+      "type": "string",
+      "description": "Optional secondary title or translation"
+    },
+    "composer": {
+      "type": "string",
+      "description": "Composer name (作曲者)"
+    },
+    "lyricist": {
+      "type": "string",
+      "description": "Lyricist name (作詞者)"
+    },
+    "key": {
+      "type": "string",
+      "enum": ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"],
+      "description": "Key signature (e.g. 1=F -> 'F')"
+    },
+    "timeSignature": {
+      "type": "string",
+      "enum": ["4/4", "3/4", "2/4", "6/8"],
+      "description": "Time signature of the song"
+    },
+    "bpm": {
+      "type": "number",
+      "minimum": 30,
+      "maximum": 300,
+      "description": "Tempo in beats per minute"
+    },
+    "notesPerLine": {
+      "type": "number",
+      "default": 4,
+      "description": "Measures displayed per row in sheet view"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional song notes or provenance description"
+    },
+    "measures": {
+      "type": "array",
+      "description": "List of measures in chronological performance order",
+      "items": {
+        "type": "object",
+        "required": ["id", "measureNumber", "notes"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique measure identifier (e.g. m-1-abc)"
+          },
+          "measureNumber": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Sequential 1-based measure number"
+          },
+          "chord": {
+            "type": "string",
+            "description": "Primary harmonic chord symbol (e.g. F, C7, Am, Dm)"
+          },
+          "chords": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional array of chords in this measure"
+          },
+          "section": {
+            "type": "string",
+            "description": "Section header (e.g. 前奏, 主歌, 副歌, 尾奏, Verse 1, Chorus)"
+          },
+          "barlineType": {
+            "type": "string",
+            "enum": ["single", "double", "end", "repeat_start", "repeat_end"],
+            "default": "single"
+          },
+          "isLineBreak": {
+            "type": "boolean",
+            "description": "Forces system break after this measure"
+          },
+          "notes": {
+            "type": "array",
+            "description": "List of Jianpu notes or annotations within the measure",
+            "items": {
+              "type": "object",
+              "required": ["id", "pitch", "octave", "duration", "lyric"],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Unique note ID"
+                },
+                "pitch": {
+                  "description": "Scale degree 1-7, 0 for rest, or 'empty' for spacer/punctuation",
+                  "oneOf": [
+                    { "type": "integer", "minimum": 0, "maximum": 7 },
+                    { "type": "string", "enum": ["empty"] }
+                  ]
+                },
+                "octave": {
+                  "type": "integer",
+                  "minimum": -2,
+                  "maximum": 2,
+                  "description": "Octave offset: dots above (+1, +2), dots below (-1, -2), middle (0)"
+                },
+                "accidental": {
+                  "type": "string",
+                  "enum": ["", "#", "b"]
+                },
+                "duration": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Note duration in beats (1 = quarter note, 0.5 = 8th note, 2 = half note, 0 = non-notation spacer)"
+                },
+                "isDotted": {
+                  "type": "boolean",
+                  "description": "Rhythm dot (+50% duration)"
+                },
+                "isDoubleDotted": {
+                  "type": "boolean",
+                  "description": "Double rhythm dot (+75% duration)"
+                },
+                "tieToNext": {
+                  "type": "boolean",
+                  "description": "Tie connecting to next note of same pitch (sustains playback audio)"
+                },
+                "slurToNext": {
+                  "type": "boolean",
+                  "description": "Legato slur connecting phrasing across different pitches"
+                },
+                "isTriplet": {
+                  "type": "boolean",
+                  "description": "Note belongs to a 3-note triplet grouping"
+                },
+                "articulation": {
+                  "type": "string",
+                  "enum": ["none", "staccato", "tenuto", "accent", "fermata", "portamento_up", "portamento_down"]
+                },
+                "annotation": {
+                  "type": "string",
+                  "description": "Performance or vocal annotation (e.g. rit., 合唱, V, 間奏)"
+                },
+                "lyric": {
+                  "type": "object",
+                  "description": "Taiwanese Hokkien lyric syllable aligned to this note",
+                  "properties": {
+                    "hanlo": {
+                      "type": "string",
+                      "description": "Traditional Chinese Hanji or Han-lô mixed orthography (e.g. 望, 雨, 阮ê)"
+                    },
+                    "poj": {
+                      "type": "string",
+                      "description": "Pe̍h-ōe-jī Romanization with tone diacritics (e.g. Bāng, Hōo, gún ê)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
