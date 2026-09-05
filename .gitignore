@@ -7,6 +7,7 @@ coverage/
 *.tsbuildinfo
 .env*
 !.env.example
+.eslintcache
 GEMINI.md
 gemini.md
 package-lock.json
