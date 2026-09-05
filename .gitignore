@@ -10,7 +10,5 @@ coverage/
 .eslintcache
 GEMINI.md
 gemini.md
-AGENTS.md
-agents.md
 package-lock.json
 yarn.lock
