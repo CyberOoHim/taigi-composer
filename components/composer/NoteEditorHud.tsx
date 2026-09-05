@@ -19,6 +19,8 @@ import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { getStoredDeckTab, setStoredDeckTab } from '@/lib/storage';
 import {
   Volume2,
+  Play,
+  Square,
   PlusCircle,
   Trash2,
   Undo2,
@@ -69,6 +71,7 @@ export interface NoteEditorHudProps {
   onInsertBreakAt?: (mIdx: number, nIdx: number) => void;
   onDeleteNoteAt: (mIdx: number, nIdx: number) => void;
   onSplitMeasureBeforeNote?: (mIdx: number, nIdx: number) => void;
+  onPushNoteToNextMeasure?: (mIdx: number, nIdx?: number) => void;
   onNavigateNextNote?: () => void;
   onNavigatePrevNote?: () => void;
   autoStepAdvance?: boolean;
@@ -95,6 +98,8 @@ export interface NoteEditorHudProps {
   onMoveContainerForward?: () => void;
   canMoveContainerBackward?: boolean;
   canMoveContainerForward?: boolean;
+  onTogglePlayMeasure?: (mIdx: number) => void;
+  isPlayingMeasure?: boolean;
 }
 
 export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
@@ -121,6 +126,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   onInsertBreakAt,
   onDeleteNoteAt,
   onSplitMeasureBeforeNote,
+  onPushNoteToNextMeasure,
   onNavigateNextNote,
   onNavigatePrevNote,
   autoStepAdvance = false,
@@ -143,6 +149,8 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   onMoveContainerForward,
   canMoveContainerBackward = false,
   canMoveContainerForward = false,
+  onTogglePlayMeasure,
+  isPlayingMeasure = false,
 }) => {
   const [activeTab, setActiveTabState] = useState<DeckTabMode>(() => {
     if (typeof window !== 'undefined') return getStoredDeckTab();
@@ -433,6 +441,37 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             <span>Play</span>
           </button>
 
+          {/* Quick Play Measure Audition */}
+          {onTogglePlayMeasure && (
+            <button
+              id="hud-play-measure-btn"
+              type="button"
+              onClick={() => onTogglePlayMeasure(selectedMeasureIndex)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px] ${
+                isPlayingMeasure
+                  ? 'bg-rose-500 hover:bg-rose-600 text-white animate-pulse font-black'
+                  : 'bg-zinc-200/90 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700'
+              }`}
+              title={
+                isPlayingMeasure
+                  ? `Stop playing Measure #${selectedMeasureIndex + 1}`
+                  : `Play current Measure #${selectedMeasureIndex + 1} only`
+              }
+            >
+              {isPlayingMeasure ? (
+                <>
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>Stop M#{selectedMeasureIndex + 1}</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-current text-amber-500" />
+                  <span>Play Measure #{selectedMeasureIndex + 1}</span>
+                </>
+              )}
+            </button>
+          )}
+
           {/* Prev / Next Note Quick Navigation */}
           {onNavigatePrevNote && onNavigateNextNote && (
             <div className="flex items-center bg-zinc-200/80 dark:bg-zinc-800 rounded-xl border border-zinc-300 dark:border-zinc-700 p-0.5 shadow-2xs">
@@ -552,6 +591,19 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             >
               <Scissors className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span className="hidden sm:inline">Split Measure</span>
+            </button>
+          )}
+
+          {/* Push Note to Next Measure */}
+          {onPushNoteToNextMeasure && selectedMeasureIndex !== null && (
+            <button
+              type="button"
+              onClick={() => onPushNoteToNextMeasure(selectedMeasureIndex, selectedNoteIndex ?? undefined)}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-900 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700/80 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+              title="Push this note into the next measure"
+            >
+              <ArrowRight className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span className="hidden sm:inline">Push Note →</span>
             </button>
           )}
 

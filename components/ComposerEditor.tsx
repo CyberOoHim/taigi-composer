@@ -1376,6 +1376,52 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     [song, onUpdateSong, showNotice]
   );
 
+  // Push note from current measure into next measure
+  const handlePushNoteToNextMeasure = useCallback(
+    (mIdx: number, nIdx?: number) => {
+      const currentM = song.measures[mIdx];
+      if (!currentM || currentM.notes.length <= 1) {
+        showNotice('Measure must retain at least one note');
+        return;
+      }
+
+      const targetNoteIdx =
+        typeof nIdx === 'number' && nIdx >= 0 && nIdx < currentM.notes.length
+          ? nIdx
+          : selectedCoord && selectedCoord[0] === mIdx && selectedCoord[1] < currentM.notes.length
+          ? selectedCoord[1]
+          : currentM.notes.length - 1;
+
+      const noteToPush = currentM.notes[targetNoteIdx];
+      const newCurrentNotes = currentM.notes.filter((_, idx) => idx !== targetNoteIdx);
+
+      const newMeasures = [...song.measures];
+
+      if (mIdx < song.measures.length - 1) {
+        const nextM = song.measures[mIdx + 1];
+        const newNextNotes = [noteToPush, ...nextM.notes];
+        newMeasures[mIdx] = { ...currentM, notes: newCurrentNotes };
+        newMeasures[mIdx + 1] = { ...nextM, notes: newNextNotes };
+      } else {
+        const newMeasure: Measure = {
+          id: generateId('m'),
+          measureNumber: song.measures.length + 1,
+          chord: currentM.chord,
+          notes: [noteToPush],
+        };
+        newMeasures[mIdx] = { ...currentM, notes: newCurrentNotes };
+        newMeasures.push(newMeasure);
+      }
+
+      const renumbered = renumberMeasures(newMeasures);
+
+      onUpdateSong({ ...song, measures: renumbered });
+      setSelectedCoord([mIdx + 1, 0]);
+      showNotice(`Pushed note into Measure ${mIdx + 2}`);
+    },
+    [song, onUpdateSong, showNotice, selectedCoord]
+  );
+
   // Move measure order (reordering relative location)
   const handleMoveMeasureOrder = useCallback(
     (fromIdx: number, toIdx: number) => {
@@ -2215,6 +2261,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         {/* Score Grid: Conditional by Edit Mode ('verse' vs 'measure') with In-Card Note Editing */}
         {editMode === 'verse' ? (
           <VerseModeView
+            song={song}
             verses={verses}
             selectedMeasureIndex={selectedMeasureIndex}
             selectedNoteIndex={selectedNoteIndex}
@@ -2222,12 +2269,14 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             keySignature={song.key}
             audioEngine={audioEngine}
             playingVerseIdx={playingVerseIdx}
+            playingMeasureIdx={playingMeasureIdx}
             activePlaybackNoteId={activePlaybackNoteId}
             displayMode={displayMode}
             verseBatchTexts={verseBatchTexts}
             onSetVerseBatchTexts={setVerseBatchTexts}
             onSelectNote={handleSelectNote}
             onTogglePlayVerse={handleTogglePlayVerse}
+            onTogglePlayMeasure={handleTogglePlayMeasure}
             onAddNoteToVerseEnd={handleAddNoteToVerseEnd}
             onDistributeVerseLyrics={handleDistributeVerseLyrics}
             onInsertPunctuationToNote={handleInsertPunctuationToNote}
@@ -2264,6 +2313,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             futureCount={futureCount}
             showNotice={showNotice}
             onSplitMeasureAtNote={handleSplitMeasureAtNote}
+            onMergeWithNextMeasure={handleMergeWithNextMeasure}
+            onShiftNoteToNextMeasure={handleShiftNoteToNextMeasure}
+            onPullNoteFromNextMeasure={handlePullNoteFromNextMeasure}
+            onPushNoteToNextMeasure={handlePushNoteToNextMeasure}
+            onAutoFillRest={handleAutoFillMeasureRest}
+            onTrimExcessNotes={handleTrimExcessNotes}
             onDuplicateVerse={handleDuplicateVerse}
             onMoveVerseOrder={handleMoveVerseOrder}
             onDeleteVerse={handleDeleteVerse}
@@ -2328,6 +2383,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onMergeWithNextMeasure={handleMergeWithNextMeasure}
             onShiftNoteToNextMeasure={handleShiftNoteToNextMeasure}
             onPullNoteFromNextMeasure={handlePullNoteFromNextMeasure}
+            onPushNoteToNextMeasure={handlePushNoteToNextMeasure}
             onMoveMeasureOrder={handleMoveMeasureOrder}
             onToggleLineBreak={handleToggleMeasureLineBreak}
             onUpdateBarlineType={handleUpdateBarlineType}

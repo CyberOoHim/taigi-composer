@@ -93,6 +93,7 @@ interface MeasureModeViewProps {
   onMergeWithNextMeasure?: (mIdx: number) => void;
   onShiftNoteToNextMeasure?: (mIdx: number) => void;
   onPullNoteFromNextMeasure?: (mIdx: number) => void;
+  onPushNoteToNextMeasure?: (mIdx: number, nIdx?: number) => void;
   onMoveMeasureOrder?: (fromIdx: number, toIdx: number) => void;
   onToggleLineBreak?: (mIdx: number) => void;
   onUpdateBarlineType?: (mIdx: number, barlineType: BarlineType) => void;
@@ -164,6 +165,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   onMergeWithNextMeasure,
   onShiftNoteToNextMeasure,
   onPullNoteFromNextMeasure,
+  onPushNoteToNextMeasure,
   onMoveMeasureOrder,
   onToggleLineBreak,
   onUpdateBarlineType,
@@ -886,6 +888,21 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                       </button>
                     )}
 
+                    {/* Push selected or current note to next measure */}
+                    {onPushNoteToNextMeasure && measure.notes.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          onPushNoteToNextMeasure(mIdx);
+                        }}
+                        className="px-1 py-0.5 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-950/70 dark:hover:bg-indigo-900/70 text-indigo-900 dark:text-indigo-200 rounded text-[10px] font-bold text-center cursor-pointer transition-colors"
+                        title="Push note to next measure"
+                      >
+                        Push Note →
+                      </button>
+                    )}
+
                     {/* Pull first note of next measure into this measure */}
                     {onPullNoteFromNextMeasure && !isLastMeasure && song.measures[mIdx + 1]?.notes.length > 1 && (
                       <button
@@ -949,6 +966,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     onSplitMeasureBeforeNote={(m, n) => {
                       if (onSplitMeasureAtNote) onSplitMeasureAtNote(m, n);
                     }}
+                    onPushNoteToNextMeasure={onPushNoteToNextMeasure}
                     onNavigateNextNote={onNavigateNextNote}
                     onNavigatePrevNote={onNavigatePrevNote}
                     autoStepAdvance={autoStepAdvance}
@@ -971,6 +989,8 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     onMoveContainerForward={mIdx < song.measures.length - 1 ? () => onMoveMeasureOrder?.(mIdx, mIdx + 1) : undefined}
                     canMoveContainerBackward={mIdx > 0}
                     canMoveContainerForward={mIdx < song.measures.length - 1}
+                    onTogglePlayMeasure={onTogglePlayMeasure}
+                    isPlayingMeasure={playingMeasureIdx === selectedMeasureIndex}
                   />
                 </div>
               )}
