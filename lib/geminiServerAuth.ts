@@ -143,7 +143,8 @@ export function verifySessionToken(token: string | undefined | null): boolean {
   return timingSafeEqual(a, b);
 }
 
-export function readSessionCookie(req: Request): string | undefined {
+export function readSessionCookie(req?: Request): string | undefined {
+  if (!req?.headers) return undefined;
   const header = req.headers.get('cookie');
   if (!header) return undefined;
   const parts = header.split(';');

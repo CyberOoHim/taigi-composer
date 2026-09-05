@@ -17,9 +17,6 @@ import {
   validateScanImages,
 } from '@/lib/geminiServerAuth';
 
-export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
-
 function normalizeKeySignature(keyStr?: string): KeySignature {
   if (!keyStr) return 'F';
   const clean = keyStr.replace(/^1\s*=\s*/i, '').trim().toUpperCase();

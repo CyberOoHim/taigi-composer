@@ -10,7 +10,7 @@ import {
   verifySessionToken,
 } from '@/lib/geminiServerAuth';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 
 export async function GET(req: Request) {
   const available = isGeminiConfigured();

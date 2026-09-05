@@ -14,9 +14,6 @@ import {
   getServerGeminiApiKey,
 } from '@/lib/geminiServerAuth';
 
-export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
-
 export async function POST(req: Request) {
   try {
     const limited = rateLimitResponse(req, 'generate');
