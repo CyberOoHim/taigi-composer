@@ -450,6 +450,42 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                     const rhythm = getMeasureRhythmReport(measure, song.timeSignature);
                     const isSelectedMeasure = selectedMeasureIndex === mIdx;
 
+                    // Extract associated lyrics for this measure in this verse
+                    const verseNotesInMeasure = verse.notes.filter(item => item.measureIndex === mIdx);
+                    const notesForMeasure = verseNotesInMeasure.length > 0
+                      ? verseNotesInMeasure.map(item => item.note)
+                      : measure.notes;
+
+                    const hanloParts: string[] = [];
+                    const pojParts: string[] = [];
+
+                    notesForMeasure.forEach(note => {
+                      const h = (note.lyric?.hanlo || note.lyric?.custom || note.lyric?.hanji || '').trim();
+                      const p = (note.lyric?.poj || note.lyric?.tl || '').trim();
+                      if (h && h !== '\n' && h !== '↵') hanloParts.push(h);
+                      if (p && p !== '\n' && p !== '↵') pojParts.push(p);
+                    });
+
+                    const hanloLyric = hanloParts.reduce((acc, curr) => {
+                      if (!acc) return curr;
+                      const lastChar = acc.slice(-1);
+                      const firstChar = curr.slice(0, 1);
+                      if (/[a-zA-Z0-9]/.test(lastChar) && /[a-zA-Z0-9]/.test(firstChar)) {
+                        return `${acc} ${curr}`;
+                      }
+                      return `${acc}${curr}`;
+                    }, '');
+
+                    const pojLyric = pojParts.reduce((acc, curr) => {
+                      if (!acc) return curr;
+                      if (/^[,\.!?:;]/.test(curr)) {
+                        return `${acc}${curr}`;
+                      }
+                      return `${acc} ${curr}`;
+                    }, '');
+
+                    const hasLyrics = Boolean(hanloLyric || pojLyric);
+
                     const handleJumpToMeasure = (e: React.MouseEvent) => {
                       e.stopPropagation();
                       onSelectNote(mIdx, 0);
@@ -468,7 +504,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                             ? 'border-amber-500 bg-amber-500/10 dark:border-amber-400 dark:bg-amber-950/40 ring-1 ring-amber-500/40 shadow-xs'
                             : 'border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-900/60 hover:border-amber-400/80 dark:hover:border-amber-500/60 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/60 shadow-2xs'
                         }`}
-                        title={`跳至第 ${mIdx + 1} 小節 (Click to jump to Measure #${mIdx + 1})`}
+                        title={`跳至第 ${mIdx + 1} 小節 (Click to jump to Measure #${mIdx + 1})\n節奏: ${rhythm.currentBeats}/${rhythm.expectedBeats} beats${hasLyrics ? `\n歌詞: ${hanloLyric ? hanloLyric : ''} ${pojLyric ? `(${pojLyric})` : ''}` : '\n(無歌詞)'}`}
                       >
                         <div className="flex items-center justify-between gap-1 mb-1.5">
                           <div className="flex items-center gap-1 font-bold truncate">
@@ -532,6 +568,62 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                                 width: `${Math.max(0, 100 - (rhythm.currentBeats / rhythm.expectedBeats) * 100)}%`,
                               }}
                             />
+                          )}
+                        </div>
+
+                        {/* Associated Measure Lyric Under Progress Bar */}
+                        <div
+                          className={`mt-1.5 pt-1.5 border-t flex items-center min-w-0 transition-colors ${
+                            isSelectedMeasure
+                              ? 'border-amber-500/30 dark:border-amber-400/30'
+                              : 'border-zinc-100 dark:border-zinc-800'
+                          }`}
+                        >
+                          {hasLyrics ? (
+                            <div className="flex items-center gap-1.5 min-w-0 w-full overflow-hidden">
+                              <MessageSquareQuote
+                                className={`w-3 h-3 shrink-0 ${
+                                  isSelectedMeasure
+                                    ? 'text-amber-600 dark:text-amber-400'
+                                    : 'text-zinc-400 dark:text-zinc-500'
+                                }`}
+                              />
+                              {displayMode === 'roman' ? (
+                                <span className="text-[11px] sm:text-xs font-serif italic font-semibold text-emerald-700 dark:text-emerald-300 truncate">
+                                  {pojLyric || hanloLyric}
+                                </span>
+                              ) : displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only' ? (
+                                <span className="text-[11px] sm:text-xs font-bold text-zinc-800 dark:text-zinc-100 truncate">
+                                  {hanloLyric || pojLyric}
+                                </span>
+                              ) : displayMode === 'roman_major_hanlo' ? (
+                                <div className="flex items-baseline gap-1 truncate min-w-0">
+                                  <span className="text-[11px] sm:text-xs font-serif italic font-semibold text-emerald-700 dark:text-emerald-300 truncate shrink-0 max-w-[65%]">
+                                    {pojLyric || hanloLyric}
+                                  </span>
+                                  {hanloLyric && pojLyric && (
+                                    <span className="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 truncate">
+                                      ({hanloLyric})
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex items-baseline gap-1.5 truncate min-w-0">
+                                  <span className="text-[11px] sm:text-xs font-bold text-zinc-800 dark:text-zinc-100 truncate shrink-0 max-w-[60%]">
+                                    {hanloLyric || pojLyric}
+                                  </span>
+                                  {pojLyric && hanloLyric && (
+                                    <span className="text-[10px] font-serif italic text-emerald-600 dark:text-emerald-400 truncate opacity-90">
+                                      {pojLyric}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 min-w-0 text-zinc-400 dark:text-zinc-500">
+                              <span className="text-[10px] italic select-none">(無歌詞)</span>
+                            </div>
                           )}
                         </div>
                       </div>
