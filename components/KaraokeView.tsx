@@ -191,9 +191,9 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const sheetScrollRef = useRef<HTMLDivElement>(null);
 
-  // Screen Wake Lock lifecycle management
+  // Screen Wake Lock: keep in sync, but never hold the display on in eco mode
   useEffect(() => {
-    if (playbackState.isPlaying) {
+    if (playbackState.isPlaying && !isEcoMode) {
       wakeLockManager.request();
     } else {
       wakeLockManager.release();
@@ -201,7 +201,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     return () => {
       wakeLockManager.release();
     };
-  }, [playbackState.isPlaying]);
+  }, [playbackState.isPlaying, isEcoMode]);
 
   // Background tab switch interruption recovery state
   const [tabInterruptedPrompt, setTabInterruptedPrompt] = useState<{ pausedAtTime: number } | null>(null);
@@ -262,6 +262,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       transpose,
       tempoMultiplier,
       targetFps: isEcoMode ? 20 : 30,
+      ecoMode: isEcoMode,
     });
   }, [
     audioEngine,
@@ -511,23 +512,31 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   }, [audioEngine, onEditSection]);
 
   // Playback control handlers
+  const requestPlaybackWakeLock = () => {
+    void wakeLockManager.requestForPlayback(isEcoMode);
+  };
+
   const handleTogglePlay = () => {
     if (playbackState.isPlaying) {
       audioEngine.pause();
     } else if (playbackState.isPaused) {
+      requestPlaybackWakeLock();
       audioEngine.resume();
     } else {
+      requestPlaybackWakeLock();
       audioEngine.play(song, 0);
     }
   };
 
   const handleRestart = () => {
+    requestPlaybackWakeLock();
     audioEngine.play(song, 0);
   };
 
   const handleStartAbRehearsal = () => {
     const startTime = audioEngine.getMeasureStartTime(song, abLoop.startMeasure);
     setAbLoop(prev => ({ ...prev, currentIteration: 0 }));
+    requestPlaybackWakeLock();
 
     if (abLoop.countInEnabled) {
       audioEngine.playCountIn(

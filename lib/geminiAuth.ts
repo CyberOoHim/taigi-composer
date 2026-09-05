@@ -1,9 +1,7 @@
 /**
- * Authentication and authorization helper for Gemini API access.
- * On the client, only NEXT_PUBLIC_GEMINI_API_KEY is accessed directly.
- * The server-only GEMINI_API_KEY is used exclusively by server route handlers
- * (app/api/gemini/*) and is never referenced in this client-side module.
- * When no environment key is configured, all AI features and passcode authentication are muted.
+ * Client Gemini auth helper. The API key never lives in this module.
+ * Availability and passcode checks go through /api/gemini/auth-status.
+ * A httpOnly session cookie is the real authorization; localStorage is UX cache.
  */
 
 import type { GeminiModelChoice, GeminiThinkingEffort } from './geminiService';
@@ -16,9 +14,6 @@ export const THINKING_EFFORT_STORAGE_KEY = 'taigi_gemini_thinking_effort';
 
 export const GEMINI_AUTH_CHANGE_EVENT = 'taigi_gemini_auth_changed';
 
-// Default accepted passcodes if not specified in environment
-const DEFAULT_PASSCODES = ['taigi', 'taigi2025', 'taigi2026', 'gemini', 'composer', 'admin'];
-
 let cachedServerAiAvailable: boolean | null = null;
 let serverCheckInitiated = false;
 
@@ -27,90 +22,69 @@ export interface GeminiAuthResult {
   message: string;
 }
 
-/**
- * Dispatches an event to notify all listening components and hooks that
- * the Gemini auth state or configuration has changed.
- */
 export function notifyGeminiAuthChange(): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(GEMINI_AUTH_CHANGE_EVENT));
   }
 }
 
-/**
- * Returns the list of valid passcodes including env variables.
- */
-export function getValidPasscodes(): string[] {
-  const envPasscode = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_PASSCODE : undefined;
-  const envAiPasscode = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_AI_PASSCODE : undefined;
-  const list = [...DEFAULT_PASSCODES];
-  if (envPasscode && envPasscode.trim()) list.push(envPasscode.trim());
-  if (envAiPasscode && envAiPasscode.trim()) list.push(envAiPasscode.trim());
-  return list;
+function clearLocalAuthCache(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(PASSCODE_STORAGE_KEY);
+    localStorage.removeItem('taigi_gemini_api_key');
+  } catch {
+    // storage blocked
+  }
+}
+
+function probeServerAuthStatus(): void {
+  if (typeof window === 'undefined' || serverCheckInitiated) return;
+  serverCheckInitiated = true;
+  fetch('/api/gemini/auth-status', { credentials: 'same-origin' })
+    .then((res) => (res.ok ? res.json() : { available: false, authenticated: false }))
+    .then((data) => {
+      cachedServerAiAvailable = data?.available === true;
+      if (data?.authenticated === true) {
+        safeSetItem(AUTH_STORAGE_KEY, 'true');
+      } else {
+        clearLocalAuthCache();
+      }
+      notifyGeminiAuthChange();
+    })
+    .catch(() => {
+      cachedServerAiAvailable = false;
+      notifyGeminiAuthChange();
+    });
 }
 
 /**
- * Checks if a Gemini API key is configured in the environment or server.
+ * True only after the server reports a runtime GEMINI_API_KEY.
+ * Defaults to muted so a missing or static-export deploy never looks unlocked.
  */
 export function hasEnvGeminiApiKey(): boolean {
-  if (typeof process !== 'undefined') {
-    // Only check NEXT_PUBLIC_ key on client; server-only GEMINI_API_KEY is checked via /api/gemini/auth-status
-    const envKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (envKey && envKey.trim().length >= 10) {
-      return true;
-    }
+  if (cachedServerAiAvailable === null) {
+    probeServerAuthStatus();
   }
-  if (cachedServerAiAvailable !== null) {
-    return cachedServerAiAvailable;
-  }
-  // If in browser and check not yet initiated, probe server route
-  if (typeof window !== 'undefined' && !serverCheckInitiated) {
-    serverCheckInitiated = true;
-    fetch('/api/gemini/auth-status')
-      .then((res) => (res.ok ? res.json() : { available: false }))
-      .then((data) => {
-        if (typeof data?.available === 'boolean') {
-          cachedServerAiAvailable = data.available;
-          notifyGeminiAuthChange();
-        }
-      })
-      .catch(() => {
-        cachedServerAiAvailable = false;
-      });
-  }
-  return true; // Optimistic default in browser to allow checking passcode
+  return cachedServerAiAvailable === true;
 }
 
-/**
- * Checks if a valid Gemini API key is available in the environment or server.
- */
 export function hasGeminiApiKey(): boolean {
   return hasEnvGeminiApiKey();
 }
 
-/**
- * Returns true if Gemini AI is available.
- */
 export function isAiAvailable(): boolean {
   return hasGeminiApiKey();
 }
 
-/**
- * Checks if the user is currently authenticated to access Gemini API.
- * Returns false if no Gemini API key is configured.
- */
 export function isGeminiAuthenticated(): boolean {
   if (typeof window === 'undefined') return false;
   if (!hasGeminiApiKey()) return false;
-
-  const verified = safeGetItem(AUTH_STORAGE_KEY);
-  return verified === 'true';
+  return safeGetItem(AUTH_STORAGE_KEY) === 'true';
 }
 
-/**
- * Verifies a passcode and persists auth state if valid.
- */
-export function verifyGeminiPasscode(input: string): GeminiAuthResult {
+export async function verifyGeminiPasscode(input: string): Promise<GeminiAuthResult> {
   const trimmed = input.trim();
   if (!trimmed) {
     return {
@@ -119,55 +93,61 @@ export function verifyGeminiPasscode(input: string): GeminiAuthResult {
     };
   }
 
-  // Input matches any valid passcode (case-insensitive)
-  const validPasscodes = getValidPasscodes().map(p => p.toLowerCase());
-  if (validPasscodes.includes(trimmed.toLowerCase())) {
-    safeSetItem(AUTH_STORAGE_KEY, 'true');
-    safeSetItem(PASSCODE_STORAGE_KEY, trimmed);
-    notifyGeminiAuthChange();
+  if (typeof window === 'undefined') {
     return {
-      success: true,
-      message: 'Passcode verified successfully! Gemini AI access unlocked.',
+      success: false,
+      message: 'Passcode verification requires the browser.',
     };
   }
 
-  return {
-    success: false,
-    message: 'Incorrect passcode. Please try again (Hint: "taigi").',
-  };
+  try {
+    const res = await fetch('/api/gemini/auth-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ passcode: trimmed }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data?.success) {
+      safeSetItem(AUTH_STORAGE_KEY, 'true');
+      try {
+        localStorage.removeItem(PASSCODE_STORAGE_KEY);
+        localStorage.removeItem('taigi_gemini_api_key');
+      } catch {
+        // ignore
+      }
+      notifyGeminiAuthChange();
+      return {
+        success: true,
+        message: typeof data.message === 'string' ? data.message : 'Passcode verified successfully.',
+      };
+    }
+    return {
+      success: false,
+      message: typeof data?.message === 'string' ? data.message : 'Incorrect passcode. Please try again.',
+    };
+  } catch {
+    return {
+      success: false,
+      message: 'Could not reach the authentication service.',
+    };
+  }
 }
 
-/**
- * Revokes current authentication status and clears saved credentials safely.
- */
 export function revokeGeminiAuth(): void {
   if (typeof window === 'undefined') return;
-  try {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    localStorage.removeItem(PASSCODE_STORAGE_KEY);
-    localStorage.removeItem('taigi_gemini_api_key');
-  } catch (err) {
-    console.warn('[geminiAuth] Failed to clear credentials:', err);
-  }
+  clearLocalAuthCache();
+  fetch('/api/gemini/auth-status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ revoke: true }),
+  }).catch(() => {
+    // cookie clear is best-effort
+  });
   notifyGeminiAuthChange();
 }
 
-/**
- * Retrieves the active Gemini API key from the environment.
- * On the client, only the NEXT_PUBLIC_ prefixed key is available.
- * The server-only GEMINI_API_KEY is accessed exclusively by server route handlers.
- */
-export function getActiveGeminiApiKey(): string | undefined {
-  if (typeof process !== 'undefined') {
-    const envKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (envKey && envKey.trim().length >= 10) return envKey.trim();
-  }
-  return undefined;
-}
-
-/**
- * Retrieves the configured Gemini model choice safely.
- */
 export function getGeminiModel(): GeminiModelChoice {
   if (typeof window === 'undefined') return 'gemini-3.7-flash';
   const saved = safeGetItem(MODEL_STORAGE_KEY);
@@ -176,18 +156,12 @@ export function getGeminiModel(): GeminiModelChoice {
   return 'gemini-3.7-flash';
 }
 
-/**
- * Sets and persists the Gemini model choice safely.
- */
 export function setGeminiModel(model: GeminiModelChoice): void {
   if (typeof window === 'undefined') return;
   safeSetItem(MODEL_STORAGE_KEY, model);
   notifyGeminiAuthChange();
 }
 
-/**
- * Retrieves the configured thinking effort level safely.
- */
 export function getGeminiThinkingEffort(): GeminiThinkingEffort {
   if (typeof window === 'undefined') return 'MEDIUM';
   const saved = safeGetItem(THINKING_EFFORT_STORAGE_KEY) as GeminiThinkingEffort;
@@ -197,9 +171,6 @@ export function getGeminiThinkingEffort(): GeminiThinkingEffort {
   return 'MEDIUM';
 }
 
-/**
- * Sets and persists the Gemini thinking effort level safely.
- */
 export function setGeminiThinkingEffort(effort: GeminiThinkingEffort): void {
   if (typeof window !== 'undefined') {
     safeSetItem(THINKING_EFFORT_STORAGE_KEY, effort);

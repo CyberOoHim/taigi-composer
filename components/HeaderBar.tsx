@@ -255,8 +255,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               }`}
               title={
                 isEcoMode
-                  ? `Eco Mode Active (Reduced frame rate and GPU effects)${typeof batteryLevel === 'number' ? ` · Battery ${Math.round(batteryLevel * 100)}%` : ''}`
-                  : `Enable Eco Mode (Power saving for mobile & tablet)${typeof batteryLevel === 'number' ? ` · Battery ${Math.round(batteryLevel * 100)}%` : ''}`
+                  ? `Eco Mode Active (lighter audio, no wake lock, reduced GPU)${typeof batteryLevel === 'number' ? ` · Battery ${Math.round(batteryLevel * 100)}%` : ''}`
+                  : `Enable Eco Mode (lighter audio, screen may sleep, reduced GPU)${typeof batteryLevel === 'number' ? ` · Battery ${Math.round(batteryLevel * 100)}%` : ''}`
               }
             >
               <Leaf className={`w-3.5 h-3.5 shrink-0 ${isEcoMode ? 'text-emerald-500 fill-emerald-500' : 'text-zinc-400'}`} />

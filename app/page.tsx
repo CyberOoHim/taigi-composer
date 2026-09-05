@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { LyricDisplayMode, Song } from '@/types/song';
 import { PRESET_SONGS, createFreshSong } from '@/lib/presets';
 import { audioEngine } from '@/lib/audioEngine';
+import { wakeLockManager } from '@/lib/wakeLock';
 import { HeaderBar, ActiveTabMode } from '@/components/HeaderBar';
 import { KaraokeView, KaraokeSection } from '@/components/KaraokeView';
 import { ComposerEditor } from '@/components/ComposerEditor';
@@ -51,6 +52,13 @@ export default function Home() {
     batteryLevel,
     isCharging,
   } = usePowerSaveMode();
+
+  useEffect(() => {
+    audioEngine.setOptions({
+      ecoMode: isEcoMode,
+      targetFps: isEcoMode ? 20 : 30,
+    });
+  }, [isEcoMode]);
 
   // Default to 'split' (雙視窗) as requested
   const [activeTab, setActiveTabState] = useState<ActiveTabMode>(() => {
@@ -203,11 +211,13 @@ export default function Home() {
     if (isPlaying) {
       audioEngine.pause();
     } else if (audioEngine.getIsPaused()) {
+      void wakeLockManager.requestForPlayback(isEcoMode);
       audioEngine.resume();
     } else {
+      void wakeLockManager.requestForPlayback(isEcoMode);
       audioEngine.play(song, 0);
     }
-  }, [isPlaying, song]);
+  }, [isPlaying, song, isEcoMode]);
 
   const handlePlayKaraoke = useCallback((startMeasure?: number) => {
     setActiveTab('karaoke');
@@ -216,11 +226,12 @@ export default function Home() {
         ? audioEngine.getMeasureStartTime(song, startMeasure)
         : 0;
     audioEngine.stop();
+    void wakeLockManager.requestForPlayback(isEcoMode);
     audioEngine.play(song, startSec);
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [setActiveTab, song]);
+  }, [setActiveTab, song, isEcoMode]);
 
   const handleSelectSong = useCallback((newSong: Song) => {
     if (audioEngine) {

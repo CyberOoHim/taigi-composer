@@ -32,7 +32,7 @@ export interface GeminiAuthCardProps {
 
 export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
   title = 'Gemini AI Configuration',
-  description = 'Enter the passcode to enable Gemini AI features (Default hint: taigi).',
+  description = 'Enter the administrator passcode to enable Gemini AI features.',
   onOpenFullSettings,
   showModelControls = true,
   idPrefix = 'gemini-auth',
@@ -54,22 +54,28 @@ export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
   const [isAuthExpanded, setIsAuthExpanded] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  const handleVerify = (e?: React.FormEvent) => {
+  const handleVerify = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setAuthError(null);
     setAuthSuccess(null);
+    setIsVerifying(true);
 
-    const result = verifyPasscode(passcode);
-    if (result.success) {
-      setAuthSuccess(result.message);
-      setPasscode('');
-      setTimeout(() => {
-        setIsAuthExpanded(false);
-        setAuthSuccess(null);
-      }, 700);
-    } else {
-      setAuthError(result.message);
+    try {
+      const result = await verifyPasscode(passcode);
+      if (result.success) {
+        setAuthSuccess(result.message);
+        setPasscode('');
+        setTimeout(() => {
+          setIsAuthExpanded(false);
+          setAuthSuccess(null);
+        }, 700);
+      } else {
+        setAuthError(result.message);
+      }
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -174,10 +180,7 @@ export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
           </div>
 
           <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            {description}{' '}
-            <span className="inline-block">
-              (Hint: <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 rounded font-mono font-bold">taigi</code>).
-            </span>
+            {description}
           </p>
 
           {!hasApiKey && (
@@ -200,7 +203,7 @@ export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
                 placeholder={
                   !hasApiKey
                     ? '密碼驗證已靜音 (無環境金鑰)'
-                    : 'Enter passcode (e.g. taigi)'
+                    : 'Enter passcode'
                 }
                 className={`w-full pl-3 pr-8 py-2 text-xs rounded-lg font-mono border ${
                   !hasApiKey
@@ -221,7 +224,7 @@ export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
             <button
               id={`${idPrefix}-verify-passcode-btn`}
               type="submit"
-              disabled={!passcode.trim() || !hasApiKey}
+              disabled={!passcode.trim() || !hasApiKey || isVerifying}
               className={`flex items-center gap-1.5 px-3 py-2 font-bold text-xs rounded-lg shadow-xs transition-all shrink-0 ${
                 !hasApiKey
                   ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed opacity-60'
@@ -229,7 +232,7 @@ export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
               }`}
             >
               <Unlock className="w-3.5 h-3.5" />
-              <span>{!hasApiKey ? '密碼已靜音' : 'Verify & Unlock'}</span>
+              <span>{!hasApiKey ? '密碼已靜音' : isVerifying ? 'Verifying…' : 'Verify & Unlock'}</span>
             </button>
           </form>
 

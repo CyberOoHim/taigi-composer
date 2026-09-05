@@ -5,12 +5,10 @@ import {
   isGeminiAuthenticated,
   hasGeminiApiKey,
   hasEnvGeminiApiKey,
-  isAiAvailable as checkIsAiAvailable,
   getGeminiModel,
   setGeminiModel,
   getGeminiThinkingEffort,
   setGeminiThinkingEffort,
-  getActiveGeminiApiKey,
   verifyGeminiPasscode,
   revokeGeminiAuth,
   GEMINI_AUTH_CHANGE_EVENT,
@@ -32,13 +30,13 @@ export function useGeminiAuth() {
   const hasApiKey = useSyncExternalStore(
     subscribe,
     hasGeminiApiKey,
-    () => hasEnvGeminiApiKey()
+    () => false
   );
 
   const hasEnvKey = useSyncExternalStore(
     subscribe,
     hasEnvGeminiApiKey,
-    () => hasEnvGeminiApiKey()
+    () => false
   );
 
   const isAiAvailable = hasApiKey;
@@ -63,13 +61,7 @@ export function useGeminiAuth() {
     () => 'MEDIUM' as GeminiThinkingEffort
   );
 
-  const apiKey = useSyncExternalStore(
-    subscribe,
-    () => getActiveGeminiApiKey() || '',
-    () => ''
-  );
-
-  const verify = useCallback((passcode: string): GeminiAuthResult => {
+  const verify = useCallback(async (passcode: string): Promise<GeminiAuthResult> => {
     return verifyGeminiPasscode(passcode);
   }, []);
 
@@ -94,7 +86,6 @@ export function useGeminiAuth() {
     isPasscodeAuthMuted,
     activeModel,
     thinkingEffort,
-    apiKey,
     verifyPasscode: verify,
     revokeAuth: revoke,
     setModel,

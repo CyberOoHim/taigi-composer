@@ -1,23 +1,11 @@
-import { GoogleGenAI, ThinkingLevel } from '@google/genai';
-import { JianpuNote, KeySignature, LyricSyllable, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
-import { normalizeNoteDuration, normalizeSongDurations, splitTaigiLyricSyllables } from './taigiUtils';
-import { getActiveGeminiApiKey, PASSCODE_STORAGE_KEY } from './geminiAuth';
-import { safeGetItem } from './storage';
+import { LyricSyllable, Song } from '@/types/song';
+import { splitTaigiLyricSyllables } from './taigiUtils';
+import { revokeGeminiAuth } from './geminiAuth';
 
 export type GeminiModelChoice = 'gemini-3.7-flash' | 'gemini-3.7-flash-lite';
 export type GeminiThinkingEffort = 'HIGH' | 'MEDIUM' | 'LOW' | 'OFF' | 'AUTO';
 
 export const DEFAULT_GEMINI_MODEL: GeminiModelChoice = 'gemini-3.7-flash';
-
-const genAiInstances = new Map<string, GoogleGenAI>();
-export function getGenAiInstance(apiKey: string): GoogleGenAI {
-  let instance = genAiInstances.get(apiKey);
-  if (!instance) {
-    instance = new GoogleGenAI({ apiKey });
-    genAiInstances.set(apiKey, instance);
-  }
-  return instance;
-}
 
 export interface GeminiAiOptions {
   model?: GeminiModelChoice | string;
@@ -25,8 +13,8 @@ export interface GeminiAiOptions {
 }
 
 export interface ScoreImageInput {
-  data: string;     // base64 data (with or without data:image/xxx;base64, prefix)
-  mimeType: string; // image/jpeg, image/png, etc.
+  data: string;
+  mimeType: string;
   name?: string;
 }
 
@@ -41,91 +29,53 @@ export interface AiScoreExtractionResult {
   error?: string;
 }
 
-/**
- * Builds appropriate thinking configuration based on the target model and effort level.
- * Both gemini-3.7-flash and gemini-3.7-flash-lite share the same thinkingConfig capabilities.
- */
-export function buildThinkingConfig(
-  model?: string,
-  effort?: GeminiThinkingEffort
-): { thinkingBudget?: number; thinkingLevel?: ThinkingLevel } | undefined {
-  if (effort === 'OFF') {
-    return { thinkingBudget: 0 };
-  }
-
-  switch (effort) {
-    case 'HIGH':
-      return {
-        thinkingBudget: 8192,
-        thinkingLevel: ThinkingLevel.HIGH,
-      };
-    case 'LOW':
-      return {
-        thinkingBudget: 1024,
-        thinkingLevel: ThinkingLevel.LOW,
-      };
-    case 'AUTO':
-      return {
-        thinkingBudget: -1,
-      };
-    case 'MEDIUM':
-    default:
-      return {
-        thinkingBudget: 2048,
-        thinkingLevel: ThinkingLevel.MEDIUM,
-      };
-  }
+function fallbackVerse(line: string): LyricSyllable[] {
+  return splitTaigiLyricSyllables(line).map((s) => ({
+    hanlo: s,
+    poj: s,
+  }));
 }
 
-/**
- * Executes generateContent with automatic retry fallback if thinkingConfig is rejected by the endpoint.
- */
-async function callGenerateContentSafe(
-  ai: GoogleGenAI,
-  params: Parameters<typeof ai.models.generateContent>[0]
-) {
-  try {
-    return await ai.models.generateContent(params);
-  } catch (error: unknown) {
-    const errorStr = String(error);
-    if (
-      params.config?.thinkingConfig &&
-      (errorStr.toLowerCase().includes('thinking') ||
-        errorStr.toLowerCase().includes('budget') ||
-        errorStr.toLowerCase().includes('unsupported') ||
-        errorStr.toLowerCase().includes('invalid argument'))
-    ) {
-      console.warn('Retrying Gemini generateContent without thinkingConfig due to:', errorStr);
-      const fallbackConfig = { ...params.config };
-      delete fallbackConfig.thinkingConfig;
-      return await ai.models.generateContent({
-        ...params,
-        config: fallbackConfig,
-      });
-    }
-    throw error;
+function handleAuthFailure(status: number): boolean {
+  if (status === 401) {
+    revokeGeminiAuth();
+    return true;
   }
+  return false;
+}
+
+async function readApiError(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = await res.json();
+    if (typeof data?.error === 'string' && data.error.length < 200) {
+      return data.error;
+    }
+  } catch {
+    // ignore unreadable error bodies
+  }
+  return fallback;
 }
 
 export async function convertTaigiLyricsByVersesWithAi(
   lines: string[],
-  userApiKey?: string,
+  _userApiKey?: string,
   options?: GeminiAiOptions
 ): Promise<LyricSyllable[][]> {
-  const model = options?.model || DEFAULT_GEMINI_MODEL;
-  const thinkingEffort = options?.thinkingEffort || 'MEDIUM';
-
   if (lines.length === 0) return [];
 
-  // 1. Try server-side API route first when in browser and no explicit userApiKey is provided
-  if (typeof window !== 'undefined' && !userApiKey) {
+  if (typeof window !== 'undefined') {
     try {
-      const passcode = safeGetItem(PASSCODE_STORAGE_KEY) || undefined;
       const res = await fetch('/api/gemini/convert-lyrics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lines, model, thinkingEffort, passcode }),
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          lines,
+          model: options?.model || DEFAULT_GEMINI_MODEL,
+          thinkingEffort: options?.thinkingEffort || 'MEDIUM',
+        }),
       });
+      handleAuthFailure(res.status);
       if (res.ok) {
         const data = await res.json();
         if (data.verses && Array.isArray(data.verses)) {
@@ -133,107 +83,31 @@ export async function convertTaigiLyricsByVersesWithAi(
         }
       }
     } catch {
-      // Fall through to client direct or fallback tokenizer
+      // Fall through to local tokenizer
     }
   }
 
-  const apiKey =
-    userApiKey ||
-    getActiveGeminiApiKey() ||
-    (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
-
-  if (!apiKey) {
-    return lines.map((line) => {
-      const rawSyllables = splitTaigiLyricSyllables(line);
-      return rawSyllables.map((s) => ({
-        hanlo: s,
-        poj: s,
-      }));
-    });
-  }
-
-  try {
-    const ai = getGenAiInstance(apiKey);
-    const formattedLines = lines.map((l, i) => `Line ${i + 1}: ${l}`).join('\n');
-    const prompt = `You are an expert Taiwanese Hokkien (Taigi / 臺灣話) linguist and music lyricist.
-The user provided the following Taigi lyrics structured line-by-line (each line represents a musical phrase/verse):
-${formattedLines}
-
-Task:
-1. For each line, break down into an array of syllables aligned one-by-one.
-2. For each syllable, output strictly two fields:
-   - "hanlo": 漢羅 (Hàn-lô: Traditional Han character or Han-lô mixed representation, e.g. "望", "阮ê", "chhun-hong")
-   - "poj": 羅馬字 / Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc., e.g. "Bāng")
-
-Return strictly valid JSON in the following schema:
-{
-  "verses": [
-    {
-      "lineIndex": 0,
-      "syllables": [
-        { "hanlo": "望", "poj": "Bāng" },
-        { "hanlo": "春", "poj": "Chhun" },
-        { "hanlo": "風", "poj": "hong" }
-      ]
-    }
-  ]
-}`;
-
-    const thinkingConfig = buildThinkingConfig(model, thinkingEffort);
-
-    const response = await callGenerateContentSafe(ai, {
-      model,
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        ...(thinkingConfig ? { thinkingConfig } : {}),
-      },
-    });
-
-    const parsed = JSON.parse(response.text || '{}');
-    if (parsed.verses && Array.isArray(parsed.verses)) {
-      const result: LyricSyllable[][] = [];
-      for (let i = 0; i < lines.length; i++) {
-        const found = parsed.verses.find((v: { lineIndex?: number }) => v.lineIndex === i) || parsed.verses[i];
-        if (found && Array.isArray(found.syllables)) {
-          result.push(found.syllables);
-        } else {
-          const rawSyllables = splitTaigiLyricSyllables(lines[i]);
-          result.push(rawSyllables.map((s) => ({ hanlo: s, poj: s })));
-        }
-      }
-      return result;
-    }
-  } catch (error) {
-    console.warn('AI verse conversion failed, using fallback tokenizer:', error);
-  }
-
-  return lines.map((line) => {
-    const rawSyllables = splitTaigiLyricSyllables(line);
-    return rawSyllables.map((s) => ({
-      hanlo: s,
-      poj: s,
-    }));
-  });
+  return lines.map((line) => fallbackVerse(line));
 }
 
 export async function convertTaigiLyricsWithAi(
   text: string,
-  userApiKey?: string,
+  _userApiKey?: string,
   options?: GeminiAiOptions
 ): Promise<LyricSyllable[]> {
-  const model = options?.model || DEFAULT_GEMINI_MODEL;
-  const thinkingEffort = options?.thinkingEffort || 'MEDIUM';
-
-  // 1. Try server-side API route first when in browser and no explicit userApiKey is provided
-  if (typeof window !== 'undefined' && !userApiKey) {
+  if (typeof window !== 'undefined') {
     try {
-      const passcode = safeGetItem(PASSCODE_STORAGE_KEY) || undefined;
       const res = await fetch('/api/gemini/convert-lyrics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, model, thinkingEffort, passcode }),
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          text,
+          model: options?.model || DEFAULT_GEMINI_MODEL,
+          thinkingEffort: options?.thinkingEffort || 'MEDIUM',
+        }),
       });
+      handleAuthFailure(res.status);
       if (res.ok) {
         const data = await res.json();
         if (data.syllables && Array.isArray(data.syllables)) {
@@ -245,122 +119,15 @@ export async function convertTaigiLyricsWithAi(
     }
   }
 
-  const apiKey =
-    userApiKey ||
-    getActiveGeminiApiKey() ||
-    (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
-
-  if (!apiKey) {
-    // Fall back to rule-based tokenizer when no API key is present
-    const rawSyllables = splitTaigiLyricSyllables(text);
-    return rawSyllables.map((s) => ({
-      hanlo: s,
-      poj: s,
-    }));
-  }
-
-  try {
-    const ai = getGenAiInstance(apiKey);
-    const prompt = `You are an expert Taiwanese Hokkien (Taigi / 臺灣話) linguist and music lyricist.
-The user provided the following Taigi lyrics (which may be Hanji, POJ, or Han-lô mixed):
-"${text}"
-
-Task:
-1. Break down into an array of syllables aligned one-by-one.
-2. For each syllable, output strictly two fields:
-   - "hanlo": 漢羅 (Hàn-lô: Traditional Han character or Han-lô mixed representation, e.g. "望", "阮ê", "chhun-hong")
-   - "poj": 羅馬字 / Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc., e.g. "Bāng")
-
-Return strictly valid JSON in the following schema:
-{
-  "syllables": [
-    { "hanlo": "望", "poj": "Bāng" },
-    { "hanlo": "春", "poj": "Chhun" },
-    { "hanlo": "風", "poj": "hong" }
-  ]
-}
-`;
-
-    const thinkingConfig = buildThinkingConfig(model, thinkingEffort);
-
-    const response = await callGenerateContentSafe(ai, {
-      model,
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        ...(thinkingConfig ? { thinkingConfig } : {}),
-      },
-    });
-
-    const parsed = JSON.parse(response.text || '{}');
-    if (parsed.syllables && Array.isArray(parsed.syllables)) {
-      return parsed.syllables;
-    }
-  } catch (error) {
-    console.warn('AI conversion failed, using fallback tokenizer:', error);
-  }
-
-  const rawSyllables = splitTaigiLyricSyllables(text);
-  return rawSyllables.map((s) => ({
-    hanlo: s,
-    poj: s,
-  }));
+  return fallbackVerse(text);
 }
 
-/**
- * Normalizes key signature string to valid KeySignature
- */
-function normalizeKeySignature(keyStr?: string): KeySignature {
-  if (!keyStr) return 'F';
-  const clean = keyStr.replace(/^1\s*=\s*/i, '').trim().toUpperCase();
-  const validKeys: KeySignature[] = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-  const match = validKeys.find((k) => k.toUpperCase() === clean);
-  if (match) return match;
-  // Handle aliases like C#, D#, G#, A#
-  if (clean === 'C#') return 'Db';
-  if (clean === 'D#') return 'Eb';
-  if (clean === 'G#') return 'Ab';
-  if (clean === 'A#') return 'Bb';
-  if (clean === 'GB') return 'F#';
-  return 'F'; // Default to F for Taiwanese songs
-}
-
-/**
- * Normalizes time signature string to valid TimeSignature
- */
-function normalizeTimeSignature(timeStr?: string): TimeSignature {
-  if (!timeStr) return '4/4';
-  const clean = timeStr.trim();
-  if (clean === '2/4' || clean === '3/4' || clean === '4/4' || clean === '6/8') {
-    return clean;
-  }
-  return '4/4';
-}
-
-/**
- * Normalizes pitch number to valid PitchNumber
- */
-function normalizePitch(p: unknown): PitchNumber {
-  if (p === 'empty' || p === 'space') return 'empty';
-  const num = Number(p);
-  if (!isNaN(num) && num >= 0 && num <= 7) {
-    return Math.floor(num) as PitchNumber;
-  }
-  return 1;
-}
-
-/**
- * Multimodal AI Score & Lyric Recognition from 1 to 3 images.
- */
 export async function extractScoreFromImagesWithAi(
   images: ScoreImageInput[],
   mode: AiScoreExtractionMode = 'full_score',
-  userApiKey?: string,
+  _userApiKey?: string,
   options?: GeminiAiOptions
 ): Promise<AiScoreExtractionResult> {
-  const model = options?.model || DEFAULT_GEMINI_MODEL;
-  const thinkingEffort = options?.thinkingEffort || 'HIGH';
-
   if (!images || images.length === 0) {
     return {
       success: false,
@@ -375,296 +142,46 @@ export async function extractScoreFromImagesWithAi(
     };
   }
 
-  // 1. Try server-side API route first when in browser and no explicit userApiKey is provided
-  if (typeof window !== 'undefined' && !userApiKey) {
-    try {
-      const passcode = safeGetItem(PASSCODE_STORAGE_KEY) || undefined;
-      const res = await fetch('/api/gemini/scan-score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, mode, model, thinkingEffort, passcode }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data;
-      }
-    } catch {
-      // Fall through to direct call
-    }
-  }
-
-  const apiKey =
-    userApiKey ||
-    getActiveGeminiApiKey() ||
-    (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_GEMINI_API_KEY : undefined);
-
-  if (!apiKey) {
+  if (typeof window === 'undefined') {
     return {
       success: false,
-      error: '環境中未設定 Gemini API 金鑰，或尚未驗證通行密碼 (Gemini API key is required in environment)',
+      error: 'Score recognition is only available in the browser.',
     };
   }
 
   try {
-    const ai = getGenAiInstance(apiKey);
-
-    // Build multimodal contents with clean base64 image data
-    const imageParts = images.map((img) => ({
-      inlineData: {
-        data: img.data.replace(/^data:[^;]+;base64,/, '').trim(),
-        mimeType: img.mimeType || 'image/jpeg',
-      },
-    }));
-
-    const pageCountNote =
-      images.length === 1
-        ? 'The user uploaded 1 page of sheet music / lyrics.'
-        : `The user uploaded ${images.length} pages of sheet music / lyrics in sequential order (Page 1 -> Page ${images.length}). Read through all pages consecutively and stitch measures in chronological sequence without repeating or skipping.`;
-
-    let systemInstruction = '';
-    if (mode === 'lyrics_only') {
-      systemInstruction = `You are a master Taiwanese Hokkien (Taigi / 臺灣話) music transcriber and linguist.
-${pageCountNote}
-
-Task: Extract all Taiwanese song lyrics from the provided image(s).
-1. Read all lyrics lines/verses in order.
-2. For each line, break it down into syllables aligned one-by-one.
-3. For each syllable, transcribe strictly two fields:
-   - "hanlo": 漢羅 (Traditional Chinese Hanji character or Han-lô mixed representation, e.g. "望", "春", "風", "阮ê")
-   - "poj": 羅馬字 / Pe̍h-ōe-jī with accurate tone diacritics (e.g. "Bāng", "Chhun", "hong")
-4. Extract title, composer, lyricist if visible.
-
-Output strictly valid JSON matching this schema:
-{
-  "title": "望春風",
-  "composer": "鄧雨賢",
-  "lyricist": "李臨秋",
-  "rawLyricsText": "獨夜無伴守燈下 清風對面吹...",
-  "verses": [
-    {
-      "lineIndex": 0,
-      "syllables": [
-        { "hanlo": "獨", "poj": "To̍k" },
-        { "hanlo": "夜", "poj": "iā" }
-      ]
-    }
-  ]
-}`;
-    } else {
-      const includeLyrics = mode === 'full_score';
-      systemInstruction = `You are a world-class music transcription AI specializing in numbered notation (Numbered Notation 簡譜) and Taiwanese Hokkien songs (Taigi).
-${pageCountNote}
-
-Task: Transcribe the sheet music from the image(s) measure-by-measure into structured Numbered Notation notation.
-
-Rules for Numbered Notation & Taiwanese Music Transcription:
-1. **Metadata**:
-   - "title": Song title (e.g., "望春風", "雨夜花", "家後")
-   - "key": Key signature (e.g., "F", "C", "G", "Bb", "D", "Eb", "Ab", "A", "E", "Db", "B"). Look for $1=F$ or $1=C$, etc.
-   - "timeSignature": Time signature (e.g., "4/4", "3/4", "2/4", "6/8"). Default to 4/4 or 2/4 as indicated.
-   - "bpm": Tempo in BPM (e.g., 76, 80, 88, 96, 108). Default 80 if not specified.
-   - "composer": Composer name if indicated.
-   - "lyricist": Lyricist name if indicated.
-
-2. **Measures & Notes**:
-   - Sequence measures chronologically from measure 1 to the end across all ${images.length} pages.
-   - "measureNumber": 1, 2, 3...
-   - "chord": Harmonic chord symbol above the measure if present (e.g., "F", "C7", "Am", "Dm", "Gm", "Bb", "C", "G").
-   - "section": Optional section tag (e.g., "前奏", "主歌", "副歌", "尾奏", "Verse 1", "Chorus") if visible.
-   - "notes": Array of notes in the measure. For each note:
-     * "pitch": 1, 2, 3, 4, 5, 6, 7 (scale degrees), 0 (rest), or 'empty' (blank space / pause / punctuation / newline).
-     * "octave": 0 (middle octave), 1 (one dot above: high pitch), 2 (two dots above), -1 (one dot below: low pitch), -2 (two dots below).
-     * "accidental": "" (natural), "#" (sharp), "b" (flat).
-     * "duration": Note duration in beats:
-       - 0 = non-notation items (punctuation like ，。！？, breath marks V, annotations, line breaks \n). These non-singing spacer items MUST have "pitch": "empty" and "duration": 0 so that no time duration is activated.
-       - 4 = whole note (e.g. 5 - - - )
-       - 3 = dotted half note (e.g. 5 - - )
-       - 2 = half note (e.g. 5 - )
-       - 1.5 = dotted quarter note (e.g. 5. )
-       - 1 = quarter note (e.g. 5 )
-       - 0.75 = dotted eighth note
-       - 0.5 = eighth note (one underline below, e.g. 5̲ )
-       - 0.25 = sixteenth note (two underlines below, e.g. 5̳ )
-       - 0.125 = thirty-second note
-     * "isDotted": boolean (true if note has a duration dot)
-     * "isTied": boolean (true if tied or slurred into the next note)
-     ${
-       includeLyrics
-         ? `* "lyric": Aligned Taiwanese lyric syllable for this note:
-       - "hanlo": 漢羅 (Traditional Hanji or Han-lô mixed representation, e.g. "獨")
-       - "poj": 羅馬字 (Pe̍h-ōe-jī with tone marks, e.g. "To̍k")
-       If a note is an extension / melisma / tie on the same word, you can leave lyric empty {} or use "~" / "—".`
-         : `* "lyric": {} (Empty object since score-only mode was selected).`
-     }
-
-Return strictly valid JSON matching this schema:
-{
-  "title": "望春風",
-  "key": "F",
-  "timeSignature": "4/4",
-  "bpm": 80,
-  "composer": "鄧雨賢",
-  "lyricist": "李臨秋",
-  "measures": [
-    {
-      "measureNumber": 1,
-      "chord": "F",
-      "section": "前奏",
-      "notes": [
-        {
-          "pitch": 5,
-          "octave": 0,
-          "accidental": "",
-          "duration": 1,
-          "isDotted": false,
-          "isTied": false,
-          "lyric": { "hanlo": "獨", "poj": "To̍k" }
-        }
-      ]
-    }
-  ]
-}
-`;
-    }
-
-    const thinkingConfig = buildThinkingConfig(model, thinkingEffort);
-
-    const response = await callGenerateContentSafe(ai, {
-      model,
-      contents: [
-        ...imageParts,
-        {
-          text: systemInstruction,
-        },
-      ],
-      config: {
-        responseMimeType: 'application/json',
-        ...(thinkingConfig ? { thinkingConfig } : {}),
-      },
+    const res = await fetch('/api/gemini/scan-score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        images,
+        mode,
+        model: options?.model || DEFAULT_GEMINI_MODEL,
+        thinkingEffort: options?.thinkingEffort || 'HIGH',
+      }),
     });
 
-    const rawText = response.text || '{}';
-    const cleanJsonText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-    const parsed = JSON.parse(cleanJsonText);
-
-    if (mode === 'lyrics_only') {
-      const versesResult: LyricSyllable[][] = [];
-      if (parsed.verses && Array.isArray(parsed.verses)) {
-        for (const v of parsed.verses) {
-          if (Array.isArray(v.syllables)) {
-            versesResult.push(v.syllables);
-          }
-        }
-      }
-      return {
-        success: true,
-        rawLyricsText: parsed.rawLyricsText || '',
-        lyricsVerses: versesResult,
-      };
-    }
-
-    // Process Full Score or Score Only
-    const songId = `song-ai-${Date.now()}`;
-    const title = parsed.title || 'AI 圖片辨識樂譜';
-    const key = normalizeKeySignature(parsed.key);
-    const timeSignature = normalizeTimeSignature(parsed.timeSignature);
-    const bpm = typeof parsed.bpm === 'number' && parsed.bpm > 30 && parsed.bpm < 300 ? parsed.bpm : 80;
-
-    const measures: Song['measures'] = [];
-    const warnings: string[] = [];
-
-    if (Array.isArray(parsed.measures) && parsed.measures.length > 0) {
-      parsed.measures.forEach((m: Record<string, unknown>, mIdx: number) => {
-        const measureNum = typeof m.measureNumber === 'number' ? m.measureNumber : mIdx + 1;
-        const measureId = `m-${measureNum}-${Date.now().toString(36)}-${mIdx}`;
-        const chord = typeof m.chord === 'string' ? m.chord.trim() : undefined;
-        const section = typeof m.section === 'string' ? m.section.trim() : undefined;
-
-        const rawNotes = Array.isArray(m.notes) ? m.notes : [];
-        const notes: Song['measures'][0]['notes'] = [];
-
-        rawNotes.forEach((n: Record<string, unknown>, nIdx: number) => {
-          const noteId = `n-${measureNum}-${nIdx + 1}-${Math.random().toString(36).substring(2, 6)}`;
-          const pitch = normalizePitch(n.pitch);
-          const octave = typeof n.octave === 'number' && [-2, -1, 0, 1, 2].includes(n.octave) ? n.octave : 0;
-          const accidental = n.accidental === '#' || n.accidental === 'b' ? n.accidental : '';
-          const duration = typeof n.duration === 'number' && n.duration >= 0 ? (n.duration as NoteDuration) : 1;
-          const isDotted = Boolean(n.isDotted);
-          const isTied = Boolean(n.isTied);
-
-          const rawLyric = (n.lyric as Record<string, string>) || {};
-          const lyric: LyricSyllable = {
-            poj: typeof rawLyric.poj === 'string' ? rawLyric.poj : typeof rawLyric.tl === 'string' ? rawLyric.tl : undefined,
-            hanlo: typeof rawLyric.hanlo === 'string' ? rawLyric.hanlo : typeof rawLyric.hanji === 'string' ? rawLyric.hanji : typeof rawLyric.custom === 'string' ? rawLyric.custom : undefined,
-          };
-
-          const rawNote: JianpuNote = {
-            id: noteId,
-            pitch,
-            octave,
-            accidental,
-            duration,
-            isDotted,
-            isTied,
-            lyric,
-            annotation: typeof n.annotation === 'string' ? n.annotation : undefined,
-          };
-
-          notes.push(normalizeNoteDuration(rawNote));
-        });
-
-        // Ensure measure has at least 1 note
-        if (notes.length === 0) {
-          notes.push({
-            id: `n-${measureNum}-1-def`,
-            pitch: 0,
-            octave: 0,
-            duration: timeSignature === '3/4' ? 3 : timeSignature === '2/4' ? 2 : 4,
-            lyric: {},
-          });
-        }
-
-        measures.push({
-          id: measureId,
-          measureNumber: measureNum,
-          chord: chord || undefined,
-          section: section || undefined,
-          notes,
-        });
-      });
-    }
-
-    if (measures.length === 0) {
+    if (handleAuthFailure(res.status)) {
       return {
         success: false,
-        error: '無法從圖片中解析出有效樂譜小節，請確認圖片清晰度與樂譜方向。',
+        error: '通行密碼已過期，請重新驗證 (Passcode expired, please verify again)',
       };
     }
 
-    const constructedSong: Song = normalizeSongDurations({
-      id: songId,
-      title,
-      composer: typeof parsed.composer === 'string' ? parsed.composer : undefined,
-      lyricist: typeof parsed.lyricist === 'string' ? parsed.lyricist : undefined,
-      key,
-      timeSignature,
-      bpm,
-      measures,
-      notesPerLine: 4,
-      description: `透過 Gemini AI 多模態識譜自 ${images.length} 頁樂譜圖片自動轉錄`,
-    });
+    if (!res.ok) {
+      return {
+        success: false,
+        error: await readApiError(res, 'AI 圖片識譜失敗，請稍後再試。'),
+      };
+    }
 
-    return {
-      success: true,
-      song: constructedSong,
-      warnings: warnings.length > 0 ? warnings : undefined,
-    };
-  } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error('extractScoreFromImagesWithAi error:', err);
+    const data = await res.json();
+    return data;
+  } catch {
     return {
       success: false,
-      error: `AI 圖片識譜失敗: ${errorMsg}`,
+      error: 'AI 圖片識譜失敗，請稍後再試。',
     };
   }
 }

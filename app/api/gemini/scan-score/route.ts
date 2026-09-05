@@ -1,21 +1,24 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
-import { buildThinkingConfig } from '@/lib/geminiService';
 import { JianpuNote, KeySignature, LyricSyllable, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
 import { normalizeNoteDuration, normalizeSongDurations } from '@/lib/taigiUtils';
+import {
+  buildThinkingConfig,
+  callGenerateContentSafe,
+  capParsedScore,
+  getServerGeminiApiKey,
+  MAX_LYRIC_LINES,
+  parseModel,
+  parseModelJson,
+  parseThinking,
+  publicAiError,
+  rateLimitResponse,
+  requireGeminiSession,
+  validateScanImages,
+} from '@/lib/geminiServerAuth';
 
-const DEFAULT_PASSCODES = ['taigi', 'taigi2025', 'taigi2026', 'gemini', 'composer', 'admin'];
-
-function isPasscodeValid(passcode?: string): boolean {
-  const envPasscode = process.env.GEMINI_PASSCODE || process.env.NEXT_PUBLIC_GEMINI_PASSCODE;
-  const envAiPasscode = process.env.AI_PASSCODE || process.env.NEXT_PUBLIC_AI_PASSCODE;
-  const list = [...DEFAULT_PASSCODES];
-  if (envPasscode && envPasscode.trim()) list.push(envPasscode.trim());
-  if (envAiPasscode && envAiPasscode.trim()) list.push(envAiPasscode.trim());
-
-  if (!passcode) return false;
-  return list.map(p => p.toLowerCase()).includes(passcode.trim().toLowerCase());
-}
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 function normalizeKeySignature(keyStr?: string): KeySignature {
   if (!keyStr) return 'F';
@@ -51,21 +54,24 @@ function normalizePitch(p: unknown): PitchNumber {
 
 export async function POST(req: Request) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const limited = rateLimitResponse(req, 'generate');
+    if (limited) return limited;
+
+    const unauthorized = requireGeminiSession(req);
+    if (unauthorized) return unauthorized;
+
+    const apiKey = getServerGeminiApiKey();
     if (!apiKey) {
-      return NextResponse.json({ error: 'Gemini API key is not configured on the server.' }, { status: 503 });
+      return NextResponse.json({ error: 'Gemini API is not configured.' }, { status: 503 });
     }
 
     const body = await req.json();
-    const { images, mode = 'full_score', passcode, model = 'gemini-3.7-flash', thinkingEffort = 'HIGH' } = body;
+    const { images, mode = 'full_score' } = body;
+    const model = parseModel(body.model);
+    const thinkingEffort = parseThinking(body.thinkingEffort);
 
-    if (passcode && !isPasscodeValid(passcode)) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid passcode.' }, { status: 401 });
-    }
-
-    if (!images || !Array.isArray(images) || images.length === 0) {
-      return NextResponse.json({ error: '未提供樂譜圖片' }, { status: 400 });
-    }
+    const imageError = validateScanImages(images);
+    if (imageError) return imageError;
 
     const ai = new GoogleGenAI({ apiKey });
 
@@ -176,7 +182,7 @@ Return strictly valid JSON matching this schema:
     }
 
     const thinkingConfig = buildThinkingConfig(model, thinkingEffort);
-    const response = await ai.models.generateContent({
+    const response = await callGenerateContentSafe(ai, {
       model,
       contents: [
         ...imageParts,
@@ -190,37 +196,45 @@ Return strictly valid JSON matching this schema:
       },
     });
 
-    const rawText = response.text || '{}';
-    const cleanJsonText = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-    const parsed = JSON.parse(cleanJsonText);
+    const parsed = parseModelJson(response.text || '{}') as Record<string, unknown>;
+    const scoreCapError = capParsedScore(parsed);
+    if (scoreCapError) return scoreCapError;
 
     if (mode === 'lyrics_only') {
       const versesResult: LyricSyllable[][] = [];
-      if (parsed.verses && Array.isArray(parsed.verses)) {
+      if (Array.isArray(parsed.verses)) {
+        if (parsed.verses.length > MAX_LYRIC_LINES) {
+          return NextResponse.json(
+            { success: false, error: 'Transcribed lyrics exceeded the line limit.' },
+            { status: 400 }
+          );
+        }
         for (const v of parsed.verses) {
-          if (Array.isArray(v.syllables)) {
-            versesResult.push(v.syllables);
+          if (v && typeof v === 'object' && Array.isArray((v as { syllables?: unknown }).syllables)) {
+            versesResult.push((v as { syllables: LyricSyllable[] }).syllables);
           }
         }
       }
       return NextResponse.json({
         success: true,
-        rawLyricsText: parsed.rawLyricsText || '',
+        rawLyricsText: typeof parsed.rawLyricsText === 'string' ? parsed.rawLyricsText : '',
         lyricsVerses: versesResult,
       });
     }
 
     // Full score / score only
     const songId = `song-ai-${Date.now()}`;
-    const title = parsed.title || 'AI 圖片辨識樂譜';
-    const key = normalizeKeySignature(parsed.key);
-    const timeSignature = normalizeTimeSignature(parsed.timeSignature);
+    const title = typeof parsed.title === 'string' ? parsed.title : 'AI 圖片辨識樂譜';
+    const key = normalizeKeySignature(typeof parsed.key === 'string' ? parsed.key : undefined);
+    const timeSignature = normalizeTimeSignature(
+      typeof parsed.timeSignature === 'string' ? parsed.timeSignature : undefined
+    );
     const bpm = typeof parsed.bpm === 'number' && parsed.bpm > 30 && parsed.bpm < 300 ? parsed.bpm : 80;
 
     const measures: Song['measures'] = [];
 
     if (Array.isArray(parsed.measures) && parsed.measures.length > 0) {
-      parsed.measures.forEach((m: Record<string, unknown>, mIdx: number) => {
+      (parsed.measures as Record<string, unknown>[]).forEach((m, mIdx) => {
         const measureNum = typeof m.measureNumber === 'number' ? m.measureNumber : mIdx + 1;
         const measureId = `m-${measureNum}-${Date.now().toString(36)}-${mIdx}`;
         const chord = typeof m.chord === 'string' ? m.chord.trim() : undefined;
@@ -304,10 +318,10 @@ Return strictly valid JSON matching this schema:
       song: constructedSong,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    console.error('[scan-score]', err);
     return NextResponse.json({
       success: false,
-      error: `AI 圖片識譜失敗: ${message}`,
+      error: publicAiError(),
     }, { status: 500 });
   }
 }

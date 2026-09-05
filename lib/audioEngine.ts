@@ -27,6 +27,7 @@ export interface AudioEngineOptions {
   loopMeasure?: number | null; // index of measure to loop, or null
   loopRange?: LoopRange | null; // A-B loop range, or null
   targetFps?: number;       // Target frame rate for UI updates (e.g. 30 normal, 20 eco)
+  ecoMode?: boolean;        // Reduced oscillator graph, skip backing/metronome
 }
 
 export class AudioEngine {
@@ -47,6 +48,7 @@ export class AudioEngine {
     loopMeasure: null,
     loopRange: null,
     targetFps: 30,
+    ecoMode: false,
   };
 
   private isPlaying = false;
@@ -56,7 +58,8 @@ export class AudioEngine {
   private animationFrameId: number | null = null;
   private scheduledTimeoutIds: number[] = [];
   private activeOscillators: OscillatorNode[] = [];
-  private idleSuspendTimer: NodeJS.Timeout | null = null;
+  private idleSuspendTimer: ReturnType<typeof setTimeout> | null = null;
+  private trackingTimerId: ReturnType<typeof setTimeout> | null = null;
 
   // Listeners
   private stateListeners: ((state: PlaybackState) => void)[] = [];
@@ -69,6 +72,8 @@ export class AudioEngine {
 
   private wasInterruptedByTabSwitch = false;
   private interruptedSongTime = 0;
+  private isBackgrounded = false;
+  private interruptionDispatchPending = false;
 
   private currentState: PlaybackState = {
     isPlaying: false,
@@ -148,13 +153,21 @@ export class AudioEngine {
    */
   public unlockOnUserGesture = () => {
     if (typeof window === 'undefined') return;
-    this.initContext();
+
+    if (!this.ctx || this.ctx.state === 'closed') {
+      this.initContext();
+    }
     if (!this.ctx) return;
 
     const state = this.ctx.state as string;
-    if (state === 'suspended' || state === 'interrupted') {
-      this.ctx.resume().catch(() => {});
+    if (state !== 'suspended' && state !== 'interrupted') {
+      if (!this.isPlaying) {
+        this.scheduleAutoSuspend(3000);
+      }
+      return;
     }
+
+    this.ctx.resume().catch(() => {});
 
     try {
       const buffer = this.ctx.createBuffer(1, 1, 22050);
@@ -164,6 +177,10 @@ export class AudioEngine {
       source.start(0);
     } catch {
       // ignore
+    }
+
+    if (!this.isPlaying) {
+      this.scheduleAutoSuspend(3000);
     }
   };
 
@@ -206,16 +223,20 @@ export class AudioEngine {
   };
 
   private handleWindowFocus = () => {
-    if (typeof document !== 'undefined' && !document.hidden) {
+    if (typeof document !== 'undefined' && !document.hidden && this.isPlaying) {
       this.ensureContextActive().catch(() => {});
     }
   };
 
   private handleWindowBlur = () => {
-    this.cancelAutoSuspend();
+    if (!this.isPlaying) {
+      this.scheduleAutoSuspend(500);
+    }
   };
 
   private handleLeavingTab = () => {
+    if (this.isBackgrounded) return;
+    this.isBackgrounded = true;
     this.cancelAutoSuspend();
 
     if (this.isPlaying) {
@@ -224,15 +245,13 @@ export class AudioEngine {
       this.interruptedSongTime = currentPos;
       this.pausedSongTime = currentPos;
       this.wasInterruptedByTabSwitch = true;
+      this.interruptionDispatchPending = true;
 
       // Cleanly stop scheduled audio oscillators and animation frame
       this.isPlaying = false;
       this.isPaused = true;
       this.stopAudioNodes();
-      if (this.animationFrameId) {
-        cancelAnimationFrame(this.animationFrameId);
-        this.animationFrameId = null;
-      }
+      this.cancelTrackingLoop();
       this.scheduledTimeoutIds.forEach(id => clearTimeout(id));
       this.scheduledTimeoutIds = [];
 
@@ -264,7 +283,14 @@ export class AudioEngine {
   };
 
   private handleReturningToTab = () => {
-    // 1. Recover / inspect AudioContext
+    if (!this.isBackgrounded) {
+      if (this.isPlaying) {
+        this.ensureContextActive().catch(() => {});
+      }
+      return;
+    }
+    this.isBackgrounded = false;
+
     if (!this.ctx || this.ctx.state === 'closed') {
       this.initContext(true);
     } else {
@@ -274,14 +300,18 @@ export class AudioEngine {
       }
     }
 
-    // 2. If playback was paused when leaving tab, notify listeners with the exact paused timestamp
-    if (this.wasInterruptedByTabSwitch) {
+    if (this.interruptionDispatchPending) {
+      this.interruptionDispatchPending = false;
       const pausedAt = this.interruptedSongTime;
       this.tabInterruptionListeners.forEach(listener => {
         try {
           listener({ pausedAtTime: pausedAt });
         } catch {}
       });
+    }
+
+    if (!this.isPlaying) {
+      this.scheduleAutoSuspend(3000);
     }
   };
 
@@ -566,9 +596,17 @@ export class AudioEngine {
     });
   }
 
-  /**
-   * Synthesize instrument sound
-   */
+  private cancelTrackingLoop() {
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    if (this.trackingTimerId !== null) {
+      clearTimeout(this.trackingTimerId);
+      this.trackingTimerId = null;
+    }
+  }
+
   private playTone(
     freq: number,
     startTime: number,
@@ -603,6 +641,21 @@ export class AudioEngine {
     if (options?.glideFromFreq && options.glideFromFreq > 0) {
       osc.frequency.setValueAtTime(options.glideFromFreq, startTime);
       osc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
+    }
+
+    if (this.options.ecoMode) {
+      osc.type = instrument === 'synth' || instrument === 'guitar' ? 'triangle' : 'sine';
+      if (!options?.glideFromFreq) {
+        osc.frequency.setValueAtTime(freq, startTime);
+      }
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.linearRampToValueAtTime(0.7 * volMul, startTime + (isLegato ? 0.02 : 0.012));
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(effectiveDuration * 0.95, 0.12));
+      osc.connect(gain);
+      gain.connect(destination);
+      osc.start(startTime);
+      osc.stop(startTime + effectiveDuration + 0.05);
+      return;
     }
 
     switch (instrument) {
@@ -795,6 +848,7 @@ export class AudioEngine {
    * Play a metronome click
    */
   private playMetronomeClick(startTime: number, isDownbeat: boolean) {
+    if (this.options.ecoMode) return;
     if (!this.ctx || !this.metronomeGain || this.options.metronomeVolume <= 0.01) return;
 
     const osc = this.ctx.createOscillator();
@@ -819,6 +873,7 @@ export class AudioEngine {
    * Play chord accompaniment pattern
    */
   private playChordBeat(chordName: string, startTime: number, beatDuration: number, isDownbeat: boolean) {
+    if (this.options.ecoMode) return;
     if (!this.ctx || !this.backingGain || this.options.backingVolume <= 0.01) return;
     const chordFrequencies = getChordNotes(chordName, this.options.transpose);
     if (chordFrequencies.length === 0) return;
@@ -1373,11 +1428,11 @@ export class AudioEngine {
     }[]
   ) {
     let lastActiveEventIdx = -1;
-    let lastEmitTime = 0;
     const targetFps = this.options.targetFps || 30;
-    const frameIntervalMs = 1000 / targetFps;
+    const frameIntervalMs = 1000 / Math.max(8, targetFps);
 
-    const tick = (timestamp: number) => {
+    const tick = () => {
+      this.animationFrameId = null;
       if (!this.isPlaying || !this.ctx) return;
 
       const rawSongTime = this.ctx.currentTime - this.startAudioTime;
@@ -1434,11 +1489,9 @@ export class AudioEngine {
       }
 
       const activeEvent = timelineEvents[activeIdx];
-      let isEventChanged = false;
 
       if (activeIdx !== lastActiveEventIdx && activeEvent) {
         lastActiveEventIdx = activeIdx;
-        isEventChanged = true;
         if (this.onNoteStart) {
           this.onNoteStart(
             activeEvent.measureIndex,
@@ -1452,26 +1505,24 @@ export class AudioEngine {
         }
       }
 
-      // Frame budgeting: throttle continuous UI time updates to target FPS (e.g. 30 normal, 20 eco),
-      // but always dispatch immediately on note/measure transitions so visual sync is instant.
-      const now = typeof performance !== 'undefined' ? performance.now() : timestamp || Date.now();
-      if (isEventChanged || now - lastEmitTime >= frameIntervalMs || lastEmitTime === 0) {
-        lastEmitTime = now;
-        const progressPercent = Math.min(100, (currentSongTime / totalDuration) * 100);
+      const progressPercent = Math.min(100, (currentSongTime / totalDuration) * 100);
+      this.notifyState({
+        isPlaying: true,
+        isPaused: false,
+        currentMeasureIndex: activeEvent ? activeEvent.measureIndex : 0,
+        currentNoteIndex: activeEvent ? activeEvent.noteIndex : 0,
+        currentNoteId: activeEvent ? activeEvent.note.id : null,
+        currentTime: Math.max(0, currentSongTime),
+        totalDuration,
+        progressPercent,
+      });
 
-        this.notifyState({
-          isPlaying: true,
-          isPaused: false,
-          currentMeasureIndex: activeEvent ? activeEvent.measureIndex : 0,
-          currentNoteIndex: activeEvent ? activeEvent.noteIndex : 0,
-          currentNoteId: activeEvent ? activeEvent.note.id : null,
-          currentTime: Math.max(0, currentSongTime),
-          totalDuration,
-          progressPercent,
-        });
-      }
-
-      this.animationFrameId = requestAnimationFrame(tick);
+      this.trackingTimerId = setTimeout(() => {
+        this.trackingTimerId = null;
+        if (this.isPlaying) {
+          this.animationFrameId = requestAnimationFrame(tick);
+        }
+      }, frameIntervalMs);
     };
 
     this.animationFrameId = requestAnimationFrame(tick);
@@ -1484,10 +1535,7 @@ export class AudioEngine {
     this.isPlaying = false;
     this.wasInterruptedByTabSwitch = false;
     this.stopAudioNodes();
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = null;
-    }
+    this.cancelTrackingLoop();
     this.scheduledTimeoutIds.forEach(id => clearTimeout(id));
     this.scheduledTimeoutIds = [];
 
@@ -1526,10 +1574,7 @@ export class AudioEngine {
     this.pausedSongTime = 0;
     this.wasInterruptedByTabSwitch = false;
     this.stopAudioNodes();
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = null;
-    }
+    this.cancelTrackingLoop();
     this.scheduledTimeoutIds.forEach(id => clearTimeout(id));
     this.scheduledTimeoutIds = [];
 
@@ -1633,10 +1678,7 @@ export class AudioEngine {
   public seek(song: Song, targetTimeSec: number) {
     const wasPlaying = this.isPlaying;
     this.stopAudioNodes();
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = null;
-    }
+    this.cancelTrackingLoop();
     this.currentSong = song;
     this.pausedSongTime = targetTimeSec;
 

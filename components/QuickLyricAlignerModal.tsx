@@ -61,7 +61,6 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
     hasApiKey,
     activeModel: aiModel,
     thinkingEffort,
-    apiKey: customApiKey,
   } = useGeminiAuth();
 
   const [inputText, setInputText] = useState('');
@@ -164,13 +163,13 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
         if (lines.length > 1) {
           tokensByVerse = await convertTaigiLyricsByVersesWithAi(
             lines,
-            customApiKey.trim() || undefined,
+            undefined,
             aiOptions
           );
         } else {
           const singleTokens = await convertTaigiLyricsWithAi(
             lines[0],
-            customApiKey.trim() || undefined,
+            undefined,
             aiOptions
           );
           tokensByVerse = [singleTokens];

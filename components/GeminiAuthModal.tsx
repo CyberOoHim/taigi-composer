@@ -48,6 +48,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
   const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const isCollapsed = isAuthenticated && !isManuallyExpanded;
 
@@ -61,21 +62,26 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleVerify = (e?: React.FormEvent) => {
+  const handleVerify = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+    setIsVerifying(true);
 
-    const result = verifyPasscode(passcode);
-    if (result.success) {
-      setSuccessMsg(result.message);
-      setPasscode('');
-      setTimeout(() => {
-        setIsManuallyExpanded(false);
-        if (onAuthSuccess) onAuthSuccess();
-      }, 600);
-    } else {
-      setErrorMsg(result.message);
+    try {
+      const result = await verifyPasscode(passcode);
+      if (result.success) {
+        setSuccessMsg(result.message);
+        setPasscode('');
+        setTimeout(() => {
+          setIsManuallyExpanded(false);
+          if (onAuthSuccess) onAuthSuccess();
+        }, 600);
+      } else {
+        setErrorMsg(result.message);
+      }
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -202,11 +208,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                       {isAuthenticated ? 'Update Authorization' : 'Enter Passcode Once for All Features'}
                     </h4>
                     <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                      Enter the default passcode (Hint:{' '}
-                      <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 rounded font-mono font-bold text-amber-800 dark:text-amber-300">
-                        taigi
-                      </code>
-                      ). Once authenticated, access is automatically synchronized across the AI Score Scanner and Quick Lyric Aligner.
+                      Enter the administrator passcode. Once authenticated, access is synchronized across the AI Score Scanner and Quick Lyric Aligner.
                     </p>
                   </div>
                 </div>
@@ -244,7 +246,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                     placeholder={
                       !hasApiKey
                         ? '密碼驗證已靜音 (未設定環境金鑰)'
-                        : 'Enter passcode (e.g. taigi)'
+                        : 'Enter passcode'
                     }
                     autoFocus={hasApiKey}
                     className={`w-full pl-3 pr-10 py-2.5 text-sm rounded-xl font-mono border ${
@@ -332,7 +334,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
               <button
                 id="gemini-auth-verify-btn"
                 type="submit"
-                disabled={!passcode.trim() || !hasApiKey}
+                disabled={!passcode.trim() || !hasApiKey || isVerifying}
                 className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm shadow-md transition-all ${
                   !hasApiKey
                     ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed opacity-60'
@@ -340,7 +342,7 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                 }`}
               >
                 <Unlock className="w-4 h-4" />
-                <span>{!hasApiKey ? '密碼驗證已靜音' : 'Verify & Unlock App-Wide'}</span>
+                <span>{!hasApiKey ? '密碼驗證已靜音' : isVerifying ? 'Verifying…' : 'Verify & Unlock App-Wide'}</span>
               </button>
             </form>
           )}

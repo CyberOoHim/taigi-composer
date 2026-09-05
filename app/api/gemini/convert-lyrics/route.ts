@@ -1,39 +1,45 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
-import { buildThinkingConfig } from '@/lib/geminiService';
 import { splitTaigiLyricSyllables } from '@/lib/taigiUtils';
+import {
+  buildThinkingConfig,
+  callGenerateContentSafe,
+  parseModel,
+  parseModelJson,
+  parseThinking,
+  publicAiError,
+  rateLimitResponse,
+  requireGeminiSession,
+  validateLyricPayload,
+  getServerGeminiApiKey,
+} from '@/lib/geminiServerAuth';
 
-const DEFAULT_PASSCODES = ['taigi', 'taigi2025', 'taigi2026', 'gemini', 'composer', 'admin'];
-
-function isPasscodeValid(passcode?: string): boolean {
-  const envPasscode = process.env.GEMINI_PASSCODE || process.env.NEXT_PUBLIC_GEMINI_PASSCODE;
-  const envAiPasscode = process.env.AI_PASSCODE || process.env.NEXT_PUBLIC_AI_PASSCODE;
-  const list = [...DEFAULT_PASSCODES];
-  if (envPasscode && envPasscode.trim()) list.push(envPasscode.trim());
-  if (envAiPasscode && envAiPasscode.trim()) list.push(envAiPasscode.trim());
-
-  if (!passcode) return false;
-  return list.map(p => p.toLowerCase()).includes(passcode.trim().toLowerCase());
-}
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const limited = rateLimitResponse(req, 'generate');
+    if (limited) return limited;
+
+    const unauthorized = requireGeminiSession(req);
+    if (unauthorized) return unauthorized;
+
+    const apiKey = getServerGeminiApiKey();
     if (!apiKey) {
-      return NextResponse.json({ error: 'Gemini API key is not configured on the server.' }, { status: 503 });
+      return NextResponse.json({ error: 'Gemini API is not configured.' }, { status: 503 });
     }
 
     const body = await req.json();
-    const { lines, text, passcode, model = 'gemini-3.7-flash', thinkingEffort = 'MEDIUM' } = body;
+    const payloadError = validateLyricPayload(body?.lines, body?.text);
+    if (payloadError) return payloadError;
 
-    // Optional passcode check if server requires authentication
-    if (passcode && !isPasscodeValid(passcode)) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid passcode.' }, { status: 401 });
-    }
-
+    const { lines, text } = body;
+    const model = parseModel(body.model);
+    const thinkingEffort = parseThinking(body.thinkingEffort);
     const ai = new GoogleGenAI({ apiKey });
+    const thinkingConfig = buildThinkingConfig(model, thinkingEffort);
 
-    // Mode A: verses/lines array
     if (Array.isArray(lines) && lines.length > 0) {
       const formattedLines = lines.map((l: string, i: number) => `Line ${i + 1}: ${l}`).join('\n');
       const prompt = `You are an expert Taiwanese Hokkien (Taigi / 臺灣話) linguist and music lyricist.
@@ -58,8 +64,7 @@ Return strictly valid JSON in the following schema:
   ]
 }`;
 
-      const thinkingConfig = buildThinkingConfig(model, thinkingEffort);
-      const response = await ai.models.generateContent({
+      const response = await callGenerateContentSafe(ai, {
         model,
         contents: prompt,
         config: {
@@ -68,11 +73,13 @@ Return strictly valid JSON in the following schema:
         },
       });
 
-      const parsed = JSON.parse(response.text || '{}');
+      const parsed = parseModelJson(response.text || '{}') as {
+        verses?: Array<{ lineIndex?: number; syllables?: unknown }>;
+      };
       if (parsed.verses && Array.isArray(parsed.verses)) {
         const result = [];
         for (let i = 0; i < lines.length; i++) {
-          const found = parsed.verses.find((v: { lineIndex?: number }) => v.lineIndex === i) || parsed.verses[i];
+          const found = parsed.verses.find((v) => v.lineIndex === i) || parsed.verses[i];
           if (found && Array.isArray(found.syllables)) {
             result.push(found.syllables);
           } else {
@@ -84,7 +91,6 @@ Return strictly valid JSON in the following schema:
       }
     }
 
-    // Mode B: single text line
     if (typeof text === 'string' && text.trim().length > 0) {
       const prompt = `You are an expert Taiwanese Hokkien (Taigi / 臺灣話) linguist and music lyricist.
 The user provided the following Taigi lyrics (which may be Hanji, POJ, or Han-lô mixed):
@@ -103,8 +109,7 @@ Return strictly valid JSON in the following schema:
   ]
 }`;
 
-      const thinkingConfig = buildThinkingConfig(model, thinkingEffort);
-      const response = await ai.models.generateContent({
+      const response = await callGenerateContentSafe(ai, {
         model,
         contents: prompt,
         config: {
@@ -113,19 +118,18 @@ Return strictly valid JSON in the following schema:
         },
       });
 
-      const parsed = JSON.parse(response.text || '{}');
+      const parsed = parseModelJson(response.text || '{}') as { syllables?: unknown };
       if (parsed.syllables && Array.isArray(parsed.syllables)) {
         return NextResponse.json({ syllables: parsed.syllables });
       }
     }
 
-    // Fallback rule-based split
-    const rawSyllables = splitTaigiLyricSyllables(text || '');
+    const rawSyllables = splitTaigiLyricSyllables(typeof text === 'string' ? text : '');
     return NextResponse.json({
       syllables: rawSyllables.map((s) => ({ hanlo: s, poj: s })),
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[convert-lyrics]', err);
+    return NextResponse.json({ error: publicAiError() }, { status: 500 });
   }
 }

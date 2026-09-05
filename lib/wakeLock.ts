@@ -68,8 +68,17 @@ class WakeLockManager {
   }
 
   /**
-   * Request screen wake lock for playback
+   * Request screen wake lock for playback.
+   * Skip when eco mode is on so iOS can dim/sleep the panel.
    */
+  public async requestForPlayback(ecoMode: boolean): Promise<boolean> {
+    if (ecoMode) {
+      await this.release();
+      return false;
+    }
+    return this.request();
+  }
+
   public async request(): Promise<boolean> {
     this.isRequested = true;
     return this.acquire();

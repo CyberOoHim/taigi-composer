@@ -84,7 +84,6 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
     hasApiKey,
     activeModel: aiModel,
     thinkingEffort,
-    apiKey: customApiKey,
   } = useGeminiAuth();
 
   // Page Images deck (1-3 images)
@@ -177,7 +176,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
     }
 
     if (!isAiAuthenticated) {
-      setUploadError('Please enter and verify Gemini passcode first (default: taigi)');
+      setUploadError('Please enter and verify the Gemini passcode first');
       if (onOpenGeminiAuth) {
         onOpenGeminiAuth();
       }
@@ -200,7 +199,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
       const result = await extractScoreFromImagesWithAi(
         imagePayloads,
         mode,
-        customApiKey.trim() || undefined,
+        undefined,
         {
           model: aiModel,
           thinkingEffort,
@@ -593,7 +592,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
           {/* 3. GEMINI AUTH & AI CONFIGURATION */}
           <GeminiAuthCard
             title="Gemini Multimodal AI OCR Settings"
-            description="Enter the passcode to enable Gemini 3.7 multimodal OCR (Default hint: taigi or personal API Key)."
+            description="Enter the administrator passcode to enable Gemini 3.7 multimodal OCR."
             onOpenFullSettings={onOpenGeminiAuth}
             idPrefix="scanner-auth"
           />
