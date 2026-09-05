@@ -102,6 +102,16 @@ export function getStoredCurrentSong(): Song {
     try {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.id && Array.isArray(parsed.measures) && parsed.measures.length > 0) {
+        // If the stored song is preset 'u-ia-hoe' but still has old 2/4 durations (duration < 0.5 on first note), refresh to updated preset
+        if (parsed.id === 'u-ia-hoe') {
+          const firstPitchedNote = parsed.measures[0]?.notes?.find(
+            (n: any) => typeof n.pitch === 'number' && n.pitch > 0
+          );
+          if (firstPitchedNote && typeof firstPitchedNote.duration === 'number' && firstPitchedNote.duration < 0.5) {
+            return PRESET_SONGS[0];
+          }
+        }
+
         const song = parsed as Song;
         song.measures.forEach(m => {
           if (Array.isArray(m.notes)) {

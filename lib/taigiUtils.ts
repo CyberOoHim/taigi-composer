@@ -576,9 +576,10 @@ export function isStandaloneAnnotationNote(note: JianpuNote | null | undefined):
  */
 export function getPunctuationDisplayChar(note: JianpuNote | null | undefined): string {
   if (!note) return '';
+  const hanlo = note.lyric?.hanlo ?? '';
   const hanji = note.lyric?.hanji ?? '';
   const custom = note.lyric?.custom ?? '';
-  const raw = hanji || custom || '';
+  const raw = hanlo || hanji || custom || '';
   if (raw === '\n' || raw === '\r' || raw === '↵') return '↵';
   if (raw === ' ') return '␣';
   if (raw.trim()) return raw.trim().slice(-1);
@@ -698,7 +699,7 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
       if (measure.section && isFirstInMeasure && currentNotes.length > 0 && currentSection !== measure.section) {
         pushCurrentVerse();
         currentSection = measure.section;
-      } else if (measure.section && !currentSection) {
+      } else if (measure.section) {
         currentSection = measure.section;
       }
 
@@ -710,7 +711,7 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
         noteIndex: nIdx,
         measureNumber: measure.measureNumber,
         chord: measure.chord,
-        section: measure.section,
+        section: measure.section || currentSection,
         isFirstInMeasure,
       };
 
@@ -727,7 +728,6 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
           // Normal case: conclude current verse with this newline separator
           currentNotes.push(noteRef);
           pushCurrentVerse();
-          currentSection = undefined;
         } else if (verses.length > 0 && currentNotes.length === 0) {
           // Consecutive newline! Consecutive newlines act as a single one:
           // Absorb into the previously closed verse without creating an empty verse
