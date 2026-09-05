@@ -1108,6 +1108,30 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     onUpdateSong({ ...song, measures: newMeasures });
     setSelectedCoord([mIdx, nIdx + 1]);
     audioEngine.previewNote(song.key, newNote);
+    showNotice(`Inserted new note after note #${nIdx + 1}`);
+  };
+
+  // Note management: Insert Note before specific note
+  const handleInsertNoteBeforeAt = (mIdx: number, nIdx: number) => {
+    const newNote: JianpuNote = {
+      id: generateId('n'),
+      pitch: 1,
+      octave: 0,
+      duration: 1,
+      lyric: {},
+    };
+
+    const newMeasures = song.measures.map((m, currentMIdx) => {
+      if (currentMIdx !== mIdx) return m;
+      const notes = [...m.notes];
+      notes.splice(nIdx, 0, newNote);
+      return { ...m, notes };
+    });
+
+    onUpdateSong({ ...song, measures: newMeasures });
+    setSelectedCoord([mIdx, nIdx]);
+    audioEngine.previewNote(song.key, newNote);
+    showNotice(`Inserted new note before note #${nIdx + 1}`);
   };
 
   // Note management: Insert Break (Line break note ↵) directly after specific note
@@ -1421,6 +1445,146 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     },
     [song, onUpdateSong, showNotice, selectedCoord]
   );
+
+  // Move selected note backward (earlier in song)
+  const handleMoveNoteBackward = useCallback(() => {
+    if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
+    const mIdx = selectedMeasureIndex;
+    const nIdx = selectedNoteIndex;
+    const currentM = song.measures[mIdx];
+    if (!currentM || !currentM.notes[nIdx]) return;
+
+    if (nIdx > 0) {
+      // Reorder within the same measure
+      const newNotes = [...currentM.notes];
+      const temp = newNotes[nIdx];
+      newNotes[nIdx] = newNotes[nIdx - 1];
+      newNotes[nIdx - 1] = temp;
+
+      const newMeasures = song.measures.map((m, idx) =>
+        idx === mIdx ? { ...m, notes: newNotes } : m
+      );
+      onUpdateSong({ ...song, measures: newMeasures });
+      setSelectedCoord([mIdx, nIdx - 1]);
+      audioEngine.previewNote(song.key, temp);
+      showNotice(`Moved note backward to position #${nIdx}`);
+    } else {
+      // First note in current measure, move into end of previous measure
+      if (mIdx === 0) {
+        showNotice('Note is already at the very start of the song');
+        return;
+      }
+      const prevM = song.measures[mIdx - 1];
+      const noteToMove = currentM.notes[0];
+      const newCurrentNotes = currentM.notes.slice(1);
+      const newPrevNotes = [...prevM.notes, noteToMove];
+      const targetNoteIdx = newPrevNotes.length - 1;
+
+      let newMeasures = [...song.measures];
+      if (newCurrentNotes.length === 0) {
+        // Measure became empty, remove it and renumber
+        newMeasures.splice(mIdx, 1);
+        newMeasures[mIdx - 1] = { ...prevM, notes: newPrevNotes };
+        newMeasures = renumberMeasures(newMeasures);
+        onUpdateSong({ ...song, measures: newMeasures });
+        setSelectedCoord([mIdx - 1, targetNoteIdx]);
+        audioEngine.previewNote(song.key, noteToMove);
+        showNotice(`Moved note into Measure #${mIdx}`);
+      } else {
+        newMeasures[mIdx - 1] = { ...prevM, notes: newPrevNotes };
+        newMeasures[mIdx] = { ...currentM, notes: newCurrentNotes };
+        onUpdateSong({ ...song, measures: newMeasures });
+        setSelectedCoord([mIdx - 1, targetNoteIdx]);
+        audioEngine.previewNote(song.key, noteToMove);
+        showNotice(`Moved note into Measure #${mIdx}`);
+      }
+      safeTimeout(() => {
+        scrollToCardElement(`measure-card-${mIdx - 1}`);
+      }, 50);
+    }
+  }, [selectedMeasureIndex, selectedNoteIndex, song, onUpdateSong, showNotice, audioEngine, safeTimeout]);
+
+  // Move selected note forward (later in song)
+  const handleMoveNoteForward = useCallback(() => {
+    if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
+    const mIdx = selectedMeasureIndex;
+    const nIdx = selectedNoteIndex;
+    const currentM = song.measures[mIdx];
+    if (!currentM || !currentM.notes[nIdx]) return;
+
+    if (nIdx < currentM.notes.length - 1) {
+      // Reorder within the same measure
+      const newNotes = [...currentM.notes];
+      const temp = newNotes[nIdx];
+      newNotes[nIdx] = newNotes[nIdx + 1];
+      newNotes[nIdx + 1] = temp;
+
+      const newMeasures = song.measures.map((m, idx) =>
+        idx === mIdx ? { ...m, notes: newNotes } : m
+      );
+      onUpdateSong({ ...song, measures: newMeasures });
+      setSelectedCoord([mIdx, nIdx + 1]);
+      audioEngine.previewNote(song.key, temp);
+      showNotice(`Moved note forward to position #${nIdx + 2}`);
+    } else {
+      // Last note in current measure, move into start of next measure
+      if (mIdx < song.measures.length - 1) {
+        const nextM = song.measures[mIdx + 1];
+        const noteToMove = currentM.notes[nIdx];
+        const newCurrentNotes = currentM.notes.slice(0, nIdx);
+        const newNextNotes = [noteToMove, ...nextM.notes];
+
+        let newMeasures = [...song.measures];
+        if (newCurrentNotes.length === 0) {
+          // Current measure became empty, remove it and renumber
+          newMeasures.splice(mIdx, 1);
+          newMeasures[mIdx] = { ...nextM, notes: newNextNotes };
+          newMeasures = renumberMeasures(newMeasures);
+          onUpdateSong({ ...song, measures: newMeasures });
+          setSelectedCoord([mIdx, 0]);
+          audioEngine.previewNote(song.key, noteToMove);
+          showNotice(`Moved note into Measure #${mIdx + 1}`);
+        } else {
+          newMeasures[mIdx] = { ...currentM, notes: newCurrentNotes };
+          newMeasures[mIdx + 1] = { ...nextM, notes: newNextNotes };
+          onUpdateSong({ ...song, measures: newMeasures });
+          setSelectedCoord([mIdx + 1, 0]);
+          audioEngine.previewNote(song.key, noteToMove);
+          showNotice(`Moved note into Measure #${mIdx + 2}`);
+        }
+        safeTimeout(() => {
+          scrollToCardElement(`measure-card-${mIdx + 1}`);
+        }, 50);
+      } else {
+        // Last measure in song
+        if (currentM.notes.length <= 1) {
+          showNotice('Note is already at the very end of the song');
+          return;
+        }
+        const noteToMove = currentM.notes[nIdx];
+        const newCurrentNotes = currentM.notes.slice(0, nIdx);
+        const newMeasure: Measure = {
+          id: generateId('m'),
+          measureNumber: song.measures.length + 1,
+          chord: currentM.chord,
+          notes: [noteToMove],
+        };
+
+        const newMeasures = [...song.measures];
+        newMeasures[mIdx] = { ...currentM, notes: newCurrentNotes };
+        newMeasures.push(newMeasure);
+        const renumbered = renumberMeasures(newMeasures);
+
+        onUpdateSong({ ...song, measures: renumbered });
+        setSelectedCoord([mIdx + 1, 0]);
+        audioEngine.previewNote(song.key, noteToMove);
+        showNotice(`Moved note into new Measure #${mIdx + 2}`);
+        safeTimeout(() => {
+          scrollToCardElement(`measure-card-${mIdx + 1}`);
+        }, 50);
+      }
+    }
+  }, [selectedMeasureIndex, selectedNoteIndex, song, onUpdateSong, showNotice, audioEngine, safeTimeout]);
 
   // Move measure order (reordering relative location)
   const handleMoveMeasureOrder = useCallback(
@@ -1824,6 +1988,29 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     }
   }, [song, audioEngine, editMode, verses]);
 
+  const canMoveNoteBackward =
+    selectedMeasureIndex !== null &&
+    selectedNoteIndex !== null &&
+    (selectedMeasureIndex > 0 || selectedNoteIndex > 0);
+
+  const canMoveNoteForward =
+    selectedMeasureIndex !== null &&
+    selectedNoteIndex !== null &&
+    Boolean(
+      song.measures[selectedMeasureIndex] &&
+      (selectedMeasureIndex < song.measures.length - 1 ||
+        selectedNoteIndex < song.measures[selectedMeasureIndex].notes.length - 1 ||
+        song.measures[selectedMeasureIndex].notes.length > 1)
+    );
+
+  const insertNoteAtRef = useRef(handleInsertNoteAt);
+  const insertNoteBeforeAtRef = useRef(handleInsertNoteBeforeAt);
+
+  useEffect(() => {
+    insertNoteAtRef.current = handleInsertNoteAt;
+    insertNoteBeforeAtRef.current = handleInsertNoteBeforeAt;
+  });
+
   // Keyboard listener for quick score editing (undo/redo handled globally at master transport)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1888,6 +2075,26 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         e.preventDefault();
         const mark = e.key === ',' ? '，' : e.key;
         handleInsertPunctuationToNote(mark);
+      } else if (e.altKey && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleMoveNoteBackward();
+      } else if (e.altKey && e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleMoveNoteForward();
+      } else if (e.key === 'Insert') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          insertNoteBeforeAtRef.current(selectedMeasureIndex, selectedNoteIndex);
+        } else {
+          insertNoteAtRef.current(selectedMeasureIndex, selectedNoteIndex);
+        }
+      } else if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          insertNoteBeforeAtRef.current(selectedMeasureIndex, selectedNoteIndex);
+        } else {
+          insertNoteAtRef.current(selectedMeasureIndex, selectedNoteIndex);
+        }
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         handleNavigateNextNote();
@@ -1923,6 +2130,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     handleNavigateNextNote,
     handleNavigatePrevNote,
     handleInsertPunctuationToNote,
+    handleMoveNoteBackward,
+    handleMoveNoteForward,
   ]);
 
   return (
@@ -2299,8 +2508,13 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onInsertAnnotation={handleInsertAnnotationToNote}
             onSetAnnotation={handleSetAnnotation}
             onInsertNoteAt={handleInsertNoteAt}
+            onInsertNoteBeforeAt={handleInsertNoteBeforeAt}
             onInsertBreakAt={handleInsertBreakAt}
             onDeleteNoteAt={handleDeleteNoteAt}
+            onMoveNoteBackward={handleMoveNoteBackward}
+            onMoveNoteForward={handleMoveNoteForward}
+            canMoveNoteBackward={canMoveNoteBackward}
+            canMoveNoteForward={canMoveNoteForward}
             onNavigateNextNote={handleNavigateNextNote}
             onNavigatePrevNote={handleNavigatePrevNote}
             autoStepAdvance={autoStepAdvance}
@@ -2366,8 +2580,13 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onInsertAnnotation={handleInsertAnnotationToNote}
             onSetAnnotation={handleSetAnnotation}
             onInsertNoteAt={handleInsertNoteAt}
+            onInsertNoteBeforeAt={handleInsertNoteBeforeAt}
             onInsertBreakAt={handleInsertBreakAt}
             onDeleteNoteAt={handleDeleteNoteAt}
+            onMoveNoteBackward={handleMoveNoteBackward}
+            onMoveNoteForward={handleMoveNoteForward}
+            canMoveNoteBackward={canMoveNoteBackward}
+            canMoveNoteForward={canMoveNoteForward}
             onNavigateNextNote={handleNavigateNextNote}
             onNavigatePrevNote={handleNavigatePrevNote}
             autoStepAdvance={autoStepAdvance}

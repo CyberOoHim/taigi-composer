@@ -74,8 +74,13 @@ interface MeasureModeViewProps {
   onInsertAnnotation: (annot: string) => void;
   onSetAnnotation: (annot: string) => void;
   onInsertNoteAt: (mIdx: number, nIdx: number) => void;
+  onInsertNoteBeforeAt?: (mIdx: number, nIdx: number) => void;
   onInsertBreakAt?: (mIdx: number, nIdx: number) => void;
   onDeleteNoteAt: (mIdx: number, nIdx: number) => void;
+  onMoveNoteBackward?: () => void;
+  onMoveNoteForward?: () => void;
+  canMoveNoteBackward?: boolean;
+  canMoveNoteForward?: boolean;
   onNavigateNextNote?: () => void;
   onNavigatePrevNote?: () => void;
   autoStepAdvance?: boolean;
@@ -148,8 +153,13 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   onInsertAnnotation,
   onSetAnnotation,
   onInsertNoteAt,
+  onInsertNoteBeforeAt,
   onInsertBreakAt,
   onDeleteNoteAt,
+  onMoveNoteBackward,
+  onMoveNoteForward,
+  canMoveNoteBackward,
+  canMoveNoteForward,
   onNavigateNextNote,
   onNavigatePrevNote,
   autoStepAdvance,
@@ -961,8 +971,13 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     onInsertAnnotation={onInsertAnnotation}
                     onSetAnnotation={onSetAnnotation}
                     onInsertNoteAt={onInsertNoteAt}
+                    onInsertNoteBeforeAt={onInsertNoteBeforeAt}
                     onInsertBreakAt={onInsertBreakAt}
                     onDeleteNoteAt={onDeleteNoteAt}
+                    onMoveNoteBackward={onMoveNoteBackward}
+                    onMoveNoteForward={onMoveNoteForward}
+                    canMoveNoteBackward={canMoveNoteBackward}
+                    canMoveNoteForward={canMoveNoteForward}
                     onSplitMeasureBeforeNote={(m, n) => {
                       if (onSplitMeasureAtNote) onSplitMeasureAtNote(m, n);
                     }}

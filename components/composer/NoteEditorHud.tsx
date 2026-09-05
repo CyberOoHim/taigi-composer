@@ -21,6 +21,7 @@ import {
   Volume2,
   Play,
   Square,
+  Plus,
   PlusCircle,
   Trash2,
   Undo2,
@@ -68,10 +69,15 @@ export interface NoteEditorHudProps {
   onInsertAnnotation: (annot: string) => void;
   onSetAnnotation: (annot: string) => void;
   onInsertNoteAt: (mIdx: number, nIdx: number) => void;
+  onInsertNoteBeforeAt?: (mIdx: number, nIdx: number) => void;
   onInsertBreakAt?: (mIdx: number, nIdx: number) => void;
   onDeleteNoteAt: (mIdx: number, nIdx: number) => void;
   onSplitMeasureBeforeNote?: (mIdx: number, nIdx: number) => void;
   onPushNoteToNextMeasure?: (mIdx: number, nIdx?: number) => void;
+  onMoveNoteBackward?: () => void;
+  onMoveNoteForward?: () => void;
+  canMoveNoteBackward?: boolean;
+  canMoveNoteForward?: boolean;
   onNavigateNextNote?: () => void;
   onNavigatePrevNote?: () => void;
   autoStepAdvance?: boolean;
@@ -123,10 +129,15 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   onInsertAnnotation,
   onSetAnnotation,
   onInsertNoteAt,
+  onInsertNoteBeforeAt,
   onInsertBreakAt,
   onDeleteNoteAt,
   onSplitMeasureBeforeNote,
   onPushNoteToNextMeasure,
+  onMoveNoteBackward,
+  onMoveNoteForward,
+  canMoveNoteBackward = false,
+  canMoveNoteForward = false,
   onNavigateNextNote,
   onNavigatePrevNote,
   autoStepAdvance = false,
@@ -495,16 +506,69 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             </div>
           )}
 
-          {/* Insert Note */}
-          <button
-            type="button"
-            onClick={() => onInsertNoteAt(selectedMeasureIndex, selectedNoteIndex ?? 0)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-            title="Insert new note after current note"
+          {/* Move Note Backward / Forward in score order */}
+          {(onMoveNoteBackward || onMoveNoteForward) && (
+            <div
+              id="hud-move-note-group"
+              className="flex items-center bg-zinc-200/80 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs"
+            >
+              <button
+                id="hud-move-note-backward-btn"
+                type="button"
+                onClick={onMoveNoteBackward}
+                disabled={!canMoveNoteBackward}
+                title={canMoveNoteBackward ? 'Move note backward in score (Alt + ←)' : 'Cannot move backward (start of song)'}
+                className="p-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] min-w-[36px] flex items-center justify-center"
+              >
+                <ArrowLeft className="w-4 h-4 shrink-0" />
+              </button>
+              <span className="text-[11px] font-bold px-1.5 text-zinc-700 dark:text-zinc-200 select-none whitespace-nowrap">
+                Move Note
+              </span>
+              <button
+                id="hud-move-note-forward-btn"
+                type="button"
+                onClick={onMoveNoteForward}
+                disabled={!canMoveNoteForward}
+                title={canMoveNoteForward ? 'Move note forward in score (Alt + →)' : 'Cannot move forward (end of song)'}
+                className="p-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] min-w-[36px] flex items-center justify-center"
+              >
+                <ArrowRight className="w-4 h-4 shrink-0" />
+              </button>
+            </div>
+          )}
+
+          {/* Insert Note Group: Before & After */}
+          <div
+            id="hud-insert-note-group"
+            className="flex items-center bg-zinc-200/80 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs gap-0.5"
           >
-            <PlusCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">Insert Note</span>
-          </button>
+            {onInsertNoteBeforeAt && (
+              <button
+                id="hud-insert-before-btn"
+                type="button"
+                onClick={() => onInsertNoteBeforeAt(selectedMeasureIndex, selectedNoteIndex ?? 0)}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-100 hover:bg-white dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-100 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+                title="Insert new note BEFORE current note (Shift + Insert or Shift + I)"
+              >
+                <Plus className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Insert Before</span>
+                <span className="sm:hidden">+ Before</span>
+              </button>
+            )}
+
+            <button
+              id="hud-insert-after-btn"
+              type="button"
+              onClick={() => onInsertNoteAt(selectedMeasureIndex, selectedNoteIndex ?? 0)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+              title="Insert new note AFTER current note (Insert or I)"
+            >
+              <PlusCircle className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline">Insert After</span>
+              <span className="sm:hidden">+ After</span>
+            </button>
+          </div>
 
           {/* Insert Break (Line break note directly after current note) */}
           {onInsertBreakAt && (

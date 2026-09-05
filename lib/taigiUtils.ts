@@ -1,4 +1,4 @@
-import { ArticulationType, GraceNote, InstrumentType, JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, VerseItem, VerseNoteRef } from '@/types/song';
+import { ArticulationType, GraceNote, InstrumentType, JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature, VerseItem, VerseNoteRef } from '@/types/song';
 
 // Semitones relative to C4 (MIDI note 60)
 export const KEY_SEMITONES: Record<string, number> = {
@@ -1332,5 +1332,263 @@ export function determineTargetQuarterEighthDuration(measures: Measure[]): 0.5 |
 
   // If mostly quarter or longer, toggle to eighth note (0.5); else toggle to quarter note (1.0)
   return quarterOrHigherCount >= eighthOrLowerCount ? 0.5 : 1.0;
+}
+
+// ---------------------------------------------------------------------------
+// Music Sheet Telemetry & Parameter Mutation Utilities (Key, Meter, BPM)
+// ---------------------------------------------------------------------------
+
+export const CHROMATIC_KEYS: KeySignature[] = [
+  'C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'
+];
+
+export const STANDARD_TIME_SIGNATURES: {
+  value: TimeSignature;
+  label: string;
+  sublabel: string;
+  beatsPerMeasure: number;
+}[] = [
+  { value: '4/4', label: '4/4', sublabel: '四四拍 (Common Time · 4 拍/小節)', beatsPerMeasure: 4 },
+  { value: '3/4', label: '3/4', sublabel: '三四拍 (Waltz · 3 拍/小節)', beatsPerMeasure: 3 },
+  { value: '2/4', label: '2/4', sublabel: '二四拍 (March · 2 拍/小節)', beatsPerMeasure: 2 },
+  { value: '6/8', label: '6/8', sublabel: '八六拍 (Compound Duple · 3 拍/小節)', beatsPerMeasure: 3 },
+];
+
+export const TEMPO_PRESETS = [
+  { bpm: 60, label: 'Lento (慢板 60)' },
+  { bpm: 72, label: 'Andante (行板 72)' },
+  { bpm: 88, label: 'Andantino (小行板 88)' },
+  { bpm: 108, label: 'Moderato (中板 108)' },
+  { bpm: 120, label: 'Allegro (快板 120)' },
+  { bpm: 144, label: 'Vivace (活潑快板 144)' },
+];
+
+/**
+ * Transpose a single chord string by given semitones (e.g. "Bb" +2 -> "C", "Gm" +2 -> "Am", "Eb/G" +2 -> "F/A")
+ */
+export function transposeChordString(chordStr: string, semitones: number, targetKey?: KeySignature): string {
+  if (!chordStr || semitones === 0) return chordStr;
+
+  // Use flat naming when target key is conventional flat key
+  const useFlats = targetKey ? ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'].includes(targetKey) : false;
+  const noteNames = useFlats
+    ? ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
+    : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+  const transposeSingleRoot = (root: string): string => {
+    const currentSemi = KEY_SEMITONES[root];
+    if (currentSemi === undefined) return root;
+    const newSemi = ((currentSemi + semitones) % 12 + 12) % 12;
+    return noteNames[newSemi];
+  };
+
+  // Replace all note roots (e.g. "Bb", "Gm", "Eb/G", "Bb F")
+  return chordStr.replace(/([A-G][#b]?)/g, match => {
+    return transposeSingleRoot(match);
+  });
+}
+
+/**
+ * Transposes song chords across all measures when the key changes.
+ */
+export function transposeSongChords(song: Song, targetKey: KeySignature): Song {
+  const fromKey = song.key || 'C';
+  const fromSemi = KEY_SEMITONES[fromKey] ?? 0;
+  const toSemi = KEY_SEMITONES[targetKey] ?? 0;
+  const semitones = ((toSemi - fromSemi) % 12 + 12) % 12;
+
+  if (semitones === 0) {
+    return { ...song, key: targetKey };
+  }
+
+  const updatedMeasures = song.measures.map(m => {
+    let newChord = m.chord;
+    if (m.chord) {
+      newChord = transposeChordString(m.chord, semitones, targetKey);
+    }
+    let newChords = m.chords;
+    if (m.chords && Array.isArray(m.chords)) {
+      newChords = m.chords.map(c => transposeChordString(c, semitones, targetKey));
+    }
+    return {
+      ...m,
+      chord: newChord,
+      chords: newChords,
+    };
+  });
+
+  return {
+    ...song,
+    key: targetKey,
+    measures: updatedMeasures,
+  };
+}
+
+/**
+ * Automatically appends rest notes to fill deficit in an under-beat measure
+ */
+export function autoFillMeasureRest(measure: Measure, fallbackTimeSig = '4/4'): Measure {
+  const report = getMeasureRhythmReport(measure, fallbackTimeSig);
+  if (!report.isUnder) return measure;
+
+  const deficit = report.expectedBeats - report.currentBeats;
+  const restDurations = getRestDurationsForDeficit(deficit);
+  if (restDurations.length === 0) return measure;
+
+  const newNotes = [...measure.notes];
+  restDurations.forEach((dur, idx) => {
+    newNotes.push({
+      id: `${measure.id}-rest-${Date.now()}-${idx}`,
+      pitch: 0,
+      octave: 0,
+      duration: dur,
+      lyric: {},
+    });
+  });
+
+  return {
+    ...measure,
+    notes: newNotes,
+  };
+}
+
+/**
+ * Automatically fills deficits across all measures in the song.
+ */
+export function autoFillSongMeasureRests(song: Song): Song {
+  const updatedMeasures = song.measures.map(m =>
+    autoFillMeasureRest(m, song.timeSignature || '4/4')
+  );
+  return {
+    ...song,
+    measures: updatedMeasures,
+  };
+}
+
+/**
+ * Smart re-bars all notes in the song according to the target time signature.
+ * Redistributes notes across measures so each measure has targetBeats beats.
+ */
+export function smartRebarSong(song: Song, targetTimeSignature: TimeSignature): Song {
+  const targetBeats = getExpectedMeasureBeats(targetTimeSignature);
+  if (targetBeats <= 0) return { ...song, timeSignature: targetTimeSignature };
+
+  const sectionMap = new Map<number, string>();
+  const allNotes: JianpuNote[] = [];
+
+  song.measures.forEach(m => {
+    if (m.section && m.section.trim()) {
+      sectionMap.set(allNotes.length, m.section.trim());
+    }
+    m.notes.forEach(n => {
+      allNotes.push({ ...n });
+    });
+  });
+
+  const newMeasures: Measure[] = [];
+  let currentMeasureNotes: JianpuNote[] = [];
+  let currentMeasureBeats = 0;
+  let currentMeasureSection: string | undefined = undefined;
+
+  for (let i = 0; i < allNotes.length; i++) {
+    const note = allNotes[i];
+    if (sectionMap.has(i)) {
+      currentMeasureSection = sectionMap.get(i);
+    }
+
+    const noteDur =
+      isNonNotationItem(note) || note.pitch === 'empty'
+        ? 0
+        : typeof note.duration === 'number'
+        ? note.duration
+        : 1;
+
+    if (noteDur <= 0) {
+      currentMeasureNotes.push(note);
+      continue;
+    }
+
+    const remainingBeats = Math.round((targetBeats - currentMeasureBeats) * 1000) / 1000;
+
+    if (noteDur <= remainingBeats + 0.001) {
+      currentMeasureNotes.push(note);
+      currentMeasureBeats = Math.round((currentMeasureBeats + noteDur) * 1000) / 1000;
+
+      if (Math.abs(currentMeasureBeats - targetBeats) < 0.001) {
+        newMeasures.push({
+          id: `rebar-m-${Date.now()}-${newMeasures.length + 1}`,
+          measureNumber: newMeasures.length + 1,
+          section: currentMeasureSection,
+          notes: currentMeasureNotes,
+        });
+        currentMeasureNotes = [];
+        currentMeasureBeats = 0;
+        currentMeasureSection = undefined;
+      }
+    } else {
+      if (remainingBeats > 0.12) {
+        const splitDur1 = remainingBeats;
+        const splitDur2 = Math.round((noteDur - remainingBeats) * 1000) / 1000;
+
+        const part1: JianpuNote = {
+          ...note,
+          id: `${note.id}-p1`,
+          duration: splitDur1,
+          isDotted: splitDur1 === 1.5 || splitDur1 === 0.75 || splitDur1 === 3,
+          isDoubleDotted: splitDur1 === 1.75 || splitDur1 === 3.5,
+          tieToNext: true,
+          slurToNext: false,
+        };
+
+        const part2: JianpuNote = {
+          ...note,
+          id: `${note.id}-p2`,
+          duration: splitDur2,
+          isDotted: splitDur2 === 1.5 || splitDur2 === 0.75 || splitDur2 === 3,
+          isDoubleDotted: splitDur2 === 1.75 || splitDur2 === 3.5,
+          lyric: {},
+        };
+
+        currentMeasureNotes.push(part1);
+        newMeasures.push({
+          id: `rebar-m-${Date.now()}-${newMeasures.length + 1}`,
+          measureNumber: newMeasures.length + 1,
+          section: currentMeasureSection,
+          notes: currentMeasureNotes,
+        });
+
+        currentMeasureNotes = [part2];
+        currentMeasureBeats = splitDur2;
+        currentMeasureSection = undefined;
+      } else {
+        if (currentMeasureNotes.length > 0) {
+          newMeasures.push({
+            id: `rebar-m-${Date.now()}-${newMeasures.length + 1}`,
+            measureNumber: newMeasures.length + 1,
+            section: currentMeasureSection,
+            notes: currentMeasureNotes,
+          });
+        }
+        currentMeasureNotes = [note];
+        currentMeasureBeats = noteDur;
+        currentMeasureSection = undefined;
+      }
+    }
+  }
+
+  if (currentMeasureNotes.length > 0) {
+    newMeasures.push({
+      id: `rebar-m-${Date.now()}-${newMeasures.length + 1}`,
+      measureNumber: newMeasures.length + 1,
+      section: currentMeasureSection,
+      notes: currentMeasureNotes,
+    });
+  }
+
+  return {
+    ...song,
+    timeSignature: targetTimeSignature,
+    measures: newMeasures.length > 0 ? newMeasures : song.measures,
+  };
 }
 
