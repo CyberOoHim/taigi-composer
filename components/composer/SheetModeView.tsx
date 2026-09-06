@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { BarlineType, LyricDisplayMode, Song, VerseItem, VerseNoteRef } from '@/types/song';
 import { getMeasureRhythmReport, groupSongIntoVerses } from '@/lib/taigiUtils';
-import { NumberedNotationNoteComponent } from '@/components/JianpuNoteComponent';
+import { NumberedNotationNoteComponent } from '@/components/NumberedNotationNoteComponent';
 import {
   CheckCircle2,
   AlertCircle,

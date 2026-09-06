@@ -1,4 +1,4 @@
-import { NumberedNotationNote, JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
+import { NumberedNotationNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
 import { isPunctuationOrSpacer, normalizeSongDurations } from './taigiUtils';
 
 /**
@@ -89,9 +89,6 @@ export function formatNoteToNumberedNotationString(note: NumberedNotationNote): 
 
   return p;
 }
-
-// Backward-compatible alias
-export const formatNoteToJianpuString = formatNoteToNumberedNotationString;
 
 /**
  * Export song to Human-Readable Text Format
@@ -206,8 +203,8 @@ export function importSongFromText(text: string): Song {
         notes: [],
       };
     } else if (currentMeasure) {
-      if (line.startsWith('Numbered Notation:') || line.startsWith('Jianpu:')) {
-        const tokens = line.replace(/^(Numbered Notation:|Jianpu:)/, '').trim().split(/\s+/).filter(Boolean);
+      if (line.startsWith('Numbered Notation:') || line.startsWith('Numbered notation:')) {
+        const tokens = line.replace(/^(Numbered Notation:|Numbered notation:)/, '').trim().split(/\s+/).filter(Boolean);
         currentMeasure.notes = tokens.map((tok, nIdx) => parseNumberedNotationToken(tok, `${currentMeasure!.id}-n${nIdx}`));
         applyPendingLyrics();
       } else if (line.startsWith('羅馬字:') || line.startsWith('Roman:') || line.startsWith('POJ:') || line.startsWith('TL:')) {
@@ -340,6 +337,4 @@ export function parseNumberedNotationToken(token: string, id: string): NumberedN
     lyric: {},
   };
 }
-
-export const parseJianpuToken = parseNumberedNotationToken;
 

@@ -1,4 +1,4 @@
-import { ArticulationType, GraceNote, InstrumentType, NumberedNotationNote, JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature, VerseItem, VerseNoteRef } from '@/types/song';
+import { ArticulationType, GraceNote, InstrumentType, NumberedNotationNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature, VerseItem, VerseNoteRef } from '@/types/song';
 
 // Semitones relative to C4 (MIDI note 60)
 export const KEY_SEMITONES: Record<string, number> = {
@@ -292,7 +292,6 @@ export interface DurationChineseInfo {
   fractionLabel: string;
   beatsLabel: string;
   numberedNotationSymbol: string;
-  jianpuSymbol: string;
   description: string;
   isDotted: boolean;
 }
@@ -305,7 +304,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '0 beats (Empty / Punctuation)',
         beatsLabel: '0 beats',
         numberedNotationSymbol: '—',
-        jianpuSymbol: '—',
         description: 'Zero duration: pure spacer, punctuation, or line break with no beat value',
         isDotted: false,
       };
@@ -315,7 +313,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '1½ beats',
         beatsLabel: '1.5 beats',
         numberedNotationSymbol: '5·',
-        jianpuSymbol: '5·',
         description: 'Quarter note (1 beat) + dot (0.5 beats) = 1.5 beats',
         isDotted: true,
       };
@@ -325,7 +322,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '¾ beat',
         beatsLabel: '0.75 beats',
         numberedNotationSymbol: '5· (1 underline)',
-        jianpuSymbol: '5· (1 underline)',
         description: '8th note (0.5 beats) + dot (0.25 beats) = 0.75 beats',
         isDotted: true,
       };
@@ -335,7 +331,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '1 beat',
         beatsLabel: '1 beat',
         numberedNotationSymbol: '5',
-        jianpuSymbol: '5',
         description: 'Standard quarter note (1 beat)',
         isDotted: false,
       };
@@ -345,7 +340,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '½ beat',
         beatsLabel: '0.5 beats',
         numberedNotationSymbol: '5 (1 underline)',
-        jianpuSymbol: '5 (1 underline)',
         description: 'Half beat (0.5 beats)',
         isDotted: false,
       };
@@ -355,7 +349,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '¼ beat',
         beatsLabel: '0.25 beats',
         numberedNotationSymbol: '5 (2 underlines)',
-        jianpuSymbol: '5 (2 underlines)',
         description: 'Quarter beat (0.25 beats)',
         isDotted: false,
       };
@@ -365,7 +358,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '2 beats',
         beatsLabel: '2 beats',
         numberedNotationSymbol: '5 -',
-        jianpuSymbol: '5 -',
         description: 'Half note (2 beats, 1 dash to the right)',
         isDotted: false,
       };
@@ -375,7 +367,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '3 beats',
         beatsLabel: '3 beats',
         numberedNotationSymbol: '5 - -',
-        jianpuSymbol: '5 - -',
         description: 'Half note (2 beats) + dot (1 beat) = 3 beats',
         isDotted: true,
       };
@@ -385,7 +376,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '4 beats',
         beatsLabel: '4 beats',
         numberedNotationSymbol: '5 - - -',
-        jianpuSymbol: '5 - - -',
         description: 'Whole note (4 beats, 3 dashes to the right)',
         isDotted: false,
       };
@@ -395,7 +385,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '⅜ beat',
         beatsLabel: '0.375 beats',
         numberedNotationSymbol: '5· (2 underlines)',
-        jianpuSymbol: '5· (2 underlines)',
         description: '16th note (0.25 beats) + dot (0.125 beats) = 0.375 beats',
         isDotted: true,
       };
@@ -405,7 +394,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '1¾ beats',
         beatsLabel: '1.75 beats',
         numberedNotationSymbol: '5··',
-        jianpuSymbol: '5··',
         description: 'Quarter note (1 beat) + double dots (0.75 beats) = 1.75 beats',
         isDotted: true,
       };
@@ -415,7 +403,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '3½ beats',
         beatsLabel: '3.5 beats',
         numberedNotationSymbol: '5 - - ··',
-        jianpuSymbol: '5 - - ··',
         description: 'Half note (2 beats) + double dots (1.5 beats) = 3.5 beats',
         isDotted: true,
       };
@@ -425,7 +412,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '⅛ beat',
         beatsLabel: '0.125 beats',
         numberedNotationSymbol: '5 (3 underlines)',
-        jianpuSymbol: '5 (3 underlines)',
         description: 'Thirty-second note (0.125 beats, 3 underlines)',
         isDotted: false,
       };
@@ -435,7 +421,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '⅓ beat',
         beatsLabel: '0.333 beats',
         numberedNotationSymbol: '┌ 3 ┐ (⅓ beat)',
-        jianpuSymbol: '┌ 3 ┐ (⅓ beat)',
         description: 'Triplet 8th note: 3 notes in the space of 1 beat (0.333 beats each)',
         isDotted: false,
       };
@@ -445,7 +430,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: '⅔ beat',
         beatsLabel: '0.667 beats',
         numberedNotationSymbol: '┌ 3 ┐ (⅔ beat)',
-        jianpuSymbol: '┌ 3 ┐ (⅔ beat)',
         description: 'Triplet quarter note: 3 notes in the space of 2 beats (0.667 beats each)',
         isDotted: false,
       };
@@ -455,7 +439,6 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         fractionLabel: `${duration} beats`,
         beatsLabel: `${duration} beats`,
         numberedNotationSymbol: `${duration} beats`,
-        jianpuSymbol: `${duration} beats`,
         description: `Custom rhythm duration: ${duration} beats`,
         isDotted: duration % 1 !== 0 && duration !== 0.5 && duration !== 0.25,
       };

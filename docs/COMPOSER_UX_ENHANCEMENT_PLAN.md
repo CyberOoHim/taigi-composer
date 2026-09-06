@@ -13,7 +13,7 @@
 
 ## Overview
 
-Taigi Composer is a client-side Next.js 15 PWA for composing Taiwanese Hokkien (Tâi-gí) songs in numbered musical notation (jianpu / 簡譜), with aligned POJ (白話字) and Hàn-lô (漢羅) lyrics, karaoke playback, and Gemini score scanning. The composing surface is already capable: verse/measure dual views, a dense in-card HUD, rhythm reports, lyric aligner, measure organizer, undo history, and iPad-conscious touch targets. The problem is not missing features. It is **cognitive load**: too many always-on controls, overlapping entry points, a first-run that dumps the user into a finished preset in Split View, a note-entry loop that is “select → hunt through HUD tabs → maybe advance,” and a keyboard map that the header advertises incompletely and that the editor and shell implement inconsistently.
+Taigi Composer is a client-side Next.js 15 PWA for composing Taiwanese Hokkien (Tâi-gí) songs in numbered musical notation (簡譜), with aligned POJ (白話字) and Hàn-lô (漢羅) lyrics, karaoke playback, and Gemini score scanning. The composing surface is already capable: verse/measure dual views, a dense in-card HUD, rhythm reports, lyric aligner, measure organizer, undo history, and iPad-conscious touch targets. The problem is not missing features. It is **cognitive load**: too many always-on controls, overlapping entry points, a first-run that dumps the user into a finished preset in Split View, a note-entry loop that is “select → hunt through HUD tabs → maybe advance,” and a keyboard map that the header advertises incompletely and that the editor and shell implement inconsistently.
 
 This plan proposes a **progressive composing workflow**: a guided first-song path and a quieter default chrome, while preserving the existing amber DAW visual language, numbered notation as the primary editor, and the full power-user density behind contextual panels. Delivery is a sequence of independently shippable PRs, not a visual rewrite.
 
@@ -94,7 +94,7 @@ Both `app/page.tsx` (~282–286, play/pause) and `ComposerEditor` (~1897–1901,
 
 **11. Small but real correctness/UX bugs that amplify friction.**
 
-- Cross-tab song sync in `app/page.tsx` listens for `jianpu_current_song_v2`; the writer uses `taigi_composer_current_song`. Cross-tab reload never fires.
+- Cross-tab song sync in `app/page.tsx` listens for `numbered_notation_current_song_v2`; the writer uses `taigi_composer_current_song`. Cross-tab reload never fires.
 - `ComposerEditor` dead-imports `NoteEditorHud`. `inCard={false}` is a **top**-sticky path, not a thumb bar.
 - `hooks/use-mobile.ts` (`useIsMobile`, `innerWidth < 768`) is unused. iPad 10/11" landscape is 1080–1194px, so a 768 snapshot would treat the primary tablet as desktop.
 - Header preset `<select value={song.id}>` lists only `PRESET_SONGS`. Custom-library songs do not match; changing the select calls `loadNewSong` and clobbers a custom current song that may not be in the library.
@@ -102,7 +102,7 @@ Both `app/page.tsx` (~282–286, play/pause) and `ComposerEditor` (~1897–1901,
 
 ### Why change now
 
-The product already has the data model and operations for a friendly composer (`JianpuNote`, verse grouping, rhythm reports, insert/split/merge, lyric aligner). Users bounce on **where to look** and **what to do next**, especially on iPad. A chrome/workflow pass will unlock the existing engine without replacing jianpu or adding a backend.
+The product already has the data model and operations for a friendly composer (`NumberedNotationNote`, verse grouping, rhythm reports, insert/split/merge, lyric aligner). Users bounce on **where to look** and **what to do next**, especially on iPad. A chrome/workflow pass will unlock the existing engine without replacing numbered notation or adding a backend.
 
 ---
 
@@ -121,12 +121,12 @@ The product already has the data model and operations for a friendly composer (`
 
 ### Non-Goals
 
-- Replacing jianpu with Western staff as the primary editor.
+- Replacing numbered notation with Western staff as the primary editor.
 - Redesigning the karaoke engine, mixer, A-B loop, or stage mode (except editor↔karaoke handoff).
 - Redesigning Gemini auth, models, or OCR prompts, except the **post-scan review** UX.
 - Backend accounts, cloud sync, collaboration, or analytics services.
 - A total visual rewrite or new component library.
-- Changing the `Song` / `JianpuNote` schema unless a field is required for UX state. Prefer localStorage keys over schema churn. Sticky duration, onboarding, and chrome mode are **not** Song fields.
+- Changing the `Song` / `NumberedNotationNote` schema unless a field is required for UX state. Prefer localStorage keys over schema churn. Sticky duration, onboarding, and chrome mode are **not** Song fields.
 - Auto-quantizing or auto-composing melody.
 - Adding Playwright/Jest/Vitest or product telemetry in this plan (`package.json` has `dev/build/start/lint/typecheck/clean` only).
 
@@ -787,7 +787,7 @@ export function createFreshSong(
 Helper used by auto-append and Add Measure. Placeholders are **rests** so they count as beats:
 
 ```ts
-function makePlaceholderNote(duration: NoteDuration): JianpuNote
+function makePlaceholderNote(duration: NoteDuration): NumberedNotationNote
 // { pitch: 0, octave: 0, duration, lyric: {} }
 
 function appendPlaceholderMeasureAfter(song: Song, afterIdx: number, duration: NoteDuration): Song
@@ -800,7 +800,7 @@ function appendPlaceholderMeasureAfter(song: Song, afterIdx: number, duration: N
 
 ## Data Model Changes
 
-**No change to `JianpuNote` / `Measure` / `Song`.** Sticky duration, onboarding, chrome, coach, inspector open are UI preferences.
+**No change to `NumberedNotationNote` / `Measure` / `Song`.** Sticky duration, onboarding, chrome, coach, inspector open are UI preferences.
 
 History: wizard `loadNewSong` clears past/future. Sticky duration is **not** on the undo stack. Debounce title/description `onUpdateSong` (500ms) in any PR that touches `SongMetadataHeader` so undo stays musical (existing flood).
 
@@ -814,7 +814,7 @@ History: wizard `loadNewSong` clears past/future. Sticky duration is **not** on 
 - **Cons:** Breaks `scroll-mt-28`, in-card HUD, karaoke stage, PWA safe areas.
 - **Rejected.**
 
-### B. Western staff + jianpu dual editor
+### B. Western staff + numbered notation dual editor
 
 - **Cons:** Explicit non-goal.
 - **Rejected.**
@@ -852,7 +852,7 @@ No new positioning. Collapse persisted; Quick Bar shows unique `{1, 0.5, 0.25, 2
 
 ## Key Decisions
 
-1. **Progressive disclosure, not a reskin.** Amber DAW, jianpu cells, bilingual lyrics stay.
+1. **Progressive disclosure, not a reskin.** Amber DAW, numbered notation cells, bilingual lyrics stay.
 2. **Score Editor is the composing default for first-run and New Song.** Stored `split` is not migrated. Below `xl`, Split is not offered and stored `split` renders Editor.
 3. **Overwrite-selected remains the pitch model.** Auto-step + **end-of-bar matrix** (under → insert rest placeholder here; full + next measure exists → select it, do not append; full + last measure + write filled a compose slot (`previous pitch` was `0` or `'empty'`) → append rest-placeholder bar; full + last measure + overwrite of an already-sounding 1–7 → do not grow; over → Split Excess, no append). Filling the last placeholder in 4/4 **is** compose and **does** open measure 2.
 4. **Sticky duration is a UI preference, not a Song field.** `handleSetPitch` uses it when converting empty/duration-0 to a sounding note (today hard-codes `1`).

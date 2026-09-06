@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "TaigiSong",
-  "description": "JSON schema for Taigi Numbered Notation (Jianpu) score format compatible with the Taigi Composer app.",
+  "description": "JSON schema for Taigi Numbered Notation score format compatible with the Taigi Composer app.",
   "type": "object",
   "required": ["id", "title", "key", "timeSignature", "bpm", "measures"],
   "properties": {

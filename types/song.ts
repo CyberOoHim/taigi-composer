@@ -46,9 +46,6 @@ export interface NumberedNotationNote {
   instrument?: InstrumentType; // Individual note sound source override
 }
 
-/** Backward compatibility alias */
-export type JianpuNote = NumberedNotationNote;
-
 export type BarlineType = 'single' | 'double' | 'end' | 'repeat_start' | 'repeat_end';
 
 export interface Measure {

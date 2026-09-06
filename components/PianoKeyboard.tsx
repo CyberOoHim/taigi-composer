@@ -23,7 +23,6 @@ interface KeyDefinition {
   accidental: '' | '#' | 'b';
   octave: number;
   numberedNotationLabel: string;
-  jianpuLabel?: string;
   accidentalLabel?: string;
   solfege: string;
   noteName: string;
@@ -107,7 +106,6 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         accidental: '',
         octave: octaveNum,
         numberedNotationLabel: `${pitch}`,
-        jianpuLabel: `${pitch}`,
         solfege,
         noteName,
       };
@@ -119,7 +117,6 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         accidental: '#' as const,
         leftPercent: 9.7,
         numberedNotationLabel: '♯1',
-        jianpuLabel: '♯1',
         accidentalLabel: '♭2',
       },
       {
@@ -127,7 +124,6 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         accidental: '#' as const,
         leftPercent: 24.0,
         numberedNotationLabel: '♯2',
-        jianpuLabel: '♯2',
         accidentalLabel: '♭3',
       },
       {
@@ -135,7 +131,6 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         accidental: '#' as const,
         leftPercent: 52.5,
         numberedNotationLabel: '♯4',
-        jianpuLabel: '♯4',
         accidentalLabel: '♭5',
       },
       {
@@ -143,7 +138,6 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         accidental: '#' as const,
         leftPercent: 66.8,
         numberedNotationLabel: '♯5',
-        jianpuLabel: '♯5',
         accidentalLabel: '♭6',
       },
       {
@@ -151,7 +145,6 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         accidental: '#' as const,
         leftPercent: 81.1,
         numberedNotationLabel: '♯6',
-        jianpuLabel: '♯6',
         accidentalLabel: '♭7',
       },
     ].map(bk => {
@@ -162,7 +155,6 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         accidental: bk.accidental,
         octave: octaveNum,
         numberedNotationLabel: bk.numberedNotationLabel,
-        jianpuLabel: bk.jianpuLabel,
         accidentalLabel: bk.accidentalLabel,
         solfege,
         noteName,
@@ -272,7 +264,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
               type="button"
               onClick={() => setLabelMode('numberedNotations')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
-                labelMode === 'numberedNotations' || (labelMode as string) === 'jianpu'
+                labelMode === 'numberedNotations' || (labelMode as string) === 'numberedNotation'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
@@ -446,7 +438,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                         )}
 
                         {/* Numbered Notation Pitch Number */}
-                        {(labelMode === 'both' || labelMode === 'numberedNotations' || (labelMode as string) === 'jianpu') && (
+                        {(labelMode === 'both' || labelMode === 'numberedNotations' || (labelMode as string) === 'numberedNotation') && (
                           <span
                             className={`font-mono text-base sm:text-lg font-black leading-none ${
                               active ? 'text-zinc-950 scale-110' : 'text-zinc-900'
@@ -515,7 +507,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                         )}
 
                         {/* Numbered Notation Accidental Pitch */}
-                        {(labelMode === 'both' || labelMode === 'numberedNotations' || (labelMode as string) === 'jianpu') && (
+                        {(labelMode === 'both' || labelMode === 'numberedNotations' || (labelMode as string) === 'numberedNotation') && (
                           <span
                             className={`font-mono text-[10px] sm:text-xs font-black tracking-tighter leading-none ${
                               active ? 'text-zinc-950' : 'text-amber-300'

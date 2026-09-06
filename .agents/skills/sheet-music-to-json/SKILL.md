@@ -1,7 +1,7 @@
 ---
 name: "sheet-music-to-json"
 description: >
-  Converts musical sheets (Jianpu 簡譜 numbered notation or staff notation) from images
+  Converts musical sheets (Numbered notation / 簡譜 or staff notation) from images
   (PNG, JPG, JPEG, WEBP) or PDF documents into the standardized Song JSON format
   compatible with the Taigi Composer / Karaoke application. Use when converting scanned
   scores, lead sheets, or song PDFs into importable song data.

@@ -152,7 +152,7 @@ function buildTranscriptionPrompt(fileCount, isPdf, mode) {
     ? `The input contains a PDF score document with ${fileCount} file(s).`
     : `The user provided ${fileCount} page image(s) of sheet music in sequential reading order.`;
 
-  return `You are a world-class music transcription AI and expert in Numbered Musical Notation (Jianpu 簡譜) and Taiwanese Hokkien songs (Taigi).
+  return `You are a world-class music transcription AI and expert in Numbered Musical Notation (簡譜) and Taiwanese Hokkien songs (Taigi).
 ${sourceDescription}
 
 Task: Carefully inspect every measure of the music notation and transcribe it into structured, valid JSON matching the exact schema below.

@@ -159,7 +159,7 @@ export default function Home() {
   // Listen to cross-tab storage changes (e.g. if user edited or imported in another tab)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if ((e.key === STORAGE_KEYS.CURRENT_SONG || e.key === 'jianpu_current_song_v2') && e.newValue) {
+      if ((e.key === STORAGE_KEYS.CURRENT_SONG || e.key === 'numbered_notation_current_song_v2') && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (parsed && parsed.id && parsed.id !== song.id) {
