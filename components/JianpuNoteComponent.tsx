@@ -23,6 +23,7 @@ export interface NumberedNotationNoteComponentProps {
   onClick?: () => void;
   className?: string;
   isKaraokeMode?: boolean;
+  id?: string;
 }
 
 export type JianpuNoteComponentProps = NumberedNotationNoteComponentProps;
@@ -37,6 +38,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
   onClick,
   className,
   isKaraokeMode = false,
+  id,
 }) => {
   const isNonNotation = isNonNotationItem(note);
   const isPitched = !isNonNotation && typeof note.pitch === 'number' && note.pitch > 0;
@@ -178,6 +180,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
   if (isStandaloneAnnotationNote(note)) {
     return (
       <div
+        id={id}
         onClick={onClick}
         className={cn(
           'group relative flex items-center justify-center rounded-lg cursor-pointer transition-all duration-150 select-none touch-manipulation px-2.5 py-1.5 self-center shrink-0 border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-200 hover:border-indigo-400 shadow-2xs',
@@ -199,6 +202,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
     const charDisplay = getPunctuationDisplayChar(note);
     return (
       <div
+        id={id}
         onClick={onClick}
         className={cn(
           'group relative flex flex-col items-center justify-center rounded-lg cursor-pointer transition-all duration-150 select-none touch-manipulation w-7 sm:w-8 min-w-[28px] max-w-[34px] px-0.5 py-1 shrink-0 self-stretch border border-dashed border-zinc-300 dark:border-zinc-700/80 bg-zinc-50/50 dark:bg-[#0c0e14]/40 hover:border-amber-400',
@@ -220,6 +224,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
 
   return (
     <div
+      id={id}
       onClick={onClick}
       className={cn(
         'group relative flex flex-col items-center justify-between rounded-xl cursor-pointer transition-all duration-150 select-none touch-manipulation',

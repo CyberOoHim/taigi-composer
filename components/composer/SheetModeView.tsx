@@ -22,6 +22,8 @@ import {
   SlidersHorizontal,
   FileSpreadsheet,
   SplitSquareVertical,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 const COMMON_SECTIONS = [
@@ -63,6 +65,12 @@ export interface SheetModeViewProps {
   playingSystemIdx?: number | null;
   onTogglePlaySystem?: (systemIndex: number, measureIndices: number[]) => void;
 
+  // Sheet Playback from Current Note
+  isPlayingSheet?: boolean;
+  onTogglePlaySheetFromNote?: (mIdx?: number, nIdx?: number) => void;
+  onNavigateNextNote?: () => void;
+  onNavigatePrevNote?: () => void;
+
   // Verse operations & deep links
   onSelectVerse: (verse: VerseItem) => void;
   playingVerseIdx?: number | null;
@@ -98,6 +106,10 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
   onTogglePlayMeasure,
   playingSystemIdx = null,
   onTogglePlaySystem,
+  isPlayingSheet = false,
+  onTogglePlaySheetFromNote,
+  onNavigateNextNote,
+  onNavigatePrevNote,
   onSelectVerse,
   playingVerseIdx = null,
   onTogglePlayVerse,
@@ -120,6 +132,49 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
   const computedVerses = useMemo(() => {
     return passedVerses ?? groupSongIntoVerses(song);
   }, [passedVerses, song]);
+
+  // Information about currently selected note in the score
+  const selectedNoteInfo = useMemo(() => {
+    if (
+      selectedMeasureIndex === null ||
+      selectedMeasureIndex === undefined ||
+      selectedMeasureIndex < 0 ||
+      selectedMeasureIndex >= song.measures.length
+    ) {
+      return null;
+    }
+    const m = song.measures[selectedMeasureIndex];
+    if (!m) return null;
+    const nIdx = selectedNoteIndex ?? 0;
+    const n = m.notes[nIdx];
+    if (!n) return null;
+
+    const measureNumber = m.measureNumber || selectedMeasureIndex + 1;
+    const noteNumber = nIdx + 1;
+    const pitchDisplay =
+      n.pitch === 0 ? '0 (Rest)' : n.pitch === 'empty' ? 'Empty' : `${n.pitch}`;
+    const lyricDisplay =
+      n.lyric?.hanlo || n.lyric?.hanji || n.lyric?.custom || n.lyric?.poj || '';
+
+    return {
+      measureIndex: selectedMeasureIndex,
+      noteIndex: nIdx,
+      measureNumber,
+      noteNumber,
+      pitchDisplay,
+      lyricDisplay,
+      details: `${pitchDisplay}${lyricDisplay ? ` • “${lyricDisplay}”` : ''}${m.section ? ` [${m.section}]` : ''}`,
+    };
+  }, [song.measures, selectedMeasureIndex, selectedNoteIndex]);
+
+  // Smoothly scroll active playback note into view during sheet playback
+  React.useEffect(() => {
+    if (!isPlayingSheet || !activePlaybackNoteId) return;
+    const el = document.getElementById(`sheet-note-${activePlaybackNoteId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
+  }, [isPlayingSheet, activePlaybackNoteId]);
 
   // MEASURE REPORTS
   const measureReports = useMemo(() => {
@@ -412,6 +467,46 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
               </button>
             )}
 
+            {/* Play Key from Current Note in Header */}
+            {onTogglePlaySheetFromNote && (
+              <button
+                id="sheet-play-from-note-btn"
+                type="button"
+                onClick={() => onTogglePlaySheetFromNote(selectedMeasureIndex ?? 0, selectedNoteIndex ?? 0)}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px] ${
+                  isPlayingSheet
+                    ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 font-black animate-pulse'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white font-bold'
+                }`}
+                title={
+                  isPlayingSheet
+                    ? 'Stop sheet playback (Space / P)'
+                    : selectedNoteInfo
+                    ? `Play sheet starting from Measure #${selectedNoteInfo.measureNumber}, Note #${selectedNoteInfo.noteNumber} (Space / P)`
+                    : 'Play sheet from beginning (Space / P)'
+                }
+              >
+                {isPlayingSheet ? (
+                  <>
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                    <span>Stop Sheet</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>
+                      {selectedNoteInfo
+                        ? `Play from Note (${selectedNoteInfo.measureNumber}.${selectedNoteInfo.noteNumber})`
+                        : 'Play Sheet'}
+                    </span>
+                    <kbd className="hidden sm:inline-block px-1 py-0.2 text-[9px] bg-black/25 text-white/90 rounded font-mono ml-0.5">
+                      Space
+                    </kbd>
+                  </>
+                )}
+              </button>
+            )}
+
             {/* Primary Add Trigger */}
             {sheetPerspective === 'measure' ? (
               <button
@@ -625,6 +720,37 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                                 </button>
                               )}
 
+                              {/* Play Sheet from Current Note in this Measure */}
+                              {selectedMeasureIndex === idx && onTogglePlaySheetFromNote && (
+                                <button
+                                  id={`sheet-measure-play-from-note-btn-${idx}`}
+                                  type="button"
+                                  onClick={() => onTogglePlaySheetFromNote(idx, selectedNoteIndex ?? 0)}
+                                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[32px] ${
+                                    isPlayingSheet
+                                      ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 animate-pulse font-black'
+                                      : 'bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/80 dark:hover:bg-emerald-900 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
+                                  }`}
+                                  title={
+                                    isPlayingSheet
+                                      ? 'Stop sheet playback (Space / P)'
+                                      : `Play sheet from Note #${(selectedNoteIndex ?? 0) + 1} of Measure #${idx + 1}`
+                                  }
+                                >
+                                  {isPlayingSheet ? (
+                                    <>
+                                      <Square className="w-3 h-3 fill-current" />
+                                      <span>Stop</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="w-3 h-3 fill-current text-emerald-600 dark:text-emerald-400" />
+                                      <span>Play from Note #{(selectedNoteIndex ?? 0) + 1}</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+
                               {/* Auto-fill rest button if under-beat */}
                               {report.isUnder && (
                                 <button
@@ -766,6 +892,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                               ) : (
                                 measure.notes.map((note, nIdx) => (
                                   <NumberedNotationNoteComponent
+                                    id={`sheet-note-${note.id || `${idx}-${nIdx}`}`}
                                     key={`sheet-sys-m-${idx}-n-${note.id || nIdx}`}
                                     note={note}
                                     prevNote={nIdx > 0 ? measure.notes[nIdx - 1] : null}
@@ -878,6 +1005,37 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                               <Square className="w-3.5 h-3.5 fill-current" />
                             ) : (
                               <Play className="w-3.5 h-3.5 fill-current" />
+                            )}
+                          </button>
+                        )}
+
+                        {/* Play Sheet from Current Note in this Measure */}
+                        {selectedMeasureIndex === idx && onTogglePlaySheetFromNote && (
+                          <button
+                            id={`sheet-flat-measure-play-from-note-btn-${idx}`}
+                            type="button"
+                            onClick={() => onTogglePlaySheetFromNote(idx, selectedNoteIndex ?? 0)}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[32px] ${
+                              isPlayingSheet
+                                ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 animate-pulse font-black'
+                                : 'bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/80 dark:hover:bg-emerald-900 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
+                            }`}
+                            title={
+                              isPlayingSheet
+                                ? 'Stop sheet playback (Space / P)'
+                                : `Play sheet from Note #${(selectedNoteIndex ?? 0) + 1} of Measure #${idx + 1}`
+                            }
+                          >
+                            {isPlayingSheet ? (
+                              <>
+                                <Square className="w-3 h-3 fill-current" />
+                                <span>Stop</span>
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-3 h-3 fill-current text-emerald-600 dark:text-emerald-400" />
+                                <span>Play from Note #{(selectedNoteIndex ?? 0) + 1}</span>
+                              </>
                             )}
                           </button>
                         )}
@@ -1013,6 +1171,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                         ) : (
                           measure.notes.map((note, nIdx) => (
                             <NumberedNotationNoteComponent
+                              id={`sheet-note-${note.id || `${idx}-${nIdx}`}`}
                               key={`sheet-flat-m-${idx}-n-${note.id || nIdx}`}
                               note={note}
                               prevNote={nIdx > 0 ? measure.notes[nIdx - 1] : null}
@@ -1373,6 +1532,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                                 </div>
                               )}
                               <NumberedNotationNoteComponent
+                                id={`sheet-note-${ref.note.id || `${ref.measureIndex}-${ref.noteIndex}`}`}
                                 note={ref.note}
                                 prevNote={rIdx > 0 ? verse.notes[rIdx - 1].note : null}
                                 isSelected={selectedMeasureIndex === ref.measureIndex && selectedNoteIndex === ref.noteIndex}
@@ -1393,6 +1553,95 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
               }
             )
           )}
+        </div>
+      )}
+
+      {/* Floating Sticky Play Deck for Sheet Mode */}
+      {onTogglePlaySheetFromNote && (
+        <div
+          id="sheet-floating-play-bar"
+          className="sticky bottom-3 sm:bottom-5 z-40 mx-auto max-w-2xl w-full flex items-center justify-between gap-3 px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-zinc-900/95 dark:bg-zinc-900/95 text-white shadow-2xl border border-zinc-700/80 backdrop-blur-md transition-all"
+        >
+          {/* Left: Selected Note Info & Quick Navigation */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+            <div className="flex items-center bg-zinc-800 p-0.5 rounded-xl border border-zinc-700 shrink-0">
+              <button
+                id="sheet-floating-prev-note-btn"
+                type="button"
+                onClick={onNavigatePrevNote}
+                disabled={!onNavigatePrevNote}
+                className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-all cursor-pointer"
+                title="Previous Note (Left Arrow)"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                id="sheet-floating-next-note-btn"
+                type="button"
+                onClick={onNavigateNextNote}
+                disabled={!onNavigateNextNote}
+                className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-all cursor-pointer"
+                title="Next Note (Right Arrow)"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Current Note Pill */}
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5 text-xs font-bold truncate">
+                <span className="text-zinc-400 font-normal">Play from:</span>
+                {selectedNoteInfo ? (
+                  <span className="font-mono text-amber-400 font-black">
+                    Measure #{selectedNoteInfo.measureNumber}, Note #{selectedNoteInfo.noteNumber}
+                  </span>
+                ) : (
+                  <span className="text-zinc-400 italic font-normal">Measure #1, Note #1 (Beginning)</span>
+                )}
+              </div>
+              {selectedNoteInfo?.details && (
+                <div className="text-[11px] text-zinc-300 font-serif truncate">
+                  {selectedNoteInfo.details}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Master Play Key */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              id="sheet-floating-play-key-btn"
+              type="button"
+              onClick={() => onTogglePlaySheetFromNote(selectedMeasureIndex ?? 0, selectedNoteIndex ?? 0)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black shadow-lg transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] ${
+                isPlayingSheet
+                  ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-300 animate-pulse'
+                  : 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950'
+              }`}
+              title={
+                isPlayingSheet
+                  ? 'Stop playback (Space / P)'
+                  : selectedNoteInfo
+                  ? `Play sheet starting from Measure #${selectedNoteInfo.measureNumber}, Note #${selectedNoteInfo.noteNumber} (Space / P)`
+                  : 'Play sheet from beginning (Space / P)'
+              }
+            >
+              {isPlayingSheet ? (
+                <>
+                  <Square className="w-4 h-4 fill-current" />
+                  <span>Stop Sheet</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 fill-current" />
+                  <span>Play from Note</span>
+                </>
+              )}
+              <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-black/30 rounded font-mono font-bold">
+                Space / P
+              </kbd>
+            </button>
+          </div>
         </div>
       )}
     </div>

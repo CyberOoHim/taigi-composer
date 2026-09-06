@@ -289,6 +289,7 @@ export default function Home() {
         activeEl?.getAttribute('contenteditable') === 'true';
 
       if (isTyping) return;
+      if (e.defaultPrevented) return;
 
       // Check for Undo (Ctrl+Z or Cmd+Z without Shift)
       if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {

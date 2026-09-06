@@ -153,6 +153,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const [playingMeasureIdx, setPlayingMeasureIdx] = useState<number | null>(null);
   const [playingVerseIdx, setPlayingVerseIdx] = useState<number | null>(null);
   const [playingSystemIdx, setPlayingSystemIdx] = useState<number | null>(null);
+  const [isPlayingSheet, setIsPlayingSheet] = useState<boolean>(false);
   const [activePlaybackNoteId, setActivePlaybackNoteId] = useState<string | null>(null);
   const [measureBatchTexts, setMeasureBatchTexts] = useState<{ [mIdx: number]: string }>({});
   const [verseBatchTexts, setVerseBatchTexts] = useState<{ [vIdx: number]: string }>({});
@@ -197,6 +198,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const handleStopAudio = useCallback(() => {
     if (audioEngine) {
       audioEngine.stop();
+      setIsPlayingSheet(false);
     }
   }, [audioEngine]);
 
@@ -209,6 +211,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         setPlayingMeasureIdx(null);
         setPlayingVerseIdx(null);
         setPlayingSystemIdx(null);
+        setIsPlayingSheet(false);
       }
     });
     return () => {
@@ -333,6 +336,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     } else {
       setPlayingVerseIdx(null);
       setPlayingSystemIdx(null);
+      setIsPlayingSheet(false);
       setPlayingMeasureIdx(mIdx);
       audioEngine.playMeasure(song, mIdx, () => {
         setPlayingMeasureIdx(null);
@@ -348,6 +352,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     } else {
       setPlayingMeasureIdx(null);
       setPlayingSystemIdx(null);
+      setIsPlayingSheet(false);
       setPlayingVerseIdx(vIdx);
       audioEngine.playVerse(song, verseNotes, () => {
         setPlayingVerseIdx(null);
@@ -363,12 +368,47 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     } else {
       setPlayingMeasureIdx(null);
       setPlayingVerseIdx(null);
+      setIsPlayingSheet(false);
       setPlayingSystemIdx(systemIdx);
       audioEngine.playSystem(song, measureIndices, () => {
         setPlayingSystemIdx(null);
       });
     }
   };
+
+  // Dedicated Play/Stop Sheet playback from current note (Sheet Mode)
+  const handleTogglePlaySheetFromNote = useCallback(
+    (mIdx?: number, nIdx?: number) => {
+      if (audioEngine.getIsPlaying()) {
+        audioEngine.stop();
+        setPlayingMeasureIdx(null);
+        setPlayingVerseIdx(null);
+        setPlayingSystemIdx(null);
+        setIsPlayingSheet(false);
+        return;
+      }
+
+      const targetMIdx = mIdx ?? selectedMeasureIndex ?? 0;
+      const targetNIdx = nIdx ?? selectedNoteIndex ?? 0;
+      const safeMIdx = Math.max(0, Math.min(song.measures.length - 1, targetMIdx));
+      const measure = song.measures[safeMIdx];
+      const safeNIdx = measure && measure.notes.length > 0
+        ? Math.max(0, Math.min(measure.notes.length - 1, targetNIdx))
+        : 0;
+
+      // Select coordinate in editor state without triggering extra preview sound
+      handleSelectNote(safeMIdx, safeNIdx, false);
+
+      const startSec = audioEngine.getNoteStartTime(song, safeMIdx, safeNIdx);
+      setPlayingMeasureIdx(null);
+      setPlayingVerseIdx(null);
+      setPlayingSystemIdx(null);
+      setIsPlayingSheet(true);
+
+      audioEngine.play(song, startSec);
+    },
+    [audioEngine, selectedMeasureIndex, selectedNoteIndex, song, handleSelectNote]
+  );
 
   // Mutate specific note helper
   const updateNoteAt = useCallback(
@@ -532,7 +572,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
   // Note Navigation: Previous and Next note
   const handleNavigateNextNote = useCallback(() => {
-    if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
+    if (selectedMeasureIndex === null || selectedNoteIndex === null) {
+      if (song.measures.length > 0 && song.measures[0].notes.length > 0) {
+        handleSelectNote(0, 0);
+      }
+      return;
+    }
     const curM = song.measures[selectedMeasureIndex];
     if (curM && selectedNoteIndex < curM.notes.length - 1) {
       handleSelectNote(selectedMeasureIndex, selectedNoteIndex + 1);
@@ -546,6 +591,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         if (vIdx !== -1) {
           scrollToCardElement(`verse-card-${vIdx}`);
         }
+      } else if (editMode === 'sheet') {
+        scrollToCardElement(`sheet-measure-row-${nextM}`);
       } else {
         scrollToCardElement(`measure-card-${nextM}`);
       }
@@ -553,7 +600,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   }, [selectedMeasureIndex, selectedNoteIndex, song.measures, handleSelectNote, editMode, verses]);
 
   const handleNavigatePrevNote = useCallback(() => {
-    if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
+    if (selectedMeasureIndex === null || selectedNoteIndex === null) {
+      if (song.measures.length > 0 && song.measures[0].notes.length > 0) {
+        handleSelectNote(0, 0);
+      }
+      return;
+    }
     if (selectedNoteIndex > 0) {
       handleSelectNote(selectedMeasureIndex, selectedNoteIndex - 1);
     } else if (selectedMeasureIndex > 0) {
@@ -569,6 +621,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           if (vIdx !== -1) {
             scrollToCardElement(`verse-card-${vIdx}`);
           }
+        } else if (editMode === 'sheet') {
+          scrollToCardElement(`sheet-measure-row-${prevMIdx}`);
         } else {
           scrollToCardElement(`measure-card-${prevMIdx}`);
         }
@@ -2112,6 +2166,34 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         activeEl?.getAttribute('contenteditable') === 'true';
 
       if (isTyping) return;
+
+      // In Sheet Mode: Play key (Space, P/p) toggles playing the sheet from current note
+      if (editMode === 'sheet') {
+        const isPlayKey =
+          e.key === ' ' ||
+          e.code === 'Space' ||
+          ((e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.metaKey && !e.altKey);
+
+        if (isPlayKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleTogglePlaySheetFromNote();
+          return;
+        }
+
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          handleNavigateNextNote();
+          return;
+        }
+
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          handleNavigatePrevNote();
+          return;
+        }
+      }
+
       if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
 
       // 1-7 or 0 (Numpad or number row): Pitch input
@@ -2223,6 +2305,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     handleInsertPunctuationToNote,
     handleMoveNoteBackward,
     handleMoveNoteForward,
+    editMode,
+    handleTogglePlaySheetFromNote,
   ]);
 
   return (
@@ -2793,6 +2877,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onTogglePlaySystem={handleTogglePlaySystem}
             playingMeasureIdx={playingMeasureIdx}
             onTogglePlayMeasure={handleTogglePlayMeasure}
+            isPlayingSheet={isPlayingSheet}
+            onTogglePlaySheetFromNote={handleTogglePlaySheetFromNote}
+            onNavigateNextNote={handleNavigateNextNote}
+            onNavigatePrevNote={handleNavigatePrevNote}
             activePlaybackNoteId={activePlaybackNoteId}
             selectedMeasureIndex={selectedMeasureIndex}
             selectedNoteIndex={selectedNoteIndex}

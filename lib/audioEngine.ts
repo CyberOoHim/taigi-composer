@@ -1439,6 +1439,20 @@ export class AudioEngine {
     const audioStart = this.ctx!.currentTime + 0.08; // Small lookahead buffer
     this.startAudioTime = audioStart - startFromSec;
 
+    // Immediately notify UI state with initial playback position
+    const initialLoc = this.getPlaybackLocationAtTime(song, startFromSec);
+    const initialProgress = totalDuration > 0 ? Math.min(100, (startFromSec / totalDuration) * 100) : 0;
+    this.notifyState({
+      isPlaying: true,
+      isPaused: false,
+      currentMeasureIndex: initialLoc.measureIndex,
+      currentNoteIndex: initialLoc.noteIndex,
+      currentNoteId: initialLoc.noteId,
+      currentTime: startFromSec,
+      totalDuration,
+      progressPercent: initialProgress,
+    });
+
     // Schedule all notes, chords, metronome ticks
     let accumulatedSongTime = 0;
 
@@ -1785,6 +1799,39 @@ export class AudioEngine {
    */
   public getMeasureEndTime(song: Song, measureIndex: number): number {
     return this.getMeasureStartTime(song, measureIndex + 1);
+  }
+
+  /**
+   * Get the start time of a specific note in a song in seconds
+   */
+  public getNoteStartTime(song: Song, measureIndex: number, noteIndex: number): number {
+    const effectiveBpm = song.bpm * this.options.tempoMultiplier;
+    const secPerBeat = 60 / effectiveBpm;
+    let accumulatedTime = 0;
+
+    const mLimit = Math.max(0, Math.min(measureIndex, song.measures.length));
+    for (let i = 0; i < mLimit; i++) {
+      let measureBeats = 0;
+      for (const note of song.measures[i].notes) {
+        if (!isNonNotationItem(note) && note.duration > 0 && note.pitch !== 'empty') {
+          measureBeats += note.duration;
+        }
+      }
+      accumulatedTime += measureBeats * secPerBeat;
+    }
+
+    if (measureIndex >= 0 && measureIndex < song.measures.length) {
+      const targetMeasure = song.measures[measureIndex];
+      const nLimit = Math.max(0, Math.min(noteIndex, targetMeasure.notes.length));
+      for (let j = 0; j < nLimit; j++) {
+        const note = targetMeasure.notes[j];
+        if (!isNonNotationItem(note) && note.duration > 0 && note.pitch !== 'empty') {
+          accumulatedTime += note.duration * secPerBeat;
+        }
+      }
+    }
+
+    return accumulatedTime;
   }
 
   /**
