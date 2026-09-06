@@ -24,6 +24,8 @@ import {
   FilePlus2,
   Save,
   Check,
+  ChevronDown,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useGeminiAuth } from '@/hooks/useGeminiAuth';
 
@@ -93,6 +95,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 }) => {
   const { isAuthenticated, hasApiKey } = useGeminiAuth();
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+  const [isExpanderOpen, setIsExpanderOpen] = useState<boolean>(true);
+
+  const handleToggleExpander = () => {
+    setIsExpanderOpen(prev => !prev);
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#10121a]/95 backdrop-blur-md border-b border-zinc-200/90 dark:border-zinc-800/80 shadow-xs transition-colors select-none pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
@@ -171,322 +178,392 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </button>
         </div>
 
-        {/* Right: Master Transport & iPad-Accessible Utility Rail */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink min-w-0 overflow-x-auto no-scrollbar py-0.5">
-          {/* Song Quick Picker (Presets + Custom Library) */}
-          <select
-            id="header-preset-song-select"
-            value={song.id}
-            onChange={e => {
-              const selectedPreset = PRESET_SONGS.find(p => p.id === e.target.value);
-              if (selectedPreset) {
-                onSelectSong(selectedPreset);
-                return;
-              }
-              const selectedCustom = customSongs.find(s => s.id === e.target.value);
-              if (selectedCustom) {
-                onSelectSong(selectedCustom);
-              }
-            }}
-            className="hidden md:block text-xs font-bold bg-zinc-50 dark:bg-[#141720] border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl px-2.5 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-amber-500 max-w-[160px] truncate cursor-pointer min-h-[38px] shrink-0"
-            title="選擇樂譜 (預設曲目與自訂庫存)"
-          >
-            <optgroup label="預設曲目 (Presets)">
-              {PRESET_SONGS.map(p => {
-                const isModified = modifiedPresetIds.has(p.id);
-                return (
-                  <option key={p.id} value={p.id}>
-                    {p.title} {isModified ? '★ (已修改)' : ''}
-                  </option>
-                );
-              })}
-            </optgroup>
-            {customSongs.length > 0 && (
-              <optgroup label={`自訂樂譜 (${customSongs.length})`}>
-                {customSongs.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.title || '未命名樂曲'}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-
-          {/* User Save & Autosave Interval Module */}
-          {onSave && (
-            <div
-              id="header-save-module"
-              className="flex items-center bg-zinc-100 dark:bg-[#141720] p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shrink-0"
+        {/* Right: Expander Bar Trigger & Quick Playback */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* If toolbar is collapsed, provide quick Play/Pause in header */}
+          {!isExpanderOpen && (
+            <button
+              id="header-quick-play-btn"
+              type="button"
+              onClick={onTogglePlay}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] whitespace-nowrap shrink-0 ${
+                isPlaying
+                  ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md shadow-amber-500/30 font-black'
+                  : 'bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white'
+              }`}
+              title={isPlaying ? 'Pause Playback (Space)' : 'Play Full Song (Space)'}
             >
-              <button
-                id="header-save-btn"
-                type="button"
-                onClick={onSave}
-                disabled={isSaving}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] sm:min-h-[38px] shrink-0 ${
-                  isSaving
-                    ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                    : saveSuccess
-                    ? 'bg-emerald-500 text-white font-black shadow-xs'
-                    : isDirty
-                    ? 'bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black shadow-xs'
-                    : 'text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800'
-                }`}
-                title={
-                  isDirty
-                    ? '儲存修改至 IndexedDB [Ctrl+S] (有尚未儲存的修改)'
-                    : '目前修改已安全保存在 IndexedDB [Ctrl+S]'
-                }
-              >
-                {saveSuccess ? (
-                  <Check className="w-4 h-4 shrink-0" />
-                ) : (
-                  <Save className={`w-4 h-4 shrink-0 ${isDirty ? 'text-zinc-950' : 'text-amber-500'}`} />
-                )}
-                <span className="hidden xl:inline whitespace-nowrap">
-                  {isSaving
-                    ? '儲存中...'
-                    : saveSuccess
-                    ? '已儲存'
-                    : isDirty
-                    ? '儲存 (未存)'
-                    : '儲存'}
-                </span>
-                {isDirty && !isSaving && !saveSuccess && (
-                  <span className="w-2 h-2 rounded-full bg-amber-950 dark:bg-amber-950 animate-ping inline-block" />
-                )}
-              </button>
-
-              {onSetAutosaveInterval && (
+              {isPlaying ? (
                 <>
-                  <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-700 mx-0.5" />
-                  <select
-                    id="header-autosave-interval-select"
-                    value={autosaveInterval}
-                    onChange={e => onSetAutosaveInterval(Number(e.target.value))}
-                    className="text-[11px] font-semibold bg-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 px-1 py-1 rounded-md cursor-pointer focus:outline-hidden"
-                    title="自動儲存至 IndexedDB 頻率設定"
-                  >
-                    <option value={0} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-                      手動儲存 (預設)
-                    </option>
-                    <option value={60000} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-                      每 1 分鐘自動存
-                    </option>
-                    <option value={180000} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-                      每 3 分鐘自動存
-                    </option>
-                    <option value={300000} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-                      每 5 分鐘自動存
-                    </option>
-                    <option value={600000} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-                      每 10 分鐘自動存
-                    </option>
-                  </select>
+                  <Pause className="w-4 h-4 fill-current shrink-0" />
+                  <span className="hidden sm:inline whitespace-nowrap">Pause</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 fill-current ml-0.5 shrink-0" />
+                  <span className="hidden sm:inline whitespace-nowrap">Play</span>
                 </>
               )}
-            </div>
+            </button>
           )}
 
-          {/* Master Transport Undo / Redo Module */}
-          {onUndo && onRedo && (
-            <div
-              id="header-undo-redo-group"
-              className="flex items-center bg-zinc-100 dark:bg-[#141720] p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shrink-0"
-            >
-              <button
-                id="header-undo-btn"
-                type="button"
-                onClick={onUndo}
-                disabled={!canUndo}
-                title={canUndo ? `Undo [Ctrl+Z] · ${pastCount} step(s) left` : 'No steps to undo'}
-                className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] sm:min-h-[38px] shrink-0"
-              >
-                <Undo2 className="w-4 h-4 shrink-0" />
-                <span className="hidden xl:inline whitespace-nowrap">Undo</span>
-                {canUndo && pastCount > 0 && (
-                  <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
-                    {pastCount}
-                  </span>
-                )}
-              </button>
-
-              <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-700 mx-0.5" />
-
-              <button
-                id="header-redo-btn"
-                type="button"
-                onClick={onRedo}
-                disabled={!canRedo}
-                title={canRedo ? `Redo [Ctrl+Y] · ${futureCount} step(s) left` : 'No steps to redo'}
-                className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] sm:min-h-[38px] shrink-0"
-              >
-                <Redo2 className="w-4 h-4 shrink-0" />
-                <span className="hidden xl:inline whitespace-nowrap">Redo</span>
-                {canRedo && futureCount > 0 && (
-                  <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
-                    {futureCount}
-                  </span>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* Master Transport Backlit Play/Pause Button */}
+          {/* Expander Bar Toggle Button (Default Opened) */}
           <button
-            id="header-toggle-play-btn"
+            id="header-expander-toggle-btn"
             type="button"
-            onClick={onTogglePlay}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0 ${
-              isPlaying
-                ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md shadow-amber-500/30 font-black'
-                : 'bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white'
+            onClick={handleToggleExpander}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] ${
+              isExpanderOpen
+                ? 'bg-amber-500/15 text-amber-900 dark:text-amber-200 border-amber-400/50 dark:border-amber-600/50 shadow-xs'
+                : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#141720] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-700/80'
             }`}
-            title={isPlaying ? 'Pause Playback (Space)' : 'Play Full Song (Space)'}
+            aria-expanded={isExpanderOpen}
+            title={isExpanderOpen ? '收合工具列 (Collapse Studio Toolbar)' : '展開工具列 (Expand Studio Toolbar)'}
           >
-            {isPlaying ? (
-              <>
-                <Pause className="w-4 h-4 fill-current shrink-0" />
-                <span className="hidden sm:inline whitespace-nowrap">Pause</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-current ml-0.5 shrink-0" />
-                <span className="hidden sm:inline whitespace-nowrap">Play</span>
-              </>
+            <SlidersHorizontal className={`w-4 h-4 shrink-0 ${isExpanderOpen ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400'}`} />
+            <span className="whitespace-nowrap">
+              {isExpanderOpen ? '收合工具' : '展開工具'}
+            </span>
+            {isDirty && !isExpanderOpen && (
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" title="有尚未儲存的修改" />
             )}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${isExpanderOpen ? 'rotate-180 text-amber-600 dark:text-amber-400' : 'text-zinc-400'}`} />
           </button>
+        </div>
+      </div>
 
-          {/* Eco / Power Saving Mode (iPad Battery Monitor) */}
-          {onToggleEcoMode && (
+      {/* Expander Bar Under Header Bar (Default Opened) */}
+      <div
+        id="header-expander-bar"
+        className={`w-full border-t border-zinc-200/90 dark:border-zinc-800/80 bg-zinc-50/95 dark:bg-[#0d0f16]/95 backdrop-blur-md transition-all duration-200 ease-in-out overflow-hidden ${
+          isExpanderOpen
+            ? 'max-h-40 opacity-100 py-2 sm:py-2.5 shadow-xs'
+            : 'max-h-0 opacity-0 py-0 border-t-0 pointer-events-none'
+        }`}
+      >
+        <div className="w-full max-w-[1600px] mx-auto px-2 sm:px-4 lg:px-6 flex items-center justify-between gap-2 sm:gap-3 overflow-x-auto no-scrollbar">
+          {/* Left Sub-Rail: Master Transport & Primary Song Controls */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Master Transport Backlit Play/Pause Button */}
             <button
-              id="header-toggle-eco-mode-btn"
+              id="header-toggle-play-btn"
               type="button"
-              onClick={onToggleEcoMode}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0 ${
-                isEcoMode
-                  ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/50 shadow-xs'
-                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#141720] dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200/90 dark:border-zinc-700/80'
+              onClick={onTogglePlay}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0 ${
+                isPlaying
+                  ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md shadow-amber-500/30 font-black'
+                  : 'bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white'
               }`}
-              title={
-                isEcoMode
-                  ? `Eco Mode Active (lighter audio, no wake lock, reduced GPU)${typeof batteryLevel === 'number' ? ` · Battery ${Math.round(batteryLevel * 100)}%` : ''}`
-                  : `Enable Eco Mode (lighter audio, screen may sleep, reduced GPU)${typeof batteryLevel === 'number' ? ` · Battery ${Math.round(batteryLevel * 100)}%` : ''}`
-              }
+              title={isPlaying ? 'Pause Playback (Space)' : 'Play Full Song (Space)'}
             >
-              <Leaf className={`w-3.5 h-3.5 shrink-0 ${isEcoMode ? 'text-emerald-500 fill-emerald-500' : 'text-zinc-400'}`} />
-              <span className="hidden lg:inline whitespace-nowrap">{isEcoMode ? 'Eco ON' : 'Eco'}</span>
-              {typeof batteryLevel === 'number' && (
-                <span className="text-[11px] font-mono inline-flex items-center gap-1 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
-                  {isCharging ? (
-                    <BatteryCharging className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  ) : batteryLevel <= 0.2 ? (
-                    <BatteryLow className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                  ) : (
-                    <Battery className="w-3.5 h-3.5 shrink-0" />
-                  )}
-                  <span>{Math.round(batteryLevel * 100)}%</span>
-                </span>
-              )}
-            </button>
-          )}
-
-          {/* AI Score Scanner Modal Trigger */}
-          {onOpenScanner && (
-            <button
-              id="header-open-scanner-btn"
-              type="button"
-              onClick={hasApiKey ? onOpenScanner : undefined}
-              disabled={!hasApiKey}
-              aria-disabled={!hasApiKey}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
-                hasApiKey
-                  ? 'bg-gradient-to-r from-amber-500/20 to-amber-400/20 hover:from-amber-500/30 hover:to-amber-400/30 text-amber-900 dark:text-amber-200 border-amber-400/60 dark:border-amber-600/60 active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px]'
-                  : 'bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-400 dark:text-zinc-500 border-zinc-200/80 dark:border-zinc-800/80 opacity-50 cursor-not-allowed min-h-[38px] sm:min-h-[40px] select-none'
-              }`}
-              title={
-                hasApiKey
-                  ? 'AI Score OCR (Multi-page score & lyrics transcription)'
-                  : 'AI Score Scanner muted (Gemini API key not configured in environment)'
-              }
-            >
-              <ScanLine className={`w-4 h-4 shrink-0 ${hasApiKey ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400 dark:text-zinc-500'}`} />
-              <span className="hidden md:inline whitespace-nowrap">
-                {hasApiKey ? 'AI Scanner' : 'AI Scanner (Muted)'}
-              </span>
-            </button>
-          )}
-
-          {/* Start Fresh Song Trigger */}
-          {onStartFreshSong && (
-            <button
-              id="header-new-song-btn"
-              type="button"
-              onClick={onStartFreshSong}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#141720] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0"
-              title="Create New Blank Song"
-            >
-              <FilePlus2 className="w-4 h-4 text-amber-500 shrink-0" />
-              <span className="hidden lg:inline whitespace-nowrap">New Song</span>
-            </button>
-          )}
-
-          {/* Import / Export & Library Modal */}
-          <button
-            id="header-open-library-btn"
-            type="button"
-            onClick={onOpenImportExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#141720] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0"
-            title="Song Library, Import & Export"
-          >
-            <Library className="w-4 h-4 text-amber-500 shrink-0" />
-            <span className="hidden sm:inline whitespace-nowrap">Library</span>
-          </button>
-
-          {/* Gemini AI Passcode Auth Modal Trigger */}
-          {onOpenGeminiAuth && (
-            <button
-              id="header-open-gemini-auth-btn"
-              type="button"
-              onClick={onOpenGeminiAuth}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0 ${
-                !hasApiKey
-                  ? 'bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-400 dark:text-zinc-500 border-zinc-200/80 dark:border-zinc-800/80 opacity-60 hover:opacity-90 hover:border-zinc-400 dark:hover:border-zinc-700'
-                  : isAuthenticated
-                  ? 'bg-emerald-500/15 hover:bg-emerald-500/25 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-400/80 dark:border-emerald-700/80'
-                  : 'bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border-amber-300/80 dark:border-amber-700/80'
-              }`}
-              title={
-                !hasApiKey
-                  ? 'Gemini AI & Passcode Auth muted (No Gemini API key configured in environment)'
-                  : isAuthenticated
-                  ? 'Gemini AI Unlocked · Manage passcode & settings'
-                  : 'Gemini AI Passcode & Settings'
-              }
-            >
-              {!hasApiKey ? (
-                <Sparkles className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
-              ) : isAuthenticated ? (
-                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              {isPlaying ? (
+                <>
+                  <Pause className="w-4 h-4 fill-current shrink-0" />
+                  <span className="whitespace-nowrap">Pause</span>
+                </>
               ) : (
-                <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                <>
+                  <Play className="w-4 h-4 fill-current ml-0.5 shrink-0" />
+                  <span className="whitespace-nowrap">Play</span>
+                </>
               )}
-              <span className="hidden xl:inline whitespace-nowrap">
-                {!hasApiKey ? 'AI Muted' : isAuthenticated ? 'AI Unlocked' : 'AI Passcode'}
-              </span>
             </button>
-          )}
 
-          {/* Keyboard Shortcuts Trigger (Visible on iPad landscape & desktop) */}
-          <button
-            id="header-shortcuts-btn"
-            type="button"
-            onClick={() => setShowKeyboardShortcuts(true)}
-            className="flex items-center justify-center p-2 rounded-xl bg-zinc-100 dark:bg-[#141720] hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-700/80 transition-all active:scale-95 cursor-pointer min-h-[38px] min-w-[38px] shrink-0"
-            title="Keyboard Shortcuts"
-          >
-            <Keyboard className="w-4 h-4 shrink-0" />
-          </button>
+            {/* Eco / Power Saving Mode (iPad Battery Monitor) */}
+            {onToggleEcoMode && (
+              <button
+                id="header-toggle-eco-mode-btn"
+                type="button"
+                onClick={onToggleEcoMode}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0 ${
+                  isEcoMode
+                    ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/50 shadow-xs'
+                    : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#141720] dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200/90 dark:border-zinc-700/80'
+                }`}
+                title={
+                  isEcoMode
+                    ? `Eco Mode Active (lighter audio, no wake lock, reduced GPU)${typeof batteryLevel === 'number' ? ` · Battery ${Math.round(batteryLevel * 100)}%` : ''}`
+                    : `Enable Eco Mode (lighter audio, screen may sleep, reduced GPU)${typeof batteryLevel === 'number' ? ` · Battery ${Math.round(batteryLevel * 100)}%` : ''}`
+                }
+              >
+                <Leaf className={`w-3.5 h-3.5 shrink-0 ${isEcoMode ? 'text-emerald-500 fill-emerald-500' : 'text-zinc-400'}`} />
+                <span className="whitespace-nowrap">{isEcoMode ? 'Eco ON' : 'Eco'}</span>
+                {typeof batteryLevel === 'number' && (
+                  <span className="text-[11px] font-mono inline-flex items-center gap-1 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                    {isCharging ? (
+                      <BatteryCharging className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    ) : batteryLevel <= 0.2 ? (
+                      <BatteryLow className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    ) : (
+                      <Battery className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    <span>{Math.round(batteryLevel * 100)}%</span>
+                  </span>
+                )}
+              </button>
+            )}
+
+            <div className="w-[1px] h-5 bg-zinc-300 dark:bg-zinc-700/80 mx-0.5 shrink-0" />
+
+            {/* Song Quick Picker (Presets + Custom Library) */}
+            <select
+              id="header-preset-song-select"
+              value={song.id}
+              onChange={e => {
+                const selectedPreset = PRESET_SONGS.find(p => p.id === e.target.value);
+                if (selectedPreset) {
+                  onSelectSong(selectedPreset);
+                  return;
+                }
+                const selectedCustom = customSongs.find(s => s.id === e.target.value);
+                if (selectedCustom) {
+                  onSelectSong(selectedCustom);
+                }
+              }}
+              className="text-xs font-bold bg-zinc-50 dark:bg-[#141720] border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl px-2.5 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-amber-500 max-w-[170px] truncate cursor-pointer min-h-[38px] sm:min-h-[40px] shrink-0"
+              title="選擇樂譜 (預設曲目與自訂庫存)"
+            >
+              <optgroup label="預設曲目 (Presets)">
+                {PRESET_SONGS.map(p => {
+                  const isModified = modifiedPresetIds.has(p.id);
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {p.title} {isModified ? '★ (已修改)' : ''}
+                    </option>
+                  );
+                })}
+              </optgroup>
+              {customSongs.length > 0 && (
+                <optgroup label={`自訂樂譜 (${customSongs.length})`}>
+                  {customSongs.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.title || '未命名樂曲'}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+
+            {/* User Save & Autosave Interval Module */}
+            {onSave && (
+              <div
+                id="header-save-module"
+                className="flex items-center bg-zinc-100 dark:bg-[#141720] p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shrink-0"
+              >
+                <button
+                  id="header-save-btn"
+                  type="button"
+                  onClick={onSave}
+                  disabled={isSaving}
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] sm:min-h-[38px] shrink-0 ${
+                    isSaving
+                      ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                      : saveSuccess
+                      ? 'bg-emerald-500 text-white font-black shadow-xs'
+                      : isDirty
+                      ? 'bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black shadow-xs'
+                      : 'text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800'
+                  }`}
+                  title={
+                    isDirty
+                      ? '儲存修改至 IndexedDB [Ctrl+S] (有尚未儲存的修改)'
+                      : '目前修改已安全保存在 IndexedDB [Ctrl+S]'
+                  }
+                >
+                  {saveSuccess ? (
+                    <Check className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <Save className={`w-4 h-4 shrink-0 ${isDirty ? 'text-zinc-950' : 'text-amber-500'}`} />
+                  )}
+                  <span className="whitespace-nowrap">
+                    {isSaving
+                      ? '儲存中...'
+                      : saveSuccess
+                      ? '已儲存'
+                      : isDirty
+                      ? '儲存 (未存)'
+                      : '儲存'}
+                  </span>
+                  {isDirty && !isSaving && !saveSuccess && (
+                    <span className="w-2 h-2 rounded-full bg-amber-950 dark:bg-amber-950 animate-ping inline-block" />
+                  )}
+                </button>
+
+                {onSetAutosaveInterval && (
+                  <>
+                    <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-700 mx-0.5" />
+                    <select
+                      id="header-autosave-interval-select"
+                      value={autosaveInterval}
+                      onChange={e => onSetAutosaveInterval(Number(e.target.value))}
+                      className="text-[11px] font-semibold bg-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 px-1 py-1 rounded-md cursor-pointer focus:outline-hidden"
+                      title="自動儲存至 IndexedDB 頻率設定"
+                    >
+                      <option value={0} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                        手動儲存 (預設)
+                      </option>
+                      <option value={60000} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                        每 1 分鐘自動存
+                      </option>
+                      <option value={180000} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                        每 3 分鐘自動存
+                      </option>
+                      <option value={300000} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                        每 5 分鐘自動存
+                      </option>
+                      <option value={600000} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                        每 10 分鐘自動存
+                      </option>
+                    </select>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Master Transport Undo / Redo Module */}
+            {onUndo && onRedo && (
+              <div
+                id="header-undo-redo-group"
+                className="flex items-center bg-zinc-100 dark:bg-[#141720] p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shrink-0"
+              >
+                <button
+                  id="header-undo-btn"
+                  type="button"
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                  title={canUndo ? `Undo [Ctrl+Z] · ${pastCount} step(s) left` : 'No steps to undo'}
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] sm:min-h-[38px] shrink-0"
+                >
+                  <Undo2 className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">Undo</span>
+                  {canUndo && pastCount > 0 && (
+                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
+                      {pastCount}
+                    </span>
+                  )}
+                </button>
+
+                <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-700 mx-0.5" />
+
+                <button
+                  id="header-redo-btn"
+                  type="button"
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                  title={canRedo ? `Redo [Ctrl+Y] · ${futureCount} step(s) left` : 'No steps to redo'}
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] sm:min-h-[38px] shrink-0"
+                >
+                  <Redo2 className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">Redo</span>
+                  {canRedo && futureCount > 0 && (
+                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
+                      {futureCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Right Sub-Rail: Library, Creative Tools & Settings */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Start Fresh Song Trigger */}
+            {onStartFreshSong && (
+              <button
+                id="header-new-song-btn"
+                type="button"
+                onClick={onStartFreshSong}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#141720] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0"
+                title="Create New Blank Song"
+              >
+                <FilePlus2 className="w-4 h-4 text-amber-500 shrink-0" />
+                <span className="whitespace-nowrap">New Song</span>
+              </button>
+            )}
+
+            {/* Import / Export & Library Modal */}
+            <button
+              id="header-open-library-btn"
+              type="button"
+              onClick={onOpenImportExport}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#141720] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0"
+              title="Song Library, Import & Export"
+            >
+              <Library className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="whitespace-nowrap">Library</span>
+            </button>
+
+            {/* AI Score Scanner Modal Trigger */}
+            {onOpenScanner && (
+              <button
+                id="header-open-scanner-btn"
+                type="button"
+                onClick={hasApiKey ? onOpenScanner : undefined}
+                disabled={!hasApiKey}
+                aria-disabled={!hasApiKey}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+                  hasApiKey
+                    ? 'bg-gradient-to-r from-amber-500/20 to-amber-400/20 hover:from-amber-500/30 hover:to-amber-400/30 text-amber-900 dark:text-amber-200 border-amber-400/60 dark:border-amber-600/60 active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px]'
+                    : 'bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-400 dark:text-zinc-500 border-zinc-200/80 dark:border-zinc-800/80 opacity-50 cursor-not-allowed min-h-[38px] sm:min-h-[40px] select-none'
+                }`}
+                title={
+                  hasApiKey
+                    ? 'AI Score OCR (Multi-page score & lyrics transcription)'
+                    : 'AI Score Scanner muted (Gemini API key not configured in environment)'
+                }
+              >
+                <ScanLine className={`w-4 h-4 shrink-0 ${hasApiKey ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400 dark:text-zinc-500'}`} />
+                <span className="whitespace-nowrap">
+                  {hasApiKey ? 'AI Scanner' : 'AI Scanner (Muted)'}
+                </span>
+              </button>
+            )}
+
+            {/* Gemini AI Passcode Auth Modal Trigger */}
+            {onOpenGeminiAuth && (
+              <button
+                id="header-open-gemini-auth-btn"
+                type="button"
+                onClick={onOpenGeminiAuth}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0 ${
+                  !hasApiKey
+                    ? 'bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-400 dark:text-zinc-500 border-zinc-200/80 dark:border-zinc-800/80 opacity-60 hover:opacity-90 hover:border-zinc-400 dark:hover:border-zinc-700'
+                    : isAuthenticated
+                    ? 'bg-emerald-500/15 hover:bg-emerald-500/25 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-400/80 dark:border-emerald-700/80'
+                    : 'bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border-amber-300/80 dark:border-amber-700/80'
+                }`}
+                title={
+                  !hasApiKey
+                    ? 'Gemini AI & Passcode Auth muted (No Gemini API key configured in environment)'
+                    : isAuthenticated
+                    ? 'Gemini AI Unlocked · Manage passcode & settings'
+                    : 'Gemini AI Passcode & Settings'
+                }
+              >
+                {!hasApiKey ? (
+                  <Sparkles className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                ) : isAuthenticated ? (
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                ) : (
+                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                )}
+                <span className="whitespace-nowrap">
+                  {!hasApiKey ? 'AI Muted' : isAuthenticated ? 'AI Unlocked' : 'AI Passcode'}
+                </span>
+              </button>
+            )}
+
+            {/* Keyboard Shortcuts Trigger */}
+            <button
+              id="header-shortcuts-btn"
+              type="button"
+              onClick={() => setShowKeyboardShortcuts(true)}
+              className="flex items-center justify-center p-2 rounded-xl bg-zinc-100 dark:bg-[#141720] hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-700/80 transition-all active:scale-95 cursor-pointer min-h-[38px] sm:min-h-[40px] min-w-[38px] sm:min-w-[40px] shrink-0"
+              title="Keyboard Shortcuts"
+            >
+              <Keyboard className="w-4 h-4 shrink-0" />
+            </button>
+          </div>
         </div>
       </div>
 
