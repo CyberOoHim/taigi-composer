@@ -348,14 +348,14 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
   return (
     <div
       id="sheet-mode-view-root"
-      className="flex flex-col gap-4 bg-zinc-50/60 dark:bg-zinc-950/60 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-5 shadow-xs"
+      className="flex flex-col gap-3 bg-zinc-50/60 dark:bg-zinc-950/60 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-2.5 sm:p-4 shadow-xs"
     >
       {/* ========================================================================= */}
       {/* 1. TOP SHEET CONTROLS & SUB-PERSPECTIVE SWITCHER                          */}
       {/* ========================================================================= */}
       <div
         id="sheet-mode-header-card"
-        className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 shadow-xs flex flex-col gap-3.5"
+        className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-3 sm:p-3.5 shadow-xs flex flex-col gap-2.5"
       >
         <div className="flex items-center justify-between gap-3 flex-wrap">
           {/* Sub-perspective Pill (Measures vs Verses in Sheet Mode) */}
@@ -564,7 +564,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
       {/* 2. MEASURE PERSPECTIVE (Systems, Line Breaks, Barlines, Rhythm Health)    */}
       {/* ========================================================================= */}
       {sheetPerspective === 'measure' && (
-        <div id="sheet-measures-container" className="flex flex-col gap-4">
+        <div id="sheet-measures-container" className="flex flex-col gap-2.5 sm:gap-3">
           {displayedMeasureReports.length === 0 ? (
             <div className="py-16 flex flex-col items-center justify-center text-center text-zinc-500 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800">
               <CheckCircle2 className="w-12 h-12 text-emerald-500 mb-2" />
@@ -575,20 +575,20 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
             </div>
           ) : groupBySystems ? (
             /* Render Grouped by Staff Systems (Visual lines of the printed sheet) */
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2.5 sm:gap-3">
               {measureSystems.map(system => (
                 <div
                   key={`system-${system.systemIndex}`}
-                  className={`flex flex-col gap-2.5 p-3.5 sm:p-4 rounded-2xl border transition-all shadow-2xs ${
+                  className={`flex flex-col gap-1.5 sm:gap-2 p-2.5 sm:p-3 rounded-2xl border transition-all shadow-2xs ${
                     playingSystemIdx === system.systemIndex
                       ? 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800/80 ring-2 ring-amber-400/40'
                       : 'bg-white/70 dark:bg-zinc-900/70 border-zinc-200/80 dark:border-zinc-800/80'
                   }`}
                 >
                   {/* System Header with System Play Key */}
-                  <div className="flex items-center justify-between text-xs font-bold text-zinc-600 dark:text-zinc-300 pb-2 border-b border-zinc-200/60 dark:border-zinc-800/60 flex-wrap gap-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-zinc-600 dark:text-zinc-300 pb-1.5 border-b border-zinc-200/60 dark:border-zinc-800/60 flex-wrap gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2.5 py-1 bg-zinc-200 dark:bg-zinc-800 rounded-lg font-mono text-xs font-black text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-zinc-200 dark:bg-zinc-800 rounded-lg font-mono text-xs font-black text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
                         <SplitSquareVertical className="w-3.5 h-3.5 text-indigo-500" />
                         <span>System {system.systemIndex}</span>
                       </span>
@@ -606,7 +606,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                         id={`sheet-system-play-btn-${system.systemIndex}`}
                         type="button"
                         onClick={() => onTogglePlaySystem(system.systemIndex, system.reports.map(r => r.idx))}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-2xs touch-manipulation min-h-[32px] ${
+                        className={`flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-2xs touch-manipulation min-h-[30px] ${
                           playingSystemIdx === system.systemIndex
                             ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 animate-pulse font-black'
                             : 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
@@ -632,7 +632,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                     )}
                   </div>
 
-                  <div className="flex flex-col gap-2.5">
+                  <div className="flex flex-col gap-1.5">
                     {system.reports.map(({ measure, idx, report }) => {
                       const isFirst = idx === 0;
                       const isLast = idx === song.measures.length - 1;
@@ -642,7 +642,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                           key={measure.id}
                           id={`sheet-measure-row-${idx}`}
                           onClick={() => onSelectMeasure(idx)}
-                          className={`p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col gap-2.5 shadow-2xs cursor-pointer ${
+                          className={`px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl border transition-all flex flex-col gap-1.5 sm:gap-2 shadow-2xs cursor-pointer ${
                             selectedMeasureIndex === idx
                               ? 'ring-2 ring-emerald-500/60 dark:ring-emerald-400/60 border-emerald-500/80 dark:border-emerald-500/80 bg-white dark:bg-zinc-900 shadow-sm'
                               : report.isFull
@@ -653,10 +653,10 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                           }`}
                         >
                           {/* Top Row: Measure Info & Action Controls */}
-                          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 w-full">
+                          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-1.5 sm:gap-2 w-full">
                             {/* Measure Info & Badges */}
-                            <div className="flex items-center gap-2.5 flex-wrap flex-1">
-                              <span className="w-11 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono font-black text-xs flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
+                            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap flex-1">
+                              <span className="w-10 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono font-black text-xs flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
                                 #{idx + 1}
                               </span>
 
@@ -872,9 +872,9 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                           </div>
 
                           {/* Notes Displayed with Lyric */}
-                          <div className="w-full pt-1">
+                          <div className="w-full pt-0.5">
                             <div
-                              className="flex items-stretch gap-1.5 overflow-x-auto pb-1.5 pt-0.5 select-none scrollbar-thin"
+                              className="flex items-stretch gap-1 sm:gap-1.5 overflow-x-auto pb-1 pt-0.5 select-none scrollbar-thin"
                               style={{ WebkitOverflowScrolling: 'touch' }}
                             >
                               {measure.notes.length === 0 ? (
@@ -913,7 +913,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
             </div>
           ) : (
             /* Flat List of Measures */
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-1.5 sm:gap-2">
               {displayedMeasureReports.map(({ measure, idx, report }) => {
                 const isFirst = idx === 0;
                 const isLast = idx === song.measures.length - 1;
@@ -923,7 +923,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                     key={measure.id}
                     id={`sheet-measure-flat-row-${idx}`}
                     onClick={() => onSelectMeasure(idx)}
-                    className={`p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col gap-2.5 shadow-2xs cursor-pointer ${
+                    className={`px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl border transition-all flex flex-col gap-1.5 sm:gap-2 shadow-2xs cursor-pointer ${
                       selectedMeasureIndex === idx
                         ? 'ring-2 ring-emerald-500/60 dark:ring-emerald-400/60 border-emerald-500/80 dark:border-emerald-500/80 bg-white dark:bg-zinc-900 shadow-sm'
                         : report.isFull
@@ -934,10 +934,10 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                     }`}
                   >
                     {/* Top Row: Measure Info & Controls */}
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 w-full">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-1.5 sm:gap-2 w-full">
                       {/* Left: Measure Info */}
-                      <div className="flex items-center gap-2.5 flex-wrap flex-1">
-                        <span className="w-11 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono font-black text-xs flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap flex-1">
+                        <span className="w-10 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono font-black text-xs flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
                           #{idx + 1}
                         </span>
 
@@ -1142,9 +1142,9 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                     </div>
 
                     {/* Notes Displayed with Lyric */}
-                    <div className="w-full pt-1">
+                    <div className="w-full pt-0.5">
                       <div
-                        className="flex items-stretch gap-1.5 overflow-x-auto pb-1.5 pt-0.5 select-none scrollbar-thin"
+                        className="flex items-stretch gap-1 sm:gap-1.5 overflow-x-auto pb-1 pt-0.5 select-none scrollbar-thin"
                         style={{ WebkitOverflowScrolling: 'touch' }}
                       >
                         {measure.notes.length === 0 ? (
@@ -1186,7 +1186,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
       {/* 3. VERSE PERSPECTIVE (Phrasing, Lyrics, Audition, Section Sequencing)     */}
       {/* ========================================================================= */}
       {sheetPerspective === 'verse' && (
-        <div id="sheet-verses-container" className="flex flex-col gap-3.5">
+        <div id="sheet-verses-container" className="flex flex-col gap-2.5 sm:gap-3">
           {displayedVerseReports.length === 0 ? (
             <div className="py-16 flex flex-col items-center justify-center text-center text-zinc-500 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800">
               <CheckCircle2 className="w-12 h-12 text-emerald-500 mb-2" />
@@ -1221,7 +1221,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                   <div
                     key={verse.id}
                     id={`sheet-verse-row-${vIdx}`}
-                    className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex flex-col gap-3 shadow-2xs ${
+                    className={`px-3 py-2.5 sm:px-3.5 sm:py-3 rounded-2xl border transition-all flex flex-col gap-2 shadow-2xs ${
                       isPlaying
                         ? 'border-amber-500 ring-2 ring-amber-400/80 bg-amber-500/10 dark:bg-amber-950/30'
                         : isFull
@@ -1232,8 +1232,8 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                     }`}
                   >
                     {/* Top Row: Info Badges & Action Toolbar */}
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                         <span className="px-2.5 py-1 rounded-xl bg-amber-500/15 text-amber-900 dark:text-amber-200 font-mono font-black text-xs border border-amber-300/80 dark:border-amber-700/80">
                           Verse #{vIdx + 1}
                         </span>
@@ -1492,8 +1492,8 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                     </div>
 
                     {/* Notes with Lyrics Row for Verse */}
-                    <div className="w-full pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
-                      <div className="flex items-center justify-between mb-1 text-[11px] text-zinc-400">
+                    <div className="w-full pt-1.5 border-t border-zinc-100 dark:border-zinc-800/80">
+                      <div className="flex items-center justify-between mb-0.5 text-[11px] text-zinc-400">
                         <span className="font-bold text-zinc-500 dark:text-zinc-400 text-xs">
                           音符與歌詞 (Notes &amp; Lyrics across Verse Measures):
                         </span>
@@ -1503,7 +1503,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                       </div>
 
                       <div
-                        className="flex items-stretch gap-1.5 overflow-x-auto pb-1.5 pt-0.5 select-none scrollbar-thin"
+                        className="flex items-stretch gap-1 sm:gap-1.5 overflow-x-auto pb-1 pt-0.5 select-none scrollbar-thin"
                         style={{ WebkitOverflowScrolling: 'touch' }}
                       >
                         {verse.notes.length === 0 ? (
