@@ -24,11 +24,10 @@ export function scrollToCardElement(
       ? { headerOffset: headerOffsetOrOptions }
       : (headerOffsetOrOptions || {});
 
-  const baseHeaderOffset = options.headerOffset ?? 80;
   const bottomPadding = options.bottomPadding ?? 24;
   const topPadding = options.topPadding ?? 16;
   const behavior = options.behavior ?? 'smooth';
-  const align = options.align ?? 'auto';
+  const align = options.align ?? 'top';
 
   const computeAndScroll = (currentBehavior: ScrollBehavior = behavior): boolean => {
     const el = document.getElementById(elementId);
@@ -43,7 +42,10 @@ export function scrollToCardElement(
     // Detect actual sticky header height if present in DOM
     const headerEl = document.querySelector('header');
     const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 64;
-    const effectiveHeaderOffset = Math.max(headerHeight + topPadding, baseHeaderOffset);
+    const effectiveHeaderOffset =
+      options.headerOffset !== undefined
+        ? options.headerOffset
+        : Math.max(headerHeight + topPadding, 80);
 
     const viewportHeight = window.innerHeight;
     const availableHeight = viewportHeight - effectiveHeaderOffset - bottomPadding;
@@ -52,25 +54,13 @@ export function scrollToCardElement(
 
     if (align === 'bottom') {
       targetScroll = docBottom - (viewportHeight - bottomPadding);
-    } else if (align === 'top') {
-      targetScroll = docTop - effectiveHeaderOffset;
     } else if (align === 'center') {
       const remainingSpace = availableHeight - cardHeight;
       targetScroll = docTop - (effectiveHeaderOffset + remainingSpace / 2);
     } else {
-      // 'auto' mode:
-      // Always ensure the bottom of the card is visible so editing controls and HUD are never cut off.
-      // If the card fits within the viewport, position top comfortably below the header.
-      const remainingSpace = availableHeight - cardHeight;
-      if (remainingSpace >= 0) {
-        // Card fits! Keep top comfortably below header while ensuring bottom is completely above (viewportHeight - bottomPadding)
-        const topMargin = effectiveHeaderOffset + Math.min(32, remainingSpace / 2);
-        targetScroll = docTop - topMargin;
-      } else {
-        // Card is taller than available viewport:
-        // Prioritize showing the bottom of the card so NoteEditorHud and batch inputs are clearly seen!
-        targetScroll = docBottom - (viewportHeight - bottomPadding);
-      }
+      // 'top' or 'auto' mode:
+      // Always ensure the top of the card is displayed starting from the very top, comfortably below the sticky header.
+      targetScroll = docTop - effectiveHeaderOffset;
     }
 
     targetScroll = Math.max(0, targetScroll);
@@ -118,7 +108,7 @@ export function scrollToCardElement(
   computeAndScroll(behavior);
 
   // Throttled milestones for layout shifts
-  const milestones = [60, 180, 320];
+  const milestones = [60, 150, 300, 500];
   milestones.forEach(ms => {
     const tid = setTimeout(() => {
       computeAndScroll('smooth');
@@ -126,14 +116,14 @@ export function scrollToCardElement(
     activeTimeouts.push(tid);
   });
 
-  // Cleanup after transition period (450ms)
+  // Cleanup after transition period (650ms)
   const cleanupId = setTimeout(() => {
     if (activeObserver) {
       activeObserver.disconnect();
       activeObserver = null;
     }
     activeTimeouts = [];
-  }, 450);
+  }, 650);
   activeTimeouts.push(cleanupId);
 }
 

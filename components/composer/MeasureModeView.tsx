@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarlineType, NumberedNotationNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, Song, ArticulationType } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import { scrollToCardElement } from '@/lib/utils';
@@ -220,6 +220,12 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
     return idx !== -1 ? idx : 0;
   };
 
+  // Ensure active measure card is positioned starting from the top on initial mount or when active measure changes
+  useEffect(() => {
+    const targetIdx = selectedMeasureIndex ?? 0;
+    scrollToCardElement(`measure-card-${targetIdx}`, { align: 'top' });
+  }, [selectedMeasureIndex]);
+
   const handleSelectMeasureCard = (mIdx: number) => {
     if (selectedMeasureIndex !== mIdx) {
       if (onSelectMeasure) {
@@ -228,6 +234,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
         const targetNoteIdx = getFirstPlayableNoteIdx(song.measures[mIdx]);
         onSelectNote(mIdx, targetNoteIdx);
       }
+      scrollToCardElement(`measure-card-${mIdx}`, { align: 'top' });
     }
   };
 
@@ -240,7 +247,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   };
 
   return (
-    <div id="measure-mode-container" className="flex flex-col gap-6">
+    <div id="measure-mode-container" className="flex flex-col gap-6 pb-[60vh]">
       {/* JUMP RETURN NAVIGATION BANNER (Karaoke Mode / Sheet Mode) */}
       {(karaokeReturnTarget || sheetReturnTarget) && (
         <div
@@ -460,7 +467,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                         e.stopPropagation();
                         if (mIdx > 0) {
                           onSelectNote(mIdx - 1, 0);
-                          scrollToCardElement(`measure-card-${mIdx - 1}`);
+                          scrollToCardElement(`measure-card-${mIdx - 1}`, { align: 'top' });
                         }
                       }}
                       disabled={mIdx === 0}
@@ -486,7 +493,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                         e.stopPropagation();
                         if (mIdx < song.measures.length - 1) {
                           onSelectNote(mIdx + 1, 0);
-                          scrollToCardElement(`measure-card-${mIdx + 1}`);
+                          scrollToCardElement(`measure-card-${mIdx + 1}`, { align: 'top' });
                         }
                       }}
                       disabled={mIdx === song.measures.length - 1}

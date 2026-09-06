@@ -300,7 +300,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                                 Boolean(n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji)))
                           ) || prevVerse.notes[0];
                         if (target) onSelectNote(target.measureIndex, target.noteIndex);
-                        scrollToCardElement(`verse-card-${vIdx - 1}`);
+                        scrollToCardElement(`verse-card-${vIdx - 1}`, { align: 'top' });
                       }
                     }}
                     disabled={vIdx === 0}
@@ -326,7 +326,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                                 Boolean(n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji)))
                           ) || nextVerse.notes[0];
                         if (target) onSelectNote(target.measureIndex, target.noteIndex);
-                        scrollToCardElement(`verse-card-${vIdx + 1}`);
+                        scrollToCardElement(`verse-card-${vIdx + 1}`, { align: 'top' });
                       }
                     }}
                     disabled={vIdx === verses.length - 1}

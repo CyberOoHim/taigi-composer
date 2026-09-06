@@ -223,9 +223,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   useEffect(() => {
     if (targetMeasureIndex !== null && targetMeasureIndex !== undefined && targetMeasureIndex >= 0) {
       const validMeasureIdx = Math.min(song.measures.length - 1, Math.max(0, targetMeasureIndex));
+      const targetMode = karaokeReturnTarget ? 'measure' : editMode;
+
       // Smooth scroll and select corresponding note
       const timer = safeTimeout(() => {
-        if (karaokeReturnTarget) {
+        if (karaokeReturnTarget && editMode !== 'measure') {
           setEditMode('measure');
         }
 
@@ -247,7 +249,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           audioEngine.previewNote(song.key, note);
         }
 
-        if (editMode === 'verse') {
+        if (targetMode === 'verse') {
           // Find the verse containing this measure and note, or starting in this measure
           let vIdx = verses.findIndex(v =>
             v.notes.some(n => n.measureIndex === validMeasureIdx && n.noteIndex === targetNoteIdx)
@@ -258,7 +260,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             );
           }
           if (vIdx !== -1) {
-            scrollToCardElement(`verse-card-${vIdx}`);
+            scrollToCardElement(`verse-card-${vIdx}`, { align: 'top' });
             const el = document.getElementById(`verse-card-${vIdx}`);
             if (el) {
               el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
@@ -267,17 +269,21 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
               }, 2200);
             }
           }
-        } else if (editMode === 'measure') {
-          scrollToCardElement(`measure-card-${validMeasureIdx}`);
-          const el = document.getElementById(`measure-card-${validMeasureIdx}`);
-          if (el) {
-            el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
-            safeTimeout(() => {
-              el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
-            }, 2200);
-          }
+        } else if (targetMode === 'measure') {
+          scrollToCardElement(`measure-card-${validMeasureIdx}`, { align: 'top' });
+          const highlightPoll = setInterval(() => {
+            const el = document.getElementById(`measure-card-${validMeasureIdx}`);
+            if (el) {
+              clearInterval(highlightPoll);
+              el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+              safeTimeout(() => {
+                el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+              }, 2200);
+            }
+          }, 40);
+          safeTimeout(() => clearInterval(highlightPoll), 1200);
         } else {
-          scrollToCardElement(`sheet-measure-row-${validMeasureIdx}`);
+          scrollToCardElement(`sheet-measure-row-${validMeasureIdx}`, { align: 'top' });
           const el =
             document.getElementById(`sheet-measure-row-${validMeasureIdx}`) ||
             document.getElementById(`sheet-measure-flat-row-${validMeasureIdx}`);
@@ -589,12 +595,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           v.notes.some(n => n.measureIndex === nextM && n.noteIndex === 0)
         );
         if (vIdx !== -1) {
-          scrollToCardElement(`verse-card-${vIdx}`);
+          scrollToCardElement(`verse-card-${vIdx}`, { align: 'top' });
         }
       } else if (editMode === 'sheet') {
-        scrollToCardElement(`sheet-measure-row-${nextM}`);
+        scrollToCardElement(`sheet-measure-row-${nextM}`, { align: 'top' });
       } else {
-        scrollToCardElement(`measure-card-${nextM}`);
+        scrollToCardElement(`measure-card-${nextM}`, { align: 'top' });
       }
     }
   }, [selectedMeasureIndex, selectedNoteIndex, song.measures, handleSelectNote, editMode, verses]);
@@ -619,12 +625,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             v.notes.some(n => n.measureIndex === prevMIdx && n.noteIndex === prevNoteIdx)
           );
           if (vIdx !== -1) {
-            scrollToCardElement(`verse-card-${vIdx}`);
+            scrollToCardElement(`verse-card-${vIdx}`, { align: 'top' });
           }
         } else if (editMode === 'sheet') {
-          scrollToCardElement(`sheet-measure-row-${prevMIdx}`);
+          scrollToCardElement(`sheet-measure-row-${prevMIdx}`, { align: 'top' });
         } else {
-          scrollToCardElement(`measure-card-${prevMIdx}`);
+          scrollToCardElement(`measure-card-${prevMIdx}`, { align: 'top' });
         }
       }
     }
@@ -1333,7 +1339,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     setSelectedCoord([mIdx + 1, 0]);
     showNotice(`Duplicated Measure #${mIdx + 1}`);
     safeTimeout(() => {
-      scrollToCardElement(`measure-card-${mIdx + 1}`);
+      scrollToCardElement(`measure-card-${mIdx + 1}`, { align: 'top' });
     }, 100);
   };
 
@@ -1602,7 +1608,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         showNotice(`Moved note into Measure #${mIdx}`);
       }
       safeTimeout(() => {
-        scrollToCardElement(`measure-card-${mIdx - 1}`);
+        scrollToCardElement(`measure-card-${mIdx - 1}`, { align: 'top' });
       }, 50);
     }
   }, [selectedMeasureIndex, selectedNoteIndex, song, onUpdateSong, showNotice, audioEngine, safeTimeout]);
@@ -1656,7 +1662,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           showNotice(`Moved note into Measure #${mIdx + 2}`);
         }
         safeTimeout(() => {
-          scrollToCardElement(`measure-card-${mIdx + 1}`);
+          scrollToCardElement(`measure-card-${mIdx + 1}`, { align: 'top' });
         }, 50);
       } else {
         // Last measure in song
@@ -1683,7 +1689,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         audioEngine.previewNote(song.key, noteToMove);
         showNotice(`Moved note into new Measure #${mIdx + 2}`);
         safeTimeout(() => {
-          scrollToCardElement(`measure-card-${mIdx + 1}`);
+          scrollToCardElement(`measure-card-${mIdx + 1}`, { align: 'top' });
         }, 50);
       }
     }
@@ -1704,7 +1710,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       setSelectedCoord([toIdx, 0]);
       showNotice(`Moved Measure ${fromIdx + 1} to position ${toIdx + 1}`);
       safeTimeout(() => {
-        scrollToCardElement(`measure-card-${toIdx}`);
+        scrollToCardElement(`measure-card-${toIdx}`, { align: 'top' });
       }, 100);
     },
     [song, onUpdateSong, showNotice, safeTimeout]
@@ -1881,7 +1887,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       setSelectedCoord([newSelectedMIdx, 0]);
       showNotice(`Moved Verse #${fromVerseIdx + 1} to position #${toVerseIdx + 1}`);
       safeTimeout(() => {
-        scrollToCardElement(`verse-card-${toVerseIdx}`);
+        scrollToCardElement(`verse-card-${toVerseIdx}`, { align: 'top' });
       }, 100);
     },
     [verses, song, onUpdateSong, showNotice, safeTimeout]
@@ -1902,7 +1908,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       handleSelectNote(firstNote.measureIndex, firstNote.noteIndex);
       safeTimeout(() => {
-        scrollToCardElement(`verse-card-${verse.verseIndex}`);
+        scrollToCardElement(`verse-card-${verse.verseIndex}`, { align: 'top' });
       }, 100);
     },
     [handleSelectNote, setEditMode, safeTimeout]
@@ -1998,7 +2004,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       setSelectedCoord([maxMIdx + 1, 0]);
       showNotice(`Duplicated Verse #${verse.verseIndex + 1} (${clonedMeasures.length} measures)`);
       safeTimeout(() => {
-        scrollToCardElement(`verse-card-${verse.verseIndex + 1}`);
+        scrollToCardElement(`verse-card-${verse.verseIndex + 1}`, { align: 'top' });
       }, 100);
     },
     [song, onUpdateSong, showNotice, safeTimeout]
@@ -2084,12 +2090,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         vIdx = verses.findIndex(v => v.notes.some(n => n.measureIndex === mIdx));
       }
       if (vIdx !== -1) {
-        scrollToCardElement(`verse-card-${vIdx}`);
+        scrollToCardElement(`verse-card-${vIdx}`, { align: 'top' });
       }
     } else if (editMode === 'measure') {
-      scrollToCardElement(`measure-card-${mIdx}`);
+      scrollToCardElement(`measure-card-${mIdx}`, { align: 'top' });
     } else {
-      scrollToCardElement(`sheet-measure-row-${mIdx}`);
+      scrollToCardElement(`sheet-measure-row-${mIdx}`, { align: 'top' });
     }
   }, [song, audioEngine, editMode, verses]);
 
@@ -2120,11 +2126,36 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     (mIdx: number) => {
       setSheetReturnTarget({ measureIndex: mIdx, originalMeasureIndex: mIdx });
       setEditMode('measure');
-      safeTimeout(() => {
-        handleJumpToMeasure(mIdx);
-      }, 60);
+      const m = song.measures[mIdx];
+      let targetNoteIdx = 0;
+      if (m && m.notes.length > 0) {
+        const firstPitchedIdx = m.notes.findIndex(
+          n =>
+            !isNonNotationItem(n) &&
+            ((typeof n.pitch === 'number' && n.pitch > 0) ||
+              Boolean(n.lyric.hanji && !isPunctuationOrSpacer(n.lyric.hanji)))
+        );
+        targetNoteIdx = firstPitchedIdx !== -1 ? firstPitchedIdx : 0;
+      }
+      setSelectedCoord([mIdx, targetNoteIdx]);
+      const note = song.measures[mIdx]?.notes[targetNoteIdx] || song.measures[mIdx]?.notes[0];
+      if (note) {
+        audioEngine.previewNote(song.key, note);
+      }
+      scrollToCardElement(`measure-card-${mIdx}`, { align: 'top' });
+      const highlightPoll = setInterval(() => {
+        const el = document.getElementById(`measure-card-${mIdx}`);
+        if (el) {
+          clearInterval(highlightPoll);
+          el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          safeTimeout(() => {
+            el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          }, 2200);
+        }
+      }, 40);
+      safeTimeout(() => clearInterval(highlightPoll), 1200);
     },
-    [setEditMode, handleJumpToMeasure, safeTimeout]
+    [song, audioEngine, setEditMode, safeTimeout]
   );
 
   // Return from Measure Mode back to Sheet Mode
@@ -2143,7 +2174,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           : `sheet-measure-flat-row-${validIdx}`;
         const el = document.getElementById(rowId);
         if (el) {
-          scrollToCardElement(rowId);
+          scrollToCardElement(rowId, { align: 'top' });
           el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
           safeTimeout(() => {
             el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
@@ -2534,7 +2565,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
               <button
                 id="editor-mode-measure-btn"
                 type="button"
-                onClick={() => setEditMode('measure')}
+                onClick={() => {
+                  setEditMode('measure');
+                  const mIdx = selectedMeasureIndex ?? 0;
+                  scrollToCardElement(`measure-card-${mIdx}`, { align: 'top' });
+                }}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[36px] ${
                   editMode === 'measure'
                     ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
