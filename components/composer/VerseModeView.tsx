@@ -886,54 +886,65 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
               </div>
             )}
 
-            {/* Verse-Wide Batch Lyric & Punctuation Helper Row */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 mt-2 border-t border-zinc-200/80 dark:border-zinc-800 text-xs">
-              <div className="flex items-center gap-2 flex-1 min-w-[280px]">
-                <span className="text-xs font-bold text-amber-700 dark:text-amber-300 shrink-0 flex items-center gap-1">
-                  <MessageSquareQuote className="w-3.5 h-3.5" />
+            {/* Verse-Wide Batch Lyric & Punctuation Helper Toolbar */}
+            <div className="flex flex-col gap-2.5 pt-3 mt-2 border-t border-zinc-200/80 dark:border-zinc-800 text-xs">
+              {/* Row 1: Verse Batch Lyric Input */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-300 shrink-0 flex items-center gap-1.5 select-none">
+                  <MessageSquareQuote className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <span>段落歌詞填入 (羅馬字 / 漢羅):</span>
                 </span>
-                <input
-                  type="text"
-                  value={verseBatchTexts[vIdx] || ''}
-                  onChange={e =>
-                    onSetVerseBatchTexts(prev => ({
-                      ...prev,
-                      [vIdx]: e.target.value,
-                    }))
-                  }
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      onDistributeVerseLyrics(verse, vIdx);
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <input
+                    id={`verse-batch-input-${vIdx}`}
+                    type="text"
+                    value={verseBatchTexts[vIdx] || ''}
+                    onChange={e =>
+                      onSetVerseBatchTexts(prev => ({
+                        ...prev,
+                        [vIdx]: e.target.value,
+                      }))
                     }
-                  }}
-                  placeholder="輸入歌詞並按「批次套用」..."
-                  className="flex-1 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden min-h-[36px]"
-                />
-                <button
-                  type="button"
-                  onClick={() => onDistributeVerseLyrics(verse, vIdx)}
-                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs shadow-xs transition-colors shrink-0 min-h-[36px] cursor-pointer touch-manipulation"
-                >
-                  批次套用
-                </button>
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        onDistributeVerseLyrics(verse, vIdx);
+                      }
+                    }}
+                    placeholder="輸入歌詞並按「批次套用」，將自動逐字套入此段落音符..."
+                    className="flex-1 min-w-0 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden min-h-[36px] text-zinc-900 dark:text-zinc-100"
+                  />
+                  <button
+                    id={`verse-batch-apply-btn-${vIdx}`}
+                    type="button"
+                    onClick={() => onDistributeVerseLyrics(verse, vIdx)}
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-zinc-950 font-bold rounded-xl text-xs shadow-xs transition-colors shrink-0 min-h-[36px] cursor-pointer touch-manipulation whitespace-nowrap flex items-center justify-center"
+                    title="批次套用歌詞至此段落音符"
+                  >
+                    批次套用
+                  </button>
+                </div>
               </div>
 
-              {/* Quick Punctuation Buttons Row */}
-              <div className="flex items-center gap-1 flex-wrap">
-                <span className="text-[11px] text-zinc-400 font-semibold mr-1">常用標點:</span>
-                {['，', '。', '、', '！', '？', '—', '…', '「', '」', 'V'].map(punct => (
-                  <button
-                    key={punct}
-                    type="button"
-                    onClick={() => onInsertPunctuationToNote(punct)}
-                    className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-mono font-bold transition-colors cursor-pointer touch-manipulation min-h-[32px] min-w-[32px]"
-                    title={`在選取音符插入標點符號「${punct}」`}
-                  >
-                    {punct}
-                  </button>
-                ))}
+              {/* Row 2: Quick Punctuation Buttons Row */}
+              <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-semibold mr-0.5 shrink-0 select-none">
+                  常用標點:
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {['，', '。', '、', '！', '？', '—', '…', '「', '」', 'V'].map((punct, pIdx) => (
+                    <button
+                      key={`verse-${vIdx}-punct-${punct}-${pIdx}`}
+                      id={`verse-${vIdx}-punct-btn-${pIdx}`}
+                      type="button"
+                      onClick={() => onInsertPunctuationToNote(punct)}
+                      className="px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-lg text-xs font-mono font-bold transition-colors cursor-pointer touch-manipulation min-h-[32px] min-w-[32px] flex items-center justify-center border border-zinc-200/80 dark:border-zinc-700/80 hover:border-amber-400/80 dark:hover:border-amber-500/80"
+                      title={`在選取音符插入標點符號「${punct}」`}
+                    >
+                      {punct}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
