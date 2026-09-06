@@ -282,8 +282,9 @@ export const GeminiAuthModal: React.FC<GeminiAuthModalProps> = ({
                     onChange={e => setModel(e.target.value as GeminiModelChoice)}
                     className="w-full px-2.5 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-200 cursor-pointer"
                   >
-                    <option value="gemini-3.7-flash">gemini-3.7-flash (Default)</option>
-                    <option value="gemini-3.7-flash-lite">gemini-3.7-flash-lite</option>
+                    <option value="gemini-flash-latest">gemini-flash-latest (Default)</option>
+                    <option value="gemini-3.8-flash">gemini-3.8-flash</option>
+                    <option value="gemini-3.7-flash">gemini-3.7-flash</option>
                   </select>
                 </div>
 

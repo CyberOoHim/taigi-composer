@@ -149,11 +149,10 @@ export function revokeGeminiAuth(): void {
 }
 
 export function getGeminiModel(): GeminiModelChoice {
-  if (typeof window === 'undefined') return 'gemini-3.7-flash';
+  if (typeof window === 'undefined') return 'gemini-flash-latest';
   const saved = safeGetItem(MODEL_STORAGE_KEY);
-  if (saved === 'gemini-3.7-flash' || saved === 'gemini-3.7-flash-lite') return saved;
-  if (saved === 'gemini-2.5-flash-lite') return 'gemini-3.7-flash-lite';
-  return 'gemini-3.7-flash';
+  if (saved === 'gemini-flash-latest' || saved === 'gemini-3.8-flash' || saved === 'gemini-3.7-flash') return saved;
+  return 'gemini-flash-latest';
 }
 
 export function setGeminiModel(model: GeminiModelChoice): void {

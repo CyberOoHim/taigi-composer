@@ -2,10 +2,10 @@ import { LyricSyllable, Song } from '@/types/song';
 import { splitTaigiLyricSyllables } from './taigiUtils';
 import { revokeGeminiAuth } from './geminiAuth';
 
-export type GeminiModelChoice = 'gemini-3.7-flash' | 'gemini-3.7-flash-lite';
+export type GeminiModelChoice = 'gemini-flash-latest' | 'gemini-3.8-flash' | 'gemini-3.7-flash';
 export type GeminiThinkingEffort = 'HIGH' | 'MEDIUM' | 'LOW' | 'OFF' | 'AUTO';
 
-export const DEFAULT_GEMINI_MODEL: GeminiModelChoice = 'gemini-3.7-flash';
+export const DEFAULT_GEMINI_MODEL: GeminiModelChoice = 'gemini-flash-latest';
 
 export interface GeminiAiOptions {
   model?: GeminiModelChoice | string;

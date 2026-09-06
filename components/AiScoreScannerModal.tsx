@@ -189,7 +189,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
     setScanStepMessage('Preparing image payloads...');
 
     try {
-      setScanStepMessage(`Sending ${images.length} score image(s) to Gemini 3.7 multimodal model...`);
+      setScanStepMessage(`Sending ${images.length} score image(s) to Gemini multimodal model (${aiModel})...`);
       const imagePayloads = images.map(img => ({
         data: img.base64,
         mimeType: img.mimeType,
@@ -592,7 +592,7 @@ export const AiScoreScannerModal: React.FC<AiScoreScannerModalProps> = ({
           {/* 3. GEMINI AUTH & AI CONFIGURATION */}
           <GeminiAuthCard
             title="Gemini Multimodal AI OCR Settings"
-            description="Enter the administrator passcode to enable Gemini 3.7 multimodal OCR."
+            description="Enter the administrator passcode to enable Gemini multimodal OCR."
             onOpenFullSettings={onOpenGeminiAuth}
             idPrefix="scanner-auth"
           />

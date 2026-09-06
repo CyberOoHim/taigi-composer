@@ -15,8 +15,9 @@ export const MAX_LINE_CHARS = 2000;
 export const MAX_MODEL_JSON_CHARS = 1_000_000;
 
 export const ALLOWED_MODELS: readonly GeminiModelChoice[] = [
+  'gemini-flash-latest',
+  'gemini-3.8-flash',
   'gemini-3.7-flash',
-  'gemini-3.7-flash-lite',
 ];
 
 export const ALLOWED_THINKING: readonly GeminiThinkingEffort[] = [
@@ -191,7 +192,7 @@ export function parseModel(value: unknown): GeminiModelChoice {
   if (typeof value === 'string' && (ALLOWED_MODELS as readonly string[]).includes(value)) {
     return value as GeminiModelChoice;
   }
-  return 'gemini-3.7-flash';
+  return 'gemini-flash-latest';
 }
 
 export function parseThinking(value: unknown): GeminiThinkingEffort {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Song } from '@/types/song';
+import { InstrumentType, Song } from '@/types/song';
 import { PRESET_SONGS } from '@/lib/presets';
 import {
   exportSongToJson,
@@ -9,6 +9,7 @@ import {
   importSongFromJson,
   importSongFromText,
 } from '@/lib/songParser';
+import { downloadMidiFile } from '@/lib/midiExport';
 import {
   getStoredCustomLibrary,
   saveSongToCustomLibrary,
@@ -33,6 +34,7 @@ import {
   FolderHeart,
   FilePlus2,
   RotateCcw,
+  Music,
 } from 'lucide-react';
 import {
   getCustomSongsFromDB,
@@ -63,7 +65,10 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
 }) => {
   const { hasApiKey } = useGeminiAuth();
   const [activeTab, setActiveTab] = useState<'presets' | 'custom' | 'export' | 'import' | 'ai_scan'>('presets');
-  const [exportFormat, setExportFormat] = useState<'json' | 'text'>('json');
+  const [exportFormat, setExportFormat] = useState<'json' | 'text' | 'midi'>('json');
+  const [midiAccompaniment, setMidiAccompaniment] = useState(true);
+  const [midiLyricType, setMidiLyricType] = useState<'hanlo' | 'poj' | 'none'>('hanlo');
+  const [midiInstrument, setMidiInstrument] = useState<InstrumentType>('piano');
   const [copied, setCopied] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -130,15 +135,34 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   if (!isOpen) return null;
 
   const currentExportString =
-    exportFormat === 'json' ? exportSongToJson(currentSong) : exportSongToText(currentSong);
+    exportFormat === 'json'
+      ? exportSongToJson(currentSong)
+      : exportFormat === 'text'
+      ? exportSongToText(currentSong)
+      : '';
 
   const handleCopyExport = () => {
+    if (exportFormat === 'midi') {
+      const summary = `MIDI Export (.mid) for ${currentSong.title}\nKey: 1=${currentSong.key} | Meter: ${currentSong.timeSignature} | BPM: ${currentSong.bpm}\nMeasures: ${currentSong.measures.length} | Accompaniment: ${midiAccompaniment ? 'Yes' : 'No'} | Lyrics: ${midiLyricType}\nFormat: Standard MIDI File Format 1 (480 PPQ)`;
+      navigator.clipboard.writeText(summary);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      return;
+    }
     navigator.clipboard.writeText(currentExportString);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownloadFile = () => {
+    if (exportFormat === 'midi') {
+      downloadMidiFile(currentSong, {
+        includeAccompaniment: midiAccompaniment,
+        lyricType: midiLyricType,
+        instrument: midiInstrument,
+      });
+      return;
+    }
     const extension = exportFormat === 'json' ? 'taigi.json' : 'txt';
     const mimeType = exportFormat === 'json' ? 'application/json' : 'text/plain';
     const blob = new Blob([currentExportString], { type: mimeType });
@@ -505,9 +529,9 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           {/* TAB 3: EXPORT */}
           {activeTab === 'export' && (
             <div id="export-panel" className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-semibold text-zinc-700 dark:text-zinc-300">Format:</span>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                  <span className="font-semibold text-zinc-700 dark:text-zinc-300 mr-1">Format:</span>
                   <button
                     id="export-format-json-btn"
                     onClick={() => setExportFormat('json')}
@@ -530,7 +554,19 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     }`}
                   >
                     <FileText className="w-3.5 h-3.5 inline mr-1" />
-                    Plain Text Notation (.txt)
+                    Plain Text (.txt)
+                  </button>
+                  <button
+                    id="export-format-midi-btn"
+                    onClick={() => setExportFormat('midi')}
+                    className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                      exportFormat === 'midi'
+                        ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    <Music className="w-3.5 h-3.5 inline mr-1" />
+                    MIDI (.mid)
                   </button>
                 </div>
 
@@ -541,7 +577,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                   >
                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? 'Copied!' : 'Copy'}</span>
+                    <span>{copied ? 'Copied!' : exportFormat === 'midi' ? 'Copy Info' : 'Copy'}</span>
                   </button>
                   <button
                     id="export-download-btn"
@@ -549,18 +585,141 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Download File</span>
+                    <span>Download {exportFormat === 'midi' ? '.mid' : 'File'}</span>
                   </button>
                 </div>
               </div>
 
-              <textarea
-                id="export-preview-textarea"
-                readOnly
-                rows={12}
-                value={currentExportString}
-                className="w-full px-3 py-2 text-xs font-mono bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-800 dark:text-zinc-200 select-all focus:outline-hidden"
-              />
+              {exportFormat === 'midi' ? (
+                <div id="midi-export-config" className="flex flex-col gap-3.5 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50">
+                  {/* Song Metadata Strip */}
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/20">
+                      Standard MIDI Format 1 (480 PPQ)
+                    </span>
+                    <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono">
+                      Key: 1={currentSong.key}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono">
+                      Meter: {currentSong.timeSignature}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono">
+                      Tempo: {currentSong.bpm} BPM
+                    </span>
+                    <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                      {currentSong.measures.length} Measures
+                    </span>
+                  </div>
+
+                  {/* Settings Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {/* Lyric Sync Mode */}
+                    <div className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col gap-2">
+                      <label className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                        Lyric Synchronization (歌詞事件)
+                      </label>
+                      <div className="grid grid-cols-3 gap-1.5 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setMidiLyricType('hanlo')}
+                          className={`px-2 py-1.5 rounded-md font-medium text-center transition-all ${
+                            midiLyricType === 'hanlo'
+                              ? 'bg-amber-500 text-zinc-950 font-bold'
+                              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                          }`}
+                        >
+                          漢羅 (Hanlo)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMidiLyricType('poj')}
+                          className={`px-2 py-1.5 rounded-md font-medium text-center transition-all ${
+                            midiLyricType === 'poj'
+                              ? 'bg-amber-500 text-zinc-950 font-bold'
+                              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                          }`}
+                        >
+                          POJ (羅馬字)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMidiLyricType('none')}
+                          className={`px-2 py-1.5 rounded-md font-medium text-center transition-all ${
+                            midiLyricType === 'none'
+                              ? 'bg-amber-500 text-zinc-950 font-bold'
+                              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                          }`}
+                        >
+                          None (純音符)
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-tight">
+                        Embeds MIDI Lyric Meta Events (0xFF 0x05) visible in GarageBand, Logic, MuseScore, and Sibelius.
+                      </p>
+                    </div>
+
+                    {/* Instrument Patch */}
+                    <div className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col gap-2">
+                      <label htmlFor="midi-instrument-select" className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                        Melody Sound Patch (主旋律音色)
+                      </label>
+                      <select
+                        id="midi-instrument-select"
+                        value={midiInstrument}
+                        onChange={e => setMidiInstrument(e.target.value as InstrumentType)}
+                        className="w-full px-2.5 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-800 dark:text-zinc-200 focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+                      >
+                        <option value="piano">Acoustic Grand Piano (GM #1)</option>
+                        <option value="flute">Bamboo Flute / Flute (GM #74)</option>
+                        <option value="whistle">Whistle (GM #79)</option>
+                        <option value="guitar">Acoustic Guitar Nylon (GM #25)</option>
+                        <option value="synth">Lead 1 Square Synth (GM #81)</option>
+                        <option value="bell">Glockenspiel / Bell (GM #10)</option>
+                      </select>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-tight">
+                        General MIDI program change assigned to Track 1 (Channel 1).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Chord Accompaniment Toggle */}
+                  <label className="flex items-center gap-2.5 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 cursor-pointer hover:border-amber-400/60 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={midiAccompaniment}
+                      onChange={e => setMidiAccompaniment(e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 focus:ring-offset-0 border-zinc-300 dark:border-zinc-700 cursor-pointer"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                        Include Chord Accompaniment Track (Channel 2 和弦伴奏音軌)
+                      </span>
+                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Generates polyphonic acoustic piano harmonies from score chords across each measure.
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Big CTA button */}
+                  <button
+                    id="midi-download-primary-btn"
+                    type="button"
+                    onClick={handleDownloadFile}
+                    className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download {currentSong.title || 'Score'}.mid</span>
+                  </button>
+                </div>
+              ) : (
+                <textarea
+                  id="export-preview-textarea"
+                  readOnly
+                  rows={12}
+                  value={currentExportString}
+                  className="w-full px-3 py-2 text-xs font-mono bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-800 dark:text-zinc-200 select-all focus:outline-hidden"
+                />
+              )}
             </div>
           )}
 

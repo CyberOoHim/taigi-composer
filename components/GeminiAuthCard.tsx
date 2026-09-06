@@ -275,8 +275,9 @@ export const GeminiAuthCard: React.FC<GeminiAuthCardProps> = ({
               onChange={e => setModel(e.target.value as GeminiModelChoice)}
               className="w-full px-3 py-2 text-xs font-semibold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-800 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer"
             >
-              <option value="gemini-3.7-flash">1. gemini-3.7-flash (Recommended · Full Quality)</option>
-              <option value="gemini-3.7-flash-lite">2. gemini-3.7-flash-lite (Fast · Lightweight)</option>
+              <option value="gemini-flash-latest">1. gemini-flash-latest (Default · Recommended)</option>
+              <option value="gemini-3.8-flash">2. gemini-3.8-flash (Latest 3.8 Series)</option>
+              <option value="gemini-3.7-flash">3. gemini-3.7-flash (Gemini 3.7 Flash)</option>
             </select>
           </div>
 
