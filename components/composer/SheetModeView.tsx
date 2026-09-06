@@ -473,9 +473,9 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                 id="sheet-play-from-note-btn"
                 type="button"
                 onClick={() => onTogglePlaySheetFromNote(selectedMeasureIndex ?? 0, selectedNoteIndex ?? 0)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px] ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all duration-200 active:scale-95 cursor-pointer touch-manipulation min-h-[34px] ${
                   isPlayingSheet
-                    ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 font-black animate-pulse'
+                    ? 'bg-rose-600 hover:bg-rose-500 text-white ring-2 ring-rose-400 font-extrabold animate-pulse'
                     : 'bg-emerald-600 hover:bg-emerald-500 text-white font-bold'
                 }`}
                 title={
@@ -490,6 +490,9 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                   <>
                     <Square className="w-3.5 h-3.5 fill-current" />
                     <span>Stop Sheet</span>
+                    <kbd className="hidden sm:inline-block px-1 py-0.2 text-[9px] bg-black/30 text-white/90 rounded font-mono ml-0.5">
+                      Space
+                    </kbd>
                   </>
                 ) : (
                   <>
@@ -628,7 +631,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                   </div>
 
                   <div className="flex flex-col gap-2.5">
-                    {system.reports.map(({ measure, idx, report, completeLyric, completePoj }) => {
+                    {system.reports.map(({ measure, idx, report }) => {
                       const isFirst = idx === 0;
                       const isLast = idx === song.measures.length - 1;
 
@@ -636,12 +639,15 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                         <div
                           key={measure.id}
                           id={`sheet-measure-row-${idx}`}
-                          className={`p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col gap-2.5 shadow-2xs ${
-                            report.isFull
-                              ? 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90'
+                          onClick={() => onSelectMeasure(idx)}
+                          className={`p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col gap-2.5 shadow-2xs cursor-pointer ${
+                            selectedMeasureIndex === idx
+                              ? 'ring-2 ring-emerald-500/60 dark:ring-emerald-400/60 border-emerald-500/80 dark:border-emerald-500/80 bg-white dark:bg-zinc-900 shadow-sm'
+                              : report.isFull
+                              ? 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 hover:border-zinc-300 dark:hover:border-zinc-700'
                               : report.isUnder
-                              ? 'border-amber-300 dark:border-amber-800/80 bg-amber-50/40 dark:bg-amber-950/20 ring-1 ring-amber-400/40'
-                              : 'border-rose-300 dark:border-rose-800/80 bg-rose-50/40 dark:bg-rose-950/20 ring-1 ring-rose-400/40'
+                              ? 'border-amber-300 dark:border-amber-800/80 bg-amber-50/40 dark:bg-amber-950/20 ring-1 ring-amber-400/40 hover:border-amber-400'
+                              : 'border-rose-300 dark:border-rose-800/80 bg-rose-50/40 dark:bg-rose-950/20 ring-1 ring-rose-400/40 hover:border-rose-400'
                           }`}
                         >
                           {/* Top Row: Measure Info & Action Controls */}
@@ -698,189 +704,173 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                               </span>
                             </div>
 
-                            {/* Action Controls */}
-                            <div className="flex items-center gap-1.5 flex-wrap self-end md:self-center">
-                              {/* Audition Measure Play Button */}
-                              {onTogglePlayMeasure && (
-                                <button
-                                  type="button"
-                                  onClick={() => onTogglePlayMeasure(idx)}
-                                  className={`p-1.5 rounded-xl border transition-colors cursor-pointer touch-manipulation min-h-[32px] min-w-[32px] flex items-center justify-center ${
-                                    playingMeasureIdx === idx
-                                      ? 'bg-amber-500 text-zinc-950 border-amber-400 ring-2 ring-amber-400 font-bold animate-pulse'
-                                      : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
-                                  }`}
-                                  title={playingMeasureIdx === idx ? `Stop playing Measure #${idx + 1}` : `Play Measure #${idx + 1}`}
-                                >
-                                  {playingMeasureIdx === idx ? (
-                                    <Square className="w-3.5 h-3.5 fill-current" />
-                                  ) : (
-                                    <Play className="w-3.5 h-3.5 fill-current" />
-                                  )}
-                                </button>
-                              )}
+                            {/* Action Controls - Displayed only when measure card is selected */}
+                            {selectedMeasureIndex === idx && (
+                              <div
+                                onClick={e => e.stopPropagation()}
+                                className="flex items-center gap-1.5 flex-wrap self-end md:self-center"
+                              >
+                                {/* Audition Measure Play Button */}
+                                {onTogglePlayMeasure && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onTogglePlayMeasure(idx)}
+                                    className={`p-1.5 rounded-xl border transition-colors cursor-pointer touch-manipulation min-h-[32px] min-w-[32px] flex items-center justify-center ${
+                                      playingMeasureIdx === idx
+                                        ? 'bg-rose-600 text-white border-rose-500 ring-2 ring-rose-400 font-bold animate-pulse'
+                                        : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
+                                    }`}
+                                    title={playingMeasureIdx === idx ? `Stop playing Measure #${idx + 1}` : `Play Measure #${idx + 1}`}
+                                  >
+                                    {playingMeasureIdx === idx ? (
+                                      <Square className="w-3.5 h-3.5 fill-current" />
+                                    ) : (
+                                      <Play className="w-3.5 h-3.5 fill-current" />
+                                    )}
+                                  </button>
+                                )}
 
-                              {/* Play Sheet from Current Note in this Measure */}
-                              {selectedMeasureIndex === idx && onTogglePlaySheetFromNote && (
+                                {/* Play Sheet from Current Note in this Measure */}
+                                {onTogglePlaySheetFromNote && (
+                                  <button
+                                    id={`sheet-measure-play-from-note-btn-${idx}`}
+                                    type="button"
+                                    onClick={() => onTogglePlaySheetFromNote(idx, selectedNoteIndex ?? 0)}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer touch-manipulation min-h-[32px] ${
+                                      isPlayingSheet
+                                        ? 'bg-rose-600 hover:bg-rose-500 text-white ring-2 ring-rose-400 font-extrabold animate-pulse'
+                                        : 'bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/80 dark:hover:bg-emerald-900 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
+                                    }`}
+                                    title={
+                                      isPlayingSheet
+                                        ? 'Stop sheet playback (Space / P)'
+                                        : `Play sheet from Note #${(selectedNoteIndex ?? 0) + 1} of Measure #${idx + 1}`
+                                    }
+                                  >
+                                    {isPlayingSheet ? (
+                                      <>
+                                        <Square className="w-3 h-3 fill-current" />
+                                        <span>Stop</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Play className="w-3 h-3 fill-current text-emerald-600 dark:text-emerald-400" />
+                                        <span>Play from Note #{(selectedNoteIndex ?? 0) + 1}</span>
+                                      </>
+                                    )}
+                                  </button>
+                                )}
+
+                                {/* Auto-fill rest button if under-beat */}
+                                {report.isUnder && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onAutoFillRest(idx)}
+                                    className="flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs transition-colors cursor-pointer touch-manipulation"
+                                    title={`Auto-fill ${report.absDiff} beats rest note (0) at end of measure`}
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                    <span>Fill Rest (+{report.absDiff})</span>
+                                  </button>
+                                )}
+
+                                {/* System Line Break Toggle */}
                                 <button
-                                  id={`sheet-measure-play-from-note-btn-${idx}`}
                                   type="button"
-                                  onClick={() => onTogglePlaySheetFromNote(idx, selectedNoteIndex ?? 0)}
-                                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[32px] ${
-                                    isPlayingSheet
-                                      ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 animate-pulse font-black'
-                                      : 'bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/80 dark:hover:bg-emerald-900 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
+                                  onClick={() => onToggleLineBreak(idx)}
+                                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                                    measure.isLineBreak
+                                      ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200 border-amber-400 dark:border-amber-600 font-black'
+                                      : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
                                   }`}
                                   title={
-                                    isPlayingSheet
-                                      ? 'Stop sheet playback (Space / P)'
-                                      : `Play sheet from Note #${(selectedNoteIndex ?? 0) + 1} of Measure #${idx + 1}`
+                                    measure.isLineBreak
+                                      ? 'System line break enabled (Click to remove break)'
+                                      : 'End system line after this measure (Click to add break)'
                                   }
                                 >
-                                  {isPlayingSheet ? (
-                                    <>
-                                      <Square className="w-3 h-3 fill-current" />
-                                      <span>Stop</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Play className="w-3 h-3 fill-current text-emerald-600 dark:text-emerald-400" />
-                                      <span>Play from Note #{(selectedNoteIndex ?? 0) + 1}</span>
-                                    </>
-                                  )}
+                                  <CornerDownLeft className="w-3.5 h-3.5" />
+                                  <span>{measure.isLineBreak ? 'Break ↵' : 'No Break'}</span>
                                 </button>
-                              )}
 
-                              {/* Auto-fill rest button if under-beat */}
-                              {report.isUnder && (
+                                {/* Barline Style Selector */}
+                                <select
+                                  value={measure.barlineType || 'single'}
+                                  onChange={e => onUpdateBarlineType(idx, e.target.value as BarlineType)}
+                                  className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-bold rounded-lg px-2 py-1 cursor-pointer"
+                                  title="Barline Style at end of measure"
+                                >
+                                  <option value="single">| Single</option>
+                                  <option value="double">|| Double</option>
+                                  <option value="end">|| End</option>
+                                  <option value="repeat_start">|: Repeat Start</option>
+                                  <option value="repeat_end">:| Repeat End</option>
+                                </select>
+
+                                {/* Reorder Buttons */}
+                                <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                  <button
+                                    type="button"
+                                    onClick={() => onMoveMeasure(idx, idx - 1)}
+                                    disabled={isFirst}
+                                    className="p-1 rounded text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                    title="Move measure earlier"
+                                  >
+                                    <ArrowUp className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => onMoveMeasure(idx, idx + 1)}
+                                    disabled={isLast}
+                                    className="p-1 rounded text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                    title="Move measure later"
+                                  >
+                                    <ArrowDown className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+
+                                {/* Deep link: Jump to Edit in Measure Mode */}
                                 <button
                                   type="button"
-                                  onClick={() => onAutoFillRest(idx)}
-                                  className="flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs transition-colors cursor-pointer touch-manipulation"
-                                  title={`Auto-fill ${report.absDiff} beats rest note (0) at end of measure`}
+                                  onClick={() => onSelectMeasure(idx)}
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700 text-xs font-bold transition-all cursor-pointer"
+                                  title="Jump to note-by-note editing in Measure Mode"
                                 >
-                                  <Plus className="w-3 h-3" />
-                                  <span>Fill Rest (+{report.absDiff})</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>Edit Notes</span>
                                 </button>
-                              )}
 
-                              {/* System Line Break Toggle */}
-                              <button
-                                type="button"
-                                onClick={() => onToggleLineBreak(idx)}
-                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                                  measure.isLineBreak
-                                    ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200 border-amber-400 dark:border-amber-600 font-black'
-                                    : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
-                                }`}
-                                title={
-                                  measure.isLineBreak
-                                    ? 'System line break enabled (Click to remove break)'
-                                    : 'End system line after this measure (Click to add break)'
-                                }
-                              >
-                                <CornerDownLeft className="w-3.5 h-3.5" />
-                                <span>{measure.isLineBreak ? 'Break ↵' : 'No Break'}</span>
-                              </button>
+                                {/* Duplicate Measure */}
+                                {onDuplicateMeasure && (
+                                  <button
+                                    id={`sheet-system-duplicate-measure-btn-${idx}`}
+                                    type="button"
+                                    onClick={() => onDuplicateMeasure(idx)}
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 text-xs font-bold transition-colors cursor-pointer"
+                                    title={`Duplicate Measure #${measure.measureNumber || idx + 1}`}
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                    <span className="hidden xl:inline">Duplicate</span>
+                                  </button>
+                                )}
 
-                              {/* Barline Style Selector */}
-                              <select
-                                value={measure.barlineType || 'single'}
-                                onChange={e => onUpdateBarlineType(idx, e.target.value as BarlineType)}
-                                className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-bold rounded-lg px-2 py-1 cursor-pointer"
-                                title="Barline Style at end of measure"
-                              >
-                                <option value="single">| Single</option>
-                                <option value="double">|| Double</option>
-                                <option value="end">|| End</option>
-                                <option value="repeat_start">|: Repeat Start</option>
-                                <option value="repeat_end">:| Repeat End</option>
-                              </select>
-
-                              {/* Reorder Buttons */}
-                              <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                <button
-                                  type="button"
-                                  onClick={() => onMoveMeasure(idx, idx - 1)}
-                                  disabled={isFirst}
-                                  className="p-1 rounded text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                                  title="Move measure earlier"
-                                >
-                                  <ArrowUp className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => onMoveMeasure(idx, idx + 1)}
-                                  disabled={isLast}
-                                  className="p-1 rounded text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                                  title="Move measure later"
-                                >
-                                  <ArrowDown className="w-3.5 h-3.5" />
-                                </button>
+                                {/* Delete Measure */}
+                                {song.measures.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onDeleteMeasure(idx)}
+                                    className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                                    title="Delete measure"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </div>
-
-                              {/* Deep link: Jump to Edit in Measure Mode */}
-                              <button
-                                type="button"
-                                onClick={() => onSelectMeasure(idx)}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700 text-xs font-bold transition-all cursor-pointer"
-                                title="Jump to note-by-note editing in Measure Mode"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                <span>Edit Notes</span>
-                              </button>
-
-                              {/* Duplicate Measure */}
-                              {onDuplicateMeasure && (
-                                <button
-                                  id={`sheet-system-duplicate-measure-btn-${idx}`}
-                                  type="button"
-                                  onClick={() => onDuplicateMeasure(idx)}
-                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 text-xs font-bold transition-colors cursor-pointer"
-                                  title={`Duplicate Measure #${measure.measureNumber || idx + 1}`}
-                                >
-                                  <Copy className="w-3.5 h-3.5" />
-                                  <span className="hidden xl:inline">Duplicate</span>
-                                </button>
-                              )}
-
-                              {/* Delete Measure */}
-                              {song.measures.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => onDeleteMeasure(idx)}
-                                  className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
-                                  title="Delete measure"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
+                            )}
                           </div>
 
                           {/* Notes Displayed with Lyric */}
-                          <div className="w-full pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
-                            <div className="flex items-center justify-between mb-1 text-[11px] text-zinc-400">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-bold text-zinc-500 dark:text-zinc-400 text-xs">
-                                  音符與歌詞 (Notes &amp; Lyrics):
-                                </span>
-                                {completeLyric && (
-                                  <span className="text-zinc-800 dark:text-zinc-100 font-serif font-bold text-xs">
-                                    &ldquo;{completeLyric}&rdquo;
-                                  </span>
-                                )}
-                                {completePoj && (
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-serif italic text-xs">
-                                    [{completePoj}]
-                                  </span>
-                                )}
-                              </div>
-                              <span className="font-mono text-[10px] text-zinc-400 shrink-0">
-                                {measure.notes.length} notes
-                              </span>
-                            </div>
-
+                          <div className="w-full pt-1">
                             <div
                               className="flex items-stretch gap-1.5 overflow-x-auto pb-1.5 pt-0.5 select-none scrollbar-thin"
                               style={{ WebkitOverflowScrolling: 'touch' }}
@@ -918,7 +908,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
           ) : (
             /* Flat List of Measures */
             <div className="flex flex-col gap-2.5">
-              {displayedMeasureReports.map(({ measure, idx, report, completeLyric, completePoj }) => {
+              {displayedMeasureReports.map(({ measure, idx, report }) => {
                 const isFirst = idx === 0;
                 const isLast = idx === song.measures.length - 1;
 
@@ -926,12 +916,15 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                   <div
                     key={measure.id}
                     id={`sheet-measure-flat-row-${idx}`}
-                    className={`p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col gap-2.5 shadow-2xs ${
-                      report.isFull
-                        ? 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90'
+                    onClick={() => onSelectMeasure(idx)}
+                    className={`p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col gap-2.5 shadow-2xs cursor-pointer ${
+                      selectedMeasureIndex === idx
+                        ? 'ring-2 ring-emerald-500/60 dark:ring-emerald-400/60 border-emerald-500/80 dark:border-emerald-500/80 bg-white dark:bg-zinc-900 shadow-sm'
+                        : report.isFull
+                        ? 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 hover:border-zinc-300 dark:hover:border-zinc-700'
                         : report.isUnder
-                        ? 'border-amber-300 dark:border-amber-800/80 bg-amber-50/40 dark:bg-amber-950/20 ring-1 ring-amber-400/40'
-                        : 'border-rose-300 dark:border-rose-800/80 bg-rose-50/40 dark:bg-rose-950/20 ring-1 ring-rose-400/40'
+                        ? 'border-amber-300 dark:border-amber-800/80 bg-amber-50/40 dark:bg-amber-950/20 ring-1 ring-amber-400/40 hover:border-amber-400'
+                        : 'border-rose-300 dark:border-rose-800/80 bg-rose-50/40 dark:bg-rose-950/20 ring-1 ring-rose-400/40 hover:border-rose-400'
                     }`}
                   >
                     {/* Top Row: Measure Info & Controls */}
@@ -987,179 +980,163 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                         </span>
                       </div>
 
-                      {/* Right: Controls */}
-                      <div className="flex items-center gap-1.5 flex-wrap self-end md:self-center">
-                        {/* Audition Measure Play Button */}
-                        {onTogglePlayMeasure && (
-                          <button
-                            type="button"
-                            onClick={() => onTogglePlayMeasure(idx)}
-                            className={`p-1.5 rounded-xl border transition-colors cursor-pointer touch-manipulation min-h-[32px] min-w-[32px] flex items-center justify-center ${
-                              playingMeasureIdx === idx
-                                ? 'bg-amber-500 text-zinc-950 border-amber-400 ring-2 ring-amber-400 font-bold animate-pulse'
-                                : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
-                            }`}
-                            title={playingMeasureIdx === idx ? `Stop playing Measure #${idx + 1}` : `Play Measure #${idx + 1}`}
-                          >
-                            {playingMeasureIdx === idx ? (
-                              <Square className="w-3.5 h-3.5 fill-current" />
-                            ) : (
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                            )}
-                          </button>
-                        )}
-
-                        {/* Play Sheet from Current Note in this Measure */}
-                        {selectedMeasureIndex === idx && onTogglePlaySheetFromNote && (
-                          <button
-                            id={`sheet-flat-measure-play-from-note-btn-${idx}`}
-                            type="button"
-                            onClick={() => onTogglePlaySheetFromNote(idx, selectedNoteIndex ?? 0)}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[32px] ${
-                              isPlayingSheet
-                                ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 animate-pulse font-black'
-                                : 'bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/80 dark:hover:bg-emerald-900 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
-                            }`}
-                            title={
-                              isPlayingSheet
-                                ? 'Stop sheet playback (Space / P)'
-                                : `Play sheet from Note #${(selectedNoteIndex ?? 0) + 1} of Measure #${idx + 1}`
-                            }
-                          >
-                            {isPlayingSheet ? (
-                              <>
-                                <Square className="w-3 h-3 fill-current" />
-                                <span>Stop</span>
-                              </>
-                            ) : (
-                              <>
-                                <Play className="w-3 h-3 fill-current text-emerald-600 dark:text-emerald-400" />
-                                <span>Play from Note #{(selectedNoteIndex ?? 0) + 1}</span>
-                              </>
-                            )}
-                          </button>
-                        )}
-
-                        {report.isUnder && (
-                          <button
-                            type="button"
-                            onClick={() => onAutoFillRest(idx)}
-                            className="flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs transition-colors cursor-pointer touch-manipulation"
-                            title={`Auto-fill ${report.absDiff} beats rest note (0)`}
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>Fill Rest (+{report.absDiff})</span>
-                          </button>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => onToggleLineBreak(idx)}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                            measure.isLineBreak
-                              ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200 border-amber-400 dark:border-amber-600 font-black'
-                              : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
-                          }`}
-                          title={measure.isLineBreak ? 'Line break enabled' : 'Toggle line break'}
+                      {/* Right: Controls - Displayed only when measure card is selected */}
+                      {selectedMeasureIndex === idx && (
+                        <div
+                          onClick={e => e.stopPropagation()}
+                          className="flex items-center gap-1.5 flex-wrap self-end md:self-center"
                         >
-                          <CornerDownLeft className="w-3.5 h-3.5" />
-                          <span>{measure.isLineBreak ? 'Break ↵' : 'No Break'}</span>
-                        </button>
+                          {/* Audition Measure Play Button */}
+                          {onTogglePlayMeasure && (
+                            <button
+                              type="button"
+                              onClick={() => onTogglePlayMeasure(idx)}
+                              className={`p-1.5 rounded-xl border transition-colors cursor-pointer touch-manipulation min-h-[32px] min-w-[32px] flex items-center justify-center ${
+                                playingMeasureIdx === idx
+                                  ? 'bg-rose-600 text-white border-rose-500 ring-2 ring-rose-400 font-bold animate-pulse'
+                                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
+                              }`}
+                              title={playingMeasureIdx === idx ? `Stop playing Measure #${idx + 1}` : `Play Measure #${idx + 1}`}
+                            >
+                              {playingMeasureIdx === idx ? (
+                                <Square className="w-3.5 h-3.5 fill-current" />
+                              ) : (
+                                <Play className="w-3.5 h-3.5 fill-current" />
+                              )}
+                            </button>
+                          )}
 
-                        <select
-                          value={measure.barlineType || 'single'}
-                          onChange={e => onUpdateBarlineType(idx, e.target.value as BarlineType)}
-                          className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-bold rounded-lg px-2 py-1 cursor-pointer"
-                          title="Barline style"
-                        >
-                          <option value="single">| Single</option>
-                          <option value="double">|| Double</option>
-                          <option value="end">|| End</option>
-                          <option value="repeat_start">|: Repeat Start</option>
-                          <option value="repeat_end">:| Repeat End</option>
-                        </select>
+                          {/* Play Sheet from Current Note in this Measure */}
+                          {onTogglePlaySheetFromNote && (
+                            <button
+                              id={`sheet-flat-measure-play-from-note-btn-${idx}`}
+                              type="button"
+                              onClick={() => onTogglePlaySheetFromNote(idx, selectedNoteIndex ?? 0)}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer touch-manipulation min-h-[32px] ${
+                                isPlayingSheet
+                                  ? 'bg-rose-600 hover:bg-rose-500 text-white ring-2 ring-rose-400 font-extrabold animate-pulse'
+                                  : 'bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/80 dark:hover:bg-emerald-900 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
+                              }`}
+                              title={
+                                isPlayingSheet
+                                  ? 'Stop sheet playback (Space / P)'
+                                  : `Play sheet from Note #${(selectedNoteIndex ?? 0) + 1} of Measure #${idx + 1}`
+                              }
+                            >
+                              {isPlayingSheet ? (
+                                <>
+                                  <Square className="w-3 h-3 fill-current" />
+                                  <span>Stop</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-3 h-3 fill-current text-emerald-600 dark:text-emerald-400" />
+                                  <span>Play from Note #{(selectedNoteIndex ?? 0) + 1}</span>
+                                </>
+                              )}
+                            </button>
+                          )}
 
-                        <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                          {report.isUnder && (
+                            <button
+                              type="button"
+                              onClick={() => onAutoFillRest(idx)}
+                              className="flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs transition-colors cursor-pointer touch-manipulation"
+                              title={`Auto-fill ${report.absDiff} beats rest note (0)`}
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Fill Rest (+{report.absDiff})</span>
+                            </button>
+                          )}
+
                           <button
                             type="button"
-                            onClick={() => onMoveMeasure(idx, idx - 1)}
-                            disabled={isFirst}
-                            className="p-1 rounded text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                            title="Move earlier"
+                            onClick={() => onToggleLineBreak(idx)}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                              measure.isLineBreak
+                                ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200 border-amber-400 dark:border-amber-600 font-black'
+                                : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
+                            }`}
+                            title={measure.isLineBreak ? 'Line break enabled' : 'Toggle line break'}
                           >
-                            <ArrowUp className="w-3.5 h-3.5" />
+                            <CornerDownLeft className="w-3.5 h-3.5" />
+                            <span>{measure.isLineBreak ? 'Break ↵' : 'No Break'}</span>
                           </button>
+
+                          <select
+                            value={measure.barlineType || 'single'}
+                            onChange={e => onUpdateBarlineType(idx, e.target.value as BarlineType)}
+                            className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-bold rounded-lg px-2 py-1 cursor-pointer"
+                            title="Barline style"
+                          >
+                            <option value="single">| Single</option>
+                            <option value="double">|| Double</option>
+                            <option value="end">|| End</option>
+                            <option value="repeat_start">|: Repeat Start</option>
+                            <option value="repeat_end">:| Repeat End</option>
+                          </select>
+
+                          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                            <button
+                              type="button"
+                              onClick={() => onMoveMeasure(idx, idx - 1)}
+                              disabled={isFirst}
+                              className="p-1 rounded text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                              title="Move earlier"
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onMoveMeasure(idx, idx + 1)}
+                              disabled={isLast}
+                              className="p-1 rounded text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                              title="Move later"
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
                           <button
                             type="button"
-                            onClick={() => onMoveMeasure(idx, idx + 1)}
-                            disabled={isLast}
-                            className="p-1 rounded text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                            title="Move later"
+                            onClick={() => onSelectMeasure(idx)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700 text-xs font-bold transition-all cursor-pointer"
+                            title="Jump to edit notes"
                           >
-                            <ArrowDown className="w-3.5 h-3.5" />
+                            <ExternalLink className="w-3 h-3" />
+                            <span>Edit Notes</span>
                           </button>
+
+                          {/* Duplicate Measure */}
+                          {onDuplicateMeasure && (
+                            <button
+                              id={`sheet-flat-duplicate-measure-btn-${idx}`}
+                              type="button"
+                              onClick={() => onDuplicateMeasure(idx)}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 text-xs font-bold transition-colors cursor-pointer"
+                              title={`Duplicate Measure #${measure.measureNumber || idx + 1}`}
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                              <span className="hidden xl:inline">Duplicate</span>
+                            </button>
+                          )}
+
+                          {song.measures.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteMeasure(idx)}
+                              className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                              title="Delete measure"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => onSelectMeasure(idx)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700 text-xs font-bold transition-all cursor-pointer"
-                          title="Jump to edit notes"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          <span>Edit Notes</span>
-                        </button>
-
-                        {/* Duplicate Measure */}
-                        {onDuplicateMeasure && (
-                          <button
-                            id={`sheet-flat-duplicate-measure-btn-${idx}`}
-                            type="button"
-                            onClick={() => onDuplicateMeasure(idx)}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 text-xs font-bold transition-colors cursor-pointer"
-                            title={`Duplicate Measure #${measure.measureNumber || idx + 1}`}
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                            <span className="hidden xl:inline">Duplicate</span>
-                          </button>
-                        )}
-
-                        {song.measures.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => onDeleteMeasure(idx)}
-                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
-                            title="Delete measure"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
+                      )}
                     </div>
 
                     {/* Notes Displayed with Lyric */}
-                    <div className="w-full pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
-                      <div className="flex items-center justify-between mb-1 text-[11px] text-zinc-400">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-zinc-500 dark:text-zinc-400 text-xs">
-                            音符與歌詞 (Notes &amp; Lyrics):
-                          </span>
-                          {completeLyric && (
-                            <span className="text-zinc-800 dark:text-zinc-100 font-serif font-bold text-xs">
-                              &ldquo;{completeLyric}&rdquo;
-                            </span>
-                          )}
-                          {completePoj && (
-                            <span className="text-emerald-600 dark:text-emerald-400 font-serif italic text-xs">
-                              [{completePoj}]
-                            </span>
-                          )}
-                        </div>
-                        <span className="font-mono text-[10px] text-zinc-400 shrink-0">
-                          {measure.notes.length} notes
-                        </span>
-                      </div>
-
+                    <div className="w-full pt-1">
                       <div
                         className="flex items-stretch gap-1.5 overflow-x-auto pb-1.5 pt-0.5 select-none scrollbar-thin"
                         style={{ WebkitOverflowScrolling: 'touch' }}

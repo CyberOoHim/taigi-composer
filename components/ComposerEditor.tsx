@@ -2877,7 +2877,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onTogglePlaySystem={handleTogglePlaySystem}
             playingMeasureIdx={playingMeasureIdx}
             onTogglePlayMeasure={handleTogglePlayMeasure}
-            isPlayingSheet={isPlayingSheet}
+            isPlayingSheet={isPlayingSheet || (isSongPlaying && playingMeasureIdx === null && playingVerseIdx === null && playingSystemIdx === null)}
             onTogglePlaySheetFromNote={handleTogglePlaySheetFromNote}
             onNavigateNextNote={handleNavigateNextNote}
             onNavigatePrevNote={handleNavigatePrevNote}

@@ -931,7 +931,7 @@ export class AudioEngine {
    */
   public playMeasure(song: Song, measureIndex: number, onFinished?: () => void) {
     this.initContext();
-    this.stop(); // Stop any existing playback
+    this.stop(false); // Stop any existing playback without notifying state listeners prior to starting new playback
 
     const targetMeasure = song.measures[measureIndex];
     if (!targetMeasure || targetMeasure.notes.length === 0 || !this.ctx) return;
@@ -1063,7 +1063,7 @@ export class AudioEngine {
    */
   public playSystem(song: Song, measureIndices: number[], onFinished?: () => void) {
     this.initContext();
-    this.stop(); // Stop any existing playback
+    this.stop(false); // Stop any existing playback without notifying state listeners prior to starting new playback
 
     if (!measureIndices || measureIndices.length === 0 || !this.ctx) return;
 
@@ -1234,7 +1234,7 @@ export class AudioEngine {
     onFinished?: () => void
   ) {
     this.initContext();
-    this.stop(); // Stop any existing playback
+    this.stop(false); // Stop any existing playback without notifying state listeners prior to starting new playback
 
     if (!verseNotes || verseNotes.length === 0 || !this.ctx) return;
 
@@ -1423,7 +1423,7 @@ export class AudioEngine {
    */
   public play(song: Song, startFromSec: number = 0) {
     this.initContext();
-    this.stop(); // Stop any existing playback
+    this.stop(false); // Stop any existing playback without notifying state listeners prior to starting new playback
 
     if (!this.ctx) return;
 
@@ -1749,7 +1749,7 @@ export class AudioEngine {
     }
   }
 
-  public stop() {
+  public stop(notify: boolean = true) {
     this.isPlaying = false;
     this.isPaused = false;
     this.pausedSongTime = 0;
@@ -1759,18 +1759,20 @@ export class AudioEngine {
     this.scheduledTimeoutIds.forEach(id => clearTimeout(id));
     this.scheduledTimeoutIds = [];
 
-    const duration = this.currentSong ? this.calculateSongDuration(this.currentSong) : 0;
-    this.notifyState({
-      isPlaying: false,
-      isPaused: false,
-      currentMeasureIndex: 0,
-      currentNoteIndex: 0,
-      currentNoteId: null,
-      currentTime: 0,
-      totalDuration: duration,
-      progressPercent: 0,
-    });
-    this.scheduleAutoSuspend(1500);
+    if (notify) {
+      const duration = this.currentSong ? this.calculateSongDuration(this.currentSong) : 0;
+      this.notifyState({
+        isPlaying: false,
+        isPaused: false,
+        currentMeasureIndex: 0,
+        currentNoteIndex: 0,
+        currentNoteId: null,
+        currentTime: 0,
+        totalDuration: duration,
+        progressPercent: 0,
+      });
+      this.scheduleAutoSuspend(1500);
+    }
   }
 
   /**

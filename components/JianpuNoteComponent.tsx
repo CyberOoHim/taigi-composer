@@ -79,21 +79,21 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
     if (!hasText) {
       if (isMelismaContinuation(note, prevNote)) {
         return (
-          <span className="text-purple-600 dark:text-purple-400 font-mono text-xs font-bold tracking-widest select-none" title="Melisma (一字多音連音)">
+          <span className="text-purple-600 dark:text-purple-400 font-mono text-sm font-bold tracking-widest select-none" title="Melisma (一字多音連音)">
             ──
           </span>
         );
       }
       if (note.pitch === 0 && !isNonNotation) {
-        return <span className="text-zinc-400 dark:text-zinc-600 font-mono text-xs">0</span>;
+        return <span className="text-zinc-400 dark:text-zinc-600 font-mono text-sm font-medium">0</span>;
       }
       if (isEmptyNote) {
-        return <span className="text-zinc-300 dark:text-zinc-700 font-mono text-xs select-none">␣</span>;
+        return <span className="text-zinc-300 dark:text-zinc-700 font-mono text-sm select-none">␣</span>;
       }
       if (isKaraokeMode) {
-        return <span className="text-transparent font-mono text-xs select-none">&nbsp;</span>;
+        return <span className="text-transparent font-mono text-sm select-none">&nbsp;</span>;
       }
-      return <span className="text-zinc-400 dark:text-zinc-600 font-mono text-xs">—</span>;
+      return <span className="text-zinc-400 dark:text-zinc-600 font-mono text-sm font-medium">—</span>;
     }
 
     const primaryText = hanlo || annotation || poj || '';
@@ -111,7 +111,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
     switch (effectiveMode) {
       case 'roman':
         return (
-          <span className="font-serif italic text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
+          <span className="font-serif italic text-emerald-700 dark:text-emerald-400 text-sm font-semibold">
             {poj || hanlo || annotation || '—'}
           </span>
         );
@@ -119,7 +119,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
         return (
           <span
             className={cn(
-              'font-semibold text-sm tracking-wide',
+              'font-semibold text-base tracking-wide',
               isPunctuation
                 ? 'text-amber-700 dark:text-amber-400 font-bold'
                 : 'text-zinc-900 dark:text-zinc-100'
@@ -131,16 +131,16 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
       case 'hanlo_major_roman':
         return (
           <div className="flex flex-col items-center leading-tight gap-0.5">
-            {/* 羅馬字 smaller sub on top */}
+            {/* 羅馬字 sub-line on top */}
             {poj && (
-              <span className="text-[11px] font-serif italic text-emerald-600 dark:text-emerald-400 font-medium">
+              <span className="text-[13px] sm:text-sm font-serif italic text-emerald-600 dark:text-emerald-400 font-semibold">
                 {poj}
               </span>
             )}
             {/* 漢羅 major text below */}
             <span
               className={cn(
-                'font-bold text-sm tracking-wide',
+                'font-bold text-base tracking-wide',
                 isPunctuation
                   ? 'text-amber-700 dark:text-amber-400 font-black'
                   : 'text-zinc-900 dark:text-zinc-100'
@@ -154,16 +154,16 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
       default:
         return (
           <div className="flex flex-col items-center leading-tight gap-0.5">
-            {/* 漢羅 smaller sub on top */}
+            {/* 漢羅 sub-line on top */}
             {hanlo && (
-              <span className="text-[11px] font-sans text-zinc-600 dark:text-zinc-400 font-medium">
+              <span className="text-[13px] sm:text-sm font-sans text-zinc-700 dark:text-zinc-300 font-semibold">
                 {hanlo}
               </span>
             )}
             {/* 羅馬字 major text below */}
             <span
               className={cn(
-                'font-serif italic text-sm font-bold',
+                'font-serif italic text-base font-bold',
                 isPunctuation
                   ? 'text-amber-700 dark:text-amber-400 font-bold'
                   : 'text-emerald-700 dark:text-emerald-300'
@@ -464,7 +464,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
       </div>
 
       {/* Aligned Lyric Row */}
-      <div className="mt-1.5 w-full flex items-center justify-center text-center min-h-[32px]">
+      <div className="mt-1.5 w-full flex items-center justify-center text-center min-h-[40px]">
         {renderLyricContent()}
       </div>
     </div>
