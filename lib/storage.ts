@@ -26,10 +26,15 @@ export const STORAGE_KEYS = {
   GEMINI_AUTH_PASSCODE: 'taigi_gemini_auth_passcode',
   GEMINI_MODEL: 'taigi_gemini_model',
   GEMINI_THINKING_EFFORT: 'taigi_gemini_thinking_effort',
+  KARAOKE_STAGE_THEME: 'taigi_karaoke_stage_theme',
+  KARAOKE_SHOW_NOTATION: 'taigi_karaoke_show_notation',
+  KARAOKE_LAYOUT_MODE: 'taigi_karaoke_layout_mode',
 } as const;
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
 export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
+export type KaraokeStageTheme = 'dark' | 'daylight';
+export type KaraokeLayoutMode = 'two_line' | 'single_line';
 
 /**
  * Safe local storage getter with fallback
@@ -357,5 +362,38 @@ export function getStoredAutosaveInterval(defaultVal = 0): number {
 
 export function setStoredAutosaveInterval(intervalMs: number): void {
   safeSetItem(STORAGE_KEYS.AUTOSAVE_INTERVAL, String(intervalMs));
+}
+
+// ============================================================================
+// 8. KARAOKE STAGE READABILITY PREFERENCES
+// ============================================================================
+export function getStoredStageTheme(defaultVal: KaraokeStageTheme = 'dark'): KaraokeStageTheme {
+  const val = safeGetItem(STORAGE_KEYS.KARAOKE_STAGE_THEME);
+  if (val === 'dark' || val === 'daylight') return val;
+  return defaultVal;
+}
+
+export function setStoredStageTheme(theme: KaraokeStageTheme): void {
+  safeSetItem(STORAGE_KEYS.KARAOKE_STAGE_THEME, theme);
+}
+
+export function getStoredShowNotation(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.KARAOKE_SHOW_NOTATION);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredShowNotation(show: boolean): void {
+  safeSetItem(STORAGE_KEYS.KARAOKE_SHOW_NOTATION, String(show));
+}
+
+export function getStoredLayoutMode(defaultVal: KaraokeLayoutMode = 'two_line'): KaraokeLayoutMode {
+  const val = safeGetItem(STORAGE_KEYS.KARAOKE_LAYOUT_MODE);
+  if (val === 'two_line' || val === 'single_line') return val;
+  return defaultVal;
+}
+
+export function setStoredLayoutMode(mode: KaraokeLayoutMode): void {
+  safeSetItem(STORAGE_KEYS.KARAOKE_LAYOUT_MODE, mode);
 }
 

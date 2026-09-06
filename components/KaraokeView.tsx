@@ -29,6 +29,14 @@ import {
   setStoredStageZoom,
   getStoredLeadInEnabled,
   setStoredLeadInEnabled,
+  getStoredStageTheme,
+  setStoredStageTheme,
+  getStoredShowNotation,
+  setStoredShowNotation,
+  getStoredLayoutMode,
+  setStoredLayoutMode,
+  KaraokeStageTheme,
+  KaraokeLayoutMode,
 } from '@/lib/storage';
 import { computeVersesTiming, getKaraokeStageSequenceState } from '@/lib/karaokeSequencer';
 import confetti from 'canvas-confetti';
@@ -136,10 +144,49 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     return true;
   });
 
+  const [stageTheme, setStageThemeState] = useState<KaraokeStageTheme>(() => {
+    if (typeof window !== 'undefined') return getStoredStageTheme('dark');
+    return 'dark';
+  });
+
+  const [showNotation, setShowNotationState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return getStoredShowNotation(true);
+    return true;
+  });
+
+  const [layoutMode, setLayoutModeState] = useState<KaraokeLayoutMode>(() => {
+    if (typeof window !== 'undefined') return getStoredLayoutMode('two_line');
+    return 'two_line';
+  });
+
   const toggleLeadInEnabled = useCallback(() => {
     setLeadInEnabledState(prev => {
       const next = !prev;
       setStoredLeadInEnabled(next);
+      return next;
+    });
+  }, []);
+
+  const toggleStageTheme = useCallback(() => {
+    setStageThemeState(prev => {
+      const next: KaraokeStageTheme = prev === 'dark' ? 'daylight' : 'dark';
+      setStoredStageTheme(next);
+      return next;
+    });
+  }, []);
+
+  const toggleShowNotation = useCallback(() => {
+    setShowNotationState(prev => {
+      const next = !prev;
+      setStoredShowNotation(next);
+      return next;
+    });
+  }, []);
+
+  const toggleLayoutMode = useCallback(() => {
+    setLayoutModeState(prev => {
+      const next: KaraokeLayoutMode = prev === 'two_line' ? 'single_line' : 'two_line';
+      setStoredLayoutMode(next);
       return next;
     });
   }, []);
@@ -864,13 +911,17 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         </div>
       )}
 
-      {/* Main KTV Stage Arena (Always 2 Verses: Next on top, Current in center) */}
+      {/* Main KTV Stage Arena (Classic 2-Line Alternating Japanese KTV / Joysound Engine) */}
       <KaraokeStage
         currentVerse={currentVerse}
         nextVerse={nextVerse}
         activeVerseTiming={stageSequence.activeVerseTiming}
         nextVerseTiming={stageSequence.nextVerseTiming}
+        activeVerseIndex={stageSequence.activeVerseIndex}
+        allVerses={songVerses}
+        allVerseTimings={verseTimings}
         isAwaitingVocal={stageSequence.isAwaitingVocal}
+        leadIn={stageSequence.leadIn}
         isVerseCompleted={stageSequence.isVerseCompleted}
         activeSection={activeSection}
         playbackState={playbackState}
@@ -878,6 +929,12 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         onJumpToSection={handleJumpToSection}
         isEcoMode={isEcoMode}
         zoomScale={stageZoom}
+        stageTheme={stageTheme}
+        onToggleStageTheme={toggleStageTheme}
+        showNotation={showNotation}
+        onToggleShowNotation={toggleShowNotation}
+        layoutMode={layoutMode}
+        onToggleLayoutMode={toggleLayoutMode}
       />
 
       {/* Primary Karaoke Controls Bar (Moved directly under the lyric area) */}
