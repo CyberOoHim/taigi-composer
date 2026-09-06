@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Download, RotateCcw, Home } from 'lucide-react';
 import { getStoredCurrentSong } from '@/lib/storage';
+import { getActiveSongFromDB } from '@/lib/indexedDb';
 import { exportSongToJson } from '@/lib/songParser';
 
 export default function Error({
@@ -18,9 +19,17 @@ export default function Error({
     console.error('Unhandled Application Error:', error);
   }, [error]);
 
-  const handleDownloadBackup = () => {
+  const handleDownloadBackup = async () => {
     try {
-      const song = getStoredCurrentSong();
+      let song = null;
+      try {
+        song = await getActiveSongFromDB();
+      } catch {
+        // fallback
+      }
+      if (!song) {
+        song = getStoredCurrentSong();
+      }
       const json = exportSongToJson(song);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);

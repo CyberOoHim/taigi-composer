@@ -32,7 +32,13 @@ import {
   Trash2,
   FolderHeart,
   FilePlus2,
+  RotateCcw,
 } from 'lucide-react';
+import {
+  getCustomSongsFromDB,
+  saveSongToDB,
+  deleteSongFromDB,
+} from '@/lib/indexedDb';
 
 interface ImportExportModalProps {
   isOpen: boolean;
@@ -41,6 +47,8 @@ interface ImportExportModalProps {
   onLoadSong: (song: Song) => void;
   onOpenScanner?: () => void;
   onStartFreshSong?: () => void;
+  modifiedPresetIds?: Set<string>;
+  onResetPreset?: (presetId: string) => void;
 }
 
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({
@@ -50,6 +58,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   onLoadSong,
   onOpenScanner,
   onStartFreshSong,
+  modifiedPresetIds = new Set(),
+  onResetPreset,
 }) => {
   const { hasApiKey } = useGeminiAuth();
   const [activeTab, setActiveTab] = useState<'presets' | 'custom' | 'export' | 'import' | 'ai_scan'>('presets');
@@ -63,23 +73,54 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     return [];
   });
 
-  const handleSaveToCustomLibrary = () => {
-    const res = saveSongToCustomLibraryWithResult(currentSong);
-    setCustomSongs(res.library);
-    if (res.success) {
+  React.useEffect(() => {
+    if (isOpen) {
+      void getCustomSongsFromDB()
+        .then(songs => {
+          setCustomSongs(songs);
+        })
+        .catch(() => {
+          setCustomSongs(getStoredCustomLibrary());
+        });
+    }
+  }, [isOpen]);
+
+  const handleSaveToCustomLibrary = async () => {
+    try {
+      await saveSongToDB(currentSong);
+      saveSongToCustomLibrary(currentSong);
+      const updated = await getCustomSongsFromDB();
+      setCustomSongs(updated);
       setSaveError(null);
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 2500);
-    } else {
-      setSaveError(res.error || 'Failed to save to local library (Quota exceeded).');
-      setTimeout(() => setSaveError(null), 5000);
+    } catch (err) {
+      console.error('[ImportExportModal] Save to IndexedDB failed, fallback to storage:', err);
+      const res = saveSongToCustomLibraryWithResult(currentSong);
+      setCustomSongs(res.library);
+      if (res.success) {
+        setSaveError(null);
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 2500);
+      } else {
+        setSaveError(res.error || 'Failed to save to local library.');
+        setTimeout(() => setSaveError(null), 5000);
+      }
     }
   };
 
-  const handleDeleteFromCustomLibrary = (e: React.MouseEvent, songId: string) => {
+  const handleDeleteFromCustomLibrary = async (e: React.MouseEvent, songId: string) => {
     e.stopPropagation();
-    const updated = deleteSongFromCustomLibrary(songId);
-    setCustomSongs(updated);
+    try {
+      await deleteSongFromDB(songId);
+      deleteSongFromCustomLibrary(songId);
+      const updated = await getCustomSongsFromDB();
+      setCustomSongs(updated);
+    } catch (err) {
+      console.error('[ImportExportModal] Delete from IndexedDB failed:', err);
+      const updated = deleteSongFromCustomLibrary(songId);
+      setCustomSongs(updated);
+    }
   };
 
   // Import states
@@ -109,7 +150,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const handleImportSubmit = () => {
+  const handleImportSubmit = async () => {
     setImportError(null);
     if (!importText.trim()) {
       setImportError('Please enter JSON or text notation data.');
@@ -124,6 +165,11 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
       } else {
         // Text format
         loadedSong = importSongFromText(importText.trim());
+      }
+      try {
+        await saveSongToDB(loadedSong);
+      } catch (err) {
+        console.warn('[ImportExportModal] IndexedDB save on import fallback:', err);
       }
       saveSongToCustomLibrary(loadedSong);
       onLoadSong(loadedSong);
@@ -274,42 +320,70 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {PRESET_SONGS.map(preset => (
-                  <div
-                    id={`preset-card-${preset.id}`}
-                    key={preset.id}
-                    onClick={() => {
-                      onLoadSong(preset);
-                      onClose();
-                    }}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between group ${
-                      preset.id === currentSong.id
-                        ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 ring-1 ring-amber-500'
-                        : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 hover:border-amber-400 hover:shadow-md'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                          {preset.title}
-                        </h4>
-                        <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
-                          1={preset.key} {preset.timeSignature}
-                        </span>
+                {PRESET_SONGS.map(preset => {
+                  const isModified = modifiedPresetIds.has(preset.id);
+                  return (
+                    <div
+                      id={`preset-card-${preset.id}`}
+                      key={preset.id}
+                      onClick={() => {
+                        onLoadSong(preset);
+                        onClose();
+                      }}
+                      className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between group ${
+                        preset.id === currentSong.id
+                          ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 ring-1 ring-amber-500'
+                          : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 hover:border-amber-400 hover:shadow-md'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                              {preset.title}
+                            </h4>
+                            {isModified && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-extrabold rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-400/50">
+                                已儲存修改
+                              </span>
+                            )}
+                          </div>
+                          <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                            1={preset.key} {preset.timeSignature}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
+                          {preset.description || preset.subtitle}
+                        </p>
                       </div>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
-                        {preset.description || preset.subtitle}
-                      </p>
-                    </div>
 
-                    <div className="mt-3 flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                      <span>{preset.measures.length} Measures</span>
-                      <span className="font-medium text-amber-600 dark:text-amber-400 group-hover:underline">
-                        Load →
-                      </span>
+                      <div className="mt-3 flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                        <span>{preset.measures.length} Measures</span>
+                        <div className="flex items-center gap-2">
+                          {isModified && onResetPreset && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`確定要將《${preset.title}》恢復為原曲預設嗎？這將會清除您在此曲上的個人修改。`)) {
+                                  onResetPreset(preset.id);
+                                }
+                              }}
+                              className="flex items-center gap-1 px-2 py-0.5 rounded text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer text-xs font-semibold"
+                              title="重設為原曲預設"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>重設為原曲</span>
+                            </button>
+                          )}
+                          <span className="font-medium text-amber-600 dark:text-amber-400 group-hover:underline">
+                            {isModified ? '載入修改版 →' : '載入原曲 →'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

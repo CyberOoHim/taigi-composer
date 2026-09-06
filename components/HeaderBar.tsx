@@ -22,6 +22,8 @@ import {
   ShieldCheck,
   ScanLine,
   FilePlus2,
+  Save,
+  Check,
 } from 'lucide-react';
 import { useGeminiAuth } from '@/hooks/useGeminiAuth';
 
@@ -49,6 +51,14 @@ interface HeaderBarProps {
   onToggleEcoMode?: () => void;
   batteryLevel?: number | null;
   isCharging?: boolean | null;
+  onSave?: () => void;
+  isSaving?: boolean;
+  isDirty?: boolean;
+  saveSuccess?: boolean;
+  autosaveInterval?: number;
+  onSetAutosaveInterval?: (intervalMs: number) => void;
+  customSongs?: Song[];
+  modifiedPresetIds?: Set<string>;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -72,6 +82,14 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onToggleEcoMode,
   batteryLevel,
   isCharging,
+  onSave,
+  isSaving = false,
+  isDirty = false,
+  saveSuccess = false,
+  autosaveInterval = 0,
+  onSetAutosaveInterval,
+  customSongs = [],
+  modifiedPresetIds = new Set(),
 }) => {
   const { isAuthenticated, hasApiKey } = useGeminiAuth();
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
@@ -155,23 +173,120 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
         {/* Right: Master Transport & iPad-Accessible Utility Rail */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink min-w-0 overflow-x-auto no-scrollbar py-0.5">
-          {/* Preset Song Quick Picker (Accessible on iPad widths md+) */}
+          {/* Song Quick Picker (Presets + Custom Library) */}
           <select
             id="header-preset-song-select"
             value={song.id}
             onChange={e => {
-              const selected = PRESET_SONGS.find(p => p.id === e.target.value);
-              if (selected) onSelectSong(selected);
+              const selectedPreset = PRESET_SONGS.find(p => p.id === e.target.value);
+              if (selectedPreset) {
+                onSelectSong(selectedPreset);
+                return;
+              }
+              const selectedCustom = customSongs.find(s => s.id === e.target.value);
+              if (selectedCustom) {
+                onSelectSong(selectedCustom);
+              }
             }}
-            className="hidden md:block text-xs font-bold bg-zinc-50 dark:bg-[#141720] border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl px-2.5 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-amber-500 max-w-[150px] truncate cursor-pointer min-h-[38px] shrink-0"
-            title="Select Preset Song"
+            className="hidden md:block text-xs font-bold bg-zinc-50 dark:bg-[#141720] border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl px-2.5 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-amber-500 max-w-[160px] truncate cursor-pointer min-h-[38px] shrink-0"
+            title="選擇樂譜 (預設曲目與自訂庫存)"
           >
-            {PRESET_SONGS.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
+            <optgroup label="預設曲目 (Presets)">
+              {PRESET_SONGS.map(p => {
+                const isModified = modifiedPresetIds.has(p.id);
+                return (
+                  <option key={p.id} value={p.id}>
+                    {p.title} {isModified ? '★ (已修改)' : ''}
+                  </option>
+                );
+              })}
+            </optgroup>
+            {customSongs.length > 0 && (
+              <optgroup label={`自訂樂譜 (${customSongs.length})`}>
+                {customSongs.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.title || '未命名樂曲'}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
+
+          {/* User Save & Autosave Interval Module */}
+          {onSave && (
+            <div
+              id="header-save-module"
+              className="flex items-center bg-zinc-100 dark:bg-[#141720] p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shrink-0"
+            >
+              <button
+                id="header-save-btn"
+                type="button"
+                onClick={onSave}
+                disabled={isSaving}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] sm:min-h-[38px] shrink-0 ${
+                  isSaving
+                    ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                    : saveSuccess
+                    ? 'bg-emerald-500 text-white font-black shadow-xs'
+                    : isDirty
+                    ? 'bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black shadow-xs'
+                    : 'text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800'
+                }`}
+                title={
+                  isDirty
+                    ? '儲存修改至 IndexedDB [Ctrl+S] (有尚未儲存的修改)'
+                    : '目前修改已安全保存在 IndexedDB [Ctrl+S]'
+                }
+              >
+                {saveSuccess ? (
+                  <Check className="w-4 h-4 shrink-0" />
+                ) : (
+                  <Save className={`w-4 h-4 shrink-0 ${isDirty ? 'text-zinc-950' : 'text-amber-500'}`} />
+                )}
+                <span className="hidden xl:inline whitespace-nowrap">
+                  {isSaving
+                    ? '儲存中...'
+                    : saveSuccess
+                    ? '已儲存'
+                    : isDirty
+                    ? '儲存 (未存)'
+                    : '儲存'}
+                </span>
+                {isDirty && !isSaving && !saveSuccess && (
+                  <span className="w-2 h-2 rounded-full bg-amber-950 dark:bg-amber-950 animate-ping inline-block" />
+                )}
+              </button>
+
+              {onSetAutosaveInterval && (
+                <>
+                  <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-700 mx-0.5" />
+                  <select
+                    id="header-autosave-interval-select"
+                    value={autosaveInterval}
+                    onChange={e => onSetAutosaveInterval(Number(e.target.value))}
+                    className="text-[11px] font-semibold bg-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 px-1 py-1 rounded-md cursor-pointer focus:outline-hidden"
+                    title="自動儲存至 IndexedDB 頻率設定"
+                  >
+                    <option value={0} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                      手動儲存 (預設)
+                    </option>
+                    <option value={60000} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                      每 1 分鐘自動存
+                    </option>
+                    <option value={180000} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                      每 3 分鐘自動存
+                    </option>
+                    <option value={300000} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                      每 5 分鐘自動存
+                    </option>
+                    <option value={600000} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                      每 10 分鐘自動存
+                    </option>
+                  </select>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Master Transport Undo / Redo Module */}
           {onUndo && onRedo && (
@@ -413,6 +528,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60">
                 <span>Redo</span>
                 <kbd className="px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono font-bold text-zinc-800 dark:text-zinc-200">Ctrl + Y / ⌘⇧Z</kbd>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+                <span className="font-bold">Save Score (IndexedDB)</span>
+                <kbd className="px-2 py-0.5 rounded bg-amber-500/20 dark:bg-amber-500/30 font-mono font-bold text-amber-800 dark:text-amber-200">Ctrl + S / ⌘S</kbd>
               </div>
 
               <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60">

@@ -72,6 +72,9 @@ export interface Song {
   measures: Measure[];
   notesPerLine?: number;    // Measures per line display (default 4)
   description?: string;
+  updatedAt?: number;       // Last modified timestamp
+  isPresetModified?: boolean; // True if this song is an edited version of a built-in preset
+  originalPresetId?: string;  // ID of the original preset if modified
 }
 
 export type LyricDisplayMode =

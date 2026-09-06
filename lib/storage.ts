@@ -21,6 +21,7 @@ export const STORAGE_KEYS = {
   EDITOR_EDIT_MODE: 'taigi_composer_editor_edit_mode',
   AUTO_STEP_ADVANCE: 'taigi_composer_auto_step_advance',
   DECK_TAB: 'taigi_composer_deck_tab',
+  AUTOSAVE_INTERVAL: 'taigi_composer_autosave_interval',
   GEMINI_AUTH_VERIFIED: 'taigi_gemini_auth_verified',
   GEMINI_AUTH_PASSCODE: 'taigi_gemini_auth_passcode',
   GEMINI_MODEL: 'taigi_gemini_model',
@@ -102,16 +103,6 @@ export function getStoredCurrentSong(): Song {
     try {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.id && Array.isArray(parsed.measures) && parsed.measures.length > 0) {
-        // If the stored song is preset 'u-ia-hoe' but still has old 2/4 durations (duration < 0.5 on first note), refresh to updated preset
-        if (parsed.id === 'u-ia-hoe') {
-          const firstPitchedNote = parsed.measures[0]?.notes?.find(
-            (n: any) => typeof n.pitch === 'number' && n.pitch > 0
-          );
-          if (firstPitchedNote && typeof firstPitchedNote.duration === 'number' && firstPitchedNote.duration < 0.5) {
-            return PRESET_SONGS[0];
-          }
-        }
-
         const song = parsed as Song;
         song.measures.forEach(m => {
           if (Array.isArray(m.notes)) {
@@ -350,3 +341,21 @@ export function getStoredLeadInEnabled(defaultVal = true): boolean {
 export function setStoredLeadInEnabled(enabled: boolean): void {
   safeSetItem(STORAGE_KEYS.KARAOKE_LEAD_IN_ENABLED, String(enabled));
 }
+
+// ============================================================================
+// 7. AUTOSAVE INTERVAL (Default: 0 = Manual Save only)
+// Options in ms: 0 (manual), 60000 (1m), 180000 (3m), 300000 (5m), 600000 (10m)
+// ============================================================================
+export function getStoredAutosaveInterval(defaultVal = 0): number {
+  const val = safeGetItem(STORAGE_KEYS.AUTOSAVE_INTERVAL);
+  if (val !== null) {
+    const num = parseInt(val, 10);
+    if (!isNaN(num) && num >= 0) return num;
+  }
+  return defaultVal;
+}
+
+export function setStoredAutosaveInterval(intervalMs: number): void {
+  safeSetItem(STORAGE_KEYS.AUTOSAVE_INTERVAL, String(intervalMs));
+}
+

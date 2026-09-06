@@ -23,8 +23,20 @@ import {
   getStoredCurrentSong,
   setStoredCurrentSong,
   saveSongToCustomLibrary,
+  getStoredAutosaveInterval,
+  setStoredAutosaveInterval,
   STORAGE_KEYS,
 } from '@/lib/storage';
+import {
+  saveSongToDB,
+  getSongFromDB,
+  getCustomSongsFromDB,
+  getModifiedPresetIds,
+  resetPresetToFactory,
+  saveActiveSongToDB,
+  getActiveSongFromDB,
+  migrateLocalStorageToDB,
+} from '@/lib/indexedDb';
 import {
   Mic2,
   Music,
@@ -83,13 +95,68 @@ export default function Home() {
     originalMeasureIndex: number;
   } | null>(null);
 
-  // Load persisted current song from localStorage on mount
+  // Persistence State
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [autosaveInterval, setAutosaveIntervalState] = useState<number>(() => {
+    if (typeof window !== 'undefined') return getStoredAutosaveInterval(0);
+    return 0; // Default: Manual Save
+  });
+  const [customSongs, setCustomSongs] = useState<Song[]>([]);
+  const [modifiedPresetIds, setModifiedPresetIds] = useState<Set<string>>(new Set());
+  const hasInitializedRef = React.useRef(false);
+
+  // Bootstrap IndexedDB on mount: migrate legacy localStorage, load active song, custom songs, and modified presets
   useEffect(() => {
-    const savedSong = getStoredCurrentSong();
-    if (savedSong && (savedSong.id !== PRESET_SONGS[0].id || savedSong.title !== PRESET_SONGS[0].title)) {
-      loadNewSong(savedSong);
+    let isMounted = true;
+
+    async function bootstrap() {
+      try {
+        await migrateLocalStorageToDB();
+
+        const [customList, modifiedIds, activeDbSong] = await Promise.all([
+          getCustomSongsFromDB(),
+          getModifiedPresetIds(),
+          getActiveSongFromDB(),
+        ]);
+
+        if (!isMounted) return;
+        setCustomSongs(customList);
+        setModifiedPresetIds(modifiedIds);
+
+        if (activeDbSong && Array.isArray(activeDbSong.measures) && activeDbSong.measures.length > 0) {
+          loadNewSong(activeDbSong);
+        } else {
+          const savedSong = getStoredCurrentSong();
+          if (savedSong && Array.isArray(savedSong.measures) && savedSong.measures.length > 0) {
+            loadNewSong(savedSong);
+          }
+        }
+      } catch (err) {
+        console.warn('[page] IndexedDB bootstrap fallback to localStorage:', err);
+        const savedSong = getStoredCurrentSong();
+        if (savedSong) loadNewSong(savedSong);
+      } finally {
+        if (isMounted) {
+          hasInitializedRef.current = true;
+        }
+      }
     }
+
+    void bootstrap();
+
+    return () => {
+      isMounted = false;
+    };
   }, [loadNewSong]);
+
+  // Track unsaved modifications (after initial mount bootstrap)
+  useEffect(() => {
+    if (!hasInitializedRef.current) return;
+    setIsDirty(true);
+    setStoredCurrentSong(song);
+  }, [song]);
 
   const setActiveTab = useCallback((tab: ActiveTabMode) => {
     if (tab === 'editor' && audioEngine) {
@@ -108,43 +175,111 @@ export default function Home() {
     setIsNewSongConfirmOpen(true);
   }, []);
 
-  const handleConfirmFreshSong = useCallback((saveCurrentFirst: boolean) => {
-    if (saveCurrentFirst) {
-      saveSongToCustomLibrary(song);
+  const handleSaveSong = useCallback(async () => {
+    if (!song || isSaving) return;
+    setIsSaving(true);
+    try {
+      await saveActiveSongToDB(song);
+      setStoredCurrentSong(song);
+
+      const [customList, modifiedIds] = await Promise.all([
+        getCustomSongsFromDB(),
+        getModifiedPresetIds(),
+      ]);
+      setCustomSongs(customList);
+      setModifiedPresetIds(modifiedIds);
+
+      setIsDirty(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2200);
+    } catch (err) {
+      console.error('[page] Failed to save song to IndexedDB:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [song, isSaving]);
+
+  const handleSetAutosaveInterval = useCallback((intervalMs: number) => {
+    setAutosaveIntervalState(intervalMs);
+    setStoredAutosaveInterval(intervalMs);
+  }, []);
+
+  // Periodic autosave timer (when interval > 0)
+  useEffect(() => {
+    if (autosaveInterval <= 0) return;
+
+    const timer = setInterval(() => {
+      if (isDirty && !isSaving) {
+        void handleSaveSong();
+      }
+    }, autosaveInterval);
+
+    return () => clearInterval(timer);
+  }, [autosaveInterval, isDirty, isSaving, handleSaveSong]);
+
+  const handleResetPreset = useCallback(async (presetId: string) => {
+    try {
+      const pristine = await resetPresetToFactory(presetId);
+      const modifiedIds = await getModifiedPresetIds();
+      setModifiedPresetIds(modifiedIds);
+
+      if (pristine && song.id === presetId) {
+        loadNewSong(pristine);
+        setIsDirty(false);
+        await saveActiveSongToDB(pristine);
+      }
+    } catch (err) {
+      console.error('[page] Failed to reset preset to factory:', err);
+    }
+  }, [song.id, loadNewSong]);
+
+  const handleConfirmFreshSong = useCallback(async (saveCurrentFirst: boolean) => {
+    if (saveCurrentFirst || isDirty) {
+      try {
+        await saveActiveSongToDB(song);
+      } catch {
+        saveSongToCustomLibrary(song);
+      }
     }
     if (audioEngine) {
       audioEngine.stop();
     }
     const freshSong = createFreshSong();
+    try {
+      await saveSongToDB(freshSong);
+      await saveActiveSongToDB(freshSong);
+      const customList = await getCustomSongsFromDB();
+      setCustomSongs(customList);
+    } catch (err) {
+      console.warn('[page] Failed to save fresh song to IndexedDB:', err);
+    }
+
     loadNewSong(freshSong);
+    setIsDirty(false);
     setKaraokeReturnTarget(null);
     if (activeTab === 'karaoke') {
       setActiveTab('editor');
     }
     setTargetMeasureIndex(0);
     setIsNewSongConfirmOpen(false);
-  }, [song, activeTab, setActiveTab, loadNewSong]);
-
-  // Save current song to localStorage when updated
-  useEffect(() => {
-    if (song) {
-      setStoredCurrentSong(song);
-    }
-  }, [song]);
+  }, [song, isDirty, activeTab, setActiveTab, loadNewSong]);
 
   // Flush song state to storage immediately when switching tabs or apps (especially critical on iPad)
   useEffect(() => {
     const flushSongToStorage = () => {
       if (song) {
         setStoredCurrentSong(song);
+        if (isDirty) {
+          void saveActiveSongToDB(song);
+        }
       }
     };
 
     window.addEventListener('pagehide', flushSongToStorage);
     window.addEventListener('beforeunload', flushSongToStorage);
     const handleVisibility = () => {
-      if (document.hidden) {
-        flushSongToStorage();
+      if (document.hidden && isDirty && song) {
+        void saveActiveSongToDB(song);
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -154,7 +289,7 @@ export default function Home() {
       window.removeEventListener('beforeunload', flushSongToStorage);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [song]);
+  }, [song, isDirty]);
 
   // Listen to cross-tab storage changes (e.g. if user edited or imported in another tab)
   useEffect(() => {
@@ -260,12 +395,40 @@ export default function Home() {
     }
   }, [setActiveTab, song, isEcoMode]);
 
-  const handleSelectSong = useCallback((newSong: Song) => {
-    if (audioEngine) {
-      audioEngine.stop();
-    }
-    loadNewSong(newSong);
-  }, [loadNewSong]);
+  const handleSelectSong = useCallback(
+    async (targetSong: Song) => {
+      if (audioEngine) {
+        audioEngine.stop();
+      }
+      // Safety flush: if current song is dirty, save it to IndexedDB first
+      if (isDirty && song) {
+        try {
+          await saveActiveSongToDB(song);
+        } catch (err) {
+          console.warn('[page] Failed to flush current song before switching:', err);
+        }
+      }
+
+      // If selecting a preset, check if user has an edited version in IndexedDB
+      let songToLoad = targetSong;
+      const isPreset = PRESET_SONGS.some(p => p.id === targetSong.id);
+      if (isPreset) {
+        try {
+          const dbVersion = await getSongFromDB(targetSong.id);
+          if (dbVersion) {
+            songToLoad = dbVersion;
+          }
+        } catch (err) {
+          console.warn('[page] Failed to check preset override:', err);
+        }
+      }
+
+      loadNewSong(songToLoad);
+      setIsDirty(false);
+      void saveActiveSongToDB(songToLoad);
+    },
+    [isDirty, song, loadNewSong]
+  );
 
   // Subscribe to audio engine playback state
   useEffect(() => {
@@ -278,7 +441,7 @@ export default function Home() {
     };
   }, []);
 
-  // Global Keyboard shortcuts: Space for playback, Ctrl+Z / Cmd+Z for undo, Ctrl+Y / Cmd+Shift+Z for redo
+  // Global Keyboard shortcuts: Space for playback, Ctrl+Z / Cmd+Z for undo, Ctrl+Y / Cmd+Shift+Z for redo, Ctrl+S / Cmd+S for Save
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
@@ -290,6 +453,13 @@ export default function Home() {
 
       if (isTyping) return;
       if (e.defaultPrevented) return;
+
+      // Check for Save (Ctrl+S or Cmd+S)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        void handleSaveSong();
+        return;
+      }
 
       // Check for Undo (Ctrl+Z or Cmd+Z without Shift)
       if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
@@ -315,7 +485,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, handleTogglePlay]);
+  }, [undo, redo, handleTogglePlay, handleSaveSong]);
 
   return (
     <div className="min-h-screen bg-zinc-100 dark:bg-[#0c0e14] text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-amber-500/30">
@@ -341,6 +511,14 @@ export default function Home() {
         onToggleEcoMode={toggleEcoMode}
         batteryLevel={batteryLevel}
         isCharging={isCharging}
+        onSave={handleSaveSong}
+        isSaving={isSaving}
+        isDirty={isDirty}
+        saveSuccess={saveSuccess}
+        autosaveInterval={autosaveInterval}
+        onSetAutosaveInterval={handleSetAutosaveInterval}
+        customSongs={customSongs}
+        modifiedPresetIds={modifiedPresetIds}
       />
 
       {/* Main Studio Canvas */}
@@ -547,6 +725,8 @@ export default function Home() {
         onLoadSong={handleSelectSong}
         onOpenScanner={() => setIsScannerOpen(true)}
         onStartFreshSong={handleStartFreshSong}
+        modifiedPresetIds={modifiedPresetIds}
+        onResetPreset={handleResetPreset}
       />
 
       <QuickLyricAlignerModal
