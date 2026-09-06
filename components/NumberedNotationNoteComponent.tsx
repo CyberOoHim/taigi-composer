@@ -20,7 +20,7 @@ export interface NumberedNotationNoteComponentProps {
   isActive?: boolean;
   playProgress?: number; // 0 to 1 progress within this note during playback
   displayMode?: LyricDisplayMode;
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent) => void;
   className?: string;
   isKaraokeMode?: boolean;
   id?: string;

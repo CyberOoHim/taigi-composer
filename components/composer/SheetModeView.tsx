@@ -45,6 +45,7 @@ export interface SheetModeViewProps {
   verses?: VerseItem[];
   // Measure operations & deep links
   onSelectMeasure: (mIdx: number) => void;
+  onEditNotes?: (mIdx: number) => void;
   onSelectNote?: (mIdx: number, nIdx: number) => void;
   selectedMeasureIndex?: number | null;
   selectedNoteIndex?: number | null;
@@ -89,6 +90,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
   song,
   verses: passedVerses,
   onSelectMeasure,
+  onEditNotes,
   onSelectNote,
   selectedMeasureIndex = null,
   selectedNoteIndex = null,
@@ -832,7 +834,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                                 {/* Deep link: Jump to Edit in Measure Mode */}
                                 <button
                                   type="button"
-                                  onClick={() => onSelectMeasure(idx)}
+                                  onClick={() => (onEditNotes ? onEditNotes(idx) : onSelectMeasure(idx))}
                                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700 text-xs font-bold transition-all cursor-pointer"
                                   title="Jump to note-by-note editing in Measure Mode"
                                 >
@@ -889,9 +891,13 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                                     isSelected={selectedMeasureIndex === idx && selectedNoteIndex === nIdx}
                                     isActive={activePlaybackNoteId === note.id}
                                     displayMode={displayMode}
-                                    onClick={() => {
-                                      onSelectMeasure(idx);
-                                      if (onSelectNote) onSelectNote(idx, nIdx);
+                                    onClick={e => {
+                                      e?.stopPropagation();
+                                      if (onSelectNote) {
+                                        onSelectNote(idx, nIdx);
+                                      } else {
+                                        onSelectMeasure(idx);
+                                      }
                                     }}
                                   />
                                 ))
@@ -1099,7 +1105,7 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
 
                           <button
                             type="button"
-                            onClick={() => onSelectMeasure(idx)}
+                            onClick={() => (onEditNotes ? onEditNotes(idx) : onSelectMeasure(idx))}
                             className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700 text-xs font-bold transition-all cursor-pointer"
                             title="Jump to edit notes"
                           >
@@ -1155,9 +1161,13 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                               isSelected={selectedMeasureIndex === idx && selectedNoteIndex === nIdx}
                               isActive={activePlaybackNoteId === note.id}
                               displayMode={displayMode}
-                              onClick={() => {
-                                onSelectMeasure(idx);
-                                if (onSelectNote) onSelectNote(idx, nIdx);
+                              onClick={e => {
+                                e?.stopPropagation();
+                                if (onSelectNote) {
+                                  onSelectNote(idx, nIdx);
+                                } else {
+                                  onSelectMeasure(idx);
+                                }
                               }}
                             />
                           ))
@@ -1515,9 +1525,13 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                                 isSelected={selectedMeasureIndex === ref.measureIndex && selectedNoteIndex === ref.noteIndex}
                                 isActive={activePlaybackNoteId === ref.note.id}
                                 displayMode={displayMode}
-                                onClick={() => {
-                                  onSelectMeasure(ref.measureIndex);
-                                  if (onSelectNote) onSelectNote(ref.measureIndex, ref.noteIndex);
+                                onClick={e => {
+                                  e?.stopPropagation();
+                                  if (onSelectNote) {
+                                    onSelectNote(ref.measureIndex, ref.noteIndex);
+                                  } else {
+                                    onSelectMeasure(ref.measureIndex);
+                                  }
                                 }}
                               />
                             </React.Fragment>

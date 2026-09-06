@@ -2093,6 +2093,28 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     }
   }, [song, audioEngine, editMode, verses]);
 
+  // Select measure within Sheet Mode without switching edit mode
+  const handleSelectMeasureInSheet = useCallback(
+    (mIdx: number) => {
+      if (selectedCoord && selectedCoord[0] === mIdx) {
+        return;
+      }
+      const m = song.measures[mIdx];
+      let targetNoteIdx = 0;
+      if (m && m.notes.length > 0) {
+        const firstPitchedIdx = m.notes.findIndex(
+          n =>
+            !isNonNotationItem(n) &&
+            ((typeof n.pitch === 'number' && n.pitch > 0) ||
+              Boolean(n.lyric.hanji && !isPunctuationOrSpacer(n.lyric.hanji)))
+        );
+        targetNoteIdx = firstPitchedIdx !== -1 ? firstPitchedIdx : 0;
+      }
+      setSelectedCoord([mIdx, targetNoteIdx]);
+    },
+    [song.measures, selectedCoord]
+  );
+
   // Jump from Sheet Mode directly into Measure Mode to edit notes
   const handleJumpToMeasureFromSheet = useCallback(
     (mIdx: number) => {
@@ -2861,7 +2883,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           <SheetModeView
             song={song}
             verses={verses}
-            onSelectMeasure={handleJumpToMeasureFromSheet}
+            onSelectMeasure={handleSelectMeasureInSheet}
+            onEditNotes={handleJumpToMeasureFromSheet}
             onMoveMeasure={handleMoveMeasureOrder}
             onDuplicateMeasure={handleDuplicateMeasure}
             onToggleLineBreak={handleToggleMeasureLineBreak}
