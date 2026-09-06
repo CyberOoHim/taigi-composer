@@ -75,13 +75,13 @@ export interface Measure {
   section?: string;         // Section tag (e.g. "前奏", "主歌", "副歌", "尾奏", "Verse 1")
   barlineType?: 'single' | 'double' | 'end' | 'repeat_start' | 'repeat_end';
   isLineBreak?: boolean;    // Line/system break flag
-  notes: JianpuNote[];      // Notes in this measure
+  notes: NumberedNotationNote[];      // Notes in this measure
 }
 ```
 
-### Jianpu Note Structure
+### Numbered Notation Note Structure
 ```typescript
-export interface JianpuNote {
+export interface NumberedNotationNote {
   id: string;               // Unique note id (e.g. "n-1-1")
   pitch: PitchNumber;       // 1-7 (scale degrees), 0 (rest), or 'empty' (spacer/pause)
   octave: number;           // -2 (double low), -1 (low), 0 (middle), 1 (high), 2 (double high)
@@ -104,7 +104,7 @@ export interface JianpuNote {
 
 ---
 
-## 4. Transcription Rules for Jianpu & Taiwanese Hokkien Music
+## 4. Transcription Rules for Numbered Notation & Taiwanese Hokkien Music
 
 ### A. Numbered Notation (簡譜) Mapping
 - `1` = Do, `2` = Re, `3` = Mi, `4` = Fa, `5` = Sol, `6` = La, `7` = Ti.
@@ -138,6 +138,26 @@ Pickup measures (弱起小節 / 前奏) can have partial beats.
 - Transcribe **both** `hanlo` (漢字/漢羅) and `poj` (白話字/Pe̍h-ōe-jī).
 - If the original sheet music only prints Chinese characters, generate the standard corresponding POJ Romanization with correct tone diacritics.
 - For notes that continue a sustained syllable under a tie or slur, set `lyric: { hanlo: "—", poj: "—" }` or `{}`.
+
+### E. Verse & Phrase Segmentation for Karaoke Readability (Short While Meaningful)
+
+In Karaoke Mode, lyrics are projected in prominent stage typography one active phrase at a time, accompanied by a preview of the upcoming next phrase and real-time bouncing ball tracking.
+
+To deliver an optimal singing and reading experience, **the skill must split verses into short while meaningful musical phrases**:
+
+1. **Target Phrase Length**:
+   - **Ideal syllable count**: **4 to 8 sung syllables** per verse (e.g. 5-character 五言 or 7-character 七言 poetic lines in Taiwanese Hokkien songs).
+   - **Ideal measure span**: **2 to 4 measures** per phrase.
+   - **Anti-Pattern**: NEVER lump an entire multi-sentence stanza (8–16 measures or 15+ syllables) into a single continuous verse. Overly long verses crowd the stage prompter and make reading difficult.
+
+2. **Natural Phrasing Boundaries**:
+   - Split at **syntactic and poetic clauses** (e.g. "獨夜無伴守燈下" is 1 verse; "清風對面吹" is the next verse).
+   - Split at **melodic cadences, punctuation marks (，, 。)**, and **breath/rest points** (where a singer naturally inhales before the next musical line).
+
+3. **Encoding Phrase Breaks in Song JSON**:
+   - **Newline on Concluding Syllable (Recommended)**: Append `\n` to the last syllable's `hanlo` and `poj` (e.g. `hanlo: "下\n", poj: "ē\n"`).
+   - **Measure Line Break**: Set `"isLineBreak": true` on the measure that concludes the phrase.
+   - **Informative Section Headers**: Subdivide sections into distinct phrase labels (e.g. `"section": "主歌 1-A"`, `"section": "主歌 1-B"`).
 
 ---
 
@@ -180,8 +200,8 @@ Pickup measures (弱起小節 / 前奏) can have partial beats.
 
 ## 7. Troubleshooting & FAQ
 
-- **Q: What if the score is in Western 5-line staff notation rather than Jianpu?**
-  - The conversion script instructs the vision model to transcribe pitch degrees and key signatures into Jianpu representation relative to the detected key. For example, in Key F, note F4 maps to pitch `1`, G4 to `2`, A4 to `3`, Bb4 to `4`, C5 to `5`, etc.
+- **Q: What if the score is in Western 5-line staff notation rather than Numbered Notation?**
+  - The conversion script instructs the vision model to transcribe pitch degrees and key signatures into Numbered Notation representation relative to the detected key. For example, in Key F, note F4 maps to pitch `1`, G4 to `2`, A4 to `3`, Bb4 to `4`, C5 to `5`, etc.
 - **Q: What if a PDF has multiple songs?**
   - Extract only the relevant page range before converting, or pass individual page images to avoid combining separate songs into one.
 - **Q: Rhythm Warning on pickup measures?**

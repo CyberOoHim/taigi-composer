@@ -290,7 +290,7 @@ $$\text{MIDI} = \text{KeyBaseMidi} + \text{ScaleInterval}[\text{pitch}] + (\text
      export function isPunctuationOrSpacer(text: string): boolean {
        return /^[，。、；：！？—…～\-_~↵\s]+$/.test(text);
      }
-     export function isNonNotationItem(note: JianpuNote): boolean {
+     export function isNonNotationItem(note: NumberedNotationNote): boolean {
        if (note.pitch === 'empty' || (typeof note.duration === 'number' && note.duration <= 0)) return true;
        const hanji = note.lyric?.hanji || '';
        return isPunctuationOrSpacer(hanji);
@@ -346,8 +346,8 @@ $$\text{MIDI} = \text{KeyBaseMidi} + \text{ScaleInterval}[\text{pitch}] + (\text
 ```python
 #!/usr/bin/env python3
 """
-audio_to_taigi_jianpu.py
-將純旋律音訊轉為本專案支援之簡譜 JSON 基礎結構
+audio_to_taigi_numbered_notation.py
+將純旋律音訊轉為本專案支援之簡譜 / 數字譜 (Numbered Notation) JSON 基礎結構
 依賴: pip install basic-pitch librosa numpy
 """
 
@@ -360,7 +360,7 @@ from basic_pitch import ICASSP_2022_MODEL_PATH
 def hz_to_midi(hz):
     return 69 + 12 * np.log2(hz / 440.0)
 
-def midi_to_jianpu(midi_num, key_root_midi=70): # 預設 Bb4 = 70 (雨夜花調性)
+def midi_to_numbered_notation(midi_num, key_root_midi=70): # 預設 Bb4 = 70 (雨夜花調性)
     # 半音階到大調音階唱名映射 (0:Do, 2:Re, 4:Mi, 5:Fa, 7:Sol, 9:La, 11:Ti)
     scale_map = {0: 1, 2: 2, 4: 3, 5: 4, 7: 5, 9: 6, 11: 7}
     diff = int(round(midi_num)) - key_root_midi
@@ -390,7 +390,7 @@ def convert_audio_to_song_json(audio_path, song_title="轉換歌曲", bpm=72, ke
             duration_beats = 0.5
             
         midi_pitch = hz_to_midi(pitch_hz)
-        pitch_num, octave_offset = midi_to_jianpu(midi_pitch)
+        pitch_num, octave_offset = midi_to_numbered_notation(midi_pitch)
         
         note_obj = {
             "id": f"n_{m_idx}_{len(current_notes)+1}",
@@ -438,7 +438,7 @@ if __name__ == "__main__":
         result = convert_audio_to_song_json(sys.argv[1])
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        print("Usage: python audio_to_taigi_jianpu.py input_melody.wav")
+        print("Usage: python audio_to_taigi_numbered_notation.py input_melody.wav")
 ```
 
 ---
@@ -583,12 +583,12 @@ export interface Measure {
   measureNumber: number;   // 小節號碼 (1, 2, 3...)
   chord?: string;          // 小節和弦 (例如 "Bb", "F7", "Gm")
   section?: string;        // 段落標記 (例如 "Verse 1", "Chorus")
-  notes: JianpuNote[];     // 音符集合 (該小節時值總和必須符合拍號)
+  notes: NumberedNotationNote[];     // 音符集合 (該小節時值總和必須符合拍號)
   barlineType?: 'single' | 'double' | 'end' | 'repeat_start' | 'repeat_end';
   isLineBreak?: boolean;   // 是否強制排版換行
 }
 
-export interface JianpuNote {
+export interface NumberedNotationNote {
   id: string;              // 音符代碼
   pitch: PitchNumber;      // 1-7 (唱名), 0 (休止符), 'empty' (排版空位/標點)
   octave: number;          // -2 (下加兩點) 到 +2 (上加兩點)

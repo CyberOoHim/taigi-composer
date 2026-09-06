@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { JianpuNote, LyricDisplayMode } from '@/types/song';
+import { NumberedNotationNote, LyricDisplayMode } from '@/types/song';
 import {
   isNonNotationItem,
   isPunctuationOrSpacer,
@@ -15,8 +15,8 @@ import {
 import { Volume2, FileText } from 'lucide-react';
 
 interface NoteCellProps {
-  note: JianpuNote;
-  prevNote?: JianpuNote | null;
+  note: NumberedNotationNote;
+  prevNote?: NumberedNotationNote | null;
   mIdx: number;
   nIdx: number;
   isSelected: boolean;

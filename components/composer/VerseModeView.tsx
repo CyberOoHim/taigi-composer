@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { JianpuNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, VerseItem, VerseNoteRef, ArticulationType, Song } from '@/types/song';
+import { NumberedNotationNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, VerseItem, VerseNoteRef, ArticulationType, Song } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import { isNonNotationItem, isPunctuationOrSpacer, getMeasureRhythmReport } from '@/lib/taigiUtils';
 import { scrollToCardElement } from '@/lib/utils';
@@ -31,7 +31,7 @@ interface VerseModeViewProps {
   verses: VerseItem[];
   selectedMeasureIndex: number | null;
   selectedNoteIndex: number | null;
-  currentNote: JianpuNote | null;
+  currentNote: NumberedNotationNote | null;
   keySignature: KeySignature;
   audioEngine: AudioEngine;
   playingVerseIdx: number | null;
@@ -50,7 +50,7 @@ interface VerseModeViewProps {
   onUpdateAnnotation?: (mIdx: number, nIdx: number, val: string) => void;
   onGoToNextNote: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo') => void;
   onGoToPrevNote: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo') => void;
-  onUpdateSelectedNote: (updater: (note: JianpuNote) => JianpuNote) => void;
+  onUpdateSelectedNote: (updater: (note: NumberedNotationNote) => NumberedNotationNote) => void;
   onSetPitch: (pitch: PitchNumber) => void;
   onSetOctave: (delta: number) => void;
   onSetAccidental: (acc: '' | '#' | 'b') => void;

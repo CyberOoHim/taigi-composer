@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArticulationType, GraceNote, InstrumentType, JianpuNote, KeySignature, NoteDuration, PitchNumber } from '@/types/song';
+import { ArticulationType, GraceNote, InstrumentType, NumberedNotationNote, KeySignature, NoteDuration, PitchNumber } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import {
   getDurationChineseInfo,
@@ -49,12 +49,12 @@ import {
 export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
 
 export interface NoteEditorHudProps {
-  currentNote: JianpuNote;
+  currentNote: NumberedNotationNote;
   selectedMeasureIndex: number;
   selectedNoteIndex: number | null;
   keySignature: KeySignature;
   audioEngine: AudioEngine;
-  onUpdateSelectedNote: (updater: (note: JianpuNote) => JianpuNote) => void;
+  onUpdateSelectedNote: (updater: (note: NumberedNotationNote) => NumberedNotationNote) => void;
   onSetPitch: (pitch: PitchNumber) => void;
   onSetOctave: (delta: number) => void;
   onSetAccidental: (acc: '' | '#' | 'b') => void;
@@ -318,7 +318,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
         break;
     }
 
-    const updatedNote: JianpuNote = {
+    const updatedNote: NumberedNotationNote = {
       ...currentNote,
       preGraceNotes: updatedPre,
       postGraceNotes: updatedPost,

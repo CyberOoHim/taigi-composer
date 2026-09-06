@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { BarlineType, JianpuNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, Song, ArticulationType } from '@/types/song';
+import { BarlineType, NumberedNotationNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, Song, ArticulationType } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import { scrollToCardElement } from '@/lib/utils';
 import {
@@ -33,13 +33,17 @@ import {
   Scissors,
   Merge,
   Wand2,
+  Mic2,
+  FileSpreadsheet,
+  CornerUpLeft,
+  X,
 } from 'lucide-react';
 
 interface MeasureModeViewProps {
   song: Song;
   selectedMeasureIndex: number | null;
   selectedNoteIndex: number | null;
-  currentNote: JianpuNote | null;
+  currentNote: NumberedNotationNote | null;
   keySignature: KeySignature;
   audioEngine: AudioEngine;
   playingMeasureIdx: number | null;
@@ -59,7 +63,7 @@ interface MeasureModeViewProps {
   onUpdateAnnotation?: (mIdx: number, nIdx: number, val: string) => void;
   onGoToNextNote: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo') => void;
   onGoToPrevNote: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo') => void;
-  onUpdateSelectedNote: (updater: (note: JianpuNote) => JianpuNote) => void;
+  onUpdateSelectedNote: (updater: (note: NumberedNotationNote) => NumberedNotationNote) => void;
   onSetPitch: (pitch: PitchNumber) => void;
   onSetOctave: (delta: number) => void;
   onSetAccidental: (acc: '' | '#' | 'b') => void;
@@ -92,6 +96,14 @@ interface MeasureModeViewProps {
   pastCount?: number;
   futureCount?: number;
   showNotice: (msg: string) => void;
+
+  // Navigation return targets
+  karaokeReturnTarget?: { measureIndex: number; originalMeasureIndex: number } | null;
+  onReturnToKaraoke?: (measureIndex?: number) => void;
+  sheetReturnTarget?: { measureIndex: number; originalMeasureIndex: number } | null;
+  onReturnToSheet?: (measureIndex?: number) => void;
+  onDismissKaraokeReturn?: () => void;
+  onDismissSheetReturn?: () => void;
 
   // Measure adjustment & line editing extensions
   onSplitMeasureAtNote?: (mIdx: number, splitAtIndex: number) => void;
@@ -187,6 +199,12 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   onQuickToggleMeasureDuration,
   onScaleMeasureDuration,
   onSetUniformMeasureDuration,
+  karaokeReturnTarget,
+  onReturnToKaraoke,
+  sheetReturnTarget,
+  onReturnToSheet,
+  onDismissKaraokeReturn,
+  onDismissSheetReturn,
 }) => {
   const [hoveredSplitIndex, setHoveredSplitIndex] = useState<string | null>(null);
   const [chordMode, setChordMode] = useState<'append' | 'replace'>('append');
@@ -223,6 +241,116 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
 
   return (
     <div id="measure-mode-container" className="flex flex-col gap-6">
+      {/* JUMP RETURN NAVIGATION BANNER (Karaoke Mode / Sheet Mode) */}
+      {(karaokeReturnTarget || sheetReturnTarget) && (
+        <div
+          id="editor-return-banner"
+          className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border shadow-xs transition-all ${
+            karaokeReturnTarget
+              ? 'bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-zinc-100 dark:to-zinc-900/80 border-amber-400/80 dark:border-amber-500/60 ring-1 ring-amber-400/30'
+              : 'bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-zinc-100 dark:to-zinc-900/80 border-emerald-400/80 dark:border-emerald-500/60 ring-1 ring-emerald-400/30'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold shrink-0 border ${
+                karaokeReturnTarget
+                  ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs'
+                  : 'bg-emerald-600 text-white border-emerald-400 shadow-xs'
+              }`}
+            >
+              {karaokeReturnTarget ? <Mic2 className="w-5 h-5" /> : <FileSpreadsheet className="w-5 h-5" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
+                  {karaokeReturnTarget ? 'Jumped from Karaoke Mode' : 'Jumped from Sheet Mode'}
+                </span>
+                <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-900/10 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
+                  Origin: Measure #{karaokeReturnTarget ? karaokeReturnTarget.originalMeasureIndex + 1 : sheetReturnTarget ? sheetReturnTarget.originalMeasureIndex + 1 : 1}
+                </span>
+              </div>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                {karaokeReturnTarget
+                  ? `You are editing Measure #${(selectedMeasureIndex ?? karaokeReturnTarget.originalMeasureIndex) + 1}. When finished, you can return immediately to your original place in Karaoke Mode.`
+                  : `You are editing Measure #${(selectedMeasureIndex ?? sheetReturnTarget?.originalMeasureIndex ?? 0) + 1}. Return anytime to view full sheet score layout.`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap">
+            {karaokeReturnTarget && onReturnToKaraoke && (
+              <button
+                id="btn-return-to-karaoke-origin"
+                type="button"
+                onClick={() => onReturnToKaraoke(karaokeReturnTarget.originalMeasureIndex)}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px]"
+                title={`Jump back to Karaoke mode at Measure #${karaokeReturnTarget.originalMeasureIndex + 1}`}
+              >
+                <CornerUpLeft className="w-4 h-4" />
+                <Mic2 className="w-3.5 h-3.5" />
+                <span>Back to Karaoke mode (Measure #{karaokeReturnTarget.originalMeasureIndex + 1})</span>
+              </button>
+            )}
+
+            {sheetReturnTarget && onReturnToSheet && (
+              <button
+                id="btn-return-to-sheet-origin"
+                type="button"
+                onClick={() => onReturnToSheet(sheetReturnTarget.originalMeasureIndex)}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-950 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px]"
+                title={`Jump back to Sheet mode at Measure #${sheetReturnTarget.originalMeasureIndex + 1}`}
+              >
+                <CornerUpLeft className="w-4 h-4" />
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Back to Sheet (Measure #{sheetReturnTarget.originalMeasureIndex + 1})</span>
+              </button>
+            )}
+
+            {/* If karaoke is active, also offer Sheet Mode button */}
+            {karaokeReturnTarget && onReturnToSheet && (
+              <button
+                id="btn-return-to-sheet-from-karaoke"
+                type="button"
+                onClick={() => onReturnToSheet(selectedMeasureIndex ?? karaokeReturnTarget.originalMeasureIndex)}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 font-bold text-xs rounded-xl transition-all cursor-pointer min-h-[38px]"
+                title="View in Sheet Mode"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Sheet Mode</span>
+              </button>
+            )}
+
+            {/* If sheet is active, also offer Karaoke Mode button */}
+            {sheetReturnTarget && onReturnToKaraoke && (
+              <button
+                id="btn-return-to-karaoke-from-sheet"
+                type="button"
+                onClick={() => onReturnToKaraoke(selectedMeasureIndex ?? sheetReturnTarget.originalMeasureIndex)}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 font-bold text-xs rounded-xl transition-all cursor-pointer min-h-[38px]"
+                title="Switch to Karaoke Mode"
+              >
+                <Mic2 className="w-3.5 h-3.5 text-amber-500" />
+                <span className="hidden md:inline">Karaoke Mode</span>
+              </button>
+            )}
+
+            {/* Dismiss button */}
+            <button
+              id="btn-dismiss-return-banner"
+              type="button"
+              onClick={() => {
+                if (karaokeReturnTarget && onDismissKaraokeReturn) onDismissKaraokeReturn();
+                if (sheetReturnTarget && onDismissSheetReturn) onDismissSheetReturn();
+              }}
+              className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
+              title="Dismiss notification"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
       {song.measures.map((measure, mIdx) => {
         const isSelectedMeasure = selectedMeasureIndex === mIdx;
         const isPlayingThisMeasure = playingMeasureIdx === mIdx;
@@ -232,6 +360,25 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
         const rhythm = getMeasureRhythmReport(measure, song.timeSignature || '4/4');
         const diatonicChords = getDiatonicChords(keySignature);
         const barlineStyle: BarlineType = measure.barlineType || 'single';
+
+        const hanloParts: string[] = [];
+        const pojParts: string[] = [];
+        measure.notes.forEach(note => {
+          const h = (note.lyric?.hanlo || note.lyric?.hanji || note.lyric?.custom || '').trim();
+          const p = (note.lyric?.poj || note.lyric?.tl || '').trim();
+          if (h && h !== '\n' && h !== '↵') hanloParts.push(h);
+          if (p && p !== '\n' && p !== '↵') pojParts.push(p);
+        });
+        const completeLyric = hanloParts.reduce((acc, curr) => {
+          if (!acc) return curr;
+          const lastChar = acc.slice(-1);
+          const firstChar = curr.slice(0, 1);
+          if (/[a-zA-Z0-9]/.test(lastChar) && /[a-zA-Z0-9]/.test(firstChar)) {
+            return `${acc} ${curr}`;
+          }
+          return `${acc}${curr}`;
+        }, '');
+        const completePoj = pojParts.join(' ');
 
         return (
           <React.Fragment key={measure.id}>
@@ -576,6 +723,57 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
 
                 {/* Right: Line Break, Barline Type, Add Note, Duplicate, Delete */}
                 <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Quick Back to Karaoke & Back to Sheet buttons on active/focused measure */}
+                  {isSelectedMeasure && onReturnToKaraoke && (
+                    <button
+                      id={`measure-card-back-to-karaoke-${mIdx}`}
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onReturnToKaraoke(karaokeReturnTarget ? karaokeReturnTarget.originalMeasureIndex : mIdx);
+                      }}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
+                        karaokeReturnTarget
+                          ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-1 ring-amber-400'
+                          : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700'
+                      }`}
+                      title={
+                        karaokeReturnTarget
+                          ? `Back to Karaoke mode (Original place: Measure #${karaokeReturnTarget.originalMeasureIndex + 1})`
+                          : `Jump to Karaoke mode at Measure #${mIdx + 1}`
+                      }
+                    >
+                      <CornerUpLeft className="w-3.5 h-3.5" />
+                      <Mic2 className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Back to Karaoke</span>
+                    </button>
+                  )}
+
+                  {isSelectedMeasure && onReturnToSheet && (
+                    <button
+                      id={`measure-card-back-to-sheet-${mIdx}`}
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onReturnToSheet(sheetReturnTarget ? sheetReturnTarget.originalMeasureIndex : mIdx);
+                      }}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
+                        sheetReturnTarget
+                          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-black shadow-xs'
+                          : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700'
+                      }`}
+                      title={
+                        sheetReturnTarget
+                          ? `Back to Sheet mode (Original place: Measure #${sheetReturnTarget.originalMeasureIndex + 1})`
+                          : `Back to Sheet mode at Measure #${mIdx + 1}`
+                      }
+                    >
+                      <CornerUpLeft className="w-3.5 h-3.5" />
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Back to Sheet</span>
+                    </button>
+                  )}
+
                   {/* Line Break Toggle */}
                   {onToggleLineBreak && (
                     <button
@@ -644,10 +842,11 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                       e.stopPropagation();
                       onDuplicateMeasure(mIdx);
                     }}
-                    className="p-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer touch-manipulation min-h-[36px] min-w-[36px] flex items-center justify-center"
-                    title="Duplicate this measure"
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl border border-zinc-200 dark:border-zinc-700 font-bold text-xs transition-colors cursor-pointer touch-manipulation min-h-[36px]"
+                    title={`Duplicate Measure #${measure.measureNumber || mIdx + 1}`}
                   >
                     <Copy className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Duplicate</span>
                   </button>
 
                   {/* Delete measure */}
@@ -766,6 +965,29 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     >
                       Clear
                     </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Complete Lyric Display Bar for Measure */}
+              <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-zinc-50/90 dark:bg-zinc-800/40 border border-zinc-200/70 dark:border-zinc-800/70 flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <span className="text-[11px] font-bold text-zinc-400 shrink-0">歌詞:</span>
+                  {completeLyric || completePoj ? (
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      {completeLyric && (
+                        <span className="text-zinc-800 dark:text-zinc-100 font-bold font-serif text-xs sm:text-sm">
+                          &ldquo;{completeLyric}&rdquo;
+                        </span>
+                      )}
+                      {completePoj && (
+                        <span className="text-emerald-600 dark:text-emerald-400 text-xs font-serif italic">
+                          [{completePoj}]
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="italic text-zinc-400 text-xs">(無歌詞)</span>
                   )}
                 </div>
               </div>

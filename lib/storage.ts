@@ -1,6 +1,6 @@
 'use client';
 
-import { Song, LyricDisplayMode, InstrumentType, EditorEditMode, Measure, JianpuNote } from '@/types/song';
+import { Song, LyricDisplayMode, InstrumentType, EditorEditMode, Measure, NumberedNotationNote } from '@/types/song';
 import { PRESET_SONGS } from '@/lib/presets';
 
 export const STORAGE_KEYS = {
@@ -313,7 +313,7 @@ export function setStoredStageZoom(zoom: number): void {
 // ============================================================================
 export function getStoredEditorEditMode(): EditorEditMode {
   const val = safeGetItem(STORAGE_KEYS.EDITOR_EDIT_MODE);
-  if (val === 'verse' || val === 'measure') return val;
+  if (val === 'verse' || val === 'measure' || val === 'sheet') return val;
   return 'verse';
 }
 

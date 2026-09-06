@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   BarlineType,
   EditorEditMode,
-  JianpuNote,
+  NumberedNotationNote,
   LyricDisplayMode,
   Measure,
   NoteDuration,
@@ -44,6 +44,7 @@ import { NoteEditorHud } from './composer/NoteEditorHud';
 import { SectionRail } from './composer/SectionRail';
 import { VerseModeView } from './composer/VerseModeView';
 import { MeasureModeView } from './composer/MeasureModeView';
+import { SheetModeView } from './composer/SheetModeView';
 import { MeasureOrganizerModal } from './composer/MeasureOrganizerModal';
 import {
   Plus,
@@ -54,11 +55,13 @@ import {
   Layers,
   Sparkles,
   SlidersHorizontal,
+  FileSpreadsheet,
   Wand2,
   Mic2,
   Play,
   Square,
   Clock,
+  CornerUpLeft,
 } from 'lucide-react';
 
 interface ComposerEditorProps {
@@ -73,6 +76,12 @@ interface ComposerEditorProps {
   onPlayKaraoke?: (startMeasureIndex?: number) => void;
   targetMeasureIndex?: number | null;
   onTargetMeasureHandled?: () => void;
+  karaokeReturnTarget?: {
+    measureIndex: number;
+    originalMeasureIndex: number;
+  } | null;
+  onReturnToKaraoke?: (measureIndex?: number) => void;
+  onDismissKaraokeReturn?: () => void;
   onUndo?: () => boolean;
   onRedo?: () => boolean;
   canUndo?: boolean;
@@ -102,6 +111,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   onPlayKaraoke,
   targetMeasureIndex,
   onTargetMeasureHandled,
+  karaokeReturnTarget,
+  onReturnToKaraoke,
+  onDismissKaraokeReturn,
   onUndo,
   onRedo,
   canUndo = false,
@@ -115,6 +127,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     return 'verse';
   });
   const [selectedCoord, setSelectedCoord] = useState<[number, number] | null>([0, 0]);
+  const [sheetReturnTarget, setSheetReturnTarget] = useState<{
+    measureIndex: number;
+    originalMeasureIndex: number;
+  } | null>(null);
   const [autoStepAdvance, setAutoStepAdvanceState] = useState<boolean>(() => {
     if (typeof window !== 'undefined') return getStoredAutoStepAdvance(false);
     return false;
@@ -136,6 +152,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const [notification, setNotification] = useState<string | null>(null);
   const [playingMeasureIdx, setPlayingMeasureIdx] = useState<number | null>(null);
   const [playingVerseIdx, setPlayingVerseIdx] = useState<number | null>(null);
+  const [playingSystemIdx, setPlayingSystemIdx] = useState<number | null>(null);
   const [activePlaybackNoteId, setActivePlaybackNoteId] = useState<string | null>(null);
   const [measureBatchTexts, setMeasureBatchTexts] = useState<{ [mIdx: number]: string }>({});
   const [verseBatchTexts, setVerseBatchTexts] = useState<{ [vIdx: number]: string }>({});
@@ -191,6 +208,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       if (!state.isPlaying) {
         setPlayingMeasureIdx(null);
         setPlayingVerseIdx(null);
+        setPlayingSystemIdx(null);
       }
     });
     return () => {
@@ -202,9 +220,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   useEffect(() => {
     if (targetMeasureIndex !== null && targetMeasureIndex !== undefined && targetMeasureIndex >= 0) {
       const validMeasureIdx = Math.min(song.measures.length - 1, Math.max(0, targetMeasureIndex));
-
       // Smooth scroll and select corresponding note
       const timer = safeTimeout(() => {
+        if (karaokeReturnTarget) {
+          setEditMode('measure');
+        }
+
         // Find the first pitched/content note in this measure, defaulting to note 0
         const m = song.measures[validMeasureIdx];
         let targetNoteIdx = 0;
@@ -243,9 +264,20 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
               }, 2200);
             }
           }
-        } else {
+        } else if (editMode === 'measure') {
           scrollToCardElement(`measure-card-${validMeasureIdx}`);
           const el = document.getElementById(`measure-card-${validMeasureIdx}`);
+          if (el) {
+            el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+            safeTimeout(() => {
+              el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+            }, 2200);
+          }
+        } else {
+          scrollToCardElement(`sheet-measure-row-${validMeasureIdx}`);
+          const el =
+            document.getElementById(`sheet-measure-row-${validMeasureIdx}`) ||
+            document.getElementById(`sheet-measure-flat-row-${validMeasureIdx}`);
           if (el) {
             el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
             safeTimeout(() => {
@@ -266,7 +298,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         clearTimeout(timer);
       };
     }
-  }, [targetMeasureIndex, editMode, verses, song, audioEngine, showNotice, onTargetMeasureHandled, safeTimeout]);
+  }, [targetMeasureIndex, editMode, verses, song, audioEngine, showNotice, onTargetMeasureHandled, safeTimeout, karaokeReturnTarget, setEditMode]);
 
   const selectedMeasureIndex = selectedCoord ? selectedCoord[0] : null;
   const selectedNoteIndex = selectedCoord ? selectedCoord[1] : null;
@@ -276,7 +308,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       ? song.measures[selectedMeasureIndex]
       : null;
 
-  const currentNote: JianpuNote | null =
+  const currentNote: NumberedNotationNote | null =
     currentMeasure && selectedNoteIndex !== null && currentMeasure.notes[selectedNoteIndex]
       ? currentMeasure.notes[selectedNoteIndex]
       : null;
@@ -300,6 +332,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       setPlayingMeasureIdx(null);
     } else {
       setPlayingVerseIdx(null);
+      setPlayingSystemIdx(null);
       setPlayingMeasureIdx(mIdx);
       audioEngine.playMeasure(song, mIdx, () => {
         setPlayingMeasureIdx(null);
@@ -314,9 +347,25 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       setPlayingVerseIdx(null);
     } else {
       setPlayingMeasureIdx(null);
+      setPlayingSystemIdx(null);
       setPlayingVerseIdx(vIdx);
       audioEngine.playVerse(song, verseNotes, () => {
         setPlayingVerseIdx(null);
+      });
+    }
+  };
+
+  // Dedicated Play/Stop System verification (Sheet Mode)
+  const handleTogglePlaySystem = (systemIdx: number, measureIndices: number[]) => {
+    if (playingSystemIdx === systemIdx && audioEngine.getIsPlaying()) {
+      audioEngine.stop();
+      setPlayingSystemIdx(null);
+    } else {
+      setPlayingMeasureIdx(null);
+      setPlayingVerseIdx(null);
+      setPlayingSystemIdx(systemIdx);
+      audioEngine.playSystem(song, measureIndices, () => {
+        setPlayingSystemIdx(null);
       });
     }
   };
@@ -326,7 +375,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     (
       mIdx: number,
       nIdx: number,
-      updater: (note: JianpuNote) => JianpuNote
+      updater: (note: NumberedNotationNote) => NumberedNotationNote
     ) => {
       const newMeasures = song.measures.map((m, currentMIdx) => {
         if (currentMIdx !== mIdx) return m;
@@ -344,7 +393,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
   // Mutate currently selected note
   const updateSelectedNote = useCallback(
-    (updater: (note: JianpuNote) => JianpuNote) => {
+    (updater: (note: NumberedNotationNote) => NumberedNotationNote) => {
       if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
       updateNoteAt(selectedMeasureIndex, selectedNoteIndex, updater);
     },
@@ -859,7 +908,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     const newMeasures = song.measures.map((m, idx) => {
       if (idx !== mIdx) return m;
 
-      const newNotes: JianpuNote[] = [];
+      const newNotes: NumberedNotationNote[] = [];
       let tokenIdx = 0;
 
       for (let nIdx = 0; nIdx < m.notes.length; nIdx++) {
@@ -903,7 +952,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           insertIdx--;
         }
 
-        const extraNotes: JianpuNote[] = [];
+        const extraNotes: NumberedNotationNote[] = [];
         while (tokenIdx < tokens.length) {
           const tok = tokens[tokenIdx];
           const tokStr = tok.text;
@@ -1027,7 +1076,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         }
       }
 
-      const extraNotes: JianpuNote[] = [];
+      const extraNotes: NumberedNotationNote[] = [];
       while (tokenIdx < tokens.length) {
         const tok = tokens[tokenIdx];
         const tokStr = tok.text;
@@ -1090,7 +1139,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
   // Note management: Insert Note after specific note
   const handleInsertNoteAt = (mIdx: number, nIdx: number) => {
-    const newNote: JianpuNote = {
+    const newNote: NumberedNotationNote = {
       id: generateId('n'),
       pitch: 1,
       octave: 0,
@@ -1113,7 +1162,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
   // Note management: Insert Note before specific note
   const handleInsertNoteBeforeAt = (mIdx: number, nIdx: number) => {
-    const newNote: JianpuNote = {
+    const newNote: NumberedNotationNote = {
       id: generateId('n'),
       pitch: 1,
       octave: 0,
@@ -1136,7 +1185,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
   // Note management: Insert Break (Line break note ↵) directly after specific note
   const handleInsertBreakAt = (mIdx: number, nIdx: number) => {
-    const newBreakNote: JianpuNote = {
+    const newBreakNote: NumberedNotationNote = {
       id: generateId('n'),
       pitch: 'empty',
       octave: 0,
@@ -1642,7 +1691,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       if (!report.isUnder) return;
 
       const restDurations = getRestDurationsForDeficit(report.absDiff);
-      const newRestNotes: JianpuNote[] = restDurations.map(dur => ({
+      const newRestNotes: NumberedNotationNote[] = restDurations.map(dur => ({
         id: generateId('n'),
         pitch: 0,
         octave: 0,
@@ -1696,7 +1745,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       if (report.isUnder) {
         fixedCount++;
         const restDurations = getRestDurationsForDeficit(report.absDiff);
-        const newRestNotes: JianpuNote[] = restDurations.map(dur => ({
+        const newRestNotes: NumberedNotationNote[] = restDurations.map(dur => ({
           id: generateId('n'),
           pitch: 0,
           octave: 0,
@@ -1841,7 +1890,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
         paddedCount++;
         const restDurations = getRestDurationsForDeficit(report.absDiff);
-        const newRestNotes: JianpuNote[] = restDurations.map(dur => ({
+        const newRestNotes: NumberedNotationNote[] = restDurations.map(dur => ({
           id: generateId('n'),
           pitch: 0,
           octave: 0,
@@ -1983,10 +2032,52 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       if (vIdx !== -1) {
         scrollToCardElement(`verse-card-${vIdx}`);
       }
-    } else {
+    } else if (editMode === 'measure') {
       scrollToCardElement(`measure-card-${mIdx}`);
+    } else {
+      scrollToCardElement(`sheet-measure-row-${mIdx}`);
     }
   }, [song, audioEngine, editMode, verses]);
+
+  // Jump from Sheet Mode directly into Measure Mode to edit notes
+  const handleJumpToMeasureFromSheet = useCallback(
+    (mIdx: number) => {
+      setSheetReturnTarget({ measureIndex: mIdx, originalMeasureIndex: mIdx });
+      setEditMode('measure');
+      safeTimeout(() => {
+        handleJumpToMeasure(mIdx);
+      }, 60);
+    },
+    [setEditMode, handleJumpToMeasure, safeTimeout]
+  );
+
+  // Return from Measure Mode back to Sheet Mode
+  const handleReturnToSheet = useCallback(
+    (mIdx?: number) => {
+      const targetIdx =
+        mIdx !== undefined && mIdx !== null
+          ? mIdx
+          : (sheetReturnTarget?.originalMeasureIndex ?? selectedMeasureIndex ?? 0);
+      const validIdx = Math.min(song.measures.length - 1, Math.max(0, targetIdx));
+      setEditMode('sheet');
+      setSheetReturnTarget(null);
+      safeTimeout(() => {
+        const rowId = document.getElementById(`sheet-measure-row-${validIdx}`)
+          ? `sheet-measure-row-${validIdx}`
+          : `sheet-measure-flat-row-${validIdx}`;
+        const el = document.getElementById(rowId);
+        if (el) {
+          scrollToCardElement(rowId);
+          el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          safeTimeout(() => {
+            el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          }, 2200);
+        }
+      }, 80);
+      showNotice(`Returned to Sheet Mode at Measure #${validIdx + 1}`);
+    },
+    [selectedMeasureIndex, sheetReturnTarget, song.measures.length, setEditMode, safeTimeout, showNotice]
+  );
 
   const canMoveNoteBackward =
     selectedMeasureIndex !== null &&
@@ -2163,7 +2254,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         onOpenAligner={onOpenAligner}
         onOpenScanner={onOpenScanner}
         onStartFreshSong={onStartFreshSong}
-        onOpenOrganizer={() => setIsOrganizerOpen(true)}
+        onOpenOrganizer={() => setEditMode(editMode === 'sheet' ? 'measure' : 'sheet')}
+        editMode={editMode}
         onPlayKaraoke={onPlayKaraoke}
         isPlaying={isSongPlaying}
         onStopPlayback={handleStopAudio}
@@ -2179,7 +2271,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       />
 
       {/* WYSIWYG NUMBERED NOTATION SCORE SHEET CONTAINER */}
-      <div id="wysiwyg-jianpu-score-container" className="flex flex-col gap-4">
+      <div id="wysiwyg-numbered-notation-score-container" className="flex flex-col gap-4">
         {/* Score Sheet Header */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-base font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
@@ -2273,16 +2365,20 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
               </div>
             )}
 
-            {/* Verse & Measure Organizer and Layout Trigger */}
+            {/* Sheet Mode (Organizer & Layout) Trigger */}
             <button
               id="composer-open-organizer-btn"
               type="button"
-              onClick={() => setIsOrganizerOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-              title="Verse & Measure Organizer, rhythm health, and layout"
+              onClick={() => setEditMode(editMode === 'sheet' ? 'measure' : 'sheet')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
+                editMode === 'sheet'
+                  ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 font-black'
+                  : 'bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80'
+              }`}
+              title="Sheet Mode: System Layout, Barlines, Phrasing & Rhythm Health"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>Organizer &amp; Layout</span>
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Sheet Mode</span>
               {incompleteMeasuresCount > 0 && (
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono font-black" title={`${incompleteMeasuresCount} measure(s) under or over beat limit`}>
                   {incompleteMeasuresCount}
@@ -2342,29 +2438,84 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                 <Layers className="w-3.5 h-3.5" />
                 <span>Measure Mode</span>
               </button>
+
+              <button
+                id="editor-mode-sheet-btn"
+                type="button"
+                onClick={() => setEditMode('sheet')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[36px] ${
+                  editMode === 'sheet'
+                    ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Sheet Mode</span>
+                {incompleteMeasuresCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono font-black ml-0.5">
+                    {incompleteMeasuresCount}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Quick jump return back to Karaoke mode */}
+            {karaokeReturnTarget && onReturnToKaraoke && (
+              <button
+                id="editor-bar-back-to-karaoke-btn"
+                type="button"
+                onClick={() => onReturnToKaraoke(karaokeReturnTarget.originalMeasureIndex)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+                title={`Jump back to Karaoke mode at Measure #${karaokeReturnTarget.originalMeasureIndex + 1}`}
+              >
+                <CornerUpLeft className="w-3.5 h-3.5" />
+                <Mic2 className="w-3.5 h-3.5" />
+                <span>Back to Karaoke (#{karaokeReturnTarget.originalMeasureIndex + 1})</span>
+              </button>
+            )}
+
+            {/* Quick jump return back to Sheet mode */}
+            {(sheetReturnTarget || editMode === 'measure') && (
+              <button
+                id="editor-bar-back-to-sheet-btn"
+                type="button"
+                onClick={() => handleReturnToSheet(sheetReturnTarget ? sheetReturnTarget.originalMeasureIndex : (selectedMeasureIndex ?? 0))}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+                title={`Jump back to Sheet mode at Measure #${sheetReturnTarget ? sheetReturnTarget.originalMeasureIndex + 1 : ((selectedMeasureIndex ?? 0) + 1)}`}
+              >
+                <CornerUpLeft className="w-3.5 h-3.5" />
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Back to Sheet (#{sheetReturnTarget ? sheetReturnTarget.originalMeasureIndex + 1 : ((selectedMeasureIndex ?? 0) + 1)})</span>
+              </button>
+            )}
+
             {editMode === 'verse' ? (
-              <span className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/60 font-medium">
+              <span className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/60 font-medium text-xs">
                 <span className="font-bold text-amber-600 dark:text-amber-400">Verse Mode:</span>
                 Auto-grouped by punctuation and breath rests · {verses.length} verses total
               </span>
-            ) : (
-              <span className="flex items-center gap-1.5 bg-zinc-200/70 dark:bg-zinc-700/60 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-xl font-medium">
+            ) : editMode === 'measure' ? (
+              <span className="flex items-center gap-1.5 bg-zinc-200/70 dark:bg-zinc-700/60 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-xl font-medium text-xs">
                 <span className="font-bold text-zinc-900 dark:text-zinc-100">Measure Mode:</span>
                 Arranged by score barlines · {song.measures.length} measures total
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/60 font-medium text-xs">
+                <span className="font-bold text-amber-600 dark:text-amber-400">Sheet Mode:</span>
+                System layout, barlines, phrasing &amp; rhythm health · {song.measures.length} measures, {verses.length} verses
               </span>
             )}
           </div>
         </div>
 
-        {/* QUICK MEASURE DURATION BAR */}
-        <div
-          id="composer-quick-duration-bar"
-          className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2.5 bg-white dark:bg-[#141720] rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xs"
-        >
+        {/* QUICK MEASURE DURATION BAR (Visible in Verse and Measure modes) */}
+        {editMode !== 'sheet' && (
+          <div
+            id="composer-quick-duration-bar"
+            className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2.5 bg-white dark:bg-[#141720] rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xs"
+          >
           {/* Left: Scope indicator & Multi-selection controls */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 shrink-0">
@@ -2466,6 +2617,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             </div>
           </div>
         </div>
+      )}
 
         {/* Score Grid: Conditional by Edit Mode ('verse' vs 'measure') with In-Card Note Editing */}
         {editMode === 'verse' ? (
@@ -2540,7 +2692,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onScaleMeasureDuration={handleScaleMeasureDuration}
             onSetUniformMeasureDuration={handleSetUniformMeasureDuration}
           />
-        ) : (
+        ) : editMode === 'measure' ? (
           <MeasureModeView
             song={song}
             selectedMeasureIndex={selectedMeasureIndex}
@@ -2614,6 +2766,46 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onQuickToggleMeasureDuration={handleQuickToggleMeasureDuration}
             onScaleMeasureDuration={handleScaleMeasureDuration}
             onSetUniformMeasureDuration={handleSetUniformMeasureDuration}
+            karaokeReturnTarget={karaokeReturnTarget}
+            onReturnToKaraoke={onReturnToKaraoke}
+            sheetReturnTarget={sheetReturnTarget}
+            onReturnToSheet={handleReturnToSheet}
+            onDismissKaraokeReturn={onDismissKaraokeReturn}
+            onDismissSheetReturn={() => setSheetReturnTarget(null)}
+          />
+        ) : (
+          <SheetModeView
+            song={song}
+            verses={verses}
+            onSelectMeasure={handleJumpToMeasureFromSheet}
+            onMoveMeasure={handleMoveMeasureOrder}
+            onDuplicateMeasure={handleDuplicateMeasure}
+            onToggleLineBreak={handleToggleMeasureLineBreak}
+            onUpdateBarlineType={handleUpdateBarlineType}
+            onAutoFillRest={handleAutoFillMeasureRest}
+            onBatchAutoFillAllRests={handleBatchFixAllIncompleteMeasures}
+            onDeleteMeasure={handleDeleteMeasure}
+            onAddMeasure={handleAddMeasure}
+            onSelectVerse={handleJumpToVerse}
+            playingVerseIdx={playingVerseIdx}
+            onTogglePlayVerse={handleTogglePlayVerse}
+            playingSystemIdx={playingSystemIdx}
+            onTogglePlaySystem={handleTogglePlaySystem}
+            playingMeasureIdx={playingMeasureIdx}
+            onTogglePlayMeasure={handleTogglePlayMeasure}
+            activePlaybackNoteId={activePlaybackNoteId}
+            selectedMeasureIndex={selectedMeasureIndex}
+            selectedNoteIndex={selectedNoteIndex}
+            onSelectNote={handleSelectNote}
+            displayMode={displayMode}
+            onMoveVerse={handleMoveVerseOrder}
+            onToggleVerseLineBreak={handleToggleVerseLineBreak}
+            onUpdateVerseSection={handleUpdateVerseSection}
+            onAutoFillVerseRests={handleAutoFillVerseRests}
+            onDistributeVerseLyrics={handleDistributeVerseLyrics}
+            onDuplicateVerse={handleDuplicateVerse}
+            onDeleteVerse={handleDeleteVerse}
+            onAddVerse={handleAddVerse}
           />
         )}
 
@@ -2637,6 +2829,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         onClose={() => setIsOrganizerOpen(false)}
         song={song}
         onMoveMeasure={handleMoveMeasureOrder}
+        onDuplicateMeasure={handleDuplicateMeasure}
         onSelectMeasure={handleJumpToMeasure}
         onToggleLineBreak={handleToggleMeasureLineBreak}
         onUpdateBarlineType={handleUpdateBarlineType}
@@ -2644,7 +2837,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         onBatchAutoFillAllRests={handleBatchFixAllIncompleteMeasures}
         onDeleteMeasure={handleDeleteMeasure}
         onAddMeasure={handleAddMeasure}
-        initialTab={editMode}
+        initialTab={editMode === 'verse' ? 'verse' : 'measure'}
         verses={verses}
         playingVerseIdx={playingVerseIdx}
         onTogglePlayVerse={handleTogglePlayVerse}

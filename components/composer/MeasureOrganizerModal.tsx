@@ -48,6 +48,7 @@ export interface MeasureOrganizerModalProps {
   onUpdateBarlineType: (mIdx: number, barlineType: BarlineType) => void;
   onAutoFillRest: (mIdx: number) => void;
   onBatchAutoFillAllRests: () => void;
+  onDuplicateMeasure?: (mIdx: number) => void;
   onDeleteMeasure: (mIdx: number) => void;
   onAddMeasure: () => void;
 
@@ -77,6 +78,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
   onUpdateBarlineType,
   onAutoFillRest,
   onBatchAutoFillAllRests,
+  onDuplicateMeasure,
   onDeleteMeasure,
   onAddMeasure,
   initialTab = 'verse',
@@ -113,17 +115,35 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
   const measureReports = useMemo(() => {
     return song.measures.map((m, idx) => {
       const report = getMeasureRhythmReport(m, song.timeSignature || '4/4');
-      const lyricSnippet = m.notes
-        .map(n => n.lyric.hanji || n.lyric.custom || n.lyric.poj || '')
-        .filter(Boolean)
-        .slice(0, 5)
-        .join('');
+
+      const hanloParts: string[] = [];
+      const pojParts: string[] = [];
+
+      m.notes.forEach(n => {
+        const h = (n.lyric?.hanlo || n.lyric?.hanji || n.lyric?.custom || '').trim();
+        const p = (n.lyric?.poj || n.lyric?.tl || '').trim();
+        if (h && h !== '\n' && h !== '↵') hanloParts.push(h);
+        if (p && p !== '\n' && p !== '↵') pojParts.push(p);
+      });
+
+      const completeLyric = hanloParts.reduce((acc, curr) => {
+        if (!acc) return curr;
+        const lastChar = acc.slice(-1);
+        const firstChar = curr.slice(0, 1);
+        if (/[a-zA-Z0-9]/.test(lastChar) && /[a-zA-Z0-9]/.test(firstChar)) {
+          return `${acc} ${curr}`;
+        }
+        return `${acc}${curr}`;
+      }, '');
+
+      const completePoj = pojParts.join(' ');
 
       return {
         measure: m,
         idx,
         report,
-        lyricSnippet,
+        completeLyric,
+        completePoj,
       };
     });
   }, [song.measures, song.timeSignature]);
@@ -640,17 +660,19 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
 
                         {/* Middle Row: Lyric Summary Preview & Quick Batch Lyric Distribute Field */}
                         <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-zinc-100 dark:border-zinc-800 text-xs">
-                          {/* Lyric preview snippet */}
-                          <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                          {/* Complete lyric display */}
+                          <div className="flex flex-col sm:flex-row sm:items-baseline gap-1.5 flex-1 min-w-[200px]">
                             <span className="text-[11px] font-bold text-zinc-400 shrink-0">歌詞:</span>
-                            <span className="text-zinc-700 dark:text-zinc-300 font-medium truncate">
-                              {lyricPreview ? `"${lyricPreview}"` : <span className="italic text-zinc-400">(無歌詞)</span>}
-                            </span>
-                            {(verse.lyricSummary.poj || verse.lyricSummary.tl) && (
-                              <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-serif italic truncate hidden md:inline">
-                                ({verse.lyricSummary.poj || verse.lyricSummary.tl})
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              <span className="text-zinc-800 dark:text-zinc-100 font-bold font-serif text-xs sm:text-sm">
+                                {lyricPreview ? `“${lyricPreview}”` : <span className="italic text-zinc-400 font-normal">(無歌詞)</span>}
                               </span>
-                            )}
+                              {(verse.lyricSummary.poj || verse.lyricSummary.tl) && (
+                                <span className="text-emerald-600 dark:text-emerald-400 text-xs font-serif italic">
+                                  [{verse.lyricSummary.poj || verse.lyricSummary.tl}]
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           {/* Quick Batch Lyric Field inside Verse row */}
@@ -779,7 +801,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                   <p className="text-xs text-zinc-400 mt-1">No under-beat or over-beat measures found.</p>
                 </div>
               ) : (
-                displayedMeasureReports.map(({ measure, idx, report, lyricSnippet }) => {
+                displayedMeasureReports.map(({ measure, idx, report, completeLyric, completePoj }) => {
                   const isFirst = idx === 0;
                   const isLast = idx === song.measures.length - 1;
 
@@ -802,7 +824,7 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                       }`}
                     >
                       {/* Left: Measure Info & Rhythm Status */}
-                      <div className="flex items-center gap-3 flex-wrap flex-1">
+                      <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">
                         {/* Position Handle & Number */}
                         <div className="flex items-center gap-1.5">
                           <span className="w-10 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono font-black text-xs flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
@@ -855,10 +877,25 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                           )}
                         </div>
 
-                        {/* Lyric Preview Snippet */}
-                        <span className="text-xs text-zinc-600 dark:text-zinc-400 font-medium truncate max-w-[140px] sm:max-w-[180px]">
-                          {lyricSnippet ? `"${lyricSnippet}…"` : '(No lyrics)'}
-                        </span>
+                        {/* Complete Lyric Display */}
+                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                          {completeLyric || completePoj ? (
+                            <div className="flex items-baseline gap-1.5 flex-wrap">
+                              {completeLyric && (
+                                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100 font-serif">
+                                  &ldquo;{completeLyric}&rdquo;
+                                </span>
+                              )}
+                              {completePoj && (
+                                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-serif italic">
+                                  [{completePoj}]
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-zinc-400 italic">無歌詞 (No lyrics)</span>
+                          )}
+                        </div>
 
                         {/* Notes count */}
                         <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
@@ -951,6 +988,19 @@ export const MeasureOrganizerModal: React.FC<MeasureOrganizerModalProps> = ({
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </button>
+
+                        {/* Duplicate Measure */}
+                        {onDuplicateMeasure && (
+                          <button
+                            id={`organizer-duplicate-measure-btn-${idx}`}
+                            type="button"
+                            onClick={() => onDuplicateMeasure(idx)}
+                            className="p-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
+                            title={`Duplicate Measure #${measure.measureNumber || idx + 1}`}
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                        )}
 
                         {/* Delete measure */}
                         {song.measures.length > 1 && (

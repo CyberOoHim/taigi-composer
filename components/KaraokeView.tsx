@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { InstrumentType, JianpuNote, LyricDisplayMode, Measure, Song, VerseItem } from '@/types/song';
+import { InstrumentType, NumberedNotationNote, LyricDisplayMode, Measure, Song, VerseItem } from '@/types/song';
 import { AudioEngine, PlaybackState } from '@/lib/audioEngine';
 import { groupSongIntoVerses } from '@/lib/taigiUtils';
 import { KaraokeSection } from './karaoke/SectionJumpBar';
@@ -52,6 +52,8 @@ interface KaraokeViewProps {
   onEditSection?: (section: KaraokeSection) => void;
   onEditMeasure?: (measureIndex: number) => void;
   isEcoMode?: boolean;
+  targetKaraokeMeasureIndex?: number | null;
+  onTargetKaraokeMeasureHandled?: () => void;
 }
 
 export const KaraokeView: React.FC<KaraokeViewProps> = ({
@@ -63,6 +65,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   onEditSection,
   onEditMeasure,
   isEcoMode = false,
+  targetKaraokeMeasureIndex = null,
+  onTargetKaraokeMeasureHandled,
 }) => {
   const [playbackState, setPlaybackState] = useState<PlaybackState>(() => {
     if (audioEngine && typeof audioEngine.getState === 'function') {
@@ -339,6 +343,35 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       }
     }
   }, [playbackState.currentMeasureIndex, playbackState.isPlaying]);
+
+  // Handle jumping back to Karaoke mode at original place / target measure
+  useEffect(() => {
+    if (targetKaraokeMeasureIndex !== null && targetKaraokeMeasureIndex !== undefined && targetKaraokeMeasureIndex >= 0) {
+      const validIdx = Math.min(song.measures.length - 1, Math.max(0, targetKaraokeMeasureIndex));
+      audioEngine.seekToMeasure(song, validIdx);
+
+      const timer = setTimeout(() => {
+        if (sheetScrollRef.current) {
+          const activeEl = sheetScrollRef.current.querySelector(`[data-measure-idx="${validIdx}"]`) as HTMLElement | null;
+          if (activeEl) {
+            activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            activeEl.classList.add('ring-4', 'ring-amber-400', 'bg-amber-900/60');
+            setTimeout(() => {
+              activeEl.classList.remove('ring-4', 'ring-amber-400', 'bg-amber-900/60');
+            }, 2500);
+          }
+        }
+        if (typeof window !== 'undefined') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        if (onTargetKaraokeMeasureHandled) {
+          onTargetKaraokeMeasureHandled();
+        }
+      }, 80);
+
+      return () => clearTimeout(timer);
+    }
+  }, [targetKaraokeMeasureIndex, song, audioEngine, onTargetKaraokeMeasureHandled]);
 
   // Extract song sections with precise timestamps and percentages
   const songSections = useMemo<KaraokeSection[]>(() => {

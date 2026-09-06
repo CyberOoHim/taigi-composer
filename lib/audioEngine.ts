@@ -1,4 +1,4 @@
-import { ArticulationType, GraceNote, InstrumentType, JianpuNote, KeySignature, Measure, Song } from '@/types/song';
+import { ArticulationType, GraceNote, InstrumentType, NumberedNotationNote, KeySignature, Measure, Song } from '@/types/song';
 import { getChordNotes, getMeasureChords, getPitchFrequency, isNonNotationItem, isSamePitch, isSlurActive, isTieActive } from './taigiUtils';
 
 export interface PlaybackState {
@@ -65,7 +65,7 @@ export class AudioEngine {
   private stateListeners: ((state: PlaybackState) => void)[] = [];
   private endedListeners: (() => void)[] = [];
   private tabInterruptionListeners: ((info: { pausedAtTime: number }) => void)[] = [];
-  public onNoteStart?: (measureIndex: number, noteIndex: number, note: JianpuNote, durationSec: number) => void;
+  public onNoteStart?: (measureIndex: number, noteIndex: number, note: NumberedNotationNote, durationSec: number) => void;
   public onMeasureStart?: (measureIndex: number) => void;
   public onLoopIteration?: (iterationCount: number) => void;
   private currentLoopIteration = 0;
@@ -454,7 +454,7 @@ export class AudioEngine {
   /**
    * Play a single preview note (e.g. clicking a note in the editor)
    */
-  public previewNote(key: KeySignature, note: JianpuNote) {
+  public previewNote(key: KeySignature, note: NumberedNotationNote) {
     if (isNonNotationItem(note)) return; // Punctuation, annotations, and whitespace produce no sound
     this.initContext();
     if (!this.ctx || !this.melodyGain) return;
@@ -504,7 +504,7 @@ export class AudioEngine {
    */
   private playMelodyNoteWithDetails(
     key: KeySignature,
-    note: JianpuNote,
+    note: NumberedNotationNote,
     scheduleAt: number,
     noteDurationSec: number,
     destination: GainNode,
@@ -962,7 +962,7 @@ export class AudioEngine {
       time: number;
       measureIndex: number;
       noteIndex: number;
-      note: JianpuNote;
+      note: NumberedNotationNote;
       durationSec: number;
     }[] = [];
 
@@ -1059,11 +1059,178 @@ export class AudioEngine {
   }
 
   /**
+   * Play a system of measures (a staff line across the score)
+   */
+  public playSystem(song: Song, measureIndices: number[], onFinished?: () => void) {
+    this.initContext();
+    this.stop(); // Stop any existing playback
+
+    if (!measureIndices || measureIndices.length === 0 || !this.ctx) return;
+
+    this.currentSong = song;
+    this.isPlaying = true;
+    this.isPaused = false;
+    this.pausedSongTime = 0;
+
+    const effectiveBpm = song.bpm * this.options.tempoMultiplier;
+    const secPerBeat = 60 / effectiveBpm;
+
+    interface SystemNoteRef {
+      measureIndex: number;
+      noteIndex: number;
+      note: NumberedNotationNote;
+      noteStartTime: number;
+      noteDurationSec: number;
+      isNonNotation: boolean;
+    }
+
+    const flatNotes: SystemNoteRef[] = [];
+    let systemAccumTime = 0;
+
+    measureIndices.forEach(mIdx => {
+      const measure = song.measures[mIdx];
+      if (!measure) return;
+
+      const measureStart = systemAccumTime;
+      let measureBeats = 0;
+
+      measure.notes.forEach((note, nIdx) => {
+        const isNon = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
+        const noteDurSec = isNon ? 0 : note.duration * secPerBeat;
+        flatNotes.push({
+          measureIndex: mIdx,
+          noteIndex: nIdx,
+          note,
+          noteStartTime: measureStart + measureBeats * secPerBeat,
+          noteDurationSec: noteDurSec,
+          isNonNotation: isNon,
+        });
+        if (!isNon) {
+          measureBeats += note.duration;
+        }
+      });
+
+      const tsParts = (measure.timeSignature || song.timeSignature).split('/');
+      const beatsPerBar = parseInt(tsParts[0], 10) || 4;
+      const measureDurationBeats = Math.max(measureBeats, beatsPerBar);
+      systemAccumTime += measureDurationBeats * secPerBeat;
+    });
+
+    const totalSystemDurationSec = systemAccumTime;
+    const audioStart = this.ctx!.currentTime + 0.05;
+    this.startAudioTime = audioStart;
+
+    const timelineEvents: {
+      time: number;
+      measureIndex: number;
+      noteIndex: number;
+      note: NumberedNotationNote;
+      durationSec: number;
+    }[] = [];
+
+    // Pre-calculate true ties across system notes
+    const flatTotal = flatNotes.length;
+    const isTiedContinuation = new Array<boolean>(flatTotal).fill(false);
+    const combinedSoundDurations = new Array<number>(flatTotal).fill(0);
+
+    for (let i = 0; i < flatTotal; i++) {
+      if (isTiedContinuation[i]) continue;
+      const fn = flatNotes[i];
+      let durSec = fn.noteDurationSec;
+      let k = i;
+      while (k + 1 < flatTotal && isTieActive(flatNotes[k].note, flatNotes[k + 1].note)) {
+        k++;
+        isTiedContinuation[k] = true;
+        durSec += flatNotes[k].noteDurationSec;
+      }
+      combinedSoundDurations[i] = durSec;
+    }
+
+    // Schedule melody notes
+    flatNotes.forEach((fn, idx) => {
+      const scheduleAt = audioStart + fn.noteStartTime;
+      if (!fn.isNonNotation && fn.note.duration > 0) {
+        if (!isTiedContinuation[idx]) {
+          const soundDuration = combinedSoundDurations[idx] || fn.noteDurationSec;
+          const nextFn = flatNotes[idx + 1];
+          const prevFn = idx > 0 ? flatNotes[idx - 1] : null;
+          const isSlurred = isSlurActive(fn.note, nextFn?.note) || (prevFn ? isSlurActive(prevFn.note, fn.note) : false);
+
+          this.playMelodyNoteWithDetails(
+            song.key,
+            fn.note,
+            scheduleAt,
+            soundDuration,
+            this.melodyGain!,
+            fn.note.instrument || this.options.instrument,
+            { isLegato: isSlurred }
+          );
+        }
+      }
+
+      timelineEvents.push({
+        time: fn.noteStartTime,
+        measureIndex: fn.measureIndex,
+        noteIndex: fn.noteIndex,
+        note: fn.note,
+        durationSec: fn.noteDurationSec,
+      });
+    });
+
+    // Schedule chords and metronome clicks for each measure in the system
+    let measureAccumTime = 0;
+    measureIndices.forEach(mIdx => {
+      const measure = song.measures[mIdx];
+      if (!measure) return;
+
+      const tsParts = (measure.timeSignature || song.timeSignature).split('/');
+      const beatsPerBar = parseInt(tsParts[0], 10) || 4;
+      const measureChords = getMeasureChords(measure);
+
+      for (let b = 0; b < beatsPerBar; b++) {
+        const beatTime = audioStart + measureAccumTime + b * secPerBeat;
+        this.playMetronomeClick(beatTime, b === 0);
+        if (measureChords.length > 0) {
+          const chordIdx = Math.min(
+            measureChords.length - 1,
+            Math.floor((b / beatsPerBar) * measureChords.length)
+          );
+          const currentChord = measureChords[chordIdx];
+          const isChordChange = b === 0 || chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length);
+          this.playChordBeat(currentChord, beatTime, secPerBeat, isChordChange);
+        }
+      }
+
+      let mBeats = 0;
+      measure.notes.forEach(n => {
+        if (!isNonNotationItem(n) && n.duration > 0 && n.pitch !== 'empty') {
+          mBeats += n.duration;
+        }
+      });
+      measureAccumTime += Math.max(mBeats, beatsPerBar) * secPerBeat;
+    });
+
+    // Start UI tracking loop for real-time note highlighting
+    this.startTrackingLoop(totalSystemDurationSec, timelineEvents);
+
+    // Auto stop when system finishes
+    const stopTimer = setTimeout(() => {
+      if (this.isPlaying && this.currentSong === song) {
+        this.stop();
+        this.notifyEnded();
+        if (onFinished) onFinished();
+      }
+    }, (totalSystemDurationSec + 0.08) * 1000);
+
+    this.scheduledTimeoutIds.push(stopTimer as unknown as number);
+  }
+
+  /**
    * Play only a specific verse (sequence of notes across measures)
    */
   public playVerse(
     song: Song,
-    verseNotes: { note: JianpuNote; measureIdx: number; noteIdx: number }[],
+    verseNotes: { note: NumberedNotationNote; measureIdx: number; noteIdx: number }[],
     onFinished?: () => void
   ) {
     this.initContext();
@@ -1094,7 +1261,7 @@ export class AudioEngine {
       time: number;
       measureIndex: number;
       noteIndex: number;
-      note: JianpuNote;
+      note: NumberedNotationNote;
       durationSec: number;
     }[] = [];
 
@@ -1280,7 +1447,7 @@ export class AudioEngine {
       time: number;
       measureIndex: number;
       noteIndex: number;
-      note: JianpuNote;
+      note: NumberedNotationNote;
       durationSec: number;
     }[] = [];
 
@@ -1288,7 +1455,7 @@ export class AudioEngine {
     interface FlatSongNote {
       measureIndex: number;
       noteIndex: number;
-      note: JianpuNote;
+      note: NumberedNotationNote;
       noteStartTime: number;
       noteDurationSec: number;
       isNonNotation: boolean;
@@ -1423,7 +1590,7 @@ export class AudioEngine {
       time: number;
       measureIndex: number;
       noteIndex: number;
-      note: JianpuNote;
+      note: NumberedNotationNote;
       durationSec: number;
     }[]
   ) {

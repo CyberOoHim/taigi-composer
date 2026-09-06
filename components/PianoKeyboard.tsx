@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { JianpuNote, KeySignature, PitchNumber } from '@/types/song';
+import { NumberedNotationNote, KeySignature, PitchNumber } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import { KEY_SEMITONES, SCALE_DEGREE_SEMITONES } from '@/lib/taigiUtils';
 import { Music, Sparkles } from 'lucide-react';
 
 interface PianoKeyboardProps {
   keySignature: KeySignature;
-  currentNote: JianpuNote | null;
+  currentNote: NumberedNotationNote | null;
   onSelectPitch: (pitch: PitchNumber, octave: number, accidental: '' | '#' | 'b') => void;
   audioEngine: AudioEngine;
   className?: string;
@@ -22,7 +22,8 @@ interface KeyDefinition {
   pitch: PitchNumber;
   accidental: '' | '#' | 'b';
   octave: number;
-  jianpuLabel: string;
+  numberedNotationLabel: string;
+  jianpuLabel?: string;
   accidentalLabel?: string;
   solfege: string;
   noteName: string;
@@ -38,8 +39,8 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
 }) => {
   // Octave display range view: 'low_mid' (-1, 0), 'mid_high' (0, 1), 'all' (-1, 0, 1), 'mid' (0)
   const [octaveView, setOctaveView] = useState<'low_mid' | 'mid_high' | 'all' | 'mid'>('low_mid');
-  // Label mode: 'both' | 'jianpu' | 'note'
-  const [labelMode, setLabelMode] = useState<'both' | 'jianpu' | 'note'>('both');
+  // Label mode: 'both' | 'numberedNotations' | 'note'
+  const [labelMode, setLabelMode] = useState<'both' | 'numberedNotations' | 'note'>('both');
 
   // Base key semitone relative to C4 (0 = C)
   const baseKeySemitone = KEY_SEMITONES[keySignature] ?? 0;
@@ -105,6 +106,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         pitch,
         accidental: '',
         octave: octaveNum,
+        numberedNotationLabel: `${pitch}`,
         jianpuLabel: `${pitch}`,
         solfege,
         noteName,
@@ -116,6 +118,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         pitch: 1 as PitchNumber,
         accidental: '#' as const,
         leftPercent: 9.7,
+        numberedNotationLabel: '♯1',
         jianpuLabel: '♯1',
         accidentalLabel: '♭2',
       },
@@ -123,6 +126,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         pitch: 2 as PitchNumber,
         accidental: '#' as const,
         leftPercent: 24.0,
+        numberedNotationLabel: '♯2',
         jianpuLabel: '♯2',
         accidentalLabel: '♭3',
       },
@@ -130,6 +134,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         pitch: 4 as PitchNumber,
         accidental: '#' as const,
         leftPercent: 52.5,
+        numberedNotationLabel: '♯4',
         jianpuLabel: '♯4',
         accidentalLabel: '♭5',
       },
@@ -137,6 +142,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         pitch: 5 as PitchNumber,
         accidental: '#' as const,
         leftPercent: 66.8,
+        numberedNotationLabel: '♯5',
         jianpuLabel: '♯5',
         accidentalLabel: '♭6',
       },
@@ -144,6 +150,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         pitch: 6 as PitchNumber,
         accidental: '#' as const,
         leftPercent: 81.1,
+        numberedNotationLabel: '♯6',
         jianpuLabel: '♯6',
         accidentalLabel: '♭7',
       },
@@ -154,6 +161,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         pitch: bk.pitch,
         accidental: bk.accidental,
         octave: octaveNum,
+        numberedNotationLabel: bk.numberedNotationLabel,
         jianpuLabel: bk.jianpuLabel,
         accidentalLabel: bk.accidentalLabel,
         solfege,
@@ -215,7 +223,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
     onSelectPitch(keyDef.pitch, keyDef.octave, keyDef.accidental);
 
     // Audio preview
-    const tempNote: JianpuNote = {
+    const tempNote: NumberedNotationNote = {
       id: 'preview',
       pitch: keyDef.pitch,
       octave: keyDef.octave,
@@ -258,18 +266,18 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Numbered Notation + Pitch
+              Numbered Notations + Pitch
             </button>
             <button
               type="button"
-              onClick={() => setLabelMode('jianpu')}
+              onClick={() => setLabelMode('numberedNotations')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
-                labelMode === 'jianpu'
+                labelMode === 'numberedNotations' || (labelMode as string) === 'jianpu'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              Numbered Notation 1-7
+              Numbered Notations 1-7
             </button>
             <button
               type="button"
@@ -421,7 +429,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                         } rounded-b-md border-b-4 ${
                           active ? 'border-b-amber-600' : 'border-b-zinc-400'
                         }`}
-                        title={`Pitch: ${wKey.jianpuLabel} (${wKey.noteName} - ${wKey.solfege})`}
+                        title={`Pitch: ${wKey.numberedNotationLabel} (${wKey.noteName} - ${wKey.solfege})`}
                       >
                         {/* Active Dot Indicator */}
                         {active && (
@@ -438,13 +446,13 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                         )}
 
                         {/* Numbered Notation Pitch Number */}
-                        {(labelMode === 'both' || labelMode === 'jianpu') && (
+                        {(labelMode === 'both' || labelMode === 'numberedNotations' || (labelMode as string) === 'jianpu') && (
                           <span
                             className={`font-mono text-base sm:text-lg font-black leading-none ${
                               active ? 'text-zinc-950 scale-110' : 'text-zinc-900'
                             }`}
                           >
-                            {wKey.jianpuLabel}
+                            {wKey.numberedNotationLabel}
                           </span>
                         )}
 
@@ -490,7 +498,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                             ? '!bg-amber-400 !border-amber-500 !text-zinc-950 ring-2 ring-amber-400 font-black shadow-lg border-b-4 border-b-amber-600'
                             : 'bg-linear-to-b from-zinc-800 via-zinc-900 to-black hover:from-zinc-700 hover:to-zinc-900 text-zinc-100 border-zinc-950 border-b-4 border-b-black shadow-[0_4px_6px_rgba(0,0,0,0.6)]'
                         }`}
-                        title={`Black Key: ${bKey.jianpuLabel} / ${bKey.accidentalLabel} (${bKey.noteName} - ${bKey.solfege})`}
+                        title={`Black Key: ${bKey.numberedNotationLabel} / ${bKey.accidentalLabel} (${bKey.noteName} - ${bKey.solfege})`}
                       >
                         {/* Top Active Indicator */}
                         {active && (
@@ -507,13 +515,13 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                         )}
 
                         {/* Numbered Notation Accidental Pitch */}
-                        {(labelMode === 'both' || labelMode === 'jianpu') && (
+                        {(labelMode === 'both' || labelMode === 'numberedNotations' || (labelMode as string) === 'jianpu') && (
                           <span
                             className={`font-mono text-[10px] sm:text-xs font-black tracking-tighter leading-none ${
                               active ? 'text-zinc-950' : 'text-amber-300'
                             }`}
                           >
-                            {bKey.jianpuLabel}
+                            {bKey.numberedNotationLabel}
                           </span>
                         )}
 

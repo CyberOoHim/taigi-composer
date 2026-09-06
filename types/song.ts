@@ -26,7 +26,7 @@ export interface LyricSyllable {
   tl?: string;
 }
 
-export interface JianpuNote {
+export interface NumberedNotationNote {
   id: string;
   pitch: PitchNumber;       // 1-7 (pitch), 0 (rest), or 'empty' (blank notation / space for punctuation/annotation)
   octave: number;           // -2, -1, 0, 1, 2 (dots below / above)
@@ -46,7 +46,8 @@ export interface JianpuNote {
   instrument?: InstrumentType; // Individual note sound source override
 }
 
-export type NumberedNotationNote = JianpuNote;
+/** Backward compatibility alias */
+export type JianpuNote = NumberedNotationNote;
 
 export type BarlineType = 'single' | 'double' | 'end' | 'repeat_start' | 'repeat_end';
 
@@ -57,7 +58,7 @@ export interface Measure {
   chords?: string[];        // Multiple chords array e.g. ["Bb", "F"]
   timeSignature?: TimeSignature; // If measure changes time signature
   section?: string;         // e.g. "Intro", "Verse 1", "Chorus", "Bridge"
-  notes: JianpuNote[];
+  notes: NumberedNotationNote[];
   barlineType?: BarlineType; // Custom barline style at end of measure ('single' | 'double' | 'end' | 'repeat_start' | 'repeat_end')
   isLineBreak?: boolean;    // True if this measure marks the end of a line / forces a system break
 }
@@ -89,10 +90,10 @@ export type LyricDisplayMode =
 
 export type InstrumentType = 'piano' | 'flute' | 'whistle' | 'guitar' | 'synth' | 'bell';
 
-export type EditorEditMode = 'verse' | 'measure';
+export type EditorEditMode = 'verse' | 'measure' | 'sheet';
 
 export interface VerseNoteRef {
-  note: JianpuNote;
+  note: NumberedNotationNote;
   measureIdx: number;
   noteIdx: number;
   measureIndex: number;

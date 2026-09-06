@@ -23,6 +23,7 @@ import {
   getStoredCurrentSong,
   setStoredCurrentSong,
   saveSongToCustomLibrary,
+  STORAGE_KEYS,
 } from '@/lib/storage';
 import {
   Mic2,
@@ -76,6 +77,11 @@ export default function Home() {
   const [isNewSongConfirmOpen, setIsNewSongConfirmOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [targetMeasureIndex, setTargetMeasureIndex] = useState<number | null>(null);
+  const [targetKaraokeMeasureIndex, setTargetKaraokeMeasureIndex] = useState<number | null>(null);
+  const [karaokeReturnTarget, setKaraokeReturnTarget] = useState<{
+    measureIndex: number;
+    originalMeasureIndex: number;
+  } | null>(null);
 
   // Load persisted current song from localStorage on mount
   useEffect(() => {
@@ -111,6 +117,7 @@ export default function Home() {
     }
     const freshSong = createFreshSong();
     loadNewSong(freshSong);
+    setKaraokeReturnTarget(null);
     if (activeTab === 'karaoke') {
       setActiveTab('editor');
     }
@@ -152,7 +159,7 @@ export default function Home() {
   // Listen to cross-tab storage changes (e.g. if user edited or imported in another tab)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'jianpu_current_song_v2' && e.newValue) {
+      if ((e.key === STORAGE_KEYS.CURRENT_SONG || e.key === 'jianpu_current_song_v2') && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (parsed && parsed.id && parsed.id !== song.id) {
@@ -190,6 +197,10 @@ export default function Home() {
     if (audioEngine) {
       audioEngine.stop();
     }
+    setKaraokeReturnTarget({
+      measureIndex,
+      originalMeasureIndex: measureIndex,
+    });
     if (activeTab === 'karaoke') {
       setActiveTab('editor');
     }
@@ -200,11 +211,27 @@ export default function Home() {
     if (audioEngine) {
       audioEngine.stop();
     }
+    setKaraokeReturnTarget({
+      measureIndex: section.startMeasureIndex,
+      originalMeasureIndex: section.startMeasureIndex,
+    });
     if (activeTab === 'karaoke') {
       setActiveTab('editor');
     }
     setTargetMeasureIndex(section.startMeasureIndex);
   }, [activeTab, setActiveTab]);
+
+  const handleReturnToKaraoke = useCallback((destMeasureIndex?: number) => {
+    if (audioEngine) {
+      audioEngine.stop();
+    }
+    const dest =
+      destMeasureIndex !== undefined && destMeasureIndex !== null
+        ? destMeasureIndex
+        : (karaokeReturnTarget?.originalMeasureIndex ?? 0);
+    setActiveTab('karaoke');
+    setTargetKaraokeMeasureIndex(dest);
+  }, [karaokeReturnTarget, setActiveTab]);
 
   const handleTogglePlay = useCallback(() => {
     if (!audioEngine) return;
@@ -329,6 +356,8 @@ export default function Home() {
               onEditMeasure={handleEditMeasure}
               onEditSection={handleEditSection}
               isEcoMode={isEcoMode}
+              targetKaraokeMeasureIndex={targetKaraokeMeasureIndex}
+              onTargetKaraokeMeasureHandled={() => setTargetKaraokeMeasureIndex(null)}
             />
 
             {/* Quick Switch to Editor CTA Rack */}
@@ -347,7 +376,12 @@ export default function Home() {
                 </div>
               </div>
               <button
-                onClick={() => setActiveTab('editor')}
+                onClick={() => {
+                  const curMIdx = audioEngine?.getState?.()?.currentMeasureIndex ?? 0;
+                  setKaraokeReturnTarget({ measureIndex: curMIdx, originalMeasureIndex: curMIdx });
+                  setActiveTab('editor');
+                  setTargetMeasureIndex(curMIdx);
+                }}
                 className="flex items-center justify-center gap-2 px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] shrink-0 w-full sm:w-auto"
               >
                 <span>Open Editor</span>
@@ -371,6 +405,9 @@ export default function Home() {
               onPlayKaraoke={handlePlayKaraoke}
               targetMeasureIndex={targetMeasureIndex}
               onTargetMeasureHandled={() => setTargetMeasureIndex(null)}
+              karaokeReturnTarget={karaokeReturnTarget}
+              onReturnToKaraoke={handleReturnToKaraoke}
+              onDismissKaraokeReturn={() => setKaraokeReturnTarget(null)}
               onUndo={undo}
               onRedo={redo}
               canUndo={canUndo}
@@ -427,6 +464,8 @@ export default function Home() {
                 onEditMeasure={handleEditMeasure}
                 onEditSection={handleEditSection}
                 isEcoMode={isEcoMode}
+                targetKaraokeMeasureIndex={targetKaraokeMeasureIndex}
+                onTargetKaraokeMeasureHandled={() => setTargetKaraokeMeasureIndex(null)}
               />
             </div>
 
@@ -451,6 +490,9 @@ export default function Home() {
                 onPlayKaraoke={handlePlayKaraoke}
                 targetMeasureIndex={targetMeasureIndex}
                 onTargetMeasureHandled={() => setTargetMeasureIndex(null)}
+                karaokeReturnTarget={karaokeReturnTarget}
+                onReturnToKaraoke={handleReturnToKaraoke}
+                onDismissKaraokeReturn={() => setKaraokeReturnTarget(null)}
                 onUndo={undo}
                 onRedo={redo}
                 canUndo={canUndo}

@@ -3,7 +3,7 @@
 import React from 'react';
 import { LyricDisplayMode, Song } from '@/types/song';
 import { AudioEngine, PlaybackState } from '@/lib/audioEngine';
-import { JianpuNoteComponent } from '../JianpuNoteComponent';
+import { NumberedNotationNoteComponent } from '../NumberedNotationNoteComponent';
 import { KaraokeSection } from './SectionJumpBar';
 import { Music, Pencil } from 'lucide-react';
 import { getMeasureChords } from '@/lib/taigiUtils';
@@ -63,6 +63,7 @@ export const AlignedScoreRoll: React.FC<AlignedScoreRollProps> = React.memo(({
           return (
             <div
               key={measure.id}
+              id={`ktv-measure-card-${mIdx}`}
               data-measure-idx={mIdx}
               onClick={() => {
                 audioEngine.seekToMeasure(song, mIdx);
@@ -150,7 +151,7 @@ export const AlignedScoreRoll: React.FC<AlignedScoreRollProps> = React.memo(({
                 {measure.notes.map((note, nIdx) => {
                   const isNoteActive = isMeasureActive && playbackState.currentNoteIndex === nIdx;
                   return (
-                    <JianpuNoteComponent
+                    <NumberedNotationNoteComponent
                       key={note.id}
                       note={note}
                       prevNote={nIdx > 0 ? measure.notes[nIdx - 1] : (mIdx > 0 ? song.measures[mIdx - 1]?.notes[song.measures[mIdx - 1].notes.length - 1] : null)}

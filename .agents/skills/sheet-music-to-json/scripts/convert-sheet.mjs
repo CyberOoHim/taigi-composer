@@ -32,7 +32,7 @@ function printHelp() {
   console.log(`
 🎵 Sheet Music to Taigi Song JSON Converter 🎵
 
-Converts scanned sheet music (Jianpu 簡譜 or Staff Notation) in Image (PNG, JPG, WEBP)
+Converts scanned sheet music (Numbered Notation 簡譜 or Staff Notation) in Image (PNG, JPG, WEBP)
 or PDF format into the standardized JSON schema required by the Taigi Composer app.
 
 Usage:
@@ -175,7 +175,7 @@ Critical Transcription Rules:
    - "barlineType": "single" (default), "double", "end", "repeat_start", "repeat_end".
    - "isLineBreak": true if this measure marks the end of a printed line/system.
 
-3. **Jianpu Note Decoding**:
+3. **Numbered Notation Note Decoding**:
    - "pitch": 
      * 1 (Do), 2 (Re), 3 (Mi), 4 (Fa), 5 (Sol), 6 (La), 7 (Ti)
      * 0 (Rest / 休止符)
@@ -188,7 +188,7 @@ Critical Transcription Rules:
      * -2: two dots below (倍低音)
    - "accidental": "" (natural), "#" (sharp), "b" (flat).
    - "duration": Duration in beats (relative to quarter note = 1):
-     * Whole note (4 beats): in Jianpu represented by note followed by three dashes (e.g. 5 - - -) -> duration: 4
+     * Whole note (4 beats): in Numbered Notation represented by note followed by three dashes (e.g. 5 - - -) -> duration: 4
      * Dotted half note (3 beats): note followed by two dashes (5 - -) -> duration: 3
      * Half note (2 beats): note followed by one dash (5 -) -> duration: 2
      * Dotted quarter note (1.5 beats): 5· -> duration: 1.5, isDotted: true
@@ -212,6 +212,11 @@ Critical Transcription Rules:
          "poj": "Pe̍h-ōe-jī 白話字羅馬字含調符 (e.g., To̍k, iā, bô, phōaⁿ, siú, teng, ē, gún ê)"
        }
    - For rests (pitch 0) or notes tied from previous notes (continuation of sustained syllable), set lyric to {}.
+
+5. **Verse & Phrase Splitting for Karaoke Readability (CRITICAL)**:
+   - To make lyrics easily readable on the Karaoke stage prompter, ALWAYS split verses into short while meaningful musical phrases (typically 2 to 4 measures, or 4 to 8 sung syllables per phrase, matching natural poetic lines and breathing pauses).
+   - NEVER bundle an entire multi-sentence stanza or 8+ measures into one long run-on verse.
+   - Conclude each meaningful phrase by setting isLineBreak: true on that measure and splitting into clear subsections (e.g., section: "主歌 1-A", "主歌 1-B").
 
 Output strictly valid JSON matching this schema:
 {

@@ -1,10 +1,10 @@
-# Taigi Jianpu & Song Notation Reference
+# Taigi Numbered Notation & Song Notation Reference
 
-This guide provides transcription and encoding guidelines for converting physical sheet music (Jianpu 簡譜 or standard staff notation) into the digital representation supported by this application.
+This guide provides transcription and encoding guidelines for converting physical sheet music (Numbered Notation 簡譜 or standard staff notation) into the digital representation supported by this application.
 
 ---
 
-## 1. Numbered Musical Notation (Jianpu 簡譜) Basics
+## 1. Numbered Musical Notation (Numbered Notation 簡譜) Basics
 
 ### Scale Degrees & Pitch
 | Notation | Scale Degree | Solfège | App `pitch` Value |
@@ -44,7 +44,7 @@ This guide provides transcription and encoding guidelines for converting physica
 
 ## 2. Key Signatures (調號) & Transposition
 
-In Jianpu, key signatures appear as `1 = C`, `1 = F`, `1 = G`, etc.
+In Numbered Notation, key signatures appear as `1 = C`, `1 = F`, `1 = G`, etc.
 
 The application supports:
 `C`, `Db`, `D`, `Eb`, `E`, `F`, `F#`, `G`, `Ab`, `A`, `Bb`, `B`.
@@ -104,3 +104,20 @@ $$\sum \text{Note Durations} = \text{Expected Beats for Time Signature}$$
 - In **6/8**: Total duration per measure must equal **3 beats** (in dotted-quarter groupings).
 
 Notes with `pitch: "empty"` or `duration: 0` are spacers and do not contribute to measure beat sums.
+
+---
+
+## 6. Verse Phrasing & Karaoke Readability Standards
+
+In the interactive Karaoke Prompter and Rehearsal Stage, lyrics are displayed in large, high-contrast typography. For optimal readability and pacing:
+
+1. **Short While Meaningful Phrases**:
+   - Split verses into natural musical phrases: **4 to 8 syllables** (typically 1 poetic line, such as Taiwanese 5-word or 7-word poetic meter, e.g. "獨夜無伴守燈下", "清風對面吹").
+   - Each phrase typically spans **2 to 4 measures**.
+   - Avoid run-on verses: Never combine multi-line stanzas into a single 15+ syllable block.
+
+2. **Encoding in Song JSON**:
+   - Conclude each phrase by appending `\n` to the last note's lyric (e.g. `hanlo: "下\n", poj: "ē\n"`).
+   - Set `"isLineBreak": true` on the concluding measure.
+   - Use distinct subsection tags when helpful (e.g. `"section": "主歌 1-A"`, `"section": "主歌 1-B"`).
+

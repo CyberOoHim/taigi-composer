@@ -292,10 +292,16 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           tokIdx++;
           const targetHanlo = tok.hanlo !== undefined ? tok.hanlo : (tok.hanji !== undefined ? tok.hanji : tok.custom);
           const targetPoj = tok.poj !== undefined ? tok.poj : tok.tl;
+
+          // If this is the last token of a line/verse preview, append newline to preserve short meaningful verse in Karaoke mode
+          const isLastTokenInLine = tokIdx === vp.tokens.length;
+          const formattedHanlo = isLastTokenInLine && targetHanlo && !targetHanlo.includes('\n') ? `${targetHanlo}\n` : targetHanlo;
+          const formattedPoj = isLastTokenInLine && targetPoj && !targetPoj.includes('\n') ? `${targetPoj}\n` : targetPoj;
+
           note.lyric = {
             ...note.lyric,
-            ...(targetHanlo !== undefined ? { hanlo: targetHanlo } : {}),
-            ...(targetPoj !== undefined ? { poj: targetPoj } : {}),
+            ...(formattedHanlo !== undefined ? { hanlo: formattedHanlo } : {}),
+            ...(formattedPoj !== undefined ? { poj: formattedPoj } : {}),
           };
 
           if (isTokenPunct && isNoteNonNotation) {

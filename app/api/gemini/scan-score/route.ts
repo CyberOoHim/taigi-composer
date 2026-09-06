@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
-import { JianpuNote, KeySignature, LyricSyllable, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
+import { NumberedNotationNote, KeySignature, LyricSyllable, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
 import { normalizeNoteDuration, normalizeSongDurations } from '@/lib/taigiUtils';
 import {
   buildThinkingConfig,
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
 ${pageCountNote}
 
 Task: Extract all Taiwanese song lyrics from the provided image(s).
-1. Read all lyrics lines/verses in order.
+1. Read all lyrics lines/verses in order. Split lines into short while meaningful phrases (typically 4 to 8 syllables per line, matching natural poetic lines and breathing pauses) to ensure optimal reading in Karaoke mode. Never lump whole multi-sentence stanzas into one long line.
 2. For each line, break it down into syllables aligned one-by-one.
 3. For each syllable, transcribe strictly two fields:
    - "hanlo": 漢羅 (Traditional Chinese Hanji character or Han-lô mixed representation, e.g. "望", "春", "風", "阮ê")
@@ -133,7 +133,7 @@ Rules for Numbered Notation & Taiwanese Music Transcription:
    - Sequence measures chronologically from measure 1 to the end across all ${images.length} pages.
    - "measureNumber": 1, 2, 3...
    - "chord": Harmonic chord symbol above the measure if present (e.g., "F", "C7", "Am", "Dm", "Gm", "Bb", "C", "G").
-   - "section": Optional section tag (e.g., "前奏", "主歌", "副歌", "尾奏", "Verse 1", "Chorus") if visible.
+   - "section": Optional section tag (e.g., "前奏", "主歌 1-A", "主歌 1-B", "副歌 A", "尾奏", "Verse 1", "Chorus") if visible.
    - "notes": Array of notes in the measure. For each note:
      * "pitch": 1, 2, 3, 4, 5, 6, 7 (scale degrees), 0 (rest), or 'empty' (blank space / pause / punctuation / newline).
      * "octave": 0 (middle octave), 1 (high), 2 (two dots), -1 (low), -2 (two dots below).
@@ -148,6 +148,11 @@ Rules for Numbered Notation & Taiwanese Music Transcription:
        - "poj": 羅馬字 (Pe̍h-ōe-jī with tone marks, e.g. "To̍k")`
          : `* "lyric": {}`
      }
+
+3. **Verse & Phrase Splitting for Karaoke Readability**:
+   - Split verses into **short while meaningful** musical phrases (typically 2 to 4 measures, or 4 to 8 sung syllables per phrase, matching natural poetic lines and breathing pauses).
+   - Never lump full multi-line stanzas into one continuous verse.
+   - Conclude each phrase by appending a newline "\\n" to the last syllable's hanlo and poj (e.g. "下\\n", "ē\\n"), and mark the concluding measure with "isLineBreak": true.
 
 Return strictly valid JSON matching this schema:
 {
@@ -255,7 +260,7 @@ Return strictly valid JSON matching this schema:
             hanlo: typeof rawLyric.hanlo === 'string' ? rawLyric.hanlo : typeof rawLyric.hanji === 'string' ? rawLyric.hanji : typeof rawLyric.custom === 'string' ? rawLyric.custom : undefined,
           };
 
-          const rawNote: JianpuNote = {
+          const rawNote: NumberedNotationNote = {
             id: noteId,
             pitch,
             octave,

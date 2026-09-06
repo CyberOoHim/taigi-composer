@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { JianpuNote, LyricDisplayMode } from '@/types/song';
+import { NumberedNotationNote, JianpuNote, LyricDisplayMode } from '@/types/song';
 import { cn } from '@/lib/utils';
 import {
   isMelismaContinuation,
@@ -13,9 +13,9 @@ import {
   INSTRUMENT_LABELS,
 } from '@/lib/taigiUtils';
 
-interface JianpuNoteComponentProps {
-  note: JianpuNote;
-  prevNote?: JianpuNote | null;
+export interface NumberedNotationNoteComponentProps {
+  note: NumberedNotationNote;
+  prevNote?: NumberedNotationNote | null;
   isSelected?: boolean;
   isActive?: boolean;
   playProgress?: number; // 0 to 1 progress within this note during playback
@@ -25,7 +25,9 @@ interface JianpuNoteComponentProps {
   isKaraokeMode?: boolean;
 }
 
-export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.memo(({
+export type JianpuNoteComponentProps = NumberedNotationNoteComponentProps;
+
+export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteComponentProps> = React.memo(({
   note,
   prevNote,
   isSelected = false,
@@ -464,6 +466,6 @@ export const JianpuNoteComponent: React.FC<JianpuNoteComponentProps> = React.mem
   );
 });
 
-JianpuNoteComponent.displayName = 'NumberedNotationNoteComponent';
+NumberedNotationNoteComponent.displayName = 'NumberedNotationNoteComponent';
 
-export const NumberedNotationNoteComponent = JianpuNoteComponent;
+export const JianpuNoteComponent = NumberedNotationNoteComponent;

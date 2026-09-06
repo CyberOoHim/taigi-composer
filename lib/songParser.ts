@@ -1,4 +1,4 @@
-import { JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
+import { NumberedNotationNote, JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
 import { isPunctuationOrSpacer, normalizeSongDurations } from './taigiUtils';
 
 /**
@@ -44,7 +44,7 @@ export function importSongFromJson(jsonString: string): Song {
  * Format a single Numbered Notation note into readable notation string
  * e.g., 5 with octave 1 = 5̇, octave -1 = 5̣, duration 0.5 = 5_, duration 2 = 5 -
  */
-export function formatNoteToJianpuString(note: JianpuNote): string {
+export function formatNoteToNumberedNotationString(note: NumberedNotationNote): string {
   if (note.pitch === 'empty' || (typeof note.duration === 'number' && note.duration <= 0)) {
     if (note.annotation) return `[${note.annotation}]`;
     const hanlo = note.lyric.hanlo || note.lyric.hanji || note.lyric.custom || '';
@@ -90,6 +90,9 @@ export function formatNoteToJianpuString(note: JianpuNote): string {
   return p;
 }
 
+// Backward-compatible alias
+export const formatNoteToJianpuString = formatNoteToNumberedNotationString;
+
 /**
  * Export song to Human-Readable Text Format
  */
@@ -110,11 +113,11 @@ export function exportSongToText(song: Song): string {
   song.measures.forEach((m, idx) => {
     lines.push(`[Measure ${idx + 1}]${m.section ? ` (${m.section})` : ''}${m.chord ? ` Chord: ${m.chord}` : ''}`);
 
-    const jianpuTokens = m.notes.map(n => formatNoteToJianpuString(n));
+    const numberedNotationTokens = m.notes.map(n => formatNoteToNumberedNotationString(n));
     const romanTokens = m.notes.map(n => n.lyric.poj || n.lyric.tl || '—');
     const hanloTokens = m.notes.map(n => n.lyric.hanlo || n.lyric.hanji || n.lyric.custom || '—');
 
-    lines.push(`Numbered Notation:  ${jianpuTokens.join('  ')}`);
+    lines.push(`Numbered Notation:  ${numberedNotationTokens.join('  ')}`);
     lines.push(`羅馬字:  ${romanTokens.join('  ')}`);
     lines.push(`漢羅:    ${hanloTokens.join('  ')}`);
     lines.push(``);
@@ -205,7 +208,7 @@ export function importSongFromText(text: string): Song {
     } else if (currentMeasure) {
       if (line.startsWith('Numbered Notation:') || line.startsWith('Jianpu:')) {
         const tokens = line.replace(/^(Numbered Notation:|Jianpu:)/, '').trim().split(/\s+/).filter(Boolean);
-        currentMeasure.notes = tokens.map((tok, nIdx) => parseJianpuToken(tok, `${currentMeasure!.id}-n${nIdx}`));
+        currentMeasure.notes = tokens.map((tok, nIdx) => parseNumberedNotationToken(tok, `${currentMeasure!.id}-n${nIdx}`));
         applyPendingLyrics();
       } else if (line.startsWith('羅馬字:') || line.startsWith('Roman:') || line.startsWith('POJ:') || line.startsWith('TL:')) {
         pendingRoman = line.replace(/^(羅馬字:|Roman:|POJ:|TL:)/, '').trim().split(/\s+/).filter(Boolean);
@@ -229,7 +232,7 @@ export function importSongFromText(text: string): Song {
   return normalizeSongDurations(song);
 }
 
-function parseJianpuToken(token: string, id: string): JianpuNote {
+export function parseNumberedNotationToken(token: string, id: string): NumberedNotationNote {
   let pitch: PitchNumber = 1;
   let octave = 0;
   let accidental: '' | '#' | 'b' = '';
@@ -337,3 +340,6 @@ function parseJianpuToken(token: string, id: string): JianpuNote {
     lyric: {},
   };
 }
+
+export const parseJianpuToken = parseNumberedNotationToken;
+

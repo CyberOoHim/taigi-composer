@@ -40,11 +40,11 @@ export async function POST(req: Request) {
     if (Array.isArray(lines) && lines.length > 0) {
       const formattedLines = lines.map((l: string, i: number) => `Line ${i + 1}: ${l}`).join('\n');
       const prompt = `You are an expert Taiwanese Hokkien (Taigi / 臺灣話) linguist and music lyricist.
-The user provided the following Taigi lyrics structured line-by-line (each line represents a musical phrase/verse):
+The user provided the following Taigi lyrics structured line-by-line (each line represents a musical phrase/verse, structured short while meaningful for Karaoke mode):
 ${formattedLines}
 
 Task:
-1. For each line, break down into an array of syllables aligned one-by-one.
+1. For each line, break down into an array of syllables aligned one-by-one. Ensure phrases remain short while meaningful (typically 4 to 8 syllables per line) for optimal reading in Karaoke mode.
 2. For each syllable, output strictly two fields:
    - "hanlo": 漢羅 (Hàn-lô: Traditional Han character or Han-lô mixed representation, e.g. "望", "阮ê", "chhun-hong")
    - "poj": 羅馬字 / Pe̍h-ōe-jī (白話字) with correct tone diacritics (á, à, â, ā, a̍, a̋, o͘, ⁿ, etc., e.g. "Bāng")

@@ -101,6 +101,54 @@ function validateSongFile(filePath) {
     }
   });
 
+  // Verse / Phrase segmentation analysis for Karaoke mode
+  const karaokeTips = [];
+  let currentPhraseSyllables = 0;
+  let currentPhraseStartM = 1;
+  let currentPhraseEndM = 1;
+  let phraseCount = 0;
+
+  data.measures.forEach((m, mIdx) => {
+    const mNum = m.measureNumber ?? (mIdx + 1);
+    currentPhraseEndM = mNum;
+
+    m.notes.forEach((n) => {
+      const sylText = (n.lyric?.hanlo || n.lyric?.poj || n.lyric?.hanji || n.lyric?.custom || '').trim();
+      const isDashesOnly = /^[—\-_~·\s]+$/.test(sylText);
+      const hasSyl = sylText.length > 0 && !isDashesOnly;
+      const isBreak = (n.lyric && (
+        (n.lyric.hanlo && /[\n\r↵]/.test(n.lyric.hanlo)) ||
+        (n.lyric.poj && /[\n\r↵]/.test(n.lyric.poj))
+      )) || (n.annotation && /[\n\r↵]/.test(n.annotation));
+
+      if (hasSyl && !isBreak) {
+        currentPhraseSyllables++;
+      }
+
+      if (isBreak) {
+        phraseCount++;
+        if (currentPhraseSyllables > 10) {
+          karaokeTips.push(`Phrase in measures ${currentPhraseStartM}–${currentPhraseEndM} has ${currentPhraseSyllables} syllables. Consider splitting into shorter, meaningful phrases (4–8 syllables) for easier Karaoke reading.`);
+        }
+        currentPhraseSyllables = 0;
+        currentPhraseStartM = mNum;
+      }
+    });
+
+    if (m.isLineBreak && currentPhraseSyllables > 0) {
+      phraseCount++;
+      if (currentPhraseSyllables > 10) {
+        karaokeTips.push(`Phrase ending at measure ${mNum} has ${currentPhraseSyllables} syllables. Consider splitting into shorter, meaningful phrases (4–8 syllables) for easier Karaoke reading.`);
+      }
+      currentPhraseSyllables = 0;
+      currentPhraseStartM = mNum + 1;
+    }
+  });
+
+  if (currentPhraseSyllables > 10) {
+    karaokeTips.push(`Final phrase in measures ${currentPhraseStartM}–${currentPhraseEndM} has ${currentPhraseSyllables} syllables. Consider splitting into shorter, meaningful phrases (4–8 syllables) for easier Karaoke reading.`);
+  }
+
   console.log(`\n📊 Analysis Results:`);
   console.log(`   Title:             ${data.title} ${data.subtitle ? `(${data.subtitle})` : ''}`);
   console.log(`   Composer / Lyric:  ${data.composer || '—'} / ${data.lyricist || '—'}`);
@@ -108,6 +156,13 @@ function validateSongFile(filePath) {
   console.log(`   Measures count:    ${data.measures.length}`);
   console.log(`   Notes count:       ${totalNotes}`);
   console.log(`   Syllables count:   ${totalLyrics}`);
+  console.log(`   Karaoke phrases:   ${phraseCount || 1}`);
+
+  if (karaokeTips.length > 0) {
+    console.log(`\n🎤 Karaoke Readability Guidance (${karaokeTips.length}):`);
+    karaokeTips.slice(0, 5).forEach(tip => console.log(`   💡 ${tip}`));
+    if (karaokeTips.length > 5) console.log(`   ... and ${karaokeTips.length - 5} more.`);
+  }
 
   if (warnings.length > 0) {
     console.log(`\n⚠️  Rhythm Warnings (${warnings.length}):`);

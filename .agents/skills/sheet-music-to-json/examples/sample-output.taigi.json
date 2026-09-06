@@ -8,7 +8,7 @@
   "timeSignature": "4/4",
   "bpm": 80,
   "notesPerLine": 4,
-  "description": "經典臺灣民謠 (Taiwanese classic folk song) - 望春風 Jianpu transcription example",
+  "description": "經典臺灣民謠 (Taiwanese classic folk song) - 望春風 Numbered Notation transcription example",
   "measures": [
     {
       "id": "m-1-intro",
@@ -57,6 +57,7 @@
       "id": "m-2-intro",
       "measureNumber": 2,
       "chord": "Dm",
+      "isLineBreak": true,
       "notes": [
         {
           "id": "n-2-1",
@@ -70,7 +71,7 @@
           "pitch": 3,
           "octave": 0,
           "duration": 2,
-          "lyric": { "hanlo": "下", "poj": "ē" }
+          "lyric": { "hanlo": "下\n", "poj": "ē\n" }
         }
       ]
     },
@@ -128,7 +129,7 @@
           "octave": 0,
           "duration": 3,
           "isDotted": true,
-          "lyric": { "hanlo": "—", "poj": "—" }
+          "lyric": { "hanlo": "—\n", "poj": "—\n" }
         },
         {
           "id": "n-4-2",
@@ -143,6 +144,7 @@
       "id": "m-5-verse",
       "measureNumber": 5,
       "chord": "F",
+      "section": "主歌 1-A",
       "notes": [
         {
           "id": "n-5-1",
@@ -178,6 +180,7 @@
       "id": "m-6-verse",
       "measureNumber": 6,
       "chord": "Dm",
+      "isLineBreak": true,
       "notes": [
         {
           "id": "n-6-1",
@@ -205,7 +208,7 @@
           "pitch": 5,
           "octave": 0,
           "duration": 2,
-          "lyric": { "hanlo": "—", "poj": "—" }
+          "lyric": { "hanlo": "—\n", "poj": "—\n" }
         }
       ]
     },
@@ -213,6 +216,7 @@
       "id": "m-7-verse",
       "measureNumber": 7,
       "chord": "Bb",
+      "section": "主歌 1-B",
       "notes": [
         {
           "id": "n-7-1",
@@ -262,7 +266,7 @@
           "pitch": 3,
           "octave": 0,
           "duration": 4,
-          "lyric": { "hanlo": "—", "poj": "—" }
+          "lyric": { "hanlo": "—\n", "poj": "—\n" }
         }
       ]
     },
@@ -270,7 +274,7 @@
       "id": "m-9-chorus",
       "measureNumber": 9,
       "chord": "F",
-      "section": "副歌 (Chorus)",
+      "section": "副歌 A",
       "notes": [
         {
           "id": "n-9-1",
@@ -313,6 +317,7 @@
       "id": "m-10-chorus",
       "measureNumber": 10,
       "chord": "Dm",
+      "isLineBreak": true,
       "notes": [
         {
           "id": "n-10-1",
@@ -333,7 +338,7 @@
           "pitch": 6,
           "octave": 0,
           "duration": 2,
-          "lyric": { "hanlo": "—", "poj": "—" }
+          "lyric": { "hanlo": "—\n", "poj": "—\n" }
         }
       ]
     },
@@ -341,6 +346,7 @@
       "id": "m-11-chorus",
       "measureNumber": 11,
       "chord": "Bb",
+      "section": "副歌 B",
       "notes": [
         {
           "id": "n-11-1",
@@ -404,7 +410,7 @@
           "pitch": 3,
           "octave": 0,
           "duration": 2,
-          "lyric": { "hanlo": "—", "poj": "—" }
+          "lyric": { "hanlo": "—\n", "poj": "—\n" }
         }
       ]
     },
@@ -412,6 +418,7 @@
       "id": "m-13-climax",
       "measureNumber": 13,
       "chord": "F",
+      "section": "副歌 C",
       "notes": [
         {
           "id": "n-13-1",
@@ -454,6 +461,7 @@
       "id": "m-14-climax",
       "measureNumber": 14,
       "chord": "Dm",
+      "isLineBreak": true,
       "notes": [
         {
           "id": "n-14-1",
@@ -467,7 +475,7 @@
           "pitch": 3,
           "octave": 0,
           "duration": 2,
-          "lyric": { "hanlo": "勢", "poj": "sè" }
+          "lyric": { "hanlo": "勢\n", "poj": "sè\n" }
         }
       ]
     },
@@ -475,6 +483,7 @@
       "id": "m-15-climax",
       "measureNumber": 15,
       "chord": "Bb",
+      "section": "副歌 D",
       "notes": [
         {
           "id": "n-15-1",
@@ -517,6 +526,7 @@
       "id": "m-16-outro",
       "measureNumber": 16,
       "chord": "F",
+      "isLineBreak": true,
       "barlineType": "end",
       "notes": [
         {
@@ -524,7 +534,7 @@
           "pitch": 1,
           "octave": 0,
           "duration": 4,
-          "lyric": { "hanlo": "—", "poj": "—" }
+          "lyric": { "hanlo": "—\n", "poj": "—\n" }
         }
       ]
     }

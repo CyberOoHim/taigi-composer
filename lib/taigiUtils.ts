@@ -1,4 +1,4 @@
-import { ArticulationType, GraceNote, InstrumentType, JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature, VerseItem, VerseNoteRef } from '@/types/song';
+import { ArticulationType, GraceNote, InstrumentType, NumberedNotationNote, JianpuNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature, VerseItem, VerseNoteRef } from '@/types/song';
 
 // Semitones relative to C4 (MIDI note 60)
 export const KEY_SEMITONES: Record<string, number> = {
@@ -291,6 +291,7 @@ export interface DurationChineseInfo {
   name: string;
   fractionLabel: string;
   beatsLabel: string;
+  numberedNotationSymbol: string;
   jianpuSymbol: string;
   description: string;
   isDotted: boolean;
@@ -303,6 +304,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: '0 beats (Empty)',
         fractionLabel: '0 beats (Empty / Punctuation)',
         beatsLabel: '0 beats',
+        numberedNotationSymbol: '—',
         jianpuSymbol: '—',
         description: 'Zero duration: pure spacer, punctuation, or line break with no beat value',
         isDotted: false,
@@ -312,6 +314,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: 'Dotted Quarter Note',
         fractionLabel: '1½ beats',
         beatsLabel: '1.5 beats',
+        numberedNotationSymbol: '5·',
         jianpuSymbol: '5·',
         description: 'Quarter note (1 beat) + dot (0.5 beats) = 1.5 beats',
         isDotted: true,
@@ -321,6 +324,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: 'Dotted 8th Note',
         fractionLabel: '¾ beat',
         beatsLabel: '0.75 beats',
+        numberedNotationSymbol: '5· (1 underline)',
         jianpuSymbol: '5· (1 underline)',
         description: '8th note (0.5 beats) + dot (0.25 beats) = 0.75 beats',
         isDotted: true,
@@ -330,6 +334,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: 'Quarter Note',
         fractionLabel: '1 beat',
         beatsLabel: '1 beat',
+        numberedNotationSymbol: '5',
         jianpuSymbol: '5',
         description: 'Standard quarter note (1 beat)',
         isDotted: false,
@@ -339,6 +344,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: '8th Note',
         fractionLabel: '½ beat',
         beatsLabel: '0.5 beats',
+        numberedNotationSymbol: '5 (1 underline)',
         jianpuSymbol: '5 (1 underline)',
         description: 'Half beat (0.5 beats)',
         isDotted: false,
@@ -348,6 +354,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: '16th Note',
         fractionLabel: '¼ beat',
         beatsLabel: '0.25 beats',
+        numberedNotationSymbol: '5 (2 underlines)',
         jianpuSymbol: '5 (2 underlines)',
         description: 'Quarter beat (0.25 beats)',
         isDotted: false,
@@ -357,6 +364,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: 'Half Note',
         fractionLabel: '2 beats',
         beatsLabel: '2 beats',
+        numberedNotationSymbol: '5 -',
         jianpuSymbol: '5 -',
         description: 'Half note (2 beats, 1 dash to the right)',
         isDotted: false,
@@ -366,6 +374,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: 'Dotted Half Note',
         fractionLabel: '3 beats',
         beatsLabel: '3 beats',
+        numberedNotationSymbol: '5 - -',
         jianpuSymbol: '5 - -',
         description: 'Half note (2 beats) + dot (1 beat) = 3 beats',
         isDotted: true,
@@ -375,6 +384,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: 'Whole Note',
         fractionLabel: '4 beats',
         beatsLabel: '4 beats',
+        numberedNotationSymbol: '5 - - -',
         jianpuSymbol: '5 - - -',
         description: 'Whole note (4 beats, 3 dashes to the right)',
         isDotted: false,
@@ -384,6 +394,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: 'Dotted 16th Note',
         fractionLabel: '⅜ beat',
         beatsLabel: '0.375 beats',
+        numberedNotationSymbol: '5· (2 underlines)',
         jianpuSymbol: '5· (2 underlines)',
         description: '16th note (0.25 beats) + dot (0.125 beats) = 0.375 beats',
         isDotted: true,
@@ -393,6 +404,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: 'Double Dotted Quarter Note',
         fractionLabel: '1¾ beats',
         beatsLabel: '1.75 beats',
+        numberedNotationSymbol: '5··',
         jianpuSymbol: '5··',
         description: 'Quarter note (1 beat) + double dots (0.75 beats) = 1.75 beats',
         isDotted: true,
@@ -402,6 +414,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: 'Double Dotted Half Note',
         fractionLabel: '3½ beats',
         beatsLabel: '3.5 beats',
+        numberedNotationSymbol: '5 - - ··',
         jianpuSymbol: '5 - - ··',
         description: 'Half note (2 beats) + double dots (1.5 beats) = 3.5 beats',
         isDotted: true,
@@ -411,6 +424,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: '32nd Note',
         fractionLabel: '⅛ beat',
         beatsLabel: '0.125 beats',
+        numberedNotationSymbol: '5 (3 underlines)',
         jianpuSymbol: '5 (3 underlines)',
         description: 'Thirty-second note (0.125 beats, 3 underlines)',
         isDotted: false,
@@ -420,6 +434,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: '8th Note Triplet',
         fractionLabel: '⅓ beat',
         beatsLabel: '0.333 beats',
+        numberedNotationSymbol: '┌ 3 ┐ (⅓ beat)',
         jianpuSymbol: '┌ 3 ┐ (⅓ beat)',
         description: 'Triplet 8th note: 3 notes in the space of 1 beat (0.333 beats each)',
         isDotted: false,
@@ -429,6 +444,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: 'Quarter Note Triplet',
         fractionLabel: '⅔ beat',
         beatsLabel: '0.667 beats',
+        numberedNotationSymbol: '┌ 3 ┐ (⅔ beat)',
         jianpuSymbol: '┌ 3 ┐ (⅔ beat)',
         description: 'Triplet quarter note: 3 notes in the space of 2 beats (0.667 beats each)',
         isDotted: false,
@@ -438,6 +454,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
         name: `Custom Duration (${duration} beats)`,
         fractionLabel: `${duration} beats`,
         beatsLabel: `${duration} beats`,
+        numberedNotationSymbol: `${duration} beats`,
         jianpuSymbol: `${duration} beats`,
         description: `Custom rhythm duration: ${duration} beats`,
         isDotted: duration % 1 !== 0 && duration !== 0.5 && duration !== 0.25,
@@ -448,7 +465,7 @@ export function getDurationChineseInfo(duration: number): DurationChineseInfo {
 /**
  * Compare two notes to see if they have identical musical pitch (pitch number, octave, accidental).
  */
-export function isSamePitch(a: JianpuNote | null | undefined, b: JianpuNote | null | undefined): boolean {
+export function isSamePitch(a: NumberedNotationNote | null | undefined, b: NumberedNotationNote | null | undefined): boolean {
   if (!a || !b) return false;
   if (a.pitch === 'empty' || b.pitch === 'empty') return false;
   if (a.pitch === 0 || b.pitch === 0) return a.pitch === b.pitch;
@@ -463,7 +480,7 @@ export function isSamePitch(a: JianpuNote | null | undefined, b: JianpuNote | nu
  * Check if a Tie is active from currentNote into nextNote.
  * A Tie (連結音) connects notes of the SAME pitch, combining their sound in playback.
  */
-export function isTieActive(currentNote: JianpuNote | null | undefined, nextNote?: JianpuNote | null): boolean {
+export function isTieActive(currentNote: NumberedNotationNote | null | undefined, nextNote?: NumberedNotationNote | null): boolean {
   if (!currentNote || !nextNote) return false;
   const wantsTie = Boolean(currentNote.tieToNext || currentNote.isTied);
   return wantsTie && isSamePitch(currentNote, nextNote);
@@ -473,7 +490,7 @@ export function isTieActive(currentNote: JianpuNote | null | undefined, nextNote
  * Check if a Slur is active from currentNote into nextNote.
  * A Slur (圓滑音 / 歌唱連線) connects notes across different or arbitrary pitches (legato phrasing / melisma).
  */
-export function isSlurActive(currentNote: JianpuNote | null | undefined, nextNote?: JianpuNote | null): boolean {
+export function isSlurActive(currentNote: NumberedNotationNote | null | undefined, nextNote?: NumberedNotationNote | null): boolean {
   if (!currentNote) return false;
   if (currentNote.slurToNext) return true;
   // Backward compatibility: if isTied is set but pitches differ, it's musically a Slur
@@ -486,7 +503,7 @@ export function isSlurActive(currentNote: JianpuNote | null | undefined, nextNot
 /**
  * Check if a note is a melisma continuation under a slur (following an initial note with lyrics).
  */
-export function isMelismaContinuation(note: JianpuNote | null | undefined, prevNote?: JianpuNote | null): boolean {
+export function isMelismaContinuation(note: NumberedNotationNote | null | undefined, prevNote?: NumberedNotationNote | null): boolean {
   if (!note || !prevNote) return false;
   const prevSlurred = isSlurActive(prevNote, note);
   const noteHasOwnLyric = Boolean(
@@ -518,7 +535,7 @@ export function formatGraceNotes(notes?: GraceNote[]): string {
  * Punctuation, annotations, newlines, and whitespace are NOT treated as musical notation
  * and do not consume beats in a measure.
  */
-export function isNonNotationItem(note: JianpuNote | null | undefined): boolean {
+export function isNonNotationItem(note: NumberedNotationNote | null | undefined): boolean {
   if (!note) return false;
 
   // 1. Explicit 0 or negative duration
@@ -556,7 +573,7 @@ export function isNonNotationItem(note: JianpuNote | null | undefined): boolean 
 /**
  * Check if a note is a zero-time punctuation / delimiter / spacer (not an annotation)
  */
-export function isPunctuationZeroNote(note: JianpuNote | null | undefined): boolean {
+export function isPunctuationZeroNote(note: NumberedNotationNote | null | undefined): boolean {
   if (!note) return false;
   const isZeroTime = isNonNotationItem(note);
   return isZeroTime && !note.annotation;
@@ -565,7 +582,7 @@ export function isPunctuationZeroNote(note: JianpuNote | null | undefined): bool
 /**
  * Check if a note is a standalone zero-time annotation note (performance/vocal direction)
  */
-export function isStandaloneAnnotationNote(note: JianpuNote | null | undefined): boolean {
+export function isStandaloneAnnotationNote(note: NumberedNotationNote | null | undefined): boolean {
   if (!note) return false;
   const isZeroTime = isNonNotationItem(note);
   return isZeroTime && Boolean(note.annotation);
@@ -574,7 +591,7 @@ export function isStandaloneAnnotationNote(note: JianpuNote | null | undefined):
 /**
  * Get clean 1-character display symbol for a zero-time punctuation note
  */
-export function getPunctuationDisplayChar(note: JianpuNote | null | undefined): string {
+export function getPunctuationDisplayChar(note: NumberedNotationNote | null | undefined): string {
   if (!note) return '';
   const hanlo = note.lyric?.hanlo ?? '';
   const hanji = note.lyric?.hanji ?? '';
@@ -616,11 +633,9 @@ export function isNewlineBreak(str?: string): boolean {
 
 /**
  * Check if a note is an explicit verse separator.
- * ONLY newlines (\n, \r, ↵) split verses.
- * All other delimiters (commas, periods, exclamation marks, question marks, dashes, etc.)
- * nor spaces nor rests split verses.
+ * ONLY newlines (\n, \r, ↵) split verses explicitly.
  */
-export function isVerseBreakNote(note: JianpuNote | null | undefined): boolean {
+export function isVerseBreakNote(note: NumberedNotationNote | null | undefined): boolean {
   if (!note) return false;
 
   const hanlo = note.lyric?.hanlo || note.lyric?.custom || note.lyric?.hanji || '';
@@ -635,9 +650,30 @@ export function isVerseBreakNote(note: JianpuNote | null | undefined): boolean {
 }
 
 /**
- * Group song into Verses sectioned by newlines or measure section headers.
- * Delimiters and spaces do not split verses.
- * Consecutive newlines act as a single verse separator.
+ * Check if a note's lyric concludes with sentence or clause punctuation
+ * (e.g. ，。！？；：…—~ or trailing . ! ?) indicating a natural phrase boundary.
+ */
+export function hasPhraseEndingPunctuation(note: NumberedNotationNote | null | undefined): boolean {
+  if (!note) return false;
+  const hanlo = (note.lyric?.hanlo || note.lyric?.custom || note.lyric?.hanji || '').trim();
+  const poj = (note.lyric?.poj || note.lyric?.tl || '').trim();
+  const annot = (note.annotation || '').trim();
+
+  return (
+    /[，。！？；：…—~]/.test(hanlo) ||
+    /[.!?;\n\r↵]$/.test(poj) ||
+    /[.!?;\n\r↵]/.test(annot)
+  );
+}
+
+/**
+ * Group song into Verses sectioned short while meaningful for Karaoke mode.
+ * Verses are split by:
+ * 1. Explicit newlines (\n, \r, ↵) in lyrics or annotations.
+ * 2. Measure section tag changes (e.g., 主歌, 副歌, 前奏).
+ * 3. Measure line breaks (isLineBreak: true).
+ * 4. Semantic clause punctuation (，, 。, ！, ？, ；) after at least 3 sung syllables.
+ * 5. Natural breathing pauses (musical rests pitch 0) when a verse has reached 7+ vocal syllables.
  */
 export function groupSongIntoVerses(song: Song): VerseItem[] {
   const verses: VerseItem[] = [];
@@ -694,6 +730,7 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
   song.measures.forEach((measure, mIdx) => {
     measure.notes.forEach((note, nIdx) => {
       const isFirstInMeasure = nIdx === 0;
+      const isLastInMeasure = nIdx === measure.notes.length - 1;
 
       // If a measure has a new explicit section tag and we already have notes in the current verse, close the verse
       if (measure.section && isFirstInMeasure && currentNotes.length > 0 && currentSection !== measure.section) {
@@ -715,8 +752,20 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
         isFirstInMeasure,
       };
 
-      // Check if this note acts as a phrase / verse ending separator (ONLY newlines)
+      // Count vocal syllables currently accumulated in the active verse
+      const currentVocalCount = currentNotes.filter(
+        n =>
+          (typeof n.note.pitch === 'number' && n.note.pitch > 0) &&
+          Boolean(n.note.lyric.hanlo || n.note.lyric.hanji || n.note.lyric.poj || n.note.lyric.custom)
+      ).length;
+
+      // Check if this note acts as an explicit phrase / verse ending separator
       const isSeparator = isVerseBreakNote(note);
+      const isPunctBreak = hasPhraseEndingPunctuation(note) && currentVocalCount >= 3;
+      const isRestPauseBreak =
+        currentVocalCount >= 7 &&
+        (note.pitch === 0 || note.pitch === 'empty') &&
+        (typeof note.duration === 'number' && note.duration >= 0.5);
 
       if (isSeparator) {
         // If we have accumulated at least one pitched/lyrical note before this separator, close the verse here
@@ -725,19 +774,36 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
         );
 
         if (hasContent) {
-          // Normal case: conclude current verse with this newline separator
+          // Conclude current verse with this newline separator
           currentNotes.push(noteRef);
           pushCurrentVerse();
         } else if (verses.length > 0 && currentNotes.length === 0) {
-          // Consecutive newline! Consecutive newlines act as a single one:
-          // Absorb into the previously closed verse without creating an empty verse
+          // Consecutive newlines: absorb into the previously closed verse without creating an empty verse
           verses[verses.length - 1].notes.push(noteRef);
         } else {
           // Leading newline before content: keep in currentNotes until content arrives
           currentNotes.push(noteRef);
         }
+      } else if (isPunctBreak) {
+        // Conclude verse at clause-ending punctuation (e.g. ，, 。)
+        currentNotes.push(noteRef);
+        pushCurrentVerse();
+      } else if (isRestPauseBreak) {
+        // Natural breath pause when a 7+ syllable phrase reaches a rest
+        currentNotes.push(noteRef);
+        pushCurrentVerse();
       } else {
         currentNotes.push(noteRef);
+
+        // If this is the last note of a measure marked with isLineBreak, close the verse
+        if (measure.isLineBreak && isLastInMeasure) {
+          const hasContent = currentNotes.some(
+            n => (typeof n.note.pitch === 'number' && n.note.pitch > 0) || (n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji))
+          );
+          if (hasContent) {
+            pushCurrentVerse();
+          }
+        }
       }
     });
   });
@@ -844,7 +910,7 @@ export function splitVerseTextTokens(text: string): { text: string; isPunct: boo
  * Get effective beat duration of a note without double scaling.
  * Returns 0 for non-notation items (punctuation, annotations, blank spaces, newlines).
  */
-export function getNoteBeatDuration(note: JianpuNote | null | undefined): number {
+export function getNoteBeatDuration(note: NumberedNotationNote | null | undefined): number {
   if (!note || isNonNotationItem(note) || note.pitch === 'empty') return 0;
   const dur = typeof note.duration === 'number' ? note.duration : 1;
   if (dur <= 0) return 0;
@@ -859,7 +925,7 @@ export function getNoteBeatDuration(note: JianpuNote | null | undefined): number
  * Normalizes a note so that non-notation items (punctuation, annotations, newlines, empty pitches)
  * strictly have duration: 0 and pitch: 'empty', with no unnecessary time duration activated.
  */
-export function normalizeNoteDuration(note: JianpuNote): JianpuNote {
+export function normalizeNoteDuration(note: NumberedNotationNote): NumberedNotationNote {
   if (
     isNonNotationItem(note) ||
     note.pitch === 'empty' ||
@@ -894,7 +960,7 @@ export function normalizeSongDurations(song: Song): Song {
 /**
  * Calculate the total beats currently inside a measure's notes
  */
-export function calculateMeasureBeats(notes: JianpuNote[]): number {
+export function calculateMeasureBeats(notes: NumberedNotationNote[]): number {
   if (!notes || notes.length === 0) return 0;
   const total = notes.reduce((sum, n) => sum + getNoteBeatDuration(n), 0);
   return Math.round(total * 1000) / 1000;
@@ -1206,7 +1272,7 @@ export function formatMeasureChords(chords: string[]): string {
  * Scales a note duration down by half (÷2), preserving dotted relationships and non-notation spacers.
  * e.g., 4 -> 2, 3 -> 1.5 (dotted), 2 -> 1, 1.5 -> 0.75 (dotted), 1 -> 0.5, 0.75 -> 0.375 (dotted), 0.5 -> 0.25, 0.25 -> 0.125
  */
-export function halveNoteDuration(note: JianpuNote): JianpuNote {
+export function halveNoteDuration(note: NumberedNotationNote): NumberedNotationNote {
   if (isNonNotationItem(note) || note.pitch === 'empty' || (typeof note.duration === 'number' && note.duration <= 0)) {
     return note;
   }
@@ -1254,7 +1320,7 @@ export function halveNoteDuration(note: JianpuNote): JianpuNote {
  * Doubles a note duration (×2), preserving dotted relationships and non-notation spacers.
  * e.g., 0.125 -> 0.25, 0.25 -> 0.5, 0.375 -> 0.75 (dotted), 0.5 -> 1, 0.75 -> 1.5 (dotted), 1 -> 2, 1.5 -> 3 (dotted), 2 -> 4
  */
-export function doubleNoteDuration(note: JianpuNote): JianpuNote {
+export function doubleNoteDuration(note: NumberedNotationNote): NumberedNotationNote {
   if (isNonNotationItem(note) || note.pitch === 'empty' || (typeof note.duration === 'number' && note.duration <= 0)) {
     return note;
   }
@@ -1296,7 +1362,7 @@ export function doubleNoteDuration(note: JianpuNote): JianpuNote {
 /**
  * Sets uniform duration for a note, preserving lyrics, pitches, and zero-beat spacers.
  */
-export function setUniformNoteDuration(note: JianpuNote, targetDur: NoteDuration): JianpuNote {
+export function setUniformNoteDuration(note: NumberedNotationNote, targetDur: NoteDuration): NumberedNotationNote {
   if (isNonNotationItem(note) || note.pitch === 'empty' || (typeof note.duration === 'number' && note.duration <= 0)) {
     return note;
   }
@@ -1474,7 +1540,7 @@ export function smartRebarSong(song: Song, targetTimeSignature: TimeSignature): 
   if (targetBeats <= 0) return { ...song, timeSignature: targetTimeSignature };
 
   const sectionMap = new Map<number, string>();
-  const allNotes: JianpuNote[] = [];
+  const allNotes: NumberedNotationNote[] = [];
 
   song.measures.forEach(m => {
     if (m.section && m.section.trim()) {
@@ -1486,7 +1552,7 @@ export function smartRebarSong(song: Song, targetTimeSignature: TimeSignature): 
   });
 
   const newMeasures: Measure[] = [];
-  let currentMeasureNotes: JianpuNote[] = [];
+  let currentMeasureNotes: NumberedNotationNote[] = [];
   let currentMeasureBeats = 0;
   let currentMeasureSection: string | undefined = undefined;
 
@@ -1530,7 +1596,7 @@ export function smartRebarSong(song: Song, targetTimeSignature: TimeSignature): 
         const splitDur1 = remainingBeats;
         const splitDur2 = Math.round((noteDur - remainingBeats) * 1000) / 1000;
 
-        const part1: JianpuNote = {
+        const part1: NumberedNotationNote = {
           ...note,
           id: `${note.id}-p1`,
           duration: splitDur1,
@@ -1540,7 +1606,7 @@ export function smartRebarSong(song: Song, targetTimeSignature: TimeSignature): 
           slurToNext: false,
         };
 
-        const part2: JianpuNote = {
+        const part2: NumberedNotationNote = {
           ...note,
           id: `${note.id}-p2`,
           duration: splitDur2,
