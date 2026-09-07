@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useRef } from 'react';
-import { LyricDisplayMode, VerseItem, VerseNoteRef } from '@/types/song';
+import { LyricDisplayMode, NumberedNotationNote, VerseItem, VerseNoteRef } from '@/types/song';
 import { PlaybackState } from '@/lib/audioEngine';
 import { VerseTiming, KaraokeLeadInState } from '@/lib/karaokeSequencer';
 import { KaraokeSection } from './SectionJumpBar';
@@ -34,6 +34,12 @@ export interface KaraokeStageProps {
   layoutMode?: KaraokeLayoutMode;
   onToggleLayoutMode?: () => void;
   onEditCurrentLyric?: (measureIndex: number) => void;
+}
+
+export interface IncomingAttackCue {
+  hanji: string;
+  poj: string;
+  note?: NumberedNotationNote;
 }
 
 // Helper to identify CJK characters for natural Chinese text spacing
@@ -84,6 +90,9 @@ interface SyllableCellProps {
   zoomScale: number;
   isEcoMode: boolean;
   isComingLineAwaiting: boolean;
+  incomingCueOverride?: IncomingAttackCue | null;
+  hasBouncingBall?: boolean;
+  secPerBeat?: number;
 }
 
 const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
@@ -99,11 +108,20 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
   zoomScale,
   isEcoMode,
   isComingLineAwaiting,
+  incomingCueOverride = null,
+  hasBouncingBall = false,
+  secPerBeat = 0.75,
 }) => {
+  const isIncomingCue = Boolean(incomingCueOverride);
   const note = item.note;
+  const displayNote = incomingCueOverride?.note || note;
   const isNonNotation = isNonNotationItem(note);
-  const rawHanlo = note.lyric.hanlo ?? note.lyric.hanji ?? note.lyric.custom ?? '';
-  const rawRoman = note.lyric.poj ?? note.lyric.tl ?? '';
+  const rawHanlo = isIncomingCue
+    ? (incomingCueOverride?.hanji ?? '')
+    : (note.lyric.hanlo ?? note.lyric.hanji ?? note.lyric.custom ?? '');
+  const rawRoman = isIncomingCue
+    ? (incomingCueOverride?.poj ?? '')
+    : (note.lyric.poj ?? note.lyric.tl ?? '');
 
   const hasHanlo = Boolean(rawHanlo && rawHanlo.trim());
   const hasRoman = Boolean(rawRoman && rawRoman.trim());
@@ -115,7 +133,7 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
   }
 
   // Render punctuation spacers
-  if (isPunctuationOrSpacer(rawHanlo)) {
+  if (!isIncomingCue && isPunctuationOrSpacer(rawHanlo)) {
     return (
       <div className="flex items-center justify-center self-center px-1 font-sans select-none opacity-60">
         <span
@@ -133,7 +151,7 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
     );
   }
 
-  if ((note.pitch === 0 || note.pitch === 'empty') && !hasExplicitText && !note.annotation) {
+  if (!isIncomingCue && (note.pitch === 0 || note.pitch === 'empty') && !hasExplicitText && !note.annotation) {
     return null;
   }
 
@@ -146,8 +164,8 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
   const durationSec = noteTiming?.durationSec ?? 0;
   const endSec = noteTiming?.endTimeSec ?? (startSec + durationSec);
 
-  const isNoteActive = currentTime >= startSec && currentTime < endSec;
-  const isPassed = currentTime >= endSec && endSec > 0;
+  const isNoteActive = !isIncomingCue && (currentTime >= startSec && currentTime < endSec);
+  const isPassed = !isIncomingCue && (currentTime >= endSec && endSec > 0);
 
   // Dynamic progressive wipe percentage [0..100]
   let wipePercent = 0;
@@ -157,8 +175,8 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
     wipePercent = Math.min(100, Math.max(0, ((currentTime - startSec) / durationSec) * 100));
   }
 
-  // Dashes count for sustained held notes
-  const dashesCount = !isNonNotation
+  // Dashes count for sustained held notes (suppressed during incoming cue)
+  const dashesCount = !isIncomingCue && !isNonNotation
     ? note.duration === 2
       ? 1
       : note.duration === 3
@@ -195,7 +213,11 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
     : '#64748b';
 
   // Dynamic text style with continuous left-to-right gradient wipe
-  const textFillStyle: React.CSSProperties = isNoteActive
+  const textFillStyle: React.CSSProperties = isIncomingCue
+    ? {
+        color: unsungColorHex,
+      }
+    : isNoteActive
     ? {
         backgroundImage: `linear-gradient(90deg, ${sungColorHex} 0%, ${sungColorHex} ${wipePercent}%, ${unsungColorHex} ${wipePercent}%, ${unsungColorHex} 100%)`,
         WebkitBackgroundClip: 'text',
@@ -222,7 +244,9 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
     : 'text-sm sm:text-base md:text-lg min-h-[1.25rem] sm:min-h-[1.75rem]';
 
   // Highlight first sung syllable of the line during entry / countdown or before sung
+  // (Suppressed when replaced by incoming cue override)
   const isFirstTarget =
+    !isIncomingCue &&
     isFirstVocalNote &&
     (isComingLineAwaiting ||
       (!isPassed &&
@@ -230,30 +254,56 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
         (verseTiming?.firstVocalStartSec ? currentTime < verseTiming.firstVocalStartSec + 0.4 : true)));
 
   // Musical attributes
-  const isPitched = !isNonNotation && typeof note.pitch === 'number' && note.pitch > 0;
-  const octaveTopDots = isPitched && note.octave > 0 ? note.octave : 0;
-  const octaveBottomDots = isPitched && note.octave < 0 ? Math.abs(note.octave) : 0;
-  const isThirtySecond = !isNonNotation && typeof note.duration === 'number' && note.duration <= 0.125;
+  const noteForNotation = displayNote;
+  const isPitched = typeof noteForNotation.pitch === 'number' && noteForNotation.pitch > 0;
+  const octaveTopDots = isPitched && noteForNotation.octave > 0 ? noteForNotation.octave : 0;
+  const octaveBottomDots = isPitched && noteForNotation.octave < 0 ? Math.abs(noteForNotation.octave) : 0;
+  const isThirtySecond = typeof noteForNotation.duration === 'number' && noteForNotation.duration <= 0.125;
   const isSixteenth =
-    !isNonNotation && typeof note.duration === 'number' && (note.duration === 0.25 || note.duration === 0.375);
+    typeof noteForNotation.duration === 'number' && (noteForNotation.duration === 0.25 || noteForNotation.duration === 0.375);
   const isEighth =
-    !isNonNotation && typeof note.duration === 'number' && (note.duration === 0.5 || note.duration === 0.75);
+    typeof noteForNotation.duration === 'number' && (noteForNotation.duration === 0.5 || noteForNotation.duration === 0.75);
   const showDot =
-    !isNonNotation &&
-    (note.isDotted ||
-      note.duration === 1.5 ||
-      note.duration === 0.75 ||
-      note.duration === 3 ||
-      note.duration === 0.375 ||
-      note.duration === 1.75);
-  const accidentalSymbol = note.accidental === '#' ? '♯' : note.accidental === 'b' ? '♭' : '';
+    noteForNotation.isDotted ||
+    noteForNotation.duration === 1.5 ||
+    noteForNotation.duration === 0.75 ||
+    noteForNotation.duration === 3 ||
+    noteForNotation.duration === 0.375 ||
+    noteForNotation.duration === 1.75;
+  const accidentalSymbol = noteForNotation.accidental === '#' ? '♯' : noteForNotation.accidental === 'b' ? '♭' : '';
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-end px-1 sm:px-1.5 select-none ${
+      className={`relative flex flex-col items-center justify-end px-1 sm:px-1.5 select-none transition-opacity duration-150 ${
+        isIncomingCue ? 'opacity-60' : ''
+      } ${
         dashesCount > 0 ? 'min-w-[48px] sm:min-w-[64px]' : 'min-w-[32px] sm:min-w-[44px]'
       }`}
     >
+      {/* Rhythmic Bouncing Ball Attack Cue (bounces on top of 1st incoming syllable during the last 1 beat) */}
+      {hasBouncingBall && (
+        <motion.div
+          key="incoming-bouncing-ball"
+          initial={{ y: -20, scale: 0.8, opacity: 0 }}
+          animate={{
+            y: [-22, 0, -12, 0],
+            scale: [0.9, 1.15, 0.95, 1],
+            opacity: 1,
+          }}
+          transition={{
+            duration: Math.max(0.3, Math.min(1.5, secPerBeat || 0.75)),
+            ease: 'easeInOut',
+            repeat: Infinity,
+          }}
+          className={`absolute -top-7 sm:-top-9 left-1/2 -translate-x-1/2 w-4 h-4 sm:w-5 sm:h-5 rounded-full shadow-lg z-30 pointer-events-none ${
+            isDark
+              ? 'bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 shadow-[0_0_16px_rgba(251,191,36,0.95)] ring-2 ring-amber-300/70'
+              : 'bg-gradient-to-b from-blue-400 via-blue-500 to-blue-600 shadow-[0_0_14px_rgba(37,99,235,0.7)] ring-2 ring-blue-400/70'
+          }`}
+          title="起唱彈跳球 (Bouncing attack cue)"
+        />
+      )}
+
       {/* Visual Attack / Entry Cue Badge on First Sung Syllable */}
       {isFirstTarget && (
         <span
@@ -268,7 +318,7 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
       )}
 
       {/* Optional Musical Annotation (e.g. 漸慢, rit., V) */}
-      {note.annotation && (
+      {!isIncomingCue && note.annotation && (
         <span
           className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full border mb-0.5 ${
             isDark
@@ -359,7 +409,11 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
       {showNotation && (
         <div
           className={`mt-1.5 inline-flex flex-col items-center justify-center relative rounded-md transition-all duration-150 px-1.5 py-0.5 border ${
-            isNoteActive
+            isIncomingCue
+              ? isDark
+                ? 'bg-zinc-900/60 text-zinc-400 font-medium border-zinc-800'
+                : 'bg-white text-slate-600 font-medium border-slate-300'
+              : isNoteActive
               ? isDark
                 ? 'bg-amber-400 text-zinc-950 font-black border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.8)]'
                 : 'bg-blue-600 text-white font-black border-blue-500 shadow-md'
@@ -408,7 +462,11 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
               </span>
             )}
             <span className="font-mono text-xs sm:text-base font-black">
-              {isNonNotation
+              {isIncomingCue
+                ? typeof displayNote.pitch === 'number' && displayNote.pitch > 0
+                  ? displayNote.pitch
+                  : '␣'
+                : isNonNotation
                 ? note.annotation
                   ? ''
                   : '␣'
@@ -556,12 +614,32 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   };
 
   const currentFirstVocal = useMemo(() => getFirstVocalIndex(currentVerse), [currentVerse]);
-  // Derive clean next-phrase starting preview cue (2 chars for Hanji or 2 words for POJ)
-  // Ensures the arrow + starting words is an atomic unit using non-breaking spaces (\u00A0)
-  const upcomingStartPreview = useMemo(() => {
-    if (!nextVerse || !nextVerse.notes || nextVerse.notes.length === 0) return null;
 
-    const vocalNotes: Array<{ hanji: string; poj: string }> = [];
+  // Helper to find second vocal note index in current verse
+  const currentSecondVocal = useMemo(() => {
+    if (!currentVerse || currentFirstVocal === -1) return -1;
+    return currentVerse.notes.findIndex((item, idx) => {
+      if (idx <= currentFirstVocal) return false;
+      const n = item.note;
+      const isNonNotation =
+        isNonNotationItem(n) || n.pitch === 'empty' || (typeof n.duration === 'number' && n.duration <= 0);
+      const rawHanlo = n.lyric.hanlo ?? n.lyric.hanji ?? n.lyric.custom ?? '';
+      const rawRoman = n.lyric.poj ?? n.lyric.tl ?? '';
+      const hasLyric =
+        (rawHanlo && !isPunctuationOrSpacer(rawHanlo) && rawHanlo !== '\n' && rawHanlo !== '↵') ||
+        (rawRoman && !isPunctuationOrSpacer(rawRoman) && rawRoman !== '\n' && rawRoman !== '↵');
+      const isPitched = !isNonNotation && typeof n.pitch === 'number' && n.pitch > 0;
+      return !isNonNotation && (hasLyric || isPitched) && n.duration > 0;
+    });
+  }, [currentVerse, currentFirstVocal]);
+
+  // Derive clean next-phrase starting attack cues (first two syllables/words without arrows)
+  const incomingCues = useMemo<{ first: IncomingAttackCue | null; second: IncomingAttackCue | null }>(() => {
+    if (!nextVerse || !nextVerse.notes || nextVerse.notes.length === 0) {
+      return { first: null, second: null };
+    }
+
+    const vocalItems: VerseNoteRef[] = [];
     for (const item of nextVerse.notes) {
       const n = item.note;
       if (isNonNotationItem(n)) continue;
@@ -571,52 +649,53 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
 
       const cleanHanlo = rawHanlo && !isPunctuationOrSpacer(rawHanlo) ? rawHanlo.trim() : '';
       const cleanRoman = rawRoman && !isPunctuationOrSpacer(rawRoman) ? rawRoman.trim() : '';
-      if (cleanHanlo || cleanRoman) {
-        vocalNotes.push({ hanji: cleanHanlo, poj: cleanRoman });
+      const isPitched = typeof n.pitch === 'number' && n.pitch > 0;
+      if (cleanHanlo || cleanRoman || isPitched) {
+        vocalItems.push(item);
       }
     }
 
-    if (vocalNotes.length === 0) return null;
+    if (vocalItems.length === 0) return { first: null, second: null };
 
-    // Requirement 2: Route by primary text according to display mode
-    const isPrimaryRoman = effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo';
-    const hasRomanInNext = vocalNotes.some(v => Boolean(v.poj && v.poj.trim()));
-    const hasHanjiInNext = vocalNotes.some(v => Boolean(v.hanji && v.hanji.trim()));
+    const item0 = vocalItems[0];
+    const n0 = item0.note;
+    const h0 = (n0.lyric.hanlo ?? n0.lyric.hanji ?? n0.lyric.custom ?? '').trim();
+    const p0 = (n0.lyric.poj ?? n0.lyric.tl ?? '').trim();
 
-    const useRoman = isPrimaryRoman
-      ? (hasRomanInNext || !hasHanjiInNext)
-      : (!hasHanjiInNext && hasRomanInNext);
+    let firstHanji = h0 ? h0[0] : '';
+    let firstPoj = p0;
 
-    if (useRoman) {
-      // POJ / Roman: 2 words joined with non-breaking space
-      const words: string[] = [];
-      for (const v of vocalNotes) {
-        const word = v.poj || v.hanji;
-        if (word) {
-          words.push(word);
-          if (words.length >= 2) break;
-        }
-      }
-      let pojText = '';
-      if (words.length > 1 && words[0].endsWith('-')) {
-        pojText = `${words[0]}${words[1]}`;
-      } else {
-        pojText = words.slice(0, 2).join('\u00A0');
-      }
-      return pojText ? `→\u00A0${pojText}...` : null;
-    } else {
-      // Hanji: 2 characters joined with non-breaking space
-      let chars = '';
-      for (const v of vocalNotes) {
-        if (v.hanji) {
-          chars += v.hanji;
-          if (chars.length >= 2) break;
-        }
-      }
-      const twoChars = chars.slice(0, 2);
-      return twoChars ? `→\u00A0${twoChars}...` : null;
+    let secondHanji = '';
+    let secondPoj = '';
+    let secondNote: NumberedNotationNote | undefined = undefined;
+
+    if (h0.length > 1) {
+      secondHanji = h0[1];
+      secondPoj = p0;
+      secondNote = n0;
+    } else if (vocalItems.length > 1) {
+      const item1 = vocalItems[1];
+      const n1 = item1.note;
+      const h1 = (n1.lyric.hanlo ?? n1.lyric.hanji ?? n1.lyric.custom ?? '').trim();
+      const p1 = (n1.lyric.poj ?? n1.lyric.tl ?? '').trim();
+      secondHanji = h1 ? h1[0] : '';
+      secondPoj = p1;
+      secondNote = n1;
     }
-  }, [nextVerse, effectiveMode]);
+
+    return {
+      first: {
+        hanji: firstHanji || p0,
+        poj: firstPoj || h0,
+        note: n0,
+      },
+      second: (secondHanji || secondPoj) ? {
+        hanji: secondHanji || secondPoj,
+        poj: secondPoj || secondHanji,
+        note: secondNote,
+      } : null,
+    };
+  }, [nextVerse]);
 
   // Derive clean next-line preview string (joins Hanji naturally without spaces, Roman with spaces)
   const nextLinePreview = useMemo(() => {
@@ -693,23 +772,27 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
     return 0.75;
   }, [activeVerseTiming, currentVerse, leadIn]);
 
-  const twoBeatsSec = useMemo(() => secPerBeat * 2, [secPerBeat]);
+  // Active verse singing end boundary (in seconds)
+  const endBoundarySec = useMemo(() => {
+    if (!activeVerseTiming) return 0;
+    return activeVerseTiming.lastVocalEndSec > 0
+      ? activeVerseTiming.lastVocalEndSec
+      : activeVerseTiming.endSec;
+  }, [activeVerseTiming]);
 
-  // Upcoming attack cue visibility in active canvas:
-  // Starts appearing right from the beginning of the last 2 beats of the current lyric line
-  const isCurrentVerseInLastTwoBeats = useMemo(() => {
-    if (!activeVerseTiming || !nextVerse) return false;
-    const verseEndBoundary = Math.min(
-      activeVerseTiming.lastVocalEndSec > 0 ? activeVerseTiming.lastVocalEndSec : activeVerseTiming.endSec,
-      activeVerseTiming.endSec
-    );
-    const cueStartSec = verseEndBoundary - twoBeatsSec;
-    return playbackState.currentTime >= cueStartSec;
-  }, [activeVerseTiming, nextVerse, twoBeatsSec, playbackState.currentTime]);
+  const timeRemainingSec = endBoundarySec > 0 ? endBoundarySec - playbackState.currentTime : 0;
 
-  const showUpcomingCue = Boolean(
-    nextVerse && (isCurrentVerseInLastTwoBeats || isVerseCompleted)
-  );
+  // In-line upcoming cue replacement phase:
+  // 0: Normal singing (> 2 beats left)
+  // 1: Last 2 beats (1 to 2 beats left) -> Replace 1st character with incoming 1st syllable at 60% opacity
+  // 2: Last 1 beat (<= 1 beat left) -> Replace 1st & 2nd characters with incoming syllables at 60% opacity, AND bouncing ball on 1st syllable!
+  const cuePhase: 0 | 1 | 2 = useMemo(() => {
+    if (!nextVerse || !activeVerseTiming || timeRemainingSec <= 0) return 0;
+    if (playbackState.currentTime < activeVerseTiming.firstVocalStartSec) return 0;
+    if (timeRemainingSec <= secPerBeat) return 2;
+    if (timeRemainingSec <= secPerBeat * 2) return 1;
+    return 0;
+  }, [nextVerse, activeVerseTiming, playbackState.currentTime, timeRemainingSec, secPerBeat]);
 
   // Group active verse notes into lines based on measure boundaries.
   // Multi-measure verses (e.g. Measure 13 & 14 in 雨夜花) split into natural, balanced lines.
@@ -1043,23 +1126,39 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                           key={line.id}
                           className="w-full max-w-full flex flex-wrap items-end justify-center gap-x-2 sm:gap-x-3.5 md:gap-x-5 gap-y-2"
                         >
-                          {line.notes.map(({ item, globalIdx }) => (
-                            <SyllableCell
-                              key={`${item.measureIndex}-${item.noteIndex}-${globalIdx}`}
-                              item={item}
-                              noteIndex={globalIdx}
-                              isActiveLine={true}
-                              currentTime={playbackState.currentTime}
-                              verseTiming={activeVerseTiming}
-                              effectiveMode={effectiveMode}
-                              isFirstVocalNote={globalIdx === currentFirstVocal}
-                              showNotation={showNotation}
-                              stageTheme={stageTheme}
-                              zoomScale={zoomScale}
-                              isEcoMode={isEcoMode}
-                              isComingLineAwaiting={isAwaitingVocal || Boolean(leadIn && leadIn.isLeadIn)}
-                            />
-                          ))}
+                          {line.notes.map(({ item, globalIdx }) => {
+                            let incomingCueOverride: IncomingAttackCue | null = null;
+                            let hasBouncingBall = false;
+
+                            if (cuePhase >= 1 && globalIdx === currentFirstVocal && incomingCues.first) {
+                              incomingCueOverride = incomingCues.first;
+                              hasBouncingBall = cuePhase === 2;
+                            } else if (cuePhase >= 2 && globalIdx === currentSecondVocal && incomingCues.second) {
+                              incomingCueOverride = incomingCues.second;
+                              hasBouncingBall = false;
+                            }
+
+                            return (
+                              <SyllableCell
+                                key={`${item.measureIndex}-${item.noteIndex}-${globalIdx}`}
+                                item={item}
+                                noteIndex={globalIdx}
+                                isActiveLine={true}
+                                currentTime={playbackState.currentTime}
+                                verseTiming={activeVerseTiming}
+                                effectiveMode={effectiveMode}
+                                isFirstVocalNote={globalIdx === currentFirstVocal}
+                                showNotation={showNotation}
+                                stageTheme={stageTheme}
+                                zoomScale={zoomScale}
+                                isEcoMode={isEcoMode}
+                                isComingLineAwaiting={isAwaitingVocal || Boolean(leadIn && leadIn.isLeadIn)}
+                                incomingCueOverride={incomingCueOverride}
+                                hasBouncingBall={hasBouncingBall}
+                                secPerBeat={secPerBeat}
+                              />
+                            );
+                          })}
                         </div>
                       ))}
                     </div>
@@ -1078,36 +1177,6 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                   </span>
                 </div>
               )}
-            </div>
-
-            {/* Dedicated Incoming Lyric Cue Row: Always anchored at the bottom for total visual stability */}
-            <div className="w-full flex items-center justify-center min-h-[3rem] sm:min-h-[4rem] pb-1 shrink-0">
-              <AnimatePresence>
-                {showUpcomingCue && upcomingStartPreview && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 0.6, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.2 }}
-                    className="select-none whitespace-nowrap break-keep break-inside-avoid pointer-events-none z-10 inline-flex items-center justify-center opacity-60"
-                  >
-                    <div className="relative flex items-baseline justify-center whitespace-nowrap">
-                      <span
-                        className={`${getMainFontSizeClass(zoomScale, showNotation)} font-black tracking-wider flex items-center justify-center select-none whitespace-nowrap break-keep ${
-                          effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo'
-                            ? 'font-serif italic font-extrabold'
-                            : 'font-sans'
-                        } ${
-                          isDark ? 'text-amber-300' : 'text-blue-600'
-                        }`}
-                        title="下一句起唱字 (Next phrase entry words)"
-                      >
-                        {upcomingStartPreview}
-                      </span>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
           </div>
 
