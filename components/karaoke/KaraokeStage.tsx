@@ -701,43 +701,82 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
     nextVerse && (isCurrentVerseInLastTwoBeats || isVerseCompleted)
   );
 
-  // Auto-fit dynamic scaler: ensures active lyric line + upcoming cue stay on a single line
-  // and scales down smoothly so no text is ever clipped.
+  // Stable lyric geometry & adaptive forward cue engine:
+  // Strictly preserves the location and font size of the sung lyric line (0px movement, 0% shrink),
+  // while dynamically adapting the forward cue ("adopt others") to fit the available margin.
   const canvasRef = useRef<HTMLDivElement>(null);
   const lineRowRef = useRef<HTMLDivElement>(null);
-  const [fitScale, setFitScale] = useState<number>(1);
+  const [lyricLineScale, setLyricLineScale] = useState<number>(1);
+  const [cueFit, setCueFit] = useState<{
+    placement: 'inline' | 'below';
+    scale: number;
+  }>({ placement: 'inline', scale: 1 });
 
-  const updateFitScale = useCallback(() => {
+  const updateGeometry = useCallback(() => {
     if (!canvasRef.current || !lineRowRef.current) return;
 
     const canvasWidth = canvasRef.current.clientWidth;
     const canvasHeight = canvasRef.current.clientHeight;
-    const contentWidth = lineRowRef.current.scrollWidth;
-    const contentHeight = lineRowRef.current.scrollHeight;
+    const lyricWidth = lineRowRef.current.offsetWidth;
+    const lyricHeight = lineRowRef.current.offsetHeight;
 
+    // 1. Calculate stable lyric line scale (strictly independent of the upcoming cue)
     const availableWidth = Math.max(0, canvasWidth - 28);
     const availableHeight = Math.max(0, canvasHeight - 20);
 
-    let newScale = 1;
-    if (contentWidth > 0 && availableWidth > 0) {
-      const widthScale = availableWidth / contentWidth;
-      const heightScale = contentHeight > 0 && availableHeight > 0 ? availableHeight / contentHeight : 1;
-      newScale = Math.min(1, widthScale, heightScale);
-      newScale = Math.max(0.35, newScale);
+    let newLyricScale = 1;
+    if (lyricWidth > 0 && availableWidth > 0 && lyricWidth > availableWidth) {
+      newLyricScale = Math.max(0.4, availableWidth / lyricWidth);
+    }
+    if (lyricHeight > 0 && availableHeight > 0 && lyricHeight > availableHeight) {
+      newLyricScale = Math.min(newLyricScale, Math.max(0.4, availableHeight / lyricHeight));
     }
 
-    setFitScale(prev => {
-      if (Math.abs(prev - newScale) < 0.005) return prev;
-      return newScale;
+    setLyricLineScale(prev => {
+      if (Math.abs(prev - newLyricScale) < 0.005) return prev;
+      return newLyricScale;
+    });
+
+    // 2. Adapt the upcoming forward cue to the remaining space ("adopt others")
+    // Space available between the right edge of the centered lyric line and canvas edge
+    const renderedLyricWidth = lyricWidth * newLyricScale;
+    const renderedLyricHeight = lyricHeight * newLyricScale;
+    const rightMargin = (canvasWidth - renderedLyricWidth) / 2 - 16;
+    const bottomMargin = (canvasHeight - renderedLyricHeight) / 2 - 12;
+
+    // Available margins in lineRowRef coordinate space (cue child inherits lyricLineScale)
+    const unscaledRightMargin = rightMargin / newLyricScale;
+    const unscaledBottomMargin = bottomMargin / newLyricScale;
+    const targetCueWidth = 140;
+
+    let newPlacement: 'inline' | 'below' = 'inline';
+    let newCueScale = 1;
+
+    if (unscaledRightMargin >= targetCueWidth) {
+      newPlacement = 'inline';
+      newCueScale = 1;
+    } else if (unscaledRightMargin >= 75) {
+      newPlacement = 'inline';
+      newCueScale = Math.max(0.65, unscaledRightMargin / targetCueWidth);
+    } else {
+      newPlacement = 'below';
+      newCueScale = unscaledBottomMargin < 36 ? Math.max(0.6, unscaledBottomMargin / 36) : 1;
+    }
+
+    setCueFit(prev => {
+      if (prev.placement === newPlacement && Math.abs(prev.scale - newCueScale) < 0.01) {
+        return prev;
+      }
+      return { placement: newPlacement, scale: newCueScale };
     });
   }, []);
 
   useLayoutEffect(() => {
-    updateFitScale();
+    updateGeometry();
 
     if (typeof ResizeObserver !== 'undefined' && canvasRef.current) {
       const observer = new ResizeObserver(() => {
-        updateFitScale();
+        updateGeometry();
       });
       observer.observe(canvasRef.current);
       if (lineRowRef.current) {
@@ -746,11 +785,9 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
       return () => observer.disconnect();
     }
   }, [
-    updateFitScale,
+    updateGeometry,
     currentVerse,
     activeVerseIndex,
-    showUpcomingCue,
-    upcomingStartPreview,
     zoomScale,
     showNotation,
     displayMode,
@@ -983,13 +1020,13 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                   animate={{ opacity: 1, y: 0 }}
                   exit={isEcoMode ? undefined : { opacity: 0, y: -12 }}
                   transition={{ duration: 0.25, ease: 'easeOut' }}
-                  className="w-full flex items-center justify-center overflow-hidden"
+                  className="w-full flex items-center justify-center overflow-visible"
                 >
                   <div
                     ref={lineRowRef}
-                    className="flex flex-nowrap items-end justify-center gap-x-2 sm:gap-x-3.5 md:gap-x-5 shrink-0 transition-transform duration-150 ease-out"
+                    className="relative inline-flex flex-nowrap items-end justify-center gap-x-2 sm:gap-x-3.5 md:gap-x-5 shrink-0 transition-transform duration-150 ease-out"
                     style={{
-                      transform: fitScale < 1 ? `scale(${fitScale})` : undefined,
+                      transform: lyricLineScale < 1 ? `scale(${lyricLineScale})` : undefined,
                       transformOrigin: 'center center',
                     }}
                   >
@@ -1015,11 +1052,27 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                     <AnimatePresence>
                       {showUpcomingCue && upcomingStartPreview && (
                         <motion.div
-                          initial={{ opacity: 0, x: -6 }}
-                          animate={{ opacity: 0.75, x: 0 }}
-                          exit={{ opacity: 0, x: 6 }}
+                          initial={{
+                            opacity: 0,
+                            x: cueFit.placement === 'inline' ? -6 : 0,
+                            y: cueFit.placement === 'below' ? -4 : 0,
+                          }}
+                          animate={{ opacity: 0.75, x: 0, y: 0 }}
+                          exit={{
+                            opacity: 0,
+                            x: cueFit.placement === 'inline' ? 6 : 0,
+                            y: cueFit.placement === 'below' ? 4 : 0,
+                          }}
                           transition={{ duration: 0.2 }}
-                          className="relative inline-flex flex-col items-center justify-end px-1 select-none shrink-0 whitespace-nowrap break-keep break-inside-avoid"
+                          className={`select-none whitespace-nowrap break-keep break-inside-avoid pointer-events-none z-10 ${
+                            cueFit.placement === 'inline'
+                              ? 'absolute left-full bottom-0 ml-2 sm:ml-3 flex flex-col items-start justify-end'
+                              : 'absolute right-0 top-full mt-1 sm:mt-1.5 flex flex-col items-end justify-start'
+                          }`}
+                          style={{
+                            transform: cueFit.scale < 1 ? `scale(${cueFit.scale})` : undefined,
+                            transformOrigin: cueFit.placement === 'inline' ? 'left bottom' : 'right top',
+                          }}
                         >
                           <div className="relative flex items-baseline justify-center whitespace-nowrap">
                             <span
@@ -1044,7 +1097,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                             </span>
                           </div>
 
-                          {showNotation && (
+                          {showNotation && cueFit.placement === 'inline' && (
                             <div className="mt-1.5 invisible select-none pointer-events-none px-1.5 py-0.5 border border-transparent">
                               <span className="font-mono text-xs sm:text-base font-black">0</span>
                             </div>
