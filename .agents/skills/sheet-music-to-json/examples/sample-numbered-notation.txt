@@ -1,0 +1,50 @@
+# Taigi Numbered Notation Score Format
+# Song: 望春風 (Bāng Chhun-hong)
+Title: 望春風
+Subtitle: Bāng Chhun-hong
+Composer: 鄧雨賢
+Lyricist: 李臨秋
+Key: F
+Time: 4/4
+BPM: 80
+Description: Canonical Taiwanese classic in F major with bilingual Hanlo & Pe̍h-ōe-jī (POJ) lyrics.
+
+[Measure 1] (前奏) Chord: F
+Numbered Notation:  5_  6_  1  2_  3_
+羅馬字:             To̍k  iā  bô  phōaⁿ  siú
+漢羅:               獨   夜  無  伴    守
+
+[Measure 2] Chord: F
+Numbered Notation:  3-  2_  1_
+羅馬字:             teng  —  ē
+漢羅:               燈    —  下
+
+[Measure 3] Chord: Bb
+Numbered Notation:  2_  3_  2_  1_  6,  1
+羅馬字:             Chhun  hong  tùi  bīn  chhe  —
+漢羅:               春     風    對  面   吹   —
+
+[Measure 4] Chord: F
+Numbered Notation:  5-  —
+羅馬字:             —  —
+漢羅:               —  —
+
+[Measure 5] (主歌 1-A) Chord: F
+Numbered Notation:  1_  2_  3_  5_  6_  5_  3
+羅馬字:             Siūⁿ  beh  khui  m̂  chhut  siaⁿ  —
+漢羅:               想    欲   開   門  出    聲    —
+
+[Measure 6] Chord: C7
+Numbered Notation:  2-  —
+羅馬字:             —  —
+漢羅:               —  —
+
+[Measure 7] (主歌 1-B) Chord: F
+Numbered Notation:  5_  6_  1_  2_  3_  2_  1
+羅馬字:             M̄  chai  i  chú  sī  chún  bô
+漢羅:               唔  知   伊  子  是  準   無
+
+[Measure 8] Chord: F
+Numbered Notation:  1-  —
+羅馬字:             —  —
+漢羅:               —  —

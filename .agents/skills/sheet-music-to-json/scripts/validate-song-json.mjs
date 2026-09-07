@@ -101,6 +101,23 @@ function validateSongFile(filePath) {
     }
   });
 
+  // App import simulation check
+  try {
+    if (!data.title || !Array.isArray(data.measures) || data.measures.length === 0) {
+      throw new Error('Missing title or empty measures array');
+    }
+    const simulatedMeasures = data.measures.map((m, idx) => ({
+      id: m.id || `m-${idx + 1}-${Date.now()}`,
+      measureNumber: typeof m.measureNumber === 'number' ? m.measureNumber : idx + 1,
+      notes: Array.isArray(m.notes) ? m.notes : [],
+    }));
+    if (simulatedMeasures.length === 0) {
+      throw new Error('Simulation resulted in 0 measures');
+    }
+  } catch (simErr) {
+    errors.push(`App import simulation failed: ${simErr.message}`);
+  }
+
   // Verse / Phrase segmentation analysis for Karaoke mode
   const karaokeTips = [];
   let currentPhraseSyllables = 0;

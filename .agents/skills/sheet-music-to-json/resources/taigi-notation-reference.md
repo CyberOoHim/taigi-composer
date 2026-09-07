@@ -121,3 +121,36 @@ In the interactive Karaoke Prompter and Rehearsal Stage, lyrics are displayed in
    - Set `"isLineBreak": true` on the concluding measure.
    - Use distinct subsection tags when helpful (e.g. `"section": "主歌 1-A"`, `"section": "主歌 1-B"`).
 
+---
+
+## 7. Multi-Format Input Support (Text, MIDI, Images, PDF)
+
+The conversion tool (`convert-sheet.mjs`) supports four primary input modalities:
+
+### A. Text-Based Numbered Notation with Lyrics
+1. **Canonical App Text Format** (Instant, deterministic, zero-cost):
+   ```text
+   Title: 望春風
+   Key: F
+   Time: 4/4
+   BPM: 80
+
+   [Measure 1] (前奏) Chord: F
+   Numbered Notation: 5_ 6_ 1 2_ 3_
+   羅馬字: To̍k iā bô phōaⁿ siú
+   漢羅: 獨 夜 無 伴 守
+   ```
+2. **Freeform / Markdown / ASCII Notation** (AI-powered):
+   Accepts arbitrary text sheets such as `1=F 4/4 | 5. 6 1 2 | 3 - 2 1 | 獨夜無伴守燈下`. Gemini transcribes and aligns lyrics automatically.
+
+### B. Standard MIDI Files (.mid, .midi)
+- Automatically parses Format 0 and Format 1 MIDI files.
+- Computes scale degrees (1–7) based on Key signature and converts note-on/note-off ticks to metric note durations.
+- Automatically inserts rest notes (`pitch: 0`) for gaps between notes.
+- Extracts track lyrics (Meta event 0x05) and markers (Meta event 0x06).
+- Supports `--ai-enrich` to generate accurate Pe̍h-ōe-jī (POJ) Romanization for extracted lyrics.
+
+### C. Sheet Images (.png, .jpg, .webp) & PDF (.pdf)
+- Multimodal Gemini Vision transcription with multi-page sequencing and strict schema validation.
+- Auto-detects key signatures, barlines, chords, grace notes, and Taigi lyrics.
+

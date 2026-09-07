@@ -1,47 +1,103 @@
 ---
 name: "sheet-music-to-json"
 description: >
-  Converts musical sheets (Numbered notation / 簡譜 or staff notation) from images
-  (PNG, JPG, JPEG, WEBP) or PDF documents into the standardized Song JSON format
-  compatible with the Taigi Composer / Karaoke application. Use when converting scanned
-  scores, lead sheets, or song PDFs into importable song data.
+  Converts musical scores and notations from Text-based Numbered Notation (簡譜)
+  with lyrics (.txt, .md), Standard MIDI files (.mid, .midi), scanned sheet music
+  images (PNG, JPG, WEBP), and PDF documents into the standardized Song JSON format
+  qualified for direct import into the Taigi Composer / Karaoke application.
 ---
 
-# Sheet Music to JSON Conversion Skill
+# Sheet Music & Score to JSON Conversion Skill
 
-This skill enables agents and automated workflows to take scanned sheet music (in Image or PDF format) and transcribe it into the exact JSON format consumed by this application for playback, rehearsal, karaoke stage rendering, and music composition.
+This skill enables agents and automated workflows to take musical scores from diverse input formats—including **text-based numbered notation with lyrics**, **standard MIDI files**, **scanned sheet images**, and **multi-page PDF documents**—and convert them into 100% compliant Song JSON for instant playback, rehearsal, karaoke stage rendering, and interactive editing in the Taigi Composer app.
 
 ---
 
 ## 1. Quick Start
 
-### Running the Conversion Script
-You can convert any sheet music file (Image or PDF) directly from the command line:
+### Supported Input Modalities
+1. **Text-Based Numbered Notation with Lyrics (`.txt`, `.md`, `--text`, `stdin`)**:
+   - **Canonical App Text Format**: Deterministic, zero-cost, instant parser (`text-parser.mjs`).
+   - **Freeform / Markdown Notation**: AI-powered transcription via Gemini.
+2. **Standard MIDI Files (`.mid`, `.midi`)**:
+   - Parses note pitches, scale degrees (1–7), metric note durations, rests, tempo, time signature, markers, and embedded lyrics deterministically.
+   - Optional `--ai-enrich` generates authentic Taiwanese Pe̍h-ōe-jī (POJ) tone diacritics.
+3. **Scanned Sheet Images (`.png`, `.jpg`, `.jpeg`, `.webp`)**:
+   - Multimodal Gemini Vision transcription with chronological measure sequencing.
+4. **PDF Score Documents (`.pdf`)**:
+   - Native multi-page document transcription.
 
+### CLI Usage Examples
 ```bash
-# Convert a single image or PDF
-node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs ./path/to/score.pdf -o ./my-song.taigi.json
+# 1. Text-based numbered notation with lyrics:
+node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs score.txt -o my_song.taigi.json
 
-# Convert multi-page images in sequence
-node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs page1.png page2.png -o ./song.taigi.json
+# Piped text from standard input:
+cat score.txt | node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs - -o my_song.taigi.json
 
-# Override key, time signature, or tempo
-node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs score.jpg --key F --time 4/4 --bpm 84
+# Direct command-line text string:
+node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs --text "Title: 望春風\nKey: F\n[Measure 1]\nNumbered Notation: 5 6 1 2\n漢羅: 獨 夜 無 伴"
 
-# Validate an exported song JSON file
-node .agents/skills/sheet-music-to-json/scripts/validate-song-json.mjs ./my-song.taigi.json
+# 2. Standard MIDI file conversion:
+node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs track.mid --auto-fix-rhythm -o song.taigi.json
+node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs track.mid --ai-enrich -o song_with_poj.taigi.json
+
+# 3. Sheet music images & PDF documents:
+node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs score.pdf -o hymn.taigi.json
+node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs page1.png page2.png --key F --time 4/4
+
+# 4. Validate output against the app schema and import test:
+node .agents/skills/sheet-music-to-json/scripts/validate-song-json.mjs ./my_song.taigi.json
 ```
 
 ---
 
-## 2. Supported Input Formats
+## 2. Input Formats & Grammar
 
-1. **PDF Documents (`.pdf`)**:
-   - Single-page or multi-page lead sheets, songbooks, choir arrangements.
-   - Sent directly to the vision model with MIME type `application/pdf`.
-2. **Images (`.png`, `.jpg`, `.jpeg`, `.webp`)**:
-   - High-resolution scans, mobile photos, or screenshot crops.
-   - Multiple pages can be passed sequentially (e.g. `page1.png page2.png page3.png`).
+### A. Text-Based Numbered Notation Format (Recommended)
+This human-readable text format can be edited in any text editor and parses deterministically without requiring an API key:
+
+```text
+Title: 望春風
+Subtitle: Bāng Chhun-hong
+Composer: 鄧雨賢
+Lyricist: 李臨秋
+Key: F
+Time: 4/4
+BPM: 80
+
+[Measure 1] (Verse 1) Chord: F
+Numbered Notation: 5_ 6_ 1 2_ 3_
+羅馬字: To̍k iā bô phōaⁿ siú
+漢羅: 獨 夜 無 伴 守
+
+[Measure 2] Chord: F
+Numbered Notation: 3- 2_ 1_
+羅馬字: teng — ē
+漢羅: 燈 — 下
+```
+
+**Notation Syntax**:
+- `1` to `7`: Scale degrees (Do, Re, Mi, Fa, Sol, La, Ti).
+- `0`: Rest (休止符).
+- `.` or `'` suffix: Octave up (e.g. `1.` or `1'` = high Do).
+- `,` suffix: Octave down (e.g. `5,` = low Sol).
+- `_` suffix: 8th note (half beat).
+- `__` suffix: 16th note (quarter beat).
+- `-` suffix: Sustained beat extender (`1-` = 2 beats, `1--` = 3 beats, `1---` = 4 beats).
+- `*` or `d` suffix: Dotted note (+50% duration, e.g. `5_*` = dotted 8th note).
+
+### B. Standard MIDI Files (.mid)
+The parser extracts:
+- Track events, tempos (Set Tempo meta events), and time signatures.
+- Channel 0..15 note events; computes scale degree relative to the song's key.
+- Converts gap intervals between notes into explicit rest notes (`pitch: 0`).
+- Captures track lyrics (meta 0x05) and markers (meta 0x06) and pairs them with notes.
+- Use `--auto-fix-rhythm` to automatically pad any incomplete measure with rest notes.
+
+### C. Visual Scores (Images & PDF)
+- Uses Gemini Vision (`gemini-2.5-flash` or `gemini-3.1-pro-preview`).
+- Accurately reads key signatures (`1=F`), meter (`4/4`, `3/4`), slurs, ties, grace notes, chords, and bilingual lyrics.
 
 ---
 
@@ -132,11 +188,11 @@ $$\sum \text{duration} = \text{Expected Beats per Measure}$$
 - In `2/4`: 2 beats per measure.
 - In `6/8`: 3 beats per measure.
 
-Pickup measures (弱起小節 / 前奏) can have partial beats.
+Use `--auto-fix-rhythm` to automatically insert padding rests into any measure that falls short of the expected beats.
 
 ### D. Lyrics Extraction (Taigi / Taiwanese Hokkien)
 - Transcribe **both** `hanlo` (漢字/漢羅) and `poj` (白話字/Pe̍h-ōe-jī).
-- If the original sheet music only prints Chinese characters, generate the standard corresponding POJ Romanization with correct tone diacritics.
+- If original lyrics only have Chinese characters, the `--ai-enrich` flag generates accurate corresponding POJ Romanization with official tone diacritics.
 - For notes that continue a sustained syllable under a tie or slur, set `lyric: { hanlo: "—", poj: "—" }` or `{}`.
 
 ### E. Verse & Phrase Segmentation for Karaoke Readability (Short While Meaningful)
@@ -148,14 +204,14 @@ To deliver an optimal singing and reading experience, **the skill must split ver
 1. **Target Phrase Length**:
    - **Ideal syllable count**: **4 to 8 sung syllables** per verse (e.g. 5-character 五言 or 7-character 七言 poetic lines in Taiwanese Hokkien songs).
    - **Ideal measure span**: **2 to 4 measures** per phrase.
-   - **Anti-Pattern**: NEVER lump an entire multi-sentence stanza (8–16 measures or 15+ syllables) into a single continuous verse. Overly long verses crowd the stage prompter and make reading difficult.
+   - **Anti-Pattern**: NEVER lump an entire multi-sentence stanza (8–16 measures or 15+ syllables) into a single continuous verse.
 
 2. **Natural Phrasing Boundaries**:
    - Split at **syntactic and poetic clauses** (e.g. "獨夜無伴守燈下" is 1 verse; "清風對面吹" is the next verse).
-   - Split at **melodic cadences, punctuation marks (，, 。)**, and **breath/rest points** (where a singer naturally inhales before the next musical line).
+   - Split at **melodic cadences, punctuation marks (，, 。)**, and **breath/rest points**.
 
 3. **Encoding Phrase Breaks in Song JSON**:
-   - **Newline on Concluding Syllable (Recommended)**: Append `\n` to the last syllable's `hanlo` and `poj` (e.g. `hanlo: "下\n", poj: "ē\n"`).
+   - **Newline on Concluding Syllable**: Append `\n` to the last syllable's `hanlo` and `poj` (e.g. `hanlo: "下\n", poj: "ē\n"`).
    - **Measure Line Break**: Set `"isLineBreak": true` on the measure that concludes the phrase.
    - **Informative Section Headers**: Subdivide sections into distinct phrase labels (e.g. `"section": "主歌 1-A"`, `"section": "主歌 1-B"`).
 
@@ -163,10 +219,10 @@ To deliver an optimal singing and reading experience, **the skill must split ver
 
 ## 5. Workflow: From Score File to In-App Playback
 
-1. **Step 1**: Place image(s) or PDF file in the workspace (or specify an absolute path).
+1. **Step 1**: Place your file in the workspace (Text, MIDI, Images, or PDF).
 2. **Step 2**: Run the conversion script:
    ```bash
-   node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs ./path/to/sheet.pdf -o ./my-song.taigi.json
+   node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs ./input-file.txt -o ./my-song.taigi.json
    ```
 3. **Step 3**: Verify with the validator:
    ```bash
@@ -184,15 +240,18 @@ To deliver an optimal singing and reading experience, **the skill must split ver
 
 ```text
 .agents/skills/sheet-music-to-json/
-├── SKILL.md                          # This document
+├── SKILL.md                          # Main skill documentation
 ├── scripts/
-│   ├── convert-sheet.mjs             # CLI converter supporting Images & PDFs
-│   └── validate-song-json.mjs        # JSON validator against the app schema
+│   ├── convert-sheet.mjs             # Multi-format CLI converter (Text, MIDI, Images, PDF)
+│   ├── midi-parser.mjs               # Standard MIDI file parser & scale-degree mapper
+│   ├── text-parser.mjs               # Structured & freeform text score parser
+│   └── validate-song-json.mjs        # Schema & app import validator
 ├── resources/
-│   ├── schema.json                   # Formal JSON Schema
-│   └── taigi-notation-reference.md   # Music theory and Taigi notation guidelines
+│   ├── schema.json                   # Formal Song JSON Schema
+│   └── taigi-notation-reference.md   # Music theory, notation & multi-format reference
 └── examples/
     ├── sample-output.taigi.json      # Complete, verified example of "望春風"
+    ├── sample-numbered-notation.txt  # Human-readable structured text score example
     └── sample-prompt.txt             # Multimodal prompt template for vision models
 ```
 
