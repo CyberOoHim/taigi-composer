@@ -49,6 +49,10 @@ import {
   Plus,
   Play,
   X,
+  Sun,
+  Moon,
+  Music,
+  Type,
 } from 'lucide-react';
 
 export type { KaraokeSection } from './karaoke/SectionJumpBar';
@@ -779,10 +783,10 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
           </div>
         </div>
 
-        {/* Display Mode & Fullscreen Tabs */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Combined Display Mode, Zoom, Theme & Notation Bar in ONE single line */}
+        <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap overflow-x-auto max-w-full no-scrollbar py-0.5">
           {/* Display Mode Selector: 1. 羅馬字, 2. 漢羅, 3. 羅馬字（主）+ 漢羅 */}
-          <div id="ktv-display-mode-selector" className="flex items-center bg-[#0a0c10] p-1 rounded-xl border border-zinc-800 text-xs">
+          <div id="ktv-display-mode-selector" className="shrink-0 flex items-center bg-[#0a0c10] p-1 rounded-xl border border-zinc-800 text-xs">
             <button
               id="ktv-mode-roman"
               type="button"
@@ -836,7 +840,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
           {/* Font Size Zoom Controls (- / +) */}
           <div
             id="ktv-header-zoom-controls"
-            className="flex items-center min-h-[40px] bg-[#0a0c10] rounded-xl p-1 border border-zinc-800 text-xs"
+            className="shrink-0 flex items-center min-h-[40px] bg-[#0a0c10] rounded-xl p-1 border border-zinc-800 text-xs"
           >
             <button
               id="ktv-header-zoom-out-btn"
@@ -869,20 +873,32 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
             </button>
           </div>
 
-          {/* Fullscreen / Stage Mode Button */}
+          {/* Stage Theme Toggle (暗色舞台 / 譜架高對比) */}
           <button
-            id="ktv-stage-mode-toggle-btn"
+            id="ktv-stage-theme-toggle"
             type="button"
-            onClick={toggleStageMode}
-            className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all active:scale-95 touch-manipulation cursor-pointer ${
-              isStageMode || isFullscreen
-                ? 'bg-amber-500 text-zinc-950 font-bold border border-amber-400 shadow-md'
-                : 'bg-[#0a0c10] text-zinc-300 hover:text-white hover:bg-zinc-800 border border-zinc-800'
-            }`}
-            title={isStageMode || isFullscreen ? 'Exit Stage Mode (ESC)' : 'Enter Stage Mode'}
+            onClick={toggleStageTheme}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl text-xs font-bold bg-[#0a0c10] text-amber-300 hover:text-white hover:bg-zinc-800 border border-zinc-800 transition-all active:scale-95 touch-manipulation cursor-pointer"
+            title="切換舞台暗色 / 譜架高對比白天模式 (Stage Dark vs Music Stand)"
           >
-            {isStageMode || isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4 text-amber-400" />}
-            <span className="hidden sm:inline">{isStageMode || isFullscreen ? 'Exit Stage' : 'Stage Mode'}</span>
+            {stageTheme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-400" />}
+            <span className="hidden sm:inline">{stageTheme === 'dark' ? '暗色舞台' : '譜架高對比'}</span>
+          </button>
+
+          {/* Numbered Notation Toggle (簡譜: 開 / 純歌詞模式) */}
+          <button
+            id="ktv-stage-notation-toggle"
+            type="button"
+            onClick={toggleShowNotation}
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl text-xs font-bold border transition-all active:scale-95 touch-manipulation cursor-pointer ${
+              showNotation
+                ? 'bg-amber-500/20 text-amber-300 border-amber-400/50 shadow-xs'
+                : 'bg-[#0a0c10] text-zinc-400 hover:text-white hover:bg-zinc-800 border-zinc-800'
+            }`}
+            title="切換簡譜顯示 (純歌詞大字模式 vs 簡譜模式)"
+          >
+            {showNotation ? <Music className="w-3.5 h-3.5 text-amber-400" /> : <Type className="w-3.5 h-3.5 text-zinc-400" />}
+            <span>{showNotation ? '簡譜: 開' : '純歌詞模式'}</span>
           </button>
         </div>
       </div>

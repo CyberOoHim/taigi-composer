@@ -7,7 +7,7 @@ import { VerseTiming, KaraokeLeadInState } from '@/lib/karaokeSequencer';
 import { KaraokeSection } from './SectionJumpBar';
 import { KaraokeStageTheme, KaraokeLayoutMode } from '@/lib/storage';
 import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
-import { CheckCircle2, Wind, Sun, Moon, Music, Type, Pencil } from 'lucide-react';
+import { CheckCircle2, Wind, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export interface KaraokeStageProps {
@@ -880,65 +880,6 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
         </>
       )}
 
-      {/* Stage Mini Readability Toolbar */}
-      <div className="w-full max-w-6xl flex items-center justify-between gap-2 mb-3 px-1 z-20 flex-wrap">
-        <div className="flex items-center gap-2">
-          {activeSection && (
-            <span
-              className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${
-                isDark
-                  ? 'bg-zinc-900/90 text-amber-300 border-amber-500/40 shadow-xs'
-                  : 'bg-white text-blue-800 border-slate-300 shadow-xs'
-              }`}
-            >
-              段落: {activeSection.name}
-            </span>
-          )}
-        </div>
-
-        {/* Readability & Theme Quick Switches */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* 1. Theme Switcher (Stage Dark vs Music Stand Daylight) */}
-          {onToggleStageTheme && (
-            <button
-              id="ktv-stage-theme-toggle"
-              type="button"
-              onClick={onToggleStageTheme}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[34px] ${
-                isDark
-                  ? 'bg-zinc-900/90 text-amber-300 border-zinc-700 hover:bg-zinc-800'
-                  : 'bg-white text-blue-700 border-slate-300 hover:bg-slate-50 shadow-xs'
-              }`}
-              title="切換舞台暗色 / 譜架高對比白天模式 (Stage Dark vs Music Stand)"
-            >
-              {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-700" />}
-              <span className="hidden sm:inline">{isDark ? '暗色舞台' : '譜架高對比'}</span>
-            </button>
-          )}
-
-          {/* 2. Clean Performance Mode Toggle (Hide/Show Numbered Notation) */}
-          {onToggleShowNotation && (
-            <button
-              id="ktv-stage-notation-toggle"
-              type="button"
-              onClick={onToggleShowNotation}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[34px] ${
-                showNotation
-                  ? isDark
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-400/50'
-                    : 'bg-blue-50 text-blue-800 border-blue-300'
-                  : isDark
-                  ? 'bg-zinc-900 text-zinc-400 border-zinc-800'
-                  : 'bg-slate-100 text-slate-600 border-slate-200'
-              }`}
-              title="切換簡譜顯示 (純歌詞大字模式 vs 簡譜模式)"
-            >
-              {showNotation ? <Music className="w-3.5 h-3.5" /> : <Type className="w-3.5 h-3.5" />}
-              <span>{showNotation ? '簡譜: 開' : '純歌詞模式'}</span>
-            </button>
-          )}
-        </div>
-      </div>
 
       {/* Phrase Completed Celebration Floating Pill */}
       <AnimatePresence>
