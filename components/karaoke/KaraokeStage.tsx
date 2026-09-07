@@ -35,6 +35,17 @@ export interface KaraokeStageProps {
   onToggleLayoutMode?: () => void;
 }
 
+// Helper to identify CJK characters for natural Chinese text spacing
+const isCJKChar = (char: string): boolean => {
+  if (!char) return false;
+  const code = char.charCodeAt(0);
+  return (
+    (code >= 0x4e00 && code <= 0x9fff) ||
+    (code >= 0x3400 && code <= 0x4dbf) ||
+    (code >= 0x20000 && code <= 0x2a6df)
+  );
+};
+
 /**
  * Individual Syllable Cell with continuous gradient wipe & 3-tier vertical grid
  */
@@ -535,95 +546,62 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   };
 
   const currentFirstVocal = useMemo(() => getFirstVocalIndex(currentVerse), [currentVerse]);
-  const nextFirstVocalIdx = useMemo(() => getFirstVocalIndex(nextVerse), [nextVerse]);
+  // Derive clean next-phrase starting preview cue (2 chars for Hanji or 2 words for POJ)
+  const upcomingStartPreview = useMemo(() => {
+    if (!nextVerse || !nextVerse.notes || nextVerse.notes.length === 0) return null;
 
-  // Extract rich details of the first sung note in the upcoming verse
-  const nextFirstNoteRef = useMemo(() => {
-    if (!nextVerse || nextFirstVocalIdx < 0) return null;
-    return nextVerse.notes[nextFirstVocalIdx] || null;
-  }, [nextVerse, nextFirstVocalIdx]);
-
-  const nextStartWordInfo = useMemo(() => {
-    if (!nextFirstNoteRef) return null;
-    const n = nextFirstNoteRef.note;
-    const rawHanlo = n.lyric.hanlo ?? n.lyric.hanji ?? n.lyric.custom ?? '';
-    const rawRoman = n.lyric.poj ?? n.lyric.tl ?? '';
-    const pitchText = typeof n.pitch === 'number' && n.pitch > 0 ? `${n.pitch}` : '';
-    const solfege =
-      n.pitch === 1
-        ? 'Do'
-        : n.pitch === 2
-        ? 'Re'
-        : n.pitch === 3
-        ? 'Mi'
-        : n.pitch === 4
-        ? 'Fa'
-        : n.pitch === 5
-        ? 'Sol'
-        : n.pitch === 6
-        ? 'La'
-        : n.pitch === 7
-        ? 'Si'
-        : '';
-
-    let primary = '';
-    let secondary = '';
-    if (effectiveMode === 'roman') {
-      primary = rawRoman || rawHanlo;
-      secondary = rawHanlo && rawHanlo !== primary ? rawHanlo : '';
-    } else if (effectiveMode === 'hanlo') {
-      primary = rawHanlo || rawRoman;
-      secondary = rawRoman && rawRoman !== primary ? rawRoman : '';
-    } else if (effectiveMode === 'roman_major_hanlo') {
-      primary = rawRoman || rawHanlo;
-      secondary = rawHanlo && rawHanlo !== primary ? rawHanlo : '';
-    } else {
-      primary = rawHanlo || rawRoman;
-      secondary = rawRoman && rawRoman !== primary ? rawRoman : '';
-    }
-
-    return {
-      primary: primary.trim(),
-      secondary: secondary.trim(),
-      pitchText,
-      solfege,
-      octave: n.octave || 0,
-      annotation: n.annotation,
-    };
-  }, [nextFirstNoteRef, effectiveMode]);
-
-  // Derive clean remaining next-line preview string (after the first word)
-  const nextRemainingPreview = useMemo(() => {
-    if (!nextVerse || !nextVerse.notes || nextVerse.notes.length === 0) return '';
-    const startIndex = nextFirstVocalIdx >= 0 ? nextFirstVocalIdx + 1 : 1;
-    const words: string[] = [];
-    for (let i = startIndex; i < nextVerse.notes.length; i++) {
-      const item = nextVerse.notes[i];
+    const vocalNotes: Array<{ hanji: string; poj: string }> = [];
+    for (const item of nextVerse.notes) {
       const n = item.note;
       if (isNonNotationItem(n)) continue;
       const rawHanlo = n.lyric.hanlo ?? n.lyric.hanji ?? n.lyric.custom ?? '';
       const rawRoman = n.lyric.poj ?? n.lyric.tl ?? '';
       if (rawHanlo === '\n' || rawHanlo === '↵') continue;
 
-      let word = '';
-      if (effectiveMode === 'roman') {
-        word = rawRoman || rawHanlo;
-      } else if (effectiveMode === 'hanlo') {
-        word = rawHanlo || rawRoman;
-      } else if (effectiveMode === 'roman_major_hanlo') {
-        word = rawRoman || rawHanlo;
-      } else {
-        word = rawHanlo || rawRoman;
-      }
-
-      if (word && word.trim() && !isPunctuationOrSpacer(word)) {
-        words.push(word.trim());
+      const cleanHanlo = rawHanlo && !isPunctuationOrSpacer(rawHanlo) ? rawHanlo.trim() : '';
+      const cleanRoman = rawRoman && !isPunctuationOrSpacer(rawRoman) ? rawRoman.trim() : '';
+      if (cleanHanlo || cleanRoman) {
+        vocalNotes.push({ hanji: cleanHanlo, poj: cleanRoman });
       }
     }
-    return words.join(' ');
-  }, [nextVerse, nextFirstVocalIdx, effectiveMode]);
 
-  // Derive clean next-line preview string
+    if (vocalNotes.length === 0) return null;
+
+    const isPojMode = effectiveMode === 'roman';
+    const hasHanjiInNext = vocalNotes.some(v => v.hanji && v.hanji.length > 0);
+
+    if (!isPojMode && hasHanjiInNext) {
+      // Hanji: 2 characters
+      let chars = '';
+      for (const v of vocalNotes) {
+        if (v.hanji) {
+          chars += v.hanji;
+          if (chars.length >= 2) break;
+        }
+      }
+      const twoChars = chars.slice(0, 2);
+      return twoChars ? `→ ${twoChars}...` : null;
+    } else {
+      // POJ: 2 words
+      const words: string[] = [];
+      for (const v of vocalNotes) {
+        const word = v.poj || v.hanji;
+        if (word) {
+          words.push(word);
+          if (words.length >= 2) break;
+        }
+      }
+      let pojText = '';
+      if (words.length > 1 && words[0].endsWith('-')) {
+        pojText = `${words[0]}${words[1]}`;
+      } else {
+        pojText = words.slice(0, 2).join(' ');
+      }
+      return pojText ? `→ ${pojText}...` : null;
+    }
+  }, [nextVerse, effectiveMode]);
+
+  // Derive clean next-line preview string (joins Hanji naturally without spaces, Roman with spaces)
   const nextLinePreview = useMemo(() => {
     if (!nextVerse || !nextVerse.notes || nextVerse.notes.length === 0) {
       return null;
@@ -653,7 +631,26 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
       }
     }
 
-    return words.join(' ');
+    let result = '';
+    for (let i = 0; i < words.length; i++) {
+      const curr = words[i];
+      if (i === 0) {
+        result = curr;
+      } else {
+        const prev = words[i - 1];
+        const isPrevCJK = isCJKChar(prev[prev.length - 1]);
+        const isCurrCJK = isCJKChar(curr[0]);
+        if (isPrevCJK && isCurrCJK) {
+          result += curr;
+        } else if (prev.endsWith('-')) {
+          result += curr;
+        } else {
+          result += ' ' + curr;
+        }
+      }
+    }
+
+    return result;
   }, [nextVerse, effectiveMode]);
 
   // Derive seconds per beat for precise rhythmic triggers
@@ -681,9 +678,8 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
 
   const twoBeatsSec = useMemo(() => secPerBeat * 2, [secPerBeat]);
 
-  // Floating cue visibility in active canvas:
-  // Starts appearing right from the beginning of the last 2 beats of the current verse,
-  // rather than waiting until after the end of the last beat.
+  // Upcoming attack cue visibility in active canvas:
+  // Starts appearing right from the beginning of the last 2 beats of the current lyric line
   const isCurrentVerseInLastTwoBeats = useMemo(() => {
     if (!activeVerseTiming || !nextVerse) return false;
     const verseEndBoundary = Math.min(
@@ -694,12 +690,8 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
     return playbackState.currentTime >= cueStartSec;
   }, [activeVerseTiming, nextVerse, twoBeatsSec, playbackState.currentTime]);
 
-  const showUpcomingStartWordFloatCue = Boolean(
-    nextStartWordInfo &&
-      (isVerseCompleted ||
-        isCurrentVerseInLastTwoBeats ||
-        (isAwaitingVocal && nextVerse && activeVerseIndex > 0) ||
-        (leadIn && leadIn.isLeadIn && leadIn.timeUntilVocalSec <= 4.0))
+  const showUpcomingCue = Boolean(
+    nextVerse && (isCurrentVerseInLastTwoBeats || isVerseCompleted)
   );
 
   return (
@@ -945,6 +937,48 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                       isComingLineAwaiting={isAwaitingVocal || Boolean(leadIn && leadIn.isLeadIn)}
                     />
                   ))}
+
+                  {/* Upcoming Starting Chars / Words Cue (Appears from the last 2 beats of the verse) */}
+                  <AnimatePresence>
+                    {showUpcomingCue && upcomingStartPreview && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 0.75, x: 0 }}
+                        exit={{ opacity: 0, x: 6 }}
+                        transition={{ duration: 0.2 }}
+                        className="relative flex flex-col items-center justify-end px-1 select-none shrink-0"
+                      >
+                        <div className="relative flex items-baseline justify-center">
+                          <span
+                            className={`font-bold tracking-wide transition-all duration-100 whitespace-nowrap ${
+                              effectiveMode === 'roman'
+                                ? 'font-serif italic font-extrabold'
+                                : 'font-sans'
+                            } ${
+                              zoomScale >= 1.75
+                                ? 'text-2xl sm:text-4xl md:text-5xl lg:text-6xl min-h-[3rem] sm:min-h-[4rem]'
+                                : zoomScale >= 1.5
+                                ? 'text-xl sm:text-3xl md:text-4xl lg:text-5xl min-h-[2.5rem] sm:min-h-[3.5rem]'
+                                : zoomScale >= 1.25
+                                ? 'text-lg sm:text-2xl md:text-3xl lg:text-4xl min-h-[2rem] sm:min-h-[3rem]'
+                                : 'text-base sm:text-xl md:text-2xl lg:text-3xl min-h-[1.75rem] sm:min-h-[2.5rem]'
+                            } ${
+                              isDark ? 'text-amber-300' : 'text-blue-600'
+                            }`}
+                            title="下一句起唱字 (Next phrase entry words)"
+                          >
+                            {upcomingStartPreview}
+                          </span>
+                        </div>
+
+                        {showNotation && (
+                          <div className="mt-1.5 invisible select-none pointer-events-none px-1.5 py-0.5 border border-transparent">
+                            <span className="font-mono text-xs sm:text-base font-black">0</span>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               </AnimatePresence>
             ) : (
@@ -960,100 +994,18 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 </span>
               </div>
             )}
-
-            {/* Upcoming Start Word Attack Hint (Floats smoothly in active stage during inter-phrase transition or breath cue) */}
-            <AnimatePresence>
-              {showUpcomingStartWordFloatCue && nextStartWordInfo && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.92, y: 8 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.92, y: 8 }}
-                  transition={{ duration: 0.2 }}
-                  className={`absolute bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl border shadow-xl backdrop-blur-md select-none transition-all ${
-                    leadIn?.isBreathCue
-                      ? isDark
-                        ? 'bg-cyan-950/95 border-cyan-400 text-cyan-200 ring-2 ring-cyan-400/50 animate-pulse'
-                        : 'bg-cyan-50/95 border-cyan-500 text-cyan-950 ring-2 ring-cyan-400/50 animate-pulse'
-                      : isDark
-                      ? 'bg-zinc-950/90 border-amber-500/60 text-amber-200 shadow-amber-950/30'
-                      : 'bg-white/95 border-blue-500/70 text-blue-950 shadow-blue-100'
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold shrink-0">
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        leadIn?.isBreathCue
-                          ? 'bg-cyan-400 animate-ping'
-                          : isDark
-                          ? 'bg-amber-400 animate-pulse'
-                          : 'bg-blue-600 animate-pulse'
-                      }`}
-                    />
-                    <span>下句起唱:</span>
-                  </span>
-
-                  <div className="flex items-baseline gap-1">
-                    <span
-                      className={`text-sm sm:text-base font-black tracking-wide ${
-                        leadIn?.isBreathCue
-                          ? isDark
-                            ? 'text-cyan-300'
-                            : 'text-cyan-900'
-                          : isDark
-                          ? 'text-amber-300'
-                          : 'text-blue-700'
-                      }`}
-                    >
-                      【{nextStartWordInfo.primary}】
-                    </span>
-                    {nextStartWordInfo.secondary && (
-                      <span className="text-[11px] sm:text-xs opacity-75 font-mono">
-                        ({nextStartWordInfo.secondary})
-                      </span>
-                    )}
-                  </div>
-
-                  {showNotation && nextStartWordInfo.pitchText && (
-                    <span
-                      className={`text-[10px] sm:text-xs font-mono font-black px-1.5 py-0.5 rounded border ${
-                        leadIn?.isBreathCue
-                          ? isDark
-                            ? 'bg-cyan-900/60 border-cyan-400/60 text-cyan-200'
-                            : 'bg-cyan-100 border-cyan-400 text-cyan-900'
-                          : isDark
-                          ? 'bg-amber-950/60 border-amber-500/60 text-amber-300'
-                          : 'bg-blue-50 border-blue-400 text-blue-800'
-                      }`}
-                    >
-                      {nextStartWordInfo.pitchText}
-                      {nextStartWordInfo.solfege ? ` · ${nextStartWordInfo.solfege}` : ''}
-                    </span>
-                  )}
-
-                  {leadIn && leadIn.isLeadIn ? (
-                    <span className="text-[11px] sm:text-xs font-mono opacity-80 pl-1.5 border-l border-current/20">
-                      {leadIn.isBreathCue ? '🫁 準備吸氣' : `${leadIn.timeUntilVocalSec.toFixed(1)}s 後`}
-                    </span>
-                  ) : nextVerseTiming && nextVerseTiming.firstVocalStartSec > playbackState.currentTime ? (
-                    <span className="text-[11px] sm:text-xs font-mono opacity-80 pl-1.5 border-l border-current/20">
-                      約 {(nextVerseTiming.firstVocalStartSec - playbackState.currentTime).toFixed(1)}s 後
-                    </span>
-                  ) : null}
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
 
-          {/* 3. Compact "Coming Next" Ambient Banner with Highlighted First-Word Cue */}
+          {/* 3. Compact "Coming Next" Ambient Banner (Centered, Verse Number removed, Full Coming Lyric) */}
           <div
             id="ktv-next-line-preview-strip"
-            className={`w-full flex items-center justify-between gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 border-t transition-colors select-none ${
+            className={`relative w-full flex items-center justify-center gap-2 sm:gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 border-t transition-colors select-none ${
               isDark
                 ? 'bg-zinc-950/70 border-zinc-800/50 text-zinc-400/80'
                 : 'bg-slate-100/70 border-slate-200 text-slate-500/80'
             }`}
           >
-            <div className="flex items-center gap-2 min-w-0 overflow-hidden text-xs sm:text-sm">
+            <div className="flex items-center justify-center gap-2 max-w-full overflow-hidden text-xs sm:text-sm">
               <span
                 className={`font-bold shrink-0 text-[10px] sm:text-xs px-2 py-0.5 rounded ${
                   isDark
@@ -1064,62 +1016,13 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 接唱
               </span>
 
-              {nextVerse?.section && (
-                <span
-                  className={`font-semibold shrink-0 text-[10px] sm:text-xs px-1.5 py-0.5 rounded ${
-                    isDark ? 'bg-zinc-900 text-zinc-400' : 'bg-slate-200/70 text-slate-600'
-                  }`}
-                >
-                  {nextVerse.section}
-                </span>
-              )}
-
-              {/* Isolate and emphasize the upcoming start word badge */}
-              {nextStartWordInfo ? (
-                <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg border font-bold text-xs sm:text-sm shrink-0 transition-all ${
-                      leadIn?.isBreathCue
-                        ? isDark
-                          ? 'bg-cyan-950/90 text-cyan-300 border-cyan-400 ring-2 ring-cyan-400/40 animate-pulse'
-                          : 'bg-cyan-100 text-cyan-950 border-cyan-500 ring-2 ring-cyan-300 animate-pulse'
-                        : isDark
-                        ? 'bg-amber-950/60 text-amber-300 border-amber-500/60 shadow-xs'
-                        : 'bg-blue-50 text-blue-800 border-blue-400 shadow-xs'
-                    }`}
-                    title="下一句起唱字 (Start word of coming verse)"
-                  >
-                    <span className="text-[10px] opacity-70 font-normal">起字</span>
-                    <span className="font-black">【{nextStartWordInfo.primary}】</span>
-                    {nextStartWordInfo.secondary && (
-                      <span className="text-[10px] opacity-80 font-mono">({nextStartWordInfo.secondary})</span>
-                    )}
-                    {showNotation && nextStartWordInfo.pitchText && (
-                      <span
-                        className={`text-[10px] px-1 py-0.2 rounded font-mono font-black ${
-                          isDark ? 'bg-zinc-900/80 text-amber-200' : 'bg-white text-blue-900'
-                        }`}
-                      >
-                        {nextStartWordInfo.pitchText}
-                      </span>
-                    )}
-                  </span>
-
-                  {nextRemainingPreview ? (
-                    <span className="truncate font-normal tracking-wide opacity-75 text-xs sm:text-sm">
-                      {nextRemainingPreview}...
-                    </span>
-                  ) : null}
-                </div>
-              ) : (
-                <span className="truncate font-normal tracking-wide opacity-75">
-                  {nextLinePreview ? `${nextLinePreview}...` : '(全曲結束 · Finale)'}
-                </span>
-              )}
+              <span className="truncate font-medium tracking-wide opacity-80">
+                {nextLinePreview ? `${nextLinePreview}...` : '(全曲結束 · Finale)'}
+              </span>
             </div>
 
             {nextVerseTiming && nextVerseTiming.firstVocalStartSec > playbackState.currentTime && (
-              <span className="text-[10px] sm:text-xs font-mono shrink-0 opacity-60">
+              <span className="absolute right-3.5 sm:right-4 text-[10px] sm:text-xs font-mono shrink-0 opacity-60 pointer-events-none">
                 約 {(nextVerseTiming.firstVocalStartSec - playbackState.currentTime).toFixed(0)}s 後
               </span>
             )}
