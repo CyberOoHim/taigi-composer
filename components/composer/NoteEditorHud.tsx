@@ -44,6 +44,9 @@ import {
   ArrowRight,
   Copy,
   CornerDownLeft,
+  Check,
+  Bell,
+  Wind,
 } from 'lucide-react';
 
 export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
@@ -107,6 +110,164 @@ export interface NoteEditorHudProps {
   onTogglePlayMeasure?: (mIdx: number) => void;
   isPlayingMeasure?: boolean;
 }
+
+const PITCH_SOLFEGE: Record<number, string> = {
+  1: 'Do',
+  2: 'Re',
+  3: 'Mi',
+  4: 'Fa',
+  5: 'Sol',
+  6: 'La',
+  7: 'Ti',
+};
+
+export type NoteGlyphType =
+  | 'quarter'
+  | 'eighth'
+  | 'half'
+  | 'whole'
+  | 'sixteenth'
+  | 'thirtysecond'
+  | 'dotted-quarter'
+  | 'dotted-eighth'
+  | 'dotted-half'
+  | 'double-dot'
+  | 'triplet'
+  | 'spacer';
+
+export const NoteGlyph: React.FC<{ type: NoteGlyphType; className?: string }> = ({
+  type,
+  className = 'w-3.5 h-3.5',
+}) => {
+  switch (type) {
+    case 'whole': // 4 beats (Whole note / 全音符)
+      return (
+        <svg viewBox="0 0 18 16" className={`${className} inline-block shrink-0`} fill="none" stroke="currentColor">
+          <ellipse cx="9" cy="8.5" rx="6.5" ry="4" transform="rotate(-15 9 8.5)" strokeWidth="2.2" />
+        </svg>
+      );
+    case 'half': // 2 beats (Half note / 二分音符)
+      return (
+        <svg viewBox="0 0 16 16" className={`${className} inline-block shrink-0`} fill="currentColor">
+          <ellipse cx="5.5" cy="11.5" rx="4.5" ry="3" transform="rotate(-20 5.5 11.5)" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M9.5 11.5 V 2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    case 'quarter': // 1 beat (Quarter note / 四分音符)
+      return (
+        <svg viewBox="0 0 16 16" className={`${className} inline-block shrink-0`} fill="currentColor">
+          <ellipse cx="5.5" cy="11.5" rx="4.5" ry="3" transform="rotate(-20 5.5 11.5)" />
+          <path d="M9.5 11.5 V 2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    case 'eighth': // 0.5 beat (8th note / 八分音符)
+      return (
+        <svg viewBox="0 0 16 16" className={`${className} inline-block shrink-0`} fill="currentColor">
+          <ellipse cx="5" cy="11.5" rx="4" ry="2.8" transform="rotate(-20 5 11.5)" />
+          <path d="M8.5 11.5 V 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M8.5 2 C 11.5 3.5, 13 5.5, 12 8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    case 'sixteenth': // 0.25 beat (16th note / 十六分音符)
+      return (
+        <svg viewBox="0 0 16 16" className={`${className} inline-block shrink-0`} fill="currentColor">
+          <ellipse cx="5" cy="12" rx="3.8" ry="2.6" transform="rotate(-20 5 12)" />
+          <path d="M8.5 12 V 1.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M8.5 1.5 C 11 3, 12.5 5, 11.5 7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M8.5 4.5 C 11 6, 12.5 8, 11.5 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      );
+    case 'thirtysecond': // 0.125 beat (32nd note / 三十二分音符)
+      return (
+        <svg viewBox="0 0 16 16" className={`${className} inline-block shrink-0`} fill="currentColor">
+          <ellipse cx="5" cy="12.5" rx="3.8" ry="2.6" transform="rotate(-20 5 12.5)" />
+          <path d="M8.5 12.5 V 1.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M8.5 1.2 C 11 2.5, 12.5 4, 11.5 5.8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M8.5 4 C 11 5.3, 12.5 6.8, 11.5 8.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M8.5 6.8 C 11 8.1, 12.5 9.6, 11.5 11.4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      );
+    case 'dotted-quarter': // 1.5 beats (Dotted Quarter / 附點四分)
+      return (
+        <svg viewBox="0 0 18 16" className={`${className} inline-block shrink-0`} fill="currentColor">
+          <ellipse cx="5" cy="11.5" rx="4.5" ry="3" transform="rotate(-20 5 11.5)" />
+          <path d="M9 11.5 V 2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="13.5" cy="10.5" r="1.5" fill="currentColor" />
+        </svg>
+      );
+    case 'dotted-eighth': // 0.75 beats (Dotted 8th / 附點八分)
+      return (
+        <svg viewBox="0 0 18 16" className={`${className} inline-block shrink-0`} fill="currentColor">
+          <ellipse cx="4.5" cy="11.5" rx="4" ry="2.8" transform="rotate(-20 4.5 11.5)" />
+          <path d="M8 11.5 V 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M8 2 C 10.5 3.5, 12 5.5, 11 8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="13.5" cy="10.5" r="1.5" fill="currentColor" />
+        </svg>
+      );
+    case 'dotted-half': // 3 beats (Dotted Half / 附點二分)
+      return (
+        <svg viewBox="0 0 18 16" className={`${className} inline-block shrink-0`} fill="currentColor">
+          <ellipse cx="5" cy="11.5" rx="4.5" ry="3" transform="rotate(-20 5 11.5)" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M9 11.5 V 2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="13.5" cy="10.5" r="1.5" fill="currentColor" />
+        </svg>
+      );
+    case 'double-dot': // 1.75 beats (Double Dot / 雙附點)
+      return (
+        <div className="flex items-center gap-0.5 shrink-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-current inline-block" />
+          <span className="w-1.5 h-1.5 rounded-full bg-current inline-block" />
+        </div>
+      );
+    case 'triplet': // Triplet / 三連音
+      return (
+        <span className="font-mono text-xs font-black tracking-tighter shrink-0 leading-none">
+          ┌3┐
+        </span>
+      );
+    case 'spacer': // Spacer / 空白
+      return (
+        <svg viewBox="0 0 16 16" className={`${className} inline-block shrink-0`} fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M3 7 V 11 H 13 V 7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+};
+
+interface DurationPresetItem {
+  dur: NoteDuration;
+  glyphType: NoteGlyphType;
+  beatLabel: string;
+  subLabel: string;
+  jianpuSymbol: string;
+  desc: string;
+  category: 'core' | 'subdivision' | 'dotted' | 'triplet' | 'rest';
+}
+
+const DURATION_PRESETS: DurationPresetItem[] = [
+  // Core Beats (Primary pulse values)
+  { dur: 1, glyphType: 'quarter', beatLabel: '1 拍', subLabel: '四分', jianpuSymbol: '5', desc: 'Quarter Note (1 beat) · 基準四分音符', category: 'core' },
+  { dur: 0.5, glyphType: 'eighth', beatLabel: '½ 拍', subLabel: '八分', jianpuSymbol: '5̲', desc: '8th Note (0.5 beats) · 八分音符 (單底線)', category: 'core' },
+  { dur: 2, glyphType: 'half', beatLabel: '2 拍', subLabel: '二分', jianpuSymbol: '5 -', desc: 'Half Note (2 beats) · 二分音符 (加一橫線)', category: 'core' },
+  { dur: 4, glyphType: 'whole', beatLabel: '4 拍', subLabel: '全音', jianpuSymbol: '5 - - -', desc: 'Whole Note (4 beats) · 全音符 (加三橫線)', category: 'core' },
+
+  // Subdivisions (Rapid runs)
+  { dur: 0.25, glyphType: 'sixteenth', beatLabel: '¼ 拍', subLabel: '16分', jianpuSymbol: '5̳', desc: '16th Note (0.25 beats) · 十六分音符 (雙底線)', category: 'subdivision' },
+  { dur: 0.125, glyphType: 'thirtysecond', beatLabel: '⅛ 拍', subLabel: '32分', jianpuSymbol: '5̷', desc: '32nd Note (0.125 beats) · 三十二分音符 (三底線)', category: 'subdivision' },
+
+  // Dotted & Compound
+  { dur: 1.5, glyphType: 'dotted-quarter', beatLabel: '1½ 拍', subLabel: '附點4', jianpuSymbol: '5·', desc: 'Dotted Quarter Note (1.5 beats) · 附點四分', category: 'dotted' },
+  { dur: 0.75, glyphType: 'dotted-eighth', beatLabel: '¾ 拍', subLabel: '附點8', jianpuSymbol: '5̲·', desc: 'Dotted 8th Note (0.75 beats) · 附點八分', category: 'dotted' },
+  { dur: 3, glyphType: 'dotted-half', beatLabel: '3 拍', subLabel: '附點2', jianpuSymbol: '5 - -', desc: 'Dotted Half Note (3 beats) · 附點二分', category: 'dotted' },
+  { dur: 1.75, glyphType: 'double-dot', beatLabel: '1¾ 拍', subLabel: '雙附點', jianpuSymbol: '5··', desc: 'Double Dotted Quarter (1.75 beats) · 雙附點四分', category: 'dotted' },
+
+  // Triplets & Spacers
+  { dur: 0.333, glyphType: 'triplet', beatLabel: '⅓ 拍', subLabel: '三連8', jianpuSymbol: '⅓', desc: '8th Note Triplet (0.333 beats) · 八分三連音', category: 'triplet' },
+  { dur: 0.667, glyphType: 'triplet', beatLabel: '⅔ 拍', subLabel: '三連4', jianpuSymbol: '⅔', desc: 'Quarter Note Triplet (0.667 beats) · 四分三連音', category: 'triplet' },
+  { dur: 0, glyphType: 'spacer', beatLabel: '0 拍', subLabel: '空/間隔', jianpuSymbol: '␣', desc: 'Zero Duration · 空音符/標點間隔 (0拍)', category: 'rest' },
+];
 
 export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   currentNote,
@@ -830,8 +991,9 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
               <div className="flex flex-wrap items-center gap-3">
                 {/* Pitches (1-7, 0, ␣) as Tactile Audio Pads */}
                 <div className="flex items-center gap-2 flex-wrap flex-1 min-w-[280px]">
-                  <span className="text-xs font-extrabold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0 w-12">
-                    Pitch:
+                  <span className="text-xs font-extrabold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0 w-12 flex flex-col items-start leading-tight">
+                    <span>Pitch:</span>
+                    <span className="text-[10px] font-medium text-zinc-400">音高</span>
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap flex-1">
                     {[1, 2, 3, 4, 5, 6, 7].map(p => {
@@ -841,13 +1003,15 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                           key={p}
                           type="button"
                           onClick={() => onSetPitch(p as PitchNumber)}
-                          className={`flex-1 min-w-[42px] sm:min-w-[48px] h-12 rounded-xl font-mono text-xl font-black transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center ${
+                          className={`flex-1 min-w-[42px] sm:min-w-[48px] h-12 rounded-xl transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center leading-none ${
                             isCurrent
-                              ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md scale-105 font-black'
+                              ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md scale-105 font-black z-10'
                               : 'bg-zinc-100 dark:bg-[#0a0c10] hover:bg-amber-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs'
                           }`}
+                          title={`${p} (${PITCH_SOLFEGE[p]})`}
                         >
-                          {p}
+                          <span className="font-mono text-lg sm:text-xl font-black">{p}</span>
+                          <span className="text-[10px] font-sans font-semibold opacity-70 tracking-tight mt-0.5">{PITCH_SOLFEGE[p]}</span>
                         </button>
                       );
                     })}
@@ -856,29 +1020,30 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetPitch(0)}
-                      className={`min-w-[50px] sm:min-w-[56px] h-12 rounded-xl font-mono text-base font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center gap-1 px-2.5 ${
+                      className={`min-w-[50px] sm:min-w-[56px] h-12 rounded-xl transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center leading-none px-2.5 ${
                         currentNote.pitch === 0
-                          ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md font-black'
+                          ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md font-black z-10'
                           : 'bg-zinc-100 dark:bg-[#0a0c10] hover:bg-zinc-200 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs'
                       }`}
-                      title="Rest (0)"
+                      title="Rest (0) · 休止符"
                     >
-                      <span>0</span>
-                      <span className="text-[10px] font-sans font-normal">Rest</span>
+                      <span className="font-mono text-lg font-black">0</span>
+                      <span className="text-[10px] font-sans font-semibold opacity-70 mt-0.5">休止</span>
                     </button>
 
                     {/* Empty ␣ */}
                     <button
                       type="button"
                       onClick={() => onSetPitch('empty')}
-                      className={`min-w-[50px] sm:min-w-[56px] h-12 rounded-xl font-mono text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center gap-1 px-2.5 border-dashed ${
+                      className={`min-w-[50px] sm:min-w-[56px] h-12 rounded-xl transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center leading-none px-2.5 border-dashed ${
                         currentNote.pitch === 'empty'
-                          ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md font-black border-amber-400'
+                          ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md font-black border-amber-400 z-10'
                           : 'bg-zinc-100/80 dark:bg-[#0a0c10]/80 text-zinc-600 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700 shadow-2xs'
                       }`}
-                      title="Empty / Spacer"
+                      title="Empty / Spacer · 空格間隔"
                     >
-                      <span>␣ Empty</span>
+                      <span className="font-mono text-base font-black">␣</span>
+                      <span className="text-[10px] font-sans font-semibold opacity-70 mt-0.5">空白</span>
                     </button>
                   </div>
                 </div>
@@ -890,38 +1055,41 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     <button
                       type="button"
                       onClick={() => onSetOctave(-1)}
-                      className={`px-3 py-2 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
+                      className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] flex flex-col items-center justify-center leading-tight ${
                         currentNote.octave === -1
                           ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                           : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
                       }`}
-                      title="Low (dot below 5̣)"
+                      title="Low (dot below 5̣) · 低音 (-1 八度)"
                     >
-                      Low 5̣
+                      <span className="font-mono text-xs font-black">5̣ 低音</span>
+                      <span className="text-[9px] opacity-70">Oct -1</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => onUpdateSelectedNote(n => ({ ...n, octave: 0 }))}
-                      className={`px-3 py-2 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
+                      className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] flex flex-col items-center justify-center leading-tight ${
                         currentNote.octave === 0
                           ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                           : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
                       }`}
-                      title="Mid (natural 5)"
+                      title="Mid (natural 5) · 中音 (基準八度)"
                     >
-                      Mid 5
+                      <span className="font-mono text-xs font-black">5 中音</span>
+                      <span className="text-[9px] opacity-70">Normal</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => onSetOctave(1)}
-                      className={`px-3 py-2 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
+                      className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] flex flex-col items-center justify-center leading-tight ${
                         currentNote.octave === 1
                           ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                           : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
                       }`}
-                      title="High (dot above 5̇)"
+                      title="High (dot above 5̇) · 高音 (+1 八度)"
                     >
-                      High 5̇
+                      <span className="font-mono text-xs font-black">5̇ 高音</span>
+                      <span className="text-[9px] opacity-70">Oct +1</span>
                     </button>
                   </div>
 
@@ -929,27 +1097,42 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                   <div className="flex items-center bg-zinc-100 dark:bg-[#0a0c10] p-1 rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs text-xs">
                     <button
                       type="button"
+                      onClick={() => onSetAccidental('')}
+                      className={`px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] flex flex-col items-center justify-center leading-tight ${
+                        !currentNote.accidental
+                          ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
+                      }`}
+                      title="Natural ♮ / 本音還原"
+                    >
+                      <span className="font-mono text-xs font-black">♮ 本音</span>
+                      <span className="text-[9px] opacity-70">Natural</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => onSetAccidental('#')}
-                      className={`px-3 py-2 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
+                      className={`px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] flex flex-col items-center justify-center leading-tight ${
                         currentNote.accidental === '#'
                           ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                           : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
                       }`}
-                      title="Sharp ♯"
+                      title="Sharp ♯ / 升半音"
                     >
-                      ♯ Sharp
+                      <span className="font-mono text-xs font-black">♯ 升半音</span>
+                      <span className="text-[9px] opacity-70">Sharp</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => onSetAccidental('b')}
-                      className={`px-3 py-2 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
+                      className={`px-2.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] flex flex-col items-center justify-center leading-tight ${
                         currentNote.accidental === 'b'
                           ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                           : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'
                       }`}
-                      title="Flat ♭"
+                      title="Flat ♭ / 降半音"
                     >
-                      ♭ Flat
+                      <span className="font-mono text-xs font-black">♭ 降半音</span>
+                      <span className="text-[9px] opacity-70">Flat</span>
                     </button>
                   </div>
                 </div>
@@ -961,147 +1144,161 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                   Duration:
                 </span>
                 <div className="flex items-center gap-1.5 flex-wrap flex-1">
-                  {[
-                    { label: '0 beats (Empty)', dur: 0 },
-                    { label: '1 beat (Quarter)', dur: 1 },
-                    { label: '0.5 beats (8th)', dur: 0.5 },
-                    { label: '1.5 beats (Dotted 4th)', dur: 1.5 },
-                    { label: '0.25 beats (16th)', dur: 0.25 },
-                    { label: '0.125 beats (32nd)', dur: 0.125 },
-                    { label: '⅓ Triplet (8th)', dur: 0.333 },
-                    { label: '⅔ Triplet (4th)', dur: 0.667 },
-                    { label: '0.75 beats', dur: 0.75 },
-                    { label: '1.75 beats (··)', dur: 1.75 },
-                    { label: '2 beats (Half)', dur: 2 },
-                    { label: '3 beats (Dotted Half)', dur: 3 },
-                    { label: '4 beats (Whole)', dur: 4 },
-                  ].map(d => (
+                  {/* Rhythm Duration Presets with Musical Glyphs & Jianpu Sublabels */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {DURATION_PRESETS.map(d => {
+                      const isSelected = currentNote.duration === d.dur;
+                      return (
+                        <button
+                          key={d.dur}
+                          type="button"
+                          onClick={() => onSetDuration(d.dur)}
+                          className={`group relative flex flex-col items-center justify-center px-2.5 py-1.5 rounded-xl transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px] select-none ${
+                            isSelected
+                              ? 'bg-amber-500 text-zinc-950 font-black shadow-md ring-2 ring-amber-400 scale-[1.04] z-10'
+                              : 'bg-zinc-100/90 dark:bg-[#0a0c10] hover:bg-amber-100/70 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs'
+                          }`}
+                          title={d.desc}
+                        >
+                          <div className="flex items-center gap-1 leading-none">
+                            <NoteGlyph type={d.glyphType} className="w-3.5 h-3.5" />
+                            <span className="font-mono text-xs font-black tracking-tight whitespace-nowrap">
+                              {d.beatLabel}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 text-[10px] leading-tight opacity-75 font-sans font-medium mt-0.5">
+                            <span>{d.subLabel}</span>
+                            <span className="hidden sm:inline font-mono opacity-60">· {d.jianpuSymbol}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Visual Divider between durations and phrasing tools */}
+                  <div className="hidden md:block w-[1px] h-9 bg-zinc-300 dark:bg-zinc-700 mx-1 shrink-0 self-center" />
+
+                  {/* Phrasing & Modifier Toggles Cluster */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Toggle Dotted */}
                     <button
-                      key={d.dur}
                       type="button"
-                      onClick={() => onSetDuration(d.dur as NoteDuration)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                        currentNote.duration === d.dur
-                          ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-2 ring-amber-400'
-                          : 'bg-zinc-100 dark:bg-[#0a0c10] hover:bg-amber-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs'
+                      onClick={onToggleDotted}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px] ${
+                        currentNote.isDotted
+                          ? 'bg-amber-500 text-zinc-950 border-amber-400 ring-2 ring-amber-400 font-black shadow-md'
+                          : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100/90 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs hover:bg-amber-50 dark:hover:bg-zinc-800'
                       }`}
+                      title="Dotted (附點 ·): 延長原音符時值的一半 (×1.5)"
                     >
-                      {d.label}
+                      <span className="font-mono text-base font-black leading-none text-amber-600 dark:text-amber-400">·</span>
+                      <span className="whitespace-nowrap">附點 (Dot)</span>
                     </button>
-                  ))}
 
-                  {/* Toggle Dotted */}
-                  <button
-                    type="button"
-                    onClick={onToggleDotted}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                      currentNote.isDotted
-                        ? 'bg-amber-500 text-zinc-950 border-amber-500 ring-2 ring-amber-400 font-black shadow-xs'
-                        : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs'
-                    }`}
-                  >
-                    · Dotted
-                  </button>
+                    {/* Toggle Double Dotted */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onToggleDoubleDotted) {
+                          onToggleDoubleDotted();
+                        } else {
+                          onUpdateSelectedNote(n => {
+                            const nextDouble = !n.isDoubleDotted;
+                            let nextDur = n.duration;
+                            if (nextDouble) {
+                              if (n.duration === 1) nextDur = 1.75;
+                              else if (n.duration === 2) nextDur = 3.5;
+                            } else {
+                              if (n.duration === 1.75) nextDur = 1;
+                              else if (n.duration === 3.5) nextDur = 2;
+                            }
+                            return { ...n, isDoubleDotted: nextDouble, duration: nextDur };
+                          });
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px] ${
+                        currentNote.isDoubleDotted || currentNote.duration === 1.75 || currentNote.duration === 3.5
+                          ? 'bg-amber-500 text-zinc-950 border-amber-400 ring-2 ring-amber-400 font-black shadow-md'
+                          : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100/90 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs hover:bg-amber-50 dark:hover:bg-zinc-800'
+                      }`}
+                      title="Double Dotted (雙附點 ··): 延長原音符時值的四分之三 (×1.75)"
+                    >
+                      <span className="font-mono text-base font-black leading-none text-amber-600 dark:text-amber-400">··</span>
+                      <span className="whitespace-nowrap">雙附點</span>
+                    </button>
 
-                  {/* Toggle Double Dotted */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onToggleDoubleDotted) {
-                        onToggleDoubleDotted();
-                      } else {
-                        onUpdateSelectedNote(n => {
-                          const nextDouble = !n.isDoubleDotted;
-                          let nextDur = n.duration;
-                          if (nextDouble) {
-                            if (n.duration === 1) nextDur = 1.75;
-                            else if (n.duration === 2) nextDur = 3.5;
-                          } else {
-                            if (n.duration === 1.75) nextDur = 1;
-                            else if (n.duration === 3.5) nextDur = 2;
-                          }
-                          return { ...n, isDoubleDotted: nextDouble, duration: nextDur };
-                        });
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                      currentNote.isDoubleDotted || currentNote.duration === 1.75 || currentNote.duration === 3.5
-                        ? 'bg-amber-500 text-zinc-950 border-amber-500 ring-2 ring-amber-400 font-black shadow-xs'
-                        : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs'
-                    }`}
-                    title="Double Dotted (雙附點)"
-                  >
-                    ·· Double Dot
-                  </button>
+                    {/* Toggle Triplet */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onToggleTriplet) {
+                          onToggleTriplet();
+                        } else {
+                          onUpdateSelectedNote(n => {
+                            const nextTrip = !n.isTriplet;
+                            let nextDur = n.duration;
+                            if (nextTrip) {
+                              if (n.duration === 0.5) nextDur = 0.333;
+                              else if (n.duration === 1) nextDur = 0.667;
+                              else nextDur = 0.333;
+                            } else {
+                              if (n.duration === 0.333) nextDur = 0.5;
+                              else if (n.duration === 0.667) nextDur = 1;
+                            }
+                            return { ...n, isTriplet: nextTrip, duration: nextDur };
+                          });
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px] ${
+                        currentNote.isTriplet || currentNote.duration === 0.333 || currentNote.duration === 0.667
+                          ? 'bg-indigo-600 text-white border-indigo-500 ring-2 ring-indigo-400 font-black shadow-md'
+                          : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100/90 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs hover:bg-indigo-50 dark:hover:bg-zinc-800'
+                      }`}
+                      title="Triplet (三連音 ┌3┐): 三等分拍值"
+                    >
+                      <span className="font-mono font-black text-indigo-500 dark:text-indigo-400">┌3┐</span>
+                      <span className="whitespace-nowrap">三連音</span>
+                    </button>
 
-                  {/* Toggle Triplet */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onToggleTriplet) {
-                        onToggleTriplet();
-                      } else {
-                        onUpdateSelectedNote(n => {
-                          const nextTrip = !n.isTriplet;
-                          let nextDur = n.duration;
-                          if (nextTrip) {
-                            if (n.duration === 0.5) nextDur = 0.333;
-                            else if (n.duration === 1) nextDur = 0.667;
-                            else nextDur = 0.333;
-                          } else {
-                            if (n.duration === 0.333) nextDur = 0.5;
-                            else if (n.duration === 0.667) nextDur = 1;
-                          }
-                          return { ...n, isTriplet: nextTrip, duration: nextDur };
-                        });
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                      currentNote.isTriplet || currentNote.duration === 0.333 || currentNote.duration === 0.667
-                        ? 'bg-amber-500 text-zinc-950 border-amber-500 ring-2 ring-amber-400 font-black shadow-xs'
-                        : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs'
-                    }`}
-                    title="Triplet (三連音)"
-                  >
-                    ┌ 3 ┐ Triplet
-                  </button>
+                    {/* Toggle Tie */}
+                    <button
+                      type="button"
+                      onClick={onToggleTie}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px] ${
+                        currentNote.tieToNext || (currentNote.isTied && !currentNote.slurToNext)
+                          ? 'bg-amber-500 text-zinc-950 border-amber-400 ring-2 ring-amber-400 font-black shadow-md'
+                          : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100/90 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs hover:bg-amber-50 dark:hover:bg-zinc-800'
+                      }`}
+                      title="Tie (連結音 ⌒): 連接同音高，演奏時融合為一持續長音"
+                    >
+                      <span className="text-sm font-bold text-amber-600 dark:text-amber-400">⌒</span>
+                      <span className="whitespace-nowrap">Tie (連結)</span>
+                    </button>
 
-                  {/* Toggle Tie */}
-                  <button
-                    type="button"
-                    onClick={onToggleTie}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                      currentNote.tieToNext || (currentNote.isTied && !currentNote.slurToNext)
-                        ? 'bg-amber-500 text-zinc-950 border-amber-500 ring-2 ring-amber-400 font-black shadow-xs'
-                        : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs'
-                    }`}
-                    title="Tie (連結音): 連接同音高，播放時音色融合為一持續長音"
-                  >
-                    ⌒ Tie (連結音)
-                  </button>
-
-                  {/* Toggle Slur */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onToggleSlur) {
-                        onToggleSlur();
-                      } else {
-                        onUpdateSelectedNote(n => ({
-                          ...n,
-                          slurToNext: !n.slurToNext,
-                        }));
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer touch-manipulation min-h-[38px] ${
-                      currentNote.slurToNext
-                        ? 'bg-purple-600 text-white border-purple-500 ring-2 ring-purple-400 font-black shadow-xs'
-                        : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs'
-                    }`}
-                    title="Slur (圓滑音): 跨越不同音高圓滑唱奏，亦適用一字多音 (Melisma)"
-                  >
-                    ⌢ Slur (圓滑音)
-                  </button>
+                    {/* Toggle Slur */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onToggleSlur) {
+                          onToggleSlur();
+                        } else {
+                          onUpdateSelectedNote(n => ({
+                            ...n,
+                            slurToNext: !n.slurToNext,
+                          }));
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px] ${
+                        currentNote.slurToNext
+                          ? 'bg-purple-600 text-white border-purple-500 ring-2 ring-purple-400 font-black shadow-md'
+                          : 'border-zinc-200/90 dark:border-zinc-700/80 bg-zinc-100/90 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 shadow-2xs hover:bg-purple-50 dark:hover:bg-zinc-800'
+                      }`}
+                      title="Slur (圓滑音 ⌢): 跨越不同音高圓滑唱奏，亦適用一字多音 (Melisma)"
+                    >
+                      <span className="text-sm font-bold text-purple-600 dark:text-purple-400">⌢</span>
+                      <span className="whitespace-nowrap">Slur (圓滑)</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1273,7 +1470,106 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
           )}
 
           {/* TAB 3: ORNAMENTS / GRACE NOTES */}
-          {activeTab === 'ornaments' && (
+          {activeTab === 'ornaments' && (() => {
+            const baseP = typeof currentNote.pitch === 'number' && currentNote.pitch > 0 ? currentNote.pitch : 5;
+            const wrapPitch = (p: number): 1 | 2 | 3 | 4 | 5 | 6 | 7 => {
+              let norm = ((p - 1) % 7) + 1;
+              if (norm <= 0) norm += 7;
+              return norm as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+            };
+
+            const preList = currentNote.preGraceNotes || [];
+            const postList = currentNote.postGraceNotes || [];
+
+            const isPresetActive = (type: string): boolean => {
+              switch (type) {
+                case 'upper_single':
+                  return preList.length === 1 && preList[0].pitch === wrapPitch(baseP + 1) && postList.length === 0;
+                case 'lower_single':
+                  return preList.length === 1 && preList[0].pitch === wrapPitch(baseP - 1) && postList.length === 0;
+                case 'double_slide':
+                  return preList.length === 2 && preList[0].pitch === wrapPitch(baseP - 2) && preList[1].pitch === wrapPitch(baseP - 1) && postList.length === 0;
+                case 'triple_turn':
+                  return preList.length === 3 && preList[0].pitch === wrapPitch(baseP + 1) && preList[1].pitch === wrapPitch(baseP) && preList[2].pitch === wrapPitch(baseP - 1) && postList.length === 0;
+                case 'post_drop':
+                  return postList.length === 1 && postList[0].pitch === wrapPitch(baseP - 1) && preList.length === 0;
+                case 'post_lift':
+                  return postList.length === 1 && postList[0].pitch === wrapPitch(baseP + 1) && preList.length === 0;
+                case 'clear':
+                  return preList.length === 0 && postList.length === 0;
+                default:
+                  return false;
+              }
+            };
+
+            const instrumentHints: Record<InstrumentType, { timbre: string; icon: React.ComponentType<{ className?: string }> }> = {
+              whistle: { timbre: '清亮', icon: Wind },
+              flute: { timbre: '悠揚', icon: Music },
+              piano: { timbre: '原聲', icon: Volume2 },
+              guitar: { timbre: '撥弦', icon: Sliders },
+              synth: { timbre: '電音', icon: Zap },
+              bell: { timbre: '清脆', icon: Bell },
+            };
+
+            const ornamentPresets: {
+              type: 'upper_single' | 'lower_single' | 'double_slide' | 'triple_turn' | 'post_drop' | 'post_lift' | 'clear';
+              label: string;
+              desc: string;
+              contour: string;
+              notation: string;
+            }[] = [
+              {
+                type: 'upper_single',
+                label: '單音上倚音',
+                desc: `Pre-grace +1 (${wrapPitch(baseP + 1)}) · 高一音前置`,
+                contour: '↗',
+                notation: `⁽${wrapPitch(baseP + 1)}⁾${baseP}`,
+              },
+              {
+                type: 'lower_single',
+                label: '單音下倚音',
+                desc: `Pre-grace -1 (${wrapPitch(baseP - 1)}) · 低一音前置`,
+                contour: '↘',
+                notation: `⁽${wrapPitch(baseP - 1)}⁾${baseP}`,
+              },
+              {
+                type: 'double_slide',
+                label: '雙音滑轉',
+                desc: `Pre-grace double (${wrapPitch(baseP - 2)} ${wrapPitch(baseP - 1)}) · 雙音滑音`,
+                contour: '↝',
+                notation: `⁽${wrapPitch(baseP - 2)}${wrapPitch(baseP - 1)}⁾${baseP}`,
+              },
+              {
+                type: 'triple_turn',
+                label: '三音迴音',
+                desc: `Pre-grace triple turn (${wrapPitch(baseP + 1)} ${baseP} ${wrapPitch(baseP - 1)}) · 迴旋轉音`,
+                contour: '∿',
+                notation: `⁽${wrapPitch(baseP + 1)}${baseP}${wrapPitch(baseP - 1)}⁾${baseP}`,
+              },
+              {
+                type: 'post_drop',
+                label: '尾音下拋',
+                desc: `Post-grace drop (${wrapPitch(baseP - 1)}) · 結尾下拋滑音`,
+                contour: '↘',
+                notation: `${baseP}⁽${wrapPitch(baseP - 1)}⁾`,
+              },
+              {
+                type: 'post_lift',
+                label: '尾音上提',
+                desc: `Post-grace lift (${wrapPitch(baseP + 1)}) · 結尾向上提音`,
+                contour: '↗',
+                notation: `${baseP}⁽${wrapPitch(baseP + 1)}⁾`,
+              },
+              {
+                type: 'clear',
+                label: '清除裝飾音',
+                desc: 'Clear all ornaments · 清除前後裝飾音',
+                contour: '✕',
+                notation: '✕',
+              },
+            ];
+
+            return (
             <div className="flex flex-col gap-4">
               {/* Header & Quick Audition Banner */}
               <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-zinc-50 dark:bg-[#0c0e14] rounded-xl border border-zinc-200/80 dark:border-zinc-800">
@@ -1319,16 +1615,29 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     onClick={() => {
                       onUpdateSelectedNote(prev => ({ ...prev, instrument: undefined }));
                     }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
                       !currentNote.instrument
-                        ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs font-black'
-                        : 'bg-white dark:bg-[#141720] border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-amber-400'
+                        ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs ring-2 ring-amber-400 font-black'
+                        : 'bg-white dark:bg-[#141720] border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-amber-400'
                     }`}
                   >
-                    預設 (Default)
+                    <Sparkles className="w-3.5 h-3.5 text-amber-900 dark:text-zinc-950 shrink-0" />
+                    <span>預設 (Default)</span>
+                    <span
+                      className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wider ${
+                        !currentNote.instrument
+                          ? 'bg-zinc-950/20 text-zinc-950 font-bold'
+                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
+                      }`}
+                    >
+                      全局
+                    </span>
+                    {!currentNote.instrument && <Check className="w-3 h-3 text-zinc-950 stroke-[3]" />}
                   </button>
                   {INSTRUMENT_OPTIONS.map(opt => {
                     const isSelected = currentNote.instrument === opt.value;
+                    const meta = instrumentHints[opt.value];
+                    const IconComp = meta?.icon || Music;
                     return (
                       <button
                         key={opt.value}
@@ -1337,14 +1646,27 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                           onUpdateSelectedNote(prev => ({ ...prev, instrument: opt.value }));
                           audioEngine.previewNote(keySignature, { ...currentNote, instrument: opt.value });
                         }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
                           isSelected
                             ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs ring-2 ring-amber-400 font-black'
-                            : 'bg-white dark:bg-[#141720] border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-amber-400'
+                            : 'bg-white dark:bg-[#141720] border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-amber-400'
                         }`}
-                        title={opt.labelEn}
+                        title={`${opt.labelEn} · ${meta?.timbre || ''}`}
                       >
-                        {opt.labelZh}
+                        <IconComp className="w-3.5 h-3.5 shrink-0" />
+                        <span>{opt.labelZh}</span>
+                        {meta?.timbre && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                              isSelected
+                                ? 'bg-zinc-950/20 text-zinc-950 font-bold'
+                                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
+                            }`}
+                          >
+                            {meta.timbre}
+                          </span>
+                        )}
+                        {isSelected && <Check className="w-3 h-3 text-zinc-950 stroke-[3]" />}
                       </button>
                     );
                   })}
@@ -1357,44 +1679,83 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                   經典台語 / 流行唱腔範本 (One-Tap Presets):
                 </span>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {[
-                    { label: '單音上倚音', desc: 'Pre-grace +1', type: 'upper_single' as const },
-                    { label: '單音下倚音', desc: 'Pre-grace -1', type: 'lower_single' as const },
-                    { label: '雙音滑轉', desc: 'Pre-grace double', type: 'double_slide' as const },
-                    { label: '三音迴音', desc: 'Pre-grace triple turn', type: 'triple_turn' as const },
-                    { label: '尾音下拋', desc: 'Post-grace drop', type: 'post_drop' as const },
-                    { label: '尾音上提', desc: 'Post-grace lift', type: 'post_lift' as const },
-                    { label: '清除裝飾音', desc: 'Clear', type: 'clear' as const },
-                  ].map(p => (
-                    <button
-                      key={p.type}
-                      type="button"
-                      onClick={() => handleApplyOrnamentPreset(p.type)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
-                        p.type === 'clear'
-                          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/50 hover:bg-rose-100'
-                          : 'bg-zinc-100 dark:bg-[#0a0c10] hover:bg-amber-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs'
-                      }`}
-                      title={p.desc}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
+                  {ornamentPresets.map(p => {
+                    const isActive = isPresetActive(p.type);
+                    return (
+                      <button
+                        key={p.type}
+                        type="button"
+                        onClick={() => handleApplyOrnamentPreset(p.type)}
+                        className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
+                          p.type === 'clear'
+                            ? 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/60'
+                            : isActive
+                            ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs ring-2 ring-amber-400 font-black'
+                            : 'bg-white dark:bg-[#141720] hover:bg-amber-50 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700/80 shadow-2xs hover:border-amber-400'
+                        }`}
+                        title={p.desc}
+                      >
+                        <span
+                          className={`font-mono text-[11px] font-black px-1.5 py-0.5 rounded transition-colors ${
+                            p.type === 'clear'
+                              ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200'
+                              : isActive
+                              ? 'bg-zinc-950/20 text-zinc-950 font-black'
+                              : 'bg-amber-500/15 text-amber-900 dark:text-amber-300 group-hover:bg-amber-500/25'
+                          }`}
+                        >
+                          {p.notation}
+                        </span>
+                        <span className="whitespace-nowrap">{p.label}</span>
+                        {p.contour && (
+                          <span
+                            className={`text-[11px] font-bold ${
+                              isActive
+                                ? 'text-zinc-900 font-black'
+                                : 'text-zinc-400 group-hover:text-amber-600 dark:group-hover:text-amber-400'
+                            }`}
+                          >
+                            {p.contour}
+                          </span>
+                        )}
+                        {isActive && p.type !== 'clear' && (
+                          <Check className="w-3 h-3 text-zinc-950 stroke-[3] ml-0.5" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* 前裝飾音 (Pre-Grace Notes, 1 to 3 notes) */}
               <div className="flex flex-col gap-2 p-3 bg-zinc-100/70 dark:bg-[#0c0e14]/70 rounded-xl border border-zinc-200/80 dark:border-zinc-800">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-zinc-800 dark:text-zinc-200">
-                      前裝飾音 (前倚音 / Pre-Grace Notes)
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span className="text-xs font-black text-zinc-800 dark:text-zinc-200">
+                        前裝飾音 (前倚音 / Pre-Grace Notes)
+                      </span>
+                    </div>
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-mono text-[11px] font-bold border border-amber-400/30">
+                      <span className="text-[10px] text-zinc-500 font-sans">簡譜標示:</span>
+                      <span className="font-black text-amber-600 dark:text-amber-400">⁽ⁿ⁾[主音]</span>
                     </span>
-                    <span className="text-[11px] font-mono text-zinc-500">
-                      {(currentNote.preGraceNotes || []).length} / 3 音
+                    {preList.length > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 text-[11px] font-mono font-black border border-emerald-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        已設: ⁽{formatGraceNotes(currentNote.preGraceNotes)}⁾{currentNote.pitch}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium hidden md:inline">
+                        主音前裝飾
+                      </span>
+                    )}
+                    <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                      {preList.length} / 3 音
                     </span>
                   </div>
-                  {(currentNote.preGraceNotes || []).length < 3 && (
+                  {preList.length < 3 && (
                     <button
                       type="button"
                       onClick={handleAddPreGrace}
@@ -1492,15 +1853,30 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
               {/* 後裝飾音 (Post-Grace Notes, 1 to 3 notes) */}
               <div className="flex flex-col gap-2 p-3 bg-zinc-100/70 dark:bg-[#0c0e14]/70 rounded-xl border border-zinc-200/80 dark:border-zinc-800">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-zinc-800 dark:text-zinc-200">
-                      後裝飾音 (尾裝飾音 / Post-Grace Notes)
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-black text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5">
+                      <CornerDownLeft className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>後裝飾音 (尾裝飾音 / Post-Grace Notes)</span>
+                      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-mono text-[11px] font-bold border border-amber-400/30 font-normal">
+                        <span className="text-[10px] text-zinc-500 font-sans">簡譜標示:</span>
+                        <span className="font-black text-amber-600 dark:text-amber-400">[主音]⁽ⁿ⁾</span>
+                      </span>
                     </span>
-                    <span className="text-[11px] font-mono text-zinc-500">
-                      {(currentNote.postGraceNotes || []).length} / 3 音
+                    {postList.length > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 text-[11px] font-mono font-black border border-emerald-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        已設: {currentNote.pitch}⁽{formatGraceNotes(currentNote.postGraceNotes)}⁾
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium hidden md:inline">
+                        主音後滑落
+                      </span>
+                    )}
+                    <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                      {postList.length} / 3 音
                     </span>
                   </div>
-                  {(currentNote.postGraceNotes || []).length < 3 && (
+                  {postList.length < 3 && (
                     <button
                       type="button"
                       onClick={handleAddPostGrace}
@@ -1595,7 +1971,8 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                 )}
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* TAB 4: LYRICS & ANNOTATIONS */}
           {activeTab === 'lyrics' && (
