@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState, useLayoutEffect, useCallback } from 'react';
 import { LyricDisplayMode, VerseItem, VerseNoteRef } from '@/types/song';
 import { PlaybackState } from '@/lib/audioEngine';
 import { VerseTiming, KaraokeLeadInState } from '@/lib/karaokeSequencer';
@@ -87,9 +87,9 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
   const hasRoman = Boolean(rawRoman && rawRoman.trim());
   const hasExplicitText = hasHanlo || hasRoman;
 
-  // Render line breaks
+  // Render line breaks (omitted in single-line view so trailing breaks consume 0 width)
   if (rawHanlo === '\n' || rawHanlo === '↵') {
-    return <div className="basis-full h-0 select-none pointer-events-none" />;
+    return null;
   }
 
   // Render punctuation spacers
@@ -547,6 +547,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
 
   const currentFirstVocal = useMemo(() => getFirstVocalIndex(currentVerse), [currentVerse]);
   // Derive clean next-phrase starting preview cue (2 chars for Hanji or 2 words for POJ)
+  // Ensures the arrow + starting words is an atomic unit using non-breaking spaces (\u00A0)
   const upcomingStartPreview = useMemo(() => {
     if (!nextVerse || !nextVerse.notes || nextVerse.notes.length === 0) return null;
 
@@ -567,22 +568,17 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
 
     if (vocalNotes.length === 0) return null;
 
-    const isPojMode = effectiveMode === 'roman';
-    const hasHanjiInNext = vocalNotes.some(v => v.hanji && v.hanji.length > 0);
+    // Requirement 2: Route by primary text according to display mode
+    const isPrimaryRoman = effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo';
+    const hasRomanInNext = vocalNotes.some(v => Boolean(v.poj && v.poj.trim()));
+    const hasHanjiInNext = vocalNotes.some(v => Boolean(v.hanji && v.hanji.trim()));
 
-    if (!isPojMode && hasHanjiInNext) {
-      // Hanji: 2 characters
-      let chars = '';
-      for (const v of vocalNotes) {
-        if (v.hanji) {
-          chars += v.hanji;
-          if (chars.length >= 2) break;
-        }
-      }
-      const twoChars = chars.slice(0, 2);
-      return twoChars ? `→ ${twoChars}...` : null;
-    } else {
-      // POJ: 2 words
+    const useRoman = isPrimaryRoman
+      ? (hasRomanInNext || !hasHanjiInNext)
+      : (!hasHanjiInNext && hasRomanInNext);
+
+    if (useRoman) {
+      // POJ / Roman: 2 words joined with non-breaking space
       const words: string[] = [];
       for (const v of vocalNotes) {
         const word = v.poj || v.hanji;
@@ -595,9 +591,20 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
       if (words.length > 1 && words[0].endsWith('-')) {
         pojText = `${words[0]}${words[1]}`;
       } else {
-        pojText = words.slice(0, 2).join(' ');
+        pojText = words.slice(0, 2).join('\u00A0');
       }
-      return pojText ? `→ ${pojText}...` : null;
+      return pojText ? `→\u00A0${pojText}...` : null;
+    } else {
+      // Hanji: 2 characters joined with non-breaking space
+      let chars = '';
+      for (const v of vocalNotes) {
+        if (v.hanji) {
+          chars += v.hanji;
+          if (chars.length >= 2) break;
+        }
+      }
+      const twoChars = chars.slice(0, 2);
+      return twoChars ? `→\u00A0${twoChars}...` : null;
     }
   }, [nextVerse, effectiveMode]);
 
@@ -693,6 +700,61 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   const showUpcomingCue = Boolean(
     nextVerse && (isCurrentVerseInLastTwoBeats || isVerseCompleted)
   );
+
+  // Auto-fit dynamic scaler: ensures active lyric line + upcoming cue stay on a single line
+  // and scales down smoothly so no text is ever clipped.
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const lineRowRef = useRef<HTMLDivElement>(null);
+  const [fitScale, setFitScale] = useState<number>(1);
+
+  const updateFitScale = useCallback(() => {
+    if (!canvasRef.current || !lineRowRef.current) return;
+
+    const canvasWidth = canvasRef.current.clientWidth;
+    const canvasHeight = canvasRef.current.clientHeight;
+    const contentWidth = lineRowRef.current.scrollWidth;
+    const contentHeight = lineRowRef.current.scrollHeight;
+
+    const availableWidth = Math.max(0, canvasWidth - 28);
+    const availableHeight = Math.max(0, canvasHeight - 20);
+
+    let newScale = 1;
+    if (contentWidth > 0 && availableWidth > 0) {
+      const widthScale = availableWidth / contentWidth;
+      const heightScale = contentHeight > 0 && availableHeight > 0 ? availableHeight / contentHeight : 1;
+      newScale = Math.min(1, widthScale, heightScale);
+      newScale = Math.max(0.35, newScale);
+    }
+
+    setFitScale(prev => {
+      if (Math.abs(prev - newScale) < 0.005) return prev;
+      return newScale;
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    updateFitScale();
+
+    if (typeof ResizeObserver !== 'undefined' && canvasRef.current) {
+      const observer = new ResizeObserver(() => {
+        updateFitScale();
+      });
+      observer.observe(canvasRef.current);
+      if (lineRowRef.current) {
+        observer.observe(lineRowRef.current);
+      }
+      return () => observer.disconnect();
+    }
+  }, [
+    updateFitScale,
+    currentVerse,
+    activeVerseIndex,
+    showUpcomingCue,
+    upcomingStartPreview,
+    zoomScale,
+    showNotation,
+    displayMode,
+  ]);
 
   return (
     <div
@@ -909,7 +971,10 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
           </div>
 
           {/* 2. Open Canvas with Maximized Typography & Vertical Space */}
-          <div className="relative w-full flex-1 flex flex-col items-center justify-center py-6 sm:py-10 md:py-14 px-3 sm:px-6 min-h-[180px] sm:min-h-[220px]">
+          <div
+            ref={canvasRef}
+            className="relative w-full flex-1 flex flex-col items-center justify-center py-6 sm:py-10 md:py-14 px-3 sm:px-6 min-h-[180px] sm:min-h-[220px] overflow-hidden"
+          >
             {currentVerse && currentVerse.notes.length > 0 ? (
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
@@ -918,67 +983,76 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                   animate={{ opacity: 1, y: 0 }}
                   exit={isEcoMode ? undefined : { opacity: 0, y: -12 }}
                   transition={{ duration: 0.25, ease: 'easeOut' }}
-                  className="w-full flex flex-wrap items-end justify-center gap-x-2.5 sm:gap-x-5 md:gap-x-7 gap-y-3.5 sm:gap-y-5"
+                  className="w-full flex items-center justify-center overflow-hidden"
                 >
-                  {currentVerse.notes.map((item, idx) => (
-                    <SyllableCell
-                      key={`${item.measureIndex}-${item.noteIndex}-${idx}`}
-                      item={item}
-                      noteIndex={idx}
-                      isActiveLine={true}
-                      currentTime={playbackState.currentTime}
-                      verseTiming={activeVerseTiming}
-                      effectiveMode={effectiveMode}
-                      isFirstVocalNote={idx === currentFirstVocal}
-                      showNotation={showNotation}
-                      stageTheme={stageTheme}
-                      zoomScale={zoomScale}
-                      isEcoMode={isEcoMode}
-                      isComingLineAwaiting={isAwaitingVocal || Boolean(leadIn && leadIn.isLeadIn)}
-                    />
-                  ))}
+                  <div
+                    ref={lineRowRef}
+                    className="flex flex-nowrap items-end justify-center gap-x-2 sm:gap-x-3.5 md:gap-x-5 shrink-0 transition-transform duration-150 ease-out"
+                    style={{
+                      transform: fitScale < 1 ? `scale(${fitScale})` : undefined,
+                      transformOrigin: 'center center',
+                    }}
+                  >
+                    {currentVerse.notes.map((item, idx) => (
+                      <SyllableCell
+                        key={`${item.measureIndex}-${item.noteIndex}-${idx}`}
+                        item={item}
+                        noteIndex={idx}
+                        isActiveLine={true}
+                        currentTime={playbackState.currentTime}
+                        verseTiming={activeVerseTiming}
+                        effectiveMode={effectiveMode}
+                        isFirstVocalNote={idx === currentFirstVocal}
+                        showNotation={showNotation}
+                        stageTheme={stageTheme}
+                        zoomScale={zoomScale}
+                        isEcoMode={isEcoMode}
+                        isComingLineAwaiting={isAwaitingVocal || Boolean(leadIn && leadIn.isLeadIn)}
+                      />
+                    ))}
 
-                  {/* Upcoming Starting Chars / Words Cue (Appears from the last 2 beats of the verse) */}
-                  <AnimatePresence>
-                    {showUpcomingCue && upcomingStartPreview && (
-                      <motion.div
-                        initial={{ opacity: 0, x: -6 }}
-                        animate={{ opacity: 0.75, x: 0 }}
-                        exit={{ opacity: 0, x: 6 }}
-                        transition={{ duration: 0.2 }}
-                        className="relative flex flex-col items-center justify-end px-1 select-none shrink-0"
-                      >
-                        <div className="relative flex items-baseline justify-center">
-                          <span
-                            className={`font-bold tracking-wide transition-all duration-100 whitespace-nowrap ${
-                              effectiveMode === 'roman'
-                                ? 'font-serif italic font-extrabold'
-                                : 'font-sans'
-                            } ${
-                              zoomScale >= 1.75
-                                ? 'text-2xl sm:text-4xl md:text-5xl lg:text-6xl min-h-[3rem] sm:min-h-[4rem]'
-                                : zoomScale >= 1.5
-                                ? 'text-xl sm:text-3xl md:text-4xl lg:text-5xl min-h-[2.5rem] sm:min-h-[3.5rem]'
-                                : zoomScale >= 1.25
-                                ? 'text-lg sm:text-2xl md:text-3xl lg:text-4xl min-h-[2rem] sm:min-h-[3rem]'
-                                : 'text-base sm:text-xl md:text-2xl lg:text-3xl min-h-[1.75rem] sm:min-h-[2.5rem]'
-                            } ${
-                              isDark ? 'text-amber-300' : 'text-blue-600'
-                            }`}
-                            title="下一句起唱字 (Next phrase entry words)"
-                          >
-                            {upcomingStartPreview}
-                          </span>
-                        </div>
-
-                        {showNotation && (
-                          <div className="mt-1.5 invisible select-none pointer-events-none px-1.5 py-0.5 border border-transparent">
-                            <span className="font-mono text-xs sm:text-base font-black">0</span>
+                    {/* Upcoming Starting Chars / Words Cue (Appears from the last 2 beats of the verse) */}
+                    <AnimatePresence>
+                      {showUpcomingCue && upcomingStartPreview && (
+                        <motion.div
+                          initial={{ opacity: 0, x: -6 }}
+                          animate={{ opacity: 0.75, x: 0 }}
+                          exit={{ opacity: 0, x: 6 }}
+                          transition={{ duration: 0.2 }}
+                          className="relative inline-flex flex-col items-center justify-end px-1 select-none shrink-0 whitespace-nowrap break-keep break-inside-avoid"
+                        >
+                          <div className="relative flex items-baseline justify-center whitespace-nowrap">
+                            <span
+                              className={`font-bold tracking-wide transition-all duration-100 whitespace-nowrap select-none ${
+                                effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo'
+                                  ? 'font-serif italic font-extrabold'
+                                  : 'font-sans'
+                              } ${
+                                zoomScale >= 1.75
+                                  ? 'text-2xl sm:text-4xl md:text-5xl lg:text-6xl min-h-[3rem] sm:min-h-[4rem]'
+                                  : zoomScale >= 1.5
+                                  ? 'text-xl sm:text-3xl md:text-4xl lg:text-5xl min-h-[2.5rem] sm:min-h-[3.5rem]'
+                                  : zoomScale >= 1.25
+                                  ? 'text-lg sm:text-2xl md:text-3xl lg:text-4xl min-h-[2rem] sm:min-h-[3rem]'
+                                  : 'text-base sm:text-xl md:text-2xl lg:text-3xl min-h-[1.75rem] sm:min-h-[2.5rem]'
+                              } ${
+                                isDark ? 'text-amber-300' : 'text-blue-600'
+                              }`}
+                              title="下一句起唱字 (Next phrase entry words)"
+                            >
+                              {upcomingStartPreview}
+                            </span>
                           </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+
+                          {showNotation && (
+                            <div className="mt-1.5 invisible select-none pointer-events-none px-1.5 py-0.5 border border-transparent">
+                              <span className="font-mono text-xs sm:text-base font-black">0</span>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </motion.div>
               </AnimatePresence>
             ) : (
