@@ -17,6 +17,8 @@ import {
   Maximize2,
   Minimize2,
   ZoomIn,
+  Minus,
+  Plus,
 } from 'lucide-react';
 
 interface KaraokeControlsProps {
@@ -42,6 +44,8 @@ interface KaraokeControlsProps {
   onToggleStageMode?: () => void;
   zoomScale?: number;
   onCycleZoom?: () => void;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
   onSliderChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSliderPointerUp: () => void;
   onJumpToSection: (section: KaraokeSection) => void;
@@ -84,6 +88,8 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
   onToggleStageMode,
   zoomScale = 1.0,
   onCycleZoom,
+  onZoomIn,
+  onZoomOut,
   onSliderChange,
   onSliderPointerUp,
   onJumpToSection,
@@ -394,18 +400,47 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
           <span>Mixer & Tempo</span>
         </button>
 
-        {/* 1-Tap Zoom Toggle for Music Stand Ergonomics */}
-        {onCycleZoom && (
-          <button
-            id="ktv-zoom-toggle-btn"
-            type="button"
-            onClick={onCycleZoom}
-            className="flex items-center min-h-[44px] gap-1.5 px-3.5 py-2 rounded-xl bg-[#0a0c10] hover:bg-zinc-800 border border-zinc-800 text-xs font-bold text-amber-300 transition-all active:scale-95 touch-manipulation cursor-pointer"
-            title={`Stage Zoom: Currently ${Math.round(zoomScale * 100)}% - Click to cycle (100%-175%)`}
+        {/* Font Size Zoom Controls (- / +) */}
+        {(onCycleZoom || onZoomIn || onZoomOut) && (
+          <div
+            id="ktv-zoom-controls"
+            className="flex items-center min-h-[44px] bg-[#0a0c10] rounded-xl p-1 border border-zinc-800 text-xs"
           >
-            <ZoomIn className="w-4 h-4 text-amber-400" />
-            <span>Zoom {Math.round(zoomScale * 100)}%</span>
-          </button>
+            <span className="px-2 font-medium text-zinc-400 hidden sm:inline">Zoom:</span>
+            {onZoomOut && (
+              <button
+                id="ktv-zoom-out-btn"
+                type="button"
+                onClick={onZoomOut}
+                disabled={zoomScale <= 1.0}
+                className="min-w-[36px] min-h-[36px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 font-bold text-zinc-200 transition-all active:scale-90 touch-manipulation flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
+                title="縮小字級 Zoom Out (-)"
+              >
+                <Minus className="w-4 h-4 text-zinc-300" />
+              </button>
+            )}
+            <button
+              id="ktv-zoom-toggle-btn"
+              type="button"
+              onClick={onCycleZoom}
+              className="px-2 font-mono font-bold text-amber-400 min-w-[48px] text-center cursor-pointer hover:text-amber-300 select-none"
+              title={`Stage Zoom: Currently ${Math.round(zoomScale * 100)}% - Click to cycle`}
+            >
+              {Math.round(zoomScale * 100)}%
+            </button>
+            {onZoomIn && (
+              <button
+                id="ktv-zoom-in-btn"
+                type="button"
+                onClick={onZoomIn}
+                disabled={zoomScale >= 1.75}
+                className="min-w-[36px] min-h-[36px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 font-bold text-zinc-200 transition-all active:scale-90 touch-manipulation flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
+                title="放大字級 Zoom In (+)"
+              >
+                <Plus className="w-4 h-4 text-amber-400" />
+              </button>
+            )}
+          </div>
         )}
 
         {/* Stage Mode (Music Stand Fullscreen Overlay) Toggle */}

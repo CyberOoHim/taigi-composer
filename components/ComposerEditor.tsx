@@ -244,7 +244,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   useEffect(() => {
     if (targetMeasureIndex !== null && targetMeasureIndex !== undefined && targetMeasureIndex >= 0) {
       const validMeasureIdx = Math.min(song.measures.length - 1, Math.max(0, targetMeasureIndex));
-      const targetMode = karaokeReturnTarget ? 'measure' : (editMode === 'sheet' ? 'sheet' : noteSubMode);
+      const currentSubMode = noteSubMode || (typeof window !== 'undefined' ? getStoredNoteSubMode() : 'verse');
+      const targetSubMode: NoteEditSubMode = currentSubMode === 'measure' ? 'measure' : 'verse';
+      const targetMode = karaokeReturnTarget
+        ? targetSubMode
+        : (editMode === 'sheet' ? 'sheet' : noteSubMode);
 
       // Smooth scroll and select corresponding note
       const timer = safeTimeout(() => {
@@ -252,7 +256,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           if (editMode !== 'note') {
             setEditMode('note');
           }
-          setNoteSubMode('measure');
+          if (noteSubMode !== targetSubMode) {
+            setNoteSubMode(targetSubMode);
+          }
         }
 
         // Find the first pitched/content note in this measure, defaulting to note 0
@@ -285,13 +291,17 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           }
           if (vIdx !== -1) {
             scrollToCardElement(`verse-card-${vIdx}`, { align: 'top' });
-            const el = document.getElementById(`verse-card-${vIdx}`);
-            if (el) {
-              el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
-              safeTimeout(() => {
-                el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
-              }, 2200);
-            }
+            const highlightPoll = setInterval(() => {
+              const el = document.getElementById(`verse-card-${vIdx}`);
+              if (el) {
+                clearInterval(highlightPoll);
+                el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+                safeTimeout(() => {
+                  el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+                }, 2200);
+              }
+            }, 40);
+            safeTimeout(() => clearInterval(highlightPoll), 1200);
           }
         } else if (targetMode === 'measure') {
           scrollToCardElement(`measure-card-${validMeasureIdx}`, { align: 'top' });

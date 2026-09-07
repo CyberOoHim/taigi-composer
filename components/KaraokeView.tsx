@@ -6,7 +6,6 @@ import { AudioEngine, PlaybackState } from '@/lib/audioEngine';
 import { groupSongIntoVerses } from '@/lib/taigiUtils';
 import { KaraokeSection } from './karaoke/SectionJumpBar';
 import { KaraokeStage } from './karaoke/KaraokeStage';
-import { AlignedScoreRoll } from './karaoke/AlignedScoreRoll';
 import { KaraokeControls } from './karaoke/KaraokeControls';
 import { AbLoopRehearsalBar, AbLoopState } from './karaoke/AbLoopRehearsalBar';
 import { wakeLockManager } from '@/lib/wakeLock';
@@ -45,11 +44,16 @@ import {
   Maximize2,
   Minimize2,
   ZoomIn,
+  ZoomOut,
+  Minus,
+  Plus,
   Play,
   X,
 } from 'lucide-react';
 
 export type { KaraokeSection } from './karaoke/SectionJumpBar';
+
+const ZOOM_LEVELS = [1.0, 1.25, 1.5, 1.75] as const;
 
 interface KaraokeViewProps {
   song: Song;
@@ -240,7 +244,6 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   const seekDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const sheetScrollRef = useRef<HTMLDivElement>(null);
 
   // Screen Wake Lock: keep in sync, but never hold the display on in eco mode
   useEffect(() => {
@@ -381,16 +384,6 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     };
   }, [audioEngine, setTempoMultiplier]);
 
-  // Auto-scroll active measure into view during playback
-  useEffect(() => {
-    if (playbackState.isPlaying && sheetScrollRef.current) {
-      const activeEl = sheetScrollRef.current.querySelector(`[data-measure-idx="${playbackState.currentMeasureIndex}"]`);
-      if (activeEl) {
-        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      }
-    }
-  }, [playbackState.currentMeasureIndex, playbackState.isPlaying]);
-
   // Handle jumping back to Karaoke mode at original place / target measure
   useEffect(() => {
     if (targetKaraokeMeasureIndex !== null && targetKaraokeMeasureIndex !== undefined && targetKaraokeMeasureIndex >= 0) {
@@ -398,16 +391,6 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       audioEngine.seekToMeasure(song, validIdx);
 
       const timer = setTimeout(() => {
-        if (sheetScrollRef.current) {
-          const activeEl = sheetScrollRef.current.querySelector(`[data-measure-idx="${validIdx}"]`) as HTMLElement | null;
-          if (activeEl) {
-            activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-            activeEl.classList.add('ring-4', 'ring-amber-400', 'bg-amber-900/60');
-            setTimeout(() => {
-              activeEl.classList.remove('ring-4', 'ring-amber-400', 'bg-amber-900/60');
-            }, 2500);
-          }
-        }
         if (typeof window !== 'undefined') {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -548,13 +531,6 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     if (onSelectMeasure) {
       onSelectMeasure(section.startMeasureIndex);
     }
-    // Scroll score roll to section start measure
-    if (sheetScrollRef.current) {
-      const activeEl = sheetScrollRef.current.querySelector(`[data-measure-idx="${section.startMeasureIndex}"]`);
-      if (activeEl) {
-        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      }
-    }
   }, [audioEngine, song, onSelectMeasure]);
 
   // Skip to previous or next section
@@ -583,13 +559,6 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       onEditMeasure(mIdx);
     }
   }, [audioEngine, onEditMeasure]);
-
-  const handleEditSectionInternal = useCallback((section: KaraokeSection) => {
-    audioEngine.stop();
-    if (onEditSection) {
-      onEditSection(section);
-    }
-  }, [audioEngine, onEditSection]);
 
   // Playback control handlers
   const requestPlaybackWakeLock = () => {
@@ -694,6 +663,25 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   const handleTranspose = (delta: number) => {
     setTranspose(prev => Math.max(-12, Math.min(12, prev + delta)));
   };
+
+  const handleZoomIn = useCallback(() => {
+    setStageZoomState(prev => {
+      const current = Math.round(prev * 100) / 100;
+      const next = ZOOM_LEVELS.find(lvl => lvl > current + 0.05) ?? 1.75;
+      setStoredStageZoom(next);
+      return next;
+    });
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setStageZoomState(prev => {
+      const current = Math.round(prev * 100) / 100;
+      const reversed = [...ZOOM_LEVELS].reverse();
+      const prevLvl = reversed.find(lvl => lvl < current - 0.05) ?? 1.0;
+      setStoredStageZoom(prevLvl);
+      return prevLvl;
+    });
+  }, []);
 
   const cycleZoom = useCallback(() => {
     setStageZoomState(prev => {
@@ -845,17 +833,41 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
             </button>
           </div>
 
-          {/* 1-Tap Zoom Toggle */}
-          <button
-            id="ktv-header-zoom-btn"
-            type="button"
-            onClick={cycleZoom}
-            className="flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-xl bg-[#0a0c10] hover:bg-zinc-800 text-xs font-bold text-amber-300 border border-zinc-800 transition-all active:scale-95 touch-manipulation cursor-pointer"
-            title={`Stage Zoom: Currently ${Math.round(stageZoom * 100)}% - Click to cycle (100%-175%)`}
+          {/* Font Size Zoom Controls (- / +) */}
+          <div
+            id="ktv-header-zoom-controls"
+            className="flex items-center min-h-[40px] bg-[#0a0c10] rounded-xl p-1 border border-zinc-800 text-xs"
           >
-            <ZoomIn className="w-4 h-4 text-amber-400" />
-            <span>{Math.round(stageZoom * 100)}%</span>
-          </button>
+            <button
+              id="ktv-header-zoom-out-btn"
+              type="button"
+              onClick={handleZoomOut}
+              disabled={stageZoom <= 1.0}
+              className="min-w-[32px] min-h-[32px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 font-bold text-zinc-200 transition-all active:scale-90 touch-manipulation flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
+              title="縮小字級 Zoom Out (-)"
+            >
+              <Minus className="w-3.5 h-3.5 text-zinc-300" />
+            </button>
+            <button
+              id="ktv-header-zoom-btn"
+              type="button"
+              onClick={cycleZoom}
+              className="px-2 font-mono font-bold text-amber-300 min-w-[50px] text-center cursor-pointer hover:text-amber-200 transition-colors select-none"
+              title={`Stage Zoom: Currently ${Math.round(stageZoom * 100)}% - Click to cycle (100%-175%)`}
+            >
+              {Math.round(stageZoom * 100)}%
+            </button>
+            <button
+              id="ktv-header-zoom-in-btn"
+              type="button"
+              onClick={handleZoomIn}
+              disabled={stageZoom >= 1.75}
+              className="min-w-[32px] min-h-[32px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 font-bold text-zinc-200 transition-all active:scale-90 touch-manipulation flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
+              title="放大字級 Zoom In (+)"
+            >
+              <Plus className="w-3.5 h-3.5 text-amber-400" />
+            </button>
+          </div>
 
           {/* Fullscreen / Stage Mode Button */}
           <button
@@ -935,6 +947,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         onToggleShowNotation={toggleShowNotation}
         layoutMode={layoutMode}
         onToggleLayoutMode={toggleLayoutMode}
+        onEditCurrentLyric={handleEditMeasureInternal}
       />
 
       {/* Primary Karaoke Controls Bar (Moved directly under the lyric area) */}
@@ -961,6 +974,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         onToggleStageMode={toggleStageMode}
         zoomScale={stageZoom}
         onCycleZoom={cycleZoom}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
         onSliderChange={handleSliderChange}
         onSliderPointerUp={handleSliderPointerUp}
         onJumpToSection={handleJumpToSection}
@@ -995,21 +1010,6 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
           onResetTempo={handleResetTempo}
         />
       )}
-
-
-      {/* Aligned Numbered Notation Score Roll */}
-      <AlignedScoreRoll
-        song={song}
-        playbackState={playbackState}
-        displayMode={displayMode}
-        songSections={songSections}
-        audioEngine={audioEngine}
-        sheetScrollRef={sheetScrollRef}
-        loopRange={abLoop.enabled ? { startMeasure: abLoop.startMeasure, endMeasure: abLoop.endMeasure } : null}
-        onSelectMeasure={onSelectMeasure}
-        onEditMeasure={handleEditMeasureInternal}
-        onEditSection={handleEditSectionInternal}
-      />
     </div>
   );
 };

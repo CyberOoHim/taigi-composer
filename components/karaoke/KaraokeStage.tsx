@@ -7,7 +7,7 @@ import { VerseTiming, KaraokeLeadInState } from '@/lib/karaokeSequencer';
 import { KaraokeSection } from './SectionJumpBar';
 import { KaraokeStageTheme, KaraokeLayoutMode } from '@/lib/storage';
 import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
-import { CheckCircle2, Wind, Sun, Moon, Music, Type } from 'lucide-react';
+import { CheckCircle2, Wind, Sun, Moon, Music, Type, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export interface KaraokeStageProps {
@@ -33,6 +33,7 @@ export interface KaraokeStageProps {
   onToggleShowNotation?: () => void;
   layoutMode?: KaraokeLayoutMode;
   onToggleLayoutMode?: () => void;
+  onEditCurrentLyric?: (measureIndex: number) => void;
 }
 
 // Helper to identify CJK characters for natural Chinese text spacing
@@ -525,6 +526,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   onToggleShowNotation,
   layoutMode = 'single_line',
   onToggleLayoutMode,
+  onEditCurrentLyric,
 }) => {
   const isDark = stageTheme === 'dark';
 
@@ -781,7 +783,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   return (
     <div
       id="ktv-stage-container"
-      className={`relative flex flex-col items-center justify-between p-4 sm:p-6 md:p-8 min-h-[360px] sm:min-h-[420px] select-none overflow-hidden transition-all duration-300 border-b ${
+      className={`relative flex flex-col items-center justify-between p-4 sm:p-6 md:p-8 min-h-[480px] sm:min-h-[540px] md:min-h-[600px] select-none overflow-hidden transition-all duration-300 border-b ${
         isDark
           ? 'bg-gradient-to-b from-[#0b0e17] via-[#06070a] to-[#0b0e17] border-zinc-800/80 text-white'
           : 'bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] border-slate-300 text-slate-900'
@@ -882,7 +884,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
       <div className="w-full max-w-6xl z-10 flex flex-col items-center justify-center my-auto">
         <div
           id="ktv-active-lyric-window"
-          className={`relative w-full flex flex-col justify-between rounded-2xl transition-all duration-300 shadow-2xl min-h-[280px] sm:min-h-[340px] md:min-h-[380px] overflow-hidden ${
+          className={`relative w-full flex flex-col justify-between rounded-2xl transition-all duration-300 shadow-2xl min-h-[400px] sm:min-h-[460px] md:min-h-[520px] overflow-hidden ${
             isDark
               ? 'bg-zinc-900/85 border border-amber-500/40 shadow-amber-950/20'
               : 'bg-white border-2 border-blue-500/70 shadow-lg shadow-blue-100'
@@ -897,8 +899,8 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 : 'bg-slate-50/90 border-slate-200 text-slate-700'
             }`}
           >
-            {/* Left: Active verse indicator & section */}
-            <div className="flex items-center gap-2">
+            {/* Left: Active verse indicator & section & edit button */}
+            <div className="flex items-center gap-2 flex-wrap">
               <span
                 className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[10px] sm:text-xs border ${
                   isDark
@@ -924,6 +926,29 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 >
                   {currentVerse?.section || activeSection?.name}
                 </span>
+              )}
+
+              {onEditCurrentLyric && currentVerse && (
+                <button
+                  id="ktv-edit-current-lyric-btn"
+                  type="button"
+                  onClick={() => {
+                    const mIdx = playbackState.currentMeasureIndex !== undefined &&
+                      currentVerse.notes.some(n => n.measureIndex === playbackState.currentMeasureIndex)
+                        ? playbackState.currentMeasureIndex
+                        : currentVerse.notes[0]?.measureIndex ?? 0;
+                    onEditCurrentLyric(mIdx);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold text-[11px] sm:text-xs border transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs ${
+                    isDark
+                      ? 'bg-zinc-800/90 hover:bg-amber-500/20 text-zinc-200 hover:text-amber-300 border-zinc-700 hover:border-amber-400/60'
+                      : 'bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border-slate-300 hover:border-blue-400'
+                  }`}
+                  title="編輯當前歌詞與音符 (Edit Current Lyric & Notes)"
+                >
+                  <Pencil className="w-3 h-3 text-amber-400" />
+                  <span>編輯歌詞</span>
+                </button>
               )}
             </div>
 
@@ -995,7 +1020,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
           {/* 2. Open Canvas with Maximized Typography & Vertical Space */}
           <div
             ref={canvasRef}
-            className="relative w-full flex-1 flex flex-col items-center justify-center py-2 sm:py-3.5 px-3 sm:px-6 min-h-[180px] sm:min-h-[220px] overflow-hidden"
+            className="relative w-full flex-1 flex flex-col items-center justify-center py-2 sm:py-3.5 px-3 sm:px-6 min-h-[280px] sm:min-h-[340px] md:min-h-[400px] overflow-visible"
           >
             {currentVerse && currentVerse.notes.length > 0 ? (
               <AnimatePresence mode="wait" initial={false}>
@@ -1038,15 +1063,15 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                   </div>
 
                   {/* Dedicated Upcoming Lyric Cue Row (Atomic, strictly on its own new line, zero shift to active lyrics) */}
-                  <div className="w-full flex items-center justify-center min-h-[2.5rem] sm:min-h-[3rem] mt-1.5 sm:mt-2">
+                  <div className="w-full flex items-center justify-center min-h-[2.5rem] sm:min-h-[3.5rem] mt-2 sm:mt-3">
                     <AnimatePresence>
                       {showUpcomingCue && upcomingStartPreview && (
                         <motion.div
                           initial={{ opacity: 0, y: -4 }}
-                          animate={{ opacity: 0.85, y: 0 }}
+                          animate={{ opacity: 0.75, y: 0 }}
                           exit={{ opacity: 0, y: 4 }}
                           transition={{ duration: 0.2 }}
-                          className="select-none whitespace-nowrap break-keep break-inside-avoid pointer-events-none z-10 inline-flex items-center justify-center"
+                          className="select-none whitespace-nowrap break-keep break-inside-avoid pointer-events-none z-10 inline-flex items-center justify-center opacity-75"
                         >
                           <div className="relative flex items-baseline justify-center whitespace-nowrap">
                             <span
@@ -1103,7 +1128,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 接唱
               </span>
 
-              <span className="truncate font-medium tracking-wide opacity-80">
+              <span className="truncate font-medium tracking-wide opacity-75">
                 {nextLinePreview ? `${nextLinePreview}...` : '(全曲結束 · Finale)'}
               </span>
             </div>
