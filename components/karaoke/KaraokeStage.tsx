@@ -1020,92 +1020,95 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
           {/* 2. Open Canvas with Maximized Typography & Vertical Space */}
           <div
             ref={canvasRef}
-            className="relative w-full flex-1 flex flex-col items-center justify-center py-2 sm:py-3.5 px-3 sm:px-6 min-h-[280px] sm:min-h-[340px] md:min-h-[400px] overflow-visible"
+            className="relative w-full flex-1 flex flex-col items-center justify-between py-2 sm:py-3.5 px-3 sm:px-6 min-h-[280px] sm:min-h-[340px] md:min-h-[400px] overflow-visible"
           >
-            {currentVerse && currentVerse.notes.length > 0 ? (
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={`active-verse-${activeVerseIndex}-${currentVerse.verseIndex ?? 0}`}
-                  initial={isEcoMode ? false : { opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={isEcoMode ? undefined : { opacity: 0, y: -12 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
-                  className="w-full flex flex-col items-center justify-center overflow-visible"
-                >
-                  <div
-                    ref={lineRowRef}
-                    className="w-full max-w-full flex flex-col items-center justify-center gap-y-2 sm:gap-y-3.5 md:gap-y-4"
+            {/* Active Lyric Display Area */}
+            <div className="w-full flex-1 flex flex-col items-center justify-center my-auto">
+              {currentVerse && currentVerse.notes.length > 0 ? (
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={`active-verse-${activeVerseIndex}-${currentVerse.verseIndex ?? 0}`}
+                    initial={isEcoMode ? false : { opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={isEcoMode ? undefined : { opacity: 0, y: -12 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    className="w-full flex flex-col items-center justify-center overflow-visible"
                   >
-                    {visibleLines.map(line => (
-                      <div
-                        key={line.id}
-                        className="w-full max-w-full flex flex-wrap items-end justify-center gap-x-2 sm:gap-x-3.5 md:gap-x-5 gap-y-2"
-                      >
-                        {line.notes.map(({ item, globalIdx }) => (
-                          <SyllableCell
-                            key={`${item.measureIndex}-${item.noteIndex}-${globalIdx}`}
-                            item={item}
-                            noteIndex={globalIdx}
-                            isActiveLine={true}
-                            currentTime={playbackState.currentTime}
-                            verseTiming={activeVerseTiming}
-                            effectiveMode={effectiveMode}
-                            isFirstVocalNote={globalIdx === currentFirstVocal}
-                            showNotation={showNotation}
-                            stageTheme={stageTheme}
-                            zoomScale={zoomScale}
-                            isEcoMode={isEcoMode}
-                            isComingLineAwaiting={isAwaitingVocal || Boolean(leadIn && leadIn.isLeadIn)}
-                          />
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Dedicated Upcoming Lyric Cue Row (Atomic, strictly on its own new line, zero shift to active lyrics) */}
-                  <div className="w-full flex items-center justify-center min-h-[2.5rem] sm:min-h-[3.5rem] mt-2 sm:mt-3">
-                    <AnimatePresence>
-                      {showUpcomingCue && upcomingStartPreview && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -4 }}
-                          animate={{ opacity: 0.75, y: 0 }}
-                          exit={{ opacity: 0, y: 4 }}
-                          transition={{ duration: 0.2 }}
-                          className="select-none whitespace-nowrap break-keep break-inside-avoid pointer-events-none z-10 inline-flex items-center justify-center opacity-75"
+                    <div
+                      ref={lineRowRef}
+                      className="w-full max-w-full flex flex-col items-center justify-center gap-y-2 sm:gap-y-3.5 md:gap-y-4"
+                    >
+                      {visibleLines.map(line => (
+                        <div
+                          key={line.id}
+                          className="w-full max-w-full flex flex-wrap items-end justify-center gap-x-2 sm:gap-x-3.5 md:gap-x-5 gap-y-2"
                         >
-                          <div className="relative flex items-baseline justify-center whitespace-nowrap">
-                            <span
-                              className={`${getMainFontSizeClass(zoomScale, showNotation)} font-black tracking-wider flex items-center justify-center select-none whitespace-nowrap break-keep ${
-                                effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo'
-                                  ? 'font-serif italic font-extrabold'
-                                  : 'font-sans'
-                              } ${
-                                isDark ? 'text-amber-300' : 'text-blue-600'
-                              }`}
-                              title="下一句起唱字 (Next phrase entry words)"
-                            >
-                              {upcomingStartPreview}
-                            </span>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </motion.div>
+                          {line.notes.map(({ item, globalIdx }) => (
+                            <SyllableCell
+                              key={`${item.measureIndex}-${item.noteIndex}-${globalIdx}`}
+                              item={item}
+                              noteIndex={globalIdx}
+                              isActiveLine={true}
+                              currentTime={playbackState.currentTime}
+                              verseTiming={activeVerseTiming}
+                              effectiveMode={effectiveMode}
+                              isFirstVocalNote={globalIdx === currentFirstVocal}
+                              showNotation={showNotation}
+                              stageTheme={stageTheme}
+                              zoomScale={zoomScale}
+                              isEcoMode={isEcoMode}
+                              isComingLineAwaiting={isAwaitingVocal || Boolean(leadIn && leadIn.isLeadIn)}
+                            />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              ) : (
+                <div
+                  className={`w-full flex items-center justify-center p-6 rounded-xl border border-dashed transition-all duration-300 ${
+                    isDark
+                      ? 'bg-zinc-900/30 border-zinc-800/60 text-zinc-600'
+                      : 'bg-slate-100/60 border-slate-300 text-slate-400'
+                  }`}
+                >
+                  <span className="text-xs sm:text-sm font-medium italic select-none">
+                    (全曲結束 · Finale / Rest)
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Dedicated Incoming Lyric Cue Row: Always anchored at the bottom for total visual stability */}
+            <div className="w-full flex items-center justify-center min-h-[3rem] sm:min-h-[4rem] pb-1 shrink-0">
+              <AnimatePresence>
+                {showUpcomingCue && upcomingStartPreview && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 0.6, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.2 }}
+                    className="select-none whitespace-nowrap break-keep break-inside-avoid pointer-events-none z-10 inline-flex items-center justify-center opacity-60"
+                  >
+                    <div className="relative flex items-baseline justify-center whitespace-nowrap">
+                      <span
+                        className={`${getMainFontSizeClass(zoomScale, showNotation)} font-black tracking-wider flex items-center justify-center select-none whitespace-nowrap break-keep ${
+                          effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo'
+                            ? 'font-serif italic font-extrabold'
+                            : 'font-sans'
+                        } ${
+                          isDark ? 'text-amber-300' : 'text-blue-600'
+                        }`}
+                        title="下一句起唱字 (Next phrase entry words)"
+                      >
+                        {upcomingStartPreview}
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
               </AnimatePresence>
-            ) : (
-              <div
-                className={`w-full flex items-center justify-center p-6 rounded-xl border border-dashed transition-all duration-300 ${
-                  isDark
-                    ? 'bg-zinc-900/30 border-zinc-800/60 text-zinc-600'
-                    : 'bg-slate-100/60 border-slate-300 text-slate-400'
-                }`}
-              >
-                <span className="text-xs sm:text-sm font-medium italic select-none">
-                  (全曲結束 · Finale / Rest)
-                </span>
-              </div>
-            )}
+            </div>
           </div>
 
           {/* 3. Compact "Coming Next" Ambient Banner (Centered, Verse Number removed, Full Coming Lyric) */}
@@ -1128,7 +1131,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 接唱
               </span>
 
-              <span className="truncate font-medium tracking-wide opacity-75">
+              <span className="truncate font-medium tracking-wide opacity-60">
                 {nextLinePreview ? `${nextLinePreview}...` : '(全曲結束 · Finale)'}
               </span>
             </div>
