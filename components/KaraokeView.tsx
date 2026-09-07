@@ -482,7 +482,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         const m = song.measures[mIdx];
         if (!m) continue;
         for (const note of m.notes) {
-          const w = note.lyric.hanji || note.lyric.custom || note.lyric.poj || note.lyric.tl;
+          const w = note.lyric.hanlo || note.lyric.hanji || note.lyric.custom || note.lyric.poj || note.lyric.tl;
           if (w && w.trim() && w !== '—' && w !== '，' && w !== '。') {
             lyricWords.push(w);
             if (lyricWords.length >= 6) break;

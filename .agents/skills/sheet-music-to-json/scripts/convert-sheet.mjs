@@ -352,9 +352,13 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
       const isTriplet = Boolean(n.isTriplet || duration === 0.333 || duration === 0.667);
 
       const rawLyric = n.lyric || {};
+      const hanlo = rawLyric.hanlo || rawLyric.hanji || rawLyric.custom || undefined;
+      const poj = rawLyric.poj || rawLyric.tl || undefined;
       const lyric = {
-        hanlo: rawLyric.hanlo || rawLyric.hanji || rawLyric.custom || undefined,
-        poj: rawLyric.poj || rawLyric.tl || undefined,
+        hanlo,
+        poj,
+        hanji: hanlo,
+        custom: hanlo,
       };
 
       notes.push({

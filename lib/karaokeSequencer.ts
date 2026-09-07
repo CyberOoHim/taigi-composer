@@ -85,7 +85,7 @@ export function computeVersesTiming(
       const startTimeSec = accumulatedTime;
       const endTimeSec = accumulatedTime + durationSec;
 
-      const rawHanji = note.lyric.hanji ?? note.lyric.custom ?? '';
+      const rawHanji = note.lyric.hanlo ?? note.lyric.hanji ?? note.lyric.custom ?? '';
       const rawRoman = note.lyric.poj ?? note.lyric.tl ?? '';
       const hasLyricText =
         Boolean(rawHanji && !isPunctuationOrSpacer(rawHanji) && rawHanji !== '\n' && rawHanji !== '↵') ||

@@ -302,9 +302,16 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
             key={`verse-card-${verse.id}-${vIdx}`}
             id={`verse-card-${vIdx}`}
             onClick={() => {
-              const firstContentNote = verse.notes.find(
-                n => !isNonNotationItem(n.note) && (typeof n.note.pitch === 'number' && n.note.pitch > 0 || Boolean(n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji)))
-              ) || verse.notes[0];
+              const firstContentNote =
+                verse.notes.find(
+                  n =>
+                    !isNonNotationItem(n.note) &&
+                    ((typeof n.note.pitch === 'number' && n.note.pitch > 0) ||
+                      Boolean(
+                        (n.note.lyric.hanlo || n.note.lyric.hanji || n.note.lyric.custom) &&
+                          !isPunctuationOrSpacer(n.note.lyric.hanlo || n.note.lyric.hanji || n.note.lyric.custom)
+                      ))
+                ) || verse.notes[0];
               if (firstContentNote) {
                 onSelectNote(firstContentNote.measureIndex, firstContentNote.noteIndex);
               }
@@ -395,7 +402,10 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                             n =>
                               !isNonNotationItem(n.note) &&
                               ((typeof n.note.pitch === 'number' && n.note.pitch > 0) ||
-                                Boolean(n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji)))
+                                Boolean(
+                                  (n.note.lyric.hanlo || n.note.lyric.hanji || n.note.lyric.custom) &&
+                                    !isPunctuationOrSpacer(n.note.lyric.hanlo || n.note.lyric.hanji || n.note.lyric.custom)
+                                ))
                           ) || prevVerse.notes[0];
                         if (target) onSelectNote(target.measureIndex, target.noteIndex);
                         scrollToCardElement(`verse-card-${vIdx - 1}`, { align: 'top' });
@@ -421,7 +431,10 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                             n =>
                               !isNonNotationItem(n.note) &&
                               ((typeof n.note.pitch === 'number' && n.note.pitch > 0) ||
-                                Boolean(n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji)))
+                                Boolean(
+                                  (n.note.lyric.hanlo || n.note.lyric.hanji || n.note.lyric.custom) &&
+                                    !isPunctuationOrSpacer(n.note.lyric.hanlo || n.note.lyric.hanji || n.note.lyric.custom)
+                                ))
                           ) || nextVerse.notes[0];
                         if (target) onSelectNote(target.measureIndex, target.noteIndex);
                         scrollToCardElement(`verse-card-${vIdx + 1}`, { align: 'top' });

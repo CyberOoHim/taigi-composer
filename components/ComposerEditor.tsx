@@ -1936,7 +1936,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           n =>
             !isNonNotationItem(n.note) &&
             ((typeof n.note.pitch === 'number' && n.note.pitch > 0) ||
-              Boolean(n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji)))
+              Boolean(
+                (n.note.lyric.hanlo || n.note.lyric.hanji || n.note.lyric.custom) &&
+                  !isPunctuationOrSpacer(n.note.lyric.hanlo || n.note.lyric.hanji || n.note.lyric.custom)
+              ))
         ) || verse.notes[0];
 
       if (editMode === 'sheet') {

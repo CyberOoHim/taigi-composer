@@ -546,7 +546,7 @@ export function isNonNotationItem(note: NumberedNotationNote | null | undefined)
     (!rawHanlo || isPunctuationOrSpacer(rawHanlo)) &&
     (!rawPoj || isPunctuationOrSpacer(rawPoj));
 
-  if (isPurePunctuationLyric) {
+  if (isPurePunctuationLyric && !isMusicalPitch) {
     return true;
   }
 
@@ -753,7 +753,10 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
       if (isSeparator) {
         // If we have accumulated at least one pitched/lyrical note before this separator, close the verse here
         const hasContent = currentNotes.some(
-          n => (typeof n.note.pitch === 'number' && n.note.pitch > 0) || (n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji))
+          n => {
+            const h = n.note.lyric.hanlo || n.note.lyric.hanji || n.note.lyric.custom || '';
+            return (typeof n.note.pitch === 'number' && n.note.pitch > 0) || (h && !isPunctuationOrSpacer(h));
+          }
         );
 
         if (hasContent) {
@@ -781,7 +784,10 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
         // If this is the last note of a measure marked with isLineBreak, close the verse
         if (measure.isLineBreak && isLastInMeasure) {
           const hasContent = currentNotes.some(
-            n => (typeof n.note.pitch === 'number' && n.note.pitch > 0) || (n.note.lyric.hanji && !isPunctuationOrSpacer(n.note.lyric.hanji))
+            n => {
+              const h = n.note.lyric.hanlo || n.note.lyric.hanji || n.note.lyric.custom || '';
+              return (typeof n.note.pitch === 'number' && n.note.pitch > 0) || (h && !isPunctuationOrSpacer(h));
+            }
           );
           if (hasContent) {
             pushCurrentVerse();

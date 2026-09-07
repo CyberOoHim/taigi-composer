@@ -1,0 +1,2254 @@
+{
+  "id": "song-yueyechou-1933",
+  "title": "月夜愁",
+  "subtitle": "Goe̍h-iā-chhiû",
+  "composer": "鄧雨賢",
+  "lyricist": "周添旺",
+  "key": "C",
+  "timeSignature": "4/4",
+  "bpm": 80,
+  "notesPerLine": 4,
+  "description": "1933年臺灣經典金曲《月夜愁》（周添旺作詞、鄧雨賢作曲），烏克麗麗簡譜完整版（含前奏、三段歌詞及尾奏）。",
+  "measures": [
+    {
+      "id": "m-1",
+      "measureNumber": 1,
+      "chord": "C",
+      "section": "前奏 (Intro 1/4)",
+      "notes": [
+        {
+          "id": "n-intro-1-1",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-1-2",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-1-3",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-1-4",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-1-5",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-1-6",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-1-7",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-2",
+      "measureNumber": 2,
+      "chord": "C",
+      "section": "前奏 (Intro 2/4)",
+      "notes": [
+        {
+          "id": "n-intro-2-1",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-2-2",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-2-3",
+          "pitch": 6,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-2-4",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-2-5",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-2-6",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-3",
+      "measureNumber": 3,
+      "chord": "G7",
+      "section": "前奏 (Intro 3/4)",
+      "notes": [
+        {
+          "id": "n-intro-3-1",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-3-2",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-3-3",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-3-4",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-3-5",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-3-6",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-intro-3-7",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-4",
+      "measureNumber": 4,
+      "chord": "C",
+      "section": "前奏 (Intro 4/4)",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-intro-4-1",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-5",
+      "measureNumber": 5,
+      "chord": "N.C.",
+      "section": "主歌一 1/6 (月色照在)",
+      "barlineType": "repeat_start",
+      "notes": [
+        {
+          "id": "n-6-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-6-2",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "月",
+            "poj": "Goe̍h"
+          }
+        },
+        {
+          "id": "n-6-3",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "色",
+            "poj": "sek"
+          }
+        },
+        {
+          "id": "n-6-4",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "照",
+            "poj": "chiò"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-6",
+      "measureNumber": 6,
+      "chord": "C",
+      "notes": [
+        {
+          "id": "n-7-1",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "在",
+            "poj": "chāi"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-7",
+      "measureNumber": 7,
+      "chord": "C",
+      "notes": [
+        {
+          "id": "n-8-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-8-2",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "三",
+            "poj": "saⁿ"
+          }
+        },
+        {
+          "id": "n-8-3",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "線",
+            "poj": "sòaⁿ"
+          }
+        },
+        {
+          "id": "n-8-4",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 1,
+          "slurToNext": true,
+          "lyric": {}
+        },
+        {
+          "id": "n-8-5",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-8",
+      "measureNumber": 8,
+      "chord": "C",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-9-1",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "路\n",
+            "poj": "lō͘\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-9",
+      "measureNumber": 9,
+      "chord": "F",
+      "section": "主歌一 2/6 (風吹微微)",
+      "notes": [
+        {
+          "id": "n-10-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-10-2",
+          "pitch": 4,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "風",
+            "poj": "hong"
+          }
+        },
+        {
+          "id": "n-10-3",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "吹",
+            "poj": "chhe"
+          }
+        },
+        {
+          "id": "n-10-4",
+          "pitch": 4,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "微",
+            "poj": "bî"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-10",
+      "measureNumber": 10,
+      "chord": "C",
+      "notes": [
+        {
+          "id": "n-11-1",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "微",
+            "poj": "bî"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-11",
+      "measureNumber": 11,
+      "chord": "C",
+      "notes": [
+        {
+          "id": "n-12-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-12-2",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "等",
+            "poj": "tán"
+          }
+        },
+        {
+          "id": "n-12-3",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "待",
+            "poj": "thāi"
+          }
+        },
+        {
+          "id": "n-12-4",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "的",
+            "poj": "ê"
+          }
+        },
+        {
+          "id": "n-12-5",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-12",
+      "measureNumber": 12,
+      "chord": "Dm",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-13-1",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "人\n",
+            "poj": "lâng\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-13",
+      "measureNumber": 13,
+      "chord": "G7",
+      "section": "主歌一 3/6 (那未來)",
+      "notes": [
+        {
+          "id": "n-14-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-14-2",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "slurToNext": true,
+          "lyric": {
+            "hanlo": "那",
+            "poj": "Ná"
+          }
+        },
+        {
+          "id": "n-14-3",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-14-4",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "未",
+            "poj": "bē"
+          }
+        },
+        {
+          "id": "n-14-5",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-14",
+      "measureNumber": 14,
+      "chord": "C",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-15-1",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "來\n",
+            "poj": "lâi\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-15",
+      "measureNumber": 15,
+      "chord": "C",
+      "section": "主歌一 4/6 (心內真可疑)",
+      "notes": [
+        {
+          "id": "n-16-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-16-2",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "心",
+            "poj": "Sim"
+          }
+        },
+        {
+          "id": "n-16-3",
+          "pitch": 4,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "內",
+            "poj": "lāi"
+          }
+        },
+        {
+          "id": "n-16-4",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "真",
+            "poj": "chin"
+          }
+        },
+        {
+          "id": "n-16-5",
+          "pitch": 6,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "可",
+            "poj": "khó"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-16",
+      "measureNumber": 16,
+      "chord": "G7",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-17-1",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "疑\n",
+            "poj": "gî\n"
+          }
+        },
+        {
+          "id": "n-17-2",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "slurToNext": true,
+          "lyric": {
+            "hanlo": "想",
+            "poj": "siūⁿ"
+          }
+        },
+        {
+          "id": "n-17-3",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-17-4",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "未",
+            "poj": "bē"
+          }
+        },
+        {
+          "id": "n-17-5",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "出\n",
+            "poj": "chhut\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-17",
+      "measureNumber": 17,
+      "chord": "F",
+      "section": "主歌一 5/6 (彼個人啊)",
+      "notes": [
+        {
+          "id": "n-18-1",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "彼",
+            "poj": "hit"
+          }
+        },
+        {
+          "id": "n-18-2",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-18-3",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-18-4",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "個",
+            "poj": "ê"
+          }
+        },
+        {
+          "id": "n-18-5",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-18-6",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-18",
+      "measureNumber": 18,
+      "chord": "G7",
+      "notes": [
+        {
+          "id": "n-19-1",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 3,
+          "isDotted": true,
+          "lyric": {
+            "hanlo": "人",
+            "poj": "lâng"
+          }
+        },
+        {
+          "id": "n-19-2",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "啊",
+            "poj": "ah"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-19",
+      "measureNumber": 19,
+      "chord": "C",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-20-1",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "～\n",
+            "poj": "~\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-20",
+      "measureNumber": 20,
+      "chord": "G7",
+      "section": "主歌一 6/6 (怨嘆月暝)",
+      "notes": [
+        {
+          "id": "n-21-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-21-2",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "怨",
+            "poj": "oàn"
+          }
+        },
+        {
+          "id": "n-21-3",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "嘆",
+            "poj": "thàn"
+          }
+        },
+        {
+          "id": "n-21-4",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "月",
+            "poj": "ge̍h"
+          }
+        },
+        {
+          "id": "n-21-5",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-21-6",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-21-7",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-21",
+      "measureNumber": 21,
+      "chord": "C",
+      "barlineType": "single",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-22-1",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "暝\n",
+            "poj": "mî\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-22",
+      "measureNumber": 22,
+      "chord": "N.C.",
+      "section": "主歌二 1/6 (月色照在)",
+      "notes": [
+        {
+          "id": "n-23-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-23-2",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "更",
+            "poj": "Kiⁿ"
+          }
+        },
+        {
+          "id": "n-23-3",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "深",
+            "poj": "chhim"
+          }
+        },
+        {
+          "id": "n-23-4",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "無",
+            "poj": "bô"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-23",
+      "measureNumber": 23,
+      "chord": "C",
+      "notes": [
+        {
+          "id": "n-24-1",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "伴",
+            "poj": "phōaⁿ"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-24",
+      "measureNumber": 24,
+      "chord": "C",
+      "notes": [
+        {
+          "id": "n-25-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-25-2",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "獨",
+            "poj": "to̍k"
+          }
+        },
+        {
+          "id": "n-25-3",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "相",
+            "poj": "siuⁿ"
+          }
+        },
+        {
+          "id": "n-25-4",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 1,
+          "slurToNext": true,
+          "lyric": {}
+        },
+        {
+          "id": "n-25-5",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-25",
+      "measureNumber": 25,
+      "chord": "C",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-26-1",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "思\n",
+            "poj": "si\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-26",
+      "measureNumber": 26,
+      "chord": "F",
+      "section": "主歌二 2/6 (風吹微微)",
+      "notes": [
+        {
+          "id": "n-27-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-27-2",
+          "pitch": 4,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "秋",
+            "poj": "chhiu"
+          }
+        },
+        {
+          "id": "n-27-3",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "蟬",
+            "poj": "siân"
+          }
+        },
+        {
+          "id": "n-27-4",
+          "pitch": 4,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "哀",
+            "poj": "ai"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-27",
+      "measureNumber": 27,
+      "chord": "C",
+      "notes": [
+        {
+          "id": "n-28-1",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "啼",
+            "poj": "thî"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-28",
+      "measureNumber": 28,
+      "chord": "C",
+      "notes": [
+        {
+          "id": "n-29-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-29-2",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "月",
+            "poj": "goe̍h"
+          }
+        },
+        {
+          "id": "n-29-3",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "光",
+            "poj": "kng"
+          }
+        },
+        {
+          "id": "n-29-4",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "所",
+            "poj": "só͘"
+          }
+        },
+        {
+          "id": "n-29-5",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-29",
+      "measureNumber": 29,
+      "chord": "Dm",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-30-1",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "照\n",
+            "poj": "chiò\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-30",
+      "measureNumber": 30,
+      "chord": "G7",
+      "section": "主歌二 3/6 (那未來)",
+      "notes": [
+        {
+          "id": "n-31-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-31-2",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "slurToNext": true,
+          "lyric": {
+            "hanlo": "的",
+            "poj": "ê"
+          }
+        },
+        {
+          "id": "n-31-3",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-31-4",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "樹",
+            "poj": "chhiū"
+          }
+        },
+        {
+          "id": "n-31-5",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-31",
+      "measureNumber": 31,
+      "chord": "C",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-32-1",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "影\n",
+            "poj": "iáⁿ\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-32",
+      "measureNumber": 32,
+      "chord": "C",
+      "section": "主歌二 4/6 (心內真可疑)",
+      "notes": [
+        {
+          "id": "n-33-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-33-2",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "加",
+            "poj": "Ka"
+          }
+        },
+        {
+          "id": "n-33-3",
+          "pitch": 4,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "添",
+            "poj": "thiam"
+          }
+        },
+        {
+          "id": "n-33-4",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "阮",
+            "poj": "gún"
+          }
+        },
+        {
+          "id": "n-33-5",
+          "pitch": 6,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "傷",
+            "poj": "siong"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-33",
+      "measureNumber": 33,
+      "chord": "G7",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-34-1",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "悲\n",
+            "poj": "pi\n"
+          }
+        },
+        {
+          "id": "n-34-2",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "slurToNext": true,
+          "lyric": {
+            "hanlo": "心",
+            "poj": "sim"
+          }
+        },
+        {
+          "id": "n-34-3",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-34-4",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "頭",
+            "poj": "thâu"
+          }
+        },
+        {
+          "id": "n-34-5",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "酸\n",
+            "poj": "sng\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-34",
+      "measureNumber": 34,
+      "chord": "F",
+      "section": "主歌二 5/6 (彼個人啊)",
+      "notes": [
+        {
+          "id": "n-35-1",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "目",
+            "poj": "ba̍k"
+          }
+        },
+        {
+          "id": "n-35-2",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-35-3",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-35-4",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "屎",
+            "poj": "sái"
+          }
+        },
+        {
+          "id": "n-35-5",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-35-6",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-35",
+      "measureNumber": 35,
+      "chord": "G7",
+      "notes": [
+        {
+          "id": "n-36-1",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 3,
+          "isDotted": true,
+          "lyric": {
+            "hanlo": "滴",
+            "poj": "tih"
+          }
+        },
+        {
+          "id": "n-36-2",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "啊",
+            "poj": "ah"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-36",
+      "measureNumber": 36,
+      "chord": "C",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-37-1",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "～\n",
+            "poj": "~\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-37",
+      "measureNumber": 37,
+      "chord": "G7",
+      "section": "主歌二 6/6 (怨嘆月暝)",
+      "notes": [
+        {
+          "id": "n-38-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-38-2",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "無",
+            "poj": "bô"
+          }
+        },
+        {
+          "id": "n-38-3",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "聊",
+            "poj": "liâu"
+          }
+        },
+        {
+          "id": "n-38-4",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "月",
+            "poj": "ge̍h"
+          }
+        },
+        {
+          "id": "n-38-5",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-38-6",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-38-7",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-38",
+      "measureNumber": 38,
+      "chord": "C",
+      "barlineType": "single",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-39-1",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "暝\n",
+            "poj": "mî\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-39",
+      "measureNumber": 39,
+      "chord": "N.C.",
+      "section": "主歌三 1/6 (月色照在)",
+      "notes": [
+        {
+          "id": "n-40-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-40-2",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "甘",
+            "poj": "Kám"
+          }
+        },
+        {
+          "id": "n-40-3",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "是",
+            "poj": "sī"
+          }
+        },
+        {
+          "id": "n-40-4",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "註",
+            "poj": "chù"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-40",
+      "measureNumber": 40,
+      "chord": "C",
+      "notes": [
+        {
+          "id": "n-41-1",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "定",
+            "poj": "tiāⁿ"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-41",
+      "measureNumber": 41,
+      "chord": "C",
+      "notes": [
+        {
+          "id": "n-42-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-42-2",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "無",
+            "poj": "bô"
+          }
+        },
+        {
+          "id": "n-42-3",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "緣",
+            "poj": "iân"
+          }
+        },
+        {
+          "id": "n-42-4",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 1,
+          "slurToNext": true,
+          "lyric": {}
+        },
+        {
+          "id": "n-42-5",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-42",
+      "measureNumber": 42,
+      "chord": "C",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-43-1",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "份\n",
+            "poj": "hūn\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-43",
+      "measureNumber": 43,
+      "chord": "F",
+      "section": "主歌三 2/6 (風吹微微)",
+      "notes": [
+        {
+          "id": "n-44-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-44-2",
+          "pitch": 4,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "所",
+            "poj": "só͘"
+          }
+        },
+        {
+          "id": "n-44-3",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "愛",
+            "poj": "ài"
+          }
+        },
+        {
+          "id": "n-44-4",
+          "pitch": 4,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "的",
+            "poj": "ê"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-44",
+      "measureNumber": 44,
+      "chord": "C",
+      "notes": [
+        {
+          "id": "n-45-1",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "伊",
+            "poj": "i"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-45",
+      "measureNumber": 45,
+      "chord": "C",
+      "notes": [
+        {
+          "id": "n-46-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-46-2",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "因",
+            "poj": "in"
+          }
+        },
+        {
+          "id": "n-46-3",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "何",
+            "poj": "hô"
+          }
+        },
+        {
+          "id": "n-46-4",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "乎",
+            "poj": "hō͘"
+          }
+        },
+        {
+          "id": "n-46-5",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-46",
+      "measureNumber": 46,
+      "chord": "Dm",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-47-1",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "阮\n",
+            "poj": "gún\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-47",
+      "measureNumber": 47,
+      "chord": "G7",
+      "section": "主歌三 3/6 (那未來)",
+      "notes": [
+        {
+          "id": "n-48-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-48-2",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "slurToNext": true,
+          "lyric": {
+            "hanlo": "放",
+            "poj": "pàng"
+          }
+        },
+        {
+          "id": "n-48-3",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-48-4",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "抹",
+            "poj": "bē"
+          }
+        },
+        {
+          "id": "n-48-5",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-48",
+      "measureNumber": 48,
+      "chord": "C",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-49-1",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "離\n",
+            "poj": "lī\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-49",
+      "measureNumber": 49,
+      "chord": "C",
+      "section": "主歌三 4/6 (心內真可疑)",
+      "notes": [
+        {
+          "id": "n-50-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-50-2",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "夢",
+            "poj": "Bāng"
+          }
+        },
+        {
+          "id": "n-50-3",
+          "pitch": 4,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "中",
+            "poj": "tiong"
+          }
+        },
+        {
+          "id": "n-50-4",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "來",
+            "poj": "lâi"
+          }
+        },
+        {
+          "id": "n-50-5",
+          "pitch": 6,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "相",
+            "poj": "saⁿ"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-50",
+      "measureNumber": 50,
+      "chord": "G7",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-51-1",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "見\n",
+            "poj": "kìⁿ\n"
+          }
+        },
+        {
+          "id": "n-51-2",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "slurToNext": true,
+          "lyric": {
+            "hanlo": "斷",
+            "poj": "thoān"
+          }
+        },
+        {
+          "id": "n-51-3",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-51-4",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "腸",
+            "poj": "chhiông"
+          }
+        },
+        {
+          "id": "n-51-5",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "詩\n",
+            "poj": "si\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-51",
+      "measureNumber": 51,
+      "chord": "F",
+      "section": "主歌三 5/6 (彼個人啊)",
+      "notes": [
+        {
+          "id": "n-52-1",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "唱",
+            "poj": "chhiùⁿ"
+          }
+        },
+        {
+          "id": "n-52-2",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-52-3",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-52-4",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "未",
+            "poj": "bē"
+          }
+        },
+        {
+          "id": "n-52-5",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-52-6",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-52",
+      "measureNumber": 52,
+      "chord": "G7",
+      "notes": [
+        {
+          "id": "n-53-1",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 3,
+          "isDotted": true,
+          "lyric": {
+            "hanlo": "止",
+            "poj": "chí"
+          }
+        },
+        {
+          "id": "n-53-2",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {
+            "hanlo": "啊",
+            "poj": "ah"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-53",
+      "measureNumber": 53,
+      "chord": "C",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-54-1",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "～\n",
+            "poj": "~\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-54",
+      "measureNumber": 54,
+      "chord": "G7",
+      "section": "主歌三 6/6 (怨嘆月暝)",
+      "notes": [
+        {
+          "id": "n-55-1",
+          "pitch": 0,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-55-2",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "憂",
+            "poj": "iu"
+          }
+        },
+        {
+          "id": "n-55-3",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "愁",
+            "poj": "chhiû"
+          }
+        },
+        {
+          "id": "n-55-4",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {
+            "hanlo": "月",
+            "poj": "ge̍h"
+          }
+        },
+        {
+          "id": "n-55-5",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-55-6",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-55-7",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-55",
+      "measureNumber": 55,
+      "chord": "C",
+      "barlineType": "repeat_end",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-56-1",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {
+            "hanlo": "暝\n",
+            "poj": "mî\n"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m-56",
+      "measureNumber": 56,
+      "chord": "C",
+      "section": "尾奏 (Outro 1/4)",
+      "notes": [
+        {
+          "id": "n-outro-1-1",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-1-2",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-1-3",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-1-4",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-1-5",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-1-6",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-1-7",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-57",
+      "measureNumber": 57,
+      "chord": "C",
+      "section": "尾奏 (Outro 2/4)",
+      "notes": [
+        {
+          "id": "n-outro-2-1",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-2-2",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-2-3",
+          "pitch": 6,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-2-4",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-2-5",
+          "pitch": 5,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-2-6",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-58",
+      "measureNumber": 58,
+      "chord": "G7",
+      "section": "尾奏 (Outro 3/4)",
+      "notes": [
+        {
+          "id": "n-outro-3-1",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 1,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-3-2",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-3-3",
+          "pitch": 3,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-3-4",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-3-5",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-3-6",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        },
+        {
+          "id": "n-outro-3-7",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {}
+        }
+      ]
+    },
+    {
+      "id": "m-59",
+      "measureNumber": 59,
+      "chord": "C",
+      "section": "尾奏 (Outro 4/4)",
+      "barlineType": "end",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n-outro-4-1",
+          "pitch": 1,
+          "octave": 1,
+          "duration": 4,
+          "lyric": {}
+        }
+      ]
+    }
+  ]
+}
