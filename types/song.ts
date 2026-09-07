@@ -90,7 +90,8 @@ export type LyricDisplayMode =
 
 export type InstrumentType = 'piano' | 'flute' | 'whistle' | 'guitar' | 'synth' | 'bell';
 
-export type EditorEditMode = 'verse' | 'measure' | 'sheet';
+export type EditorEditMode = 'note' | 'sheet' | 'verse' | 'measure';
+export type NoteEditSubMode = 'verse' | 'measure';
 
 export interface VerseNoteRef {
   note: NumberedNotationNote;

@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   FileSpreadsheet,
   Music,
+  Music2,
   ScanLine,
   FilePlus2,
   FileEdit,
@@ -642,13 +643,58 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
             </button>
           ) : null}
 
+          {/* Mode Switcher: Note Mode vs Sheet Mode (immediately following Karaoke Play) */}
+          {onOpenOrganizer && (
+            <button
+              id="composer-meta-organizer-btn"
+              type="button"
+              onClick={onOpenOrganizer}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px] ${
+                editMode === 'sheet'
+                  ? 'bg-amber-500 hover:bg-amber-400 text-zinc-950 ring-2 ring-amber-400 dark:ring-amber-300 font-black shadow-xs'
+                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700/80 hover:border-amber-400/60 dark:hover:border-amber-500/60 font-bold shadow-2xs'
+              }`}
+              title={
+                editMode === 'sheet'
+                  ? 'Currently in Sheet Mode · Click to toggle to Note Mode (Verse & Measure)'
+                  : 'Currently in Note Mode · Click to toggle to Sheet Mode (System Layout & Phrasing)'
+              }
+            >
+              {editMode === 'sheet' ? (
+                <>
+                  <FileSpreadsheet className="w-4 h-4 text-zinc-950" />
+                  <span className="hidden sm:inline">Sheet Mode</span>
+                  <span className="hidden md:inline text-[10px] px-1.5 py-0.5 rounded-md bg-amber-600/30 text-zinc-950 font-extrabold ml-0.5">
+                    Sheet
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Music2 className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                  <span className="hidden sm:inline">Note Mode</span>
+                  <span className="hidden md:inline text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold ml-0.5">
+                    Notes
+                  </span>
+                </>
+              )}
+              {incompleteMeasuresCount !== undefined && incompleteMeasuresCount > 0 && (
+                <span
+                  className="text-[10px] px-1.5 py-0.2 bg-rose-600 text-white rounded-full font-mono font-black shadow-xs ml-0.5"
+                  title={`${incompleteMeasuresCount} measure(s) under or over beat limit`}
+                >
+                  {incompleteMeasuresCount}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Start Fresh Song Trigger */}
           {onStartFreshSong && (
             <button
               id="composer-new-song-btn"
               type="button"
               onClick={onStartFreshSong}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700/80 font-bold text-xs rounded-xl shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700/80 font-bold text-xs rounded-xl shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
               title="Create New Blank Song"
             >
               <FilePlus2 className="w-4 h-4 text-amber-500" />
@@ -693,29 +739,6 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
             <AlignLeft className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
             <span className="hidden sm:inline">歌詞對齊 (羅馬字/漢羅)</span>
           </button>
-
-          {/* Verse & Measure Organizer and Layout Trigger (Sheet Mode) */}
-          {onOpenOrganizer && (
-            <button
-              id="composer-meta-organizer-btn"
-              type="button"
-              onClick={onOpenOrganizer}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px] ${
-                editMode === 'sheet'
-                  ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 font-black'
-                  : 'bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950'
-              }`}
-              title="Sheet Mode: System Layout, Barlines & Verse Phrasing"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span className="hidden sm:inline">Sheet Mode</span>
-              {incompleteMeasuresCount > 0 && (
-                <span className="text-[10px] px-1.5 py-0.2 bg-rose-600 text-white rounded-full font-mono font-black shadow-xs" title={`${incompleteMeasuresCount} measure(s) under or over beat limit`}>
-                  {incompleteMeasuresCount}
-                </span>
-              )}
-            </button>
-          )}
 
           {/* Expand Settings Toggle */}
           <button

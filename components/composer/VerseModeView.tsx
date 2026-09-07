@@ -24,6 +24,10 @@ import {
   Merge,
   Sliders,
   ArrowRight,
+  CornerUpLeft,
+  Mic2,
+  FileSpreadsheet,
+  X,
 } from 'lucide-react';
 
 interface VerseModeViewProps {
@@ -101,6 +105,14 @@ interface VerseModeViewProps {
   onQuickToggleMeasureDuration?: (mIdx?: number) => void;
   onScaleMeasureDuration?: (factor: 0.5 | 2.0, mIdx?: number) => void;
   onSetUniformMeasureDuration?: (duration: NoteDuration, mIdx?: number) => void;
+
+  // Jump Return Navigation (Karaoke & Sheet Mode)
+  karaokeReturnTarget?: { measureIndex: number; originalMeasureIndex: number } | null;
+  onReturnToKaraoke?: (destMeasureIndex?: number) => void;
+  sheetReturnTarget?: { measureIndex: number; originalMeasureIndex: number } | null;
+  onReturnToSheet?: (destMeasureIndex?: number) => void;
+  onDismissKaraokeReturn?: () => void;
+  onDismissSheetReturn?: () => void;
 }
 
 export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
@@ -173,11 +185,97 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   onQuickToggleMeasureDuration,
   onScaleMeasureDuration,
   onSetUniformMeasureDuration,
+  karaokeReturnTarget,
+  onReturnToKaraoke,
+  sheetReturnTarget,
+  onReturnToSheet,
+  onDismissKaraokeReturn,
+  onDismissSheetReturn,
 }) => {
   const [hoveredSplitKey, setHoveredSplitKey] = useState<string | null>(null);
 
   return (
     <div id="verse-mode-container" className="flex flex-col gap-6">
+      {/* JUMP RETURN NAVIGATION BANNER (Karaoke Mode / Sheet Mode) */}
+      {(karaokeReturnTarget || sheetReturnTarget) && (
+        <div
+          id="verse-editor-return-banner"
+          className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border shadow-xs transition-all ${
+            karaokeReturnTarget
+              ? 'bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-zinc-100 dark:to-zinc-900/80 border-amber-400/80 dark:border-amber-500/60 ring-1 ring-amber-400/30'
+              : 'bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-zinc-100 dark:to-zinc-900/80 border-emerald-400/80 dark:border-emerald-500/60 ring-1 ring-emerald-400/30'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold shrink-0 border ${
+                karaokeReturnTarget
+                  ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs'
+                  : 'bg-emerald-600 text-white border-emerald-400 shadow-xs'
+              }`}
+            >
+              {karaokeReturnTarget ? <Mic2 className="w-5 h-5" /> : <FileSpreadsheet className="w-5 h-5" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
+                  {karaokeReturnTarget ? 'Jumped from Karaoke Mode' : 'Jumped from Sheet Mode'}
+                </span>
+                <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-900/10 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
+                  Origin: Measure #{karaokeReturnTarget ? karaokeReturnTarget.originalMeasureIndex + 1 : sheetReturnTarget ? sheetReturnTarget.originalMeasureIndex + 1 : 1}
+                </span>
+              </div>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                {karaokeReturnTarget
+                  ? `Editing Verse phrase at Measure #${(selectedMeasureIndex ?? karaokeReturnTarget.originalMeasureIndex) + 1}. When finished, you can return immediately to your original place in Karaoke Mode.`
+                  : `Editing Verse phrase at Measure #${(selectedMeasureIndex ?? sheetReturnTarget?.originalMeasureIndex ?? 0) + 1}. Return anytime to view full sheet score layout.`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap">
+            {karaokeReturnTarget && onReturnToKaraoke && (
+              <button
+                id="verse-btn-return-to-karaoke-origin"
+                type="button"
+                onClick={() => onReturnToKaraoke(karaokeReturnTarget.originalMeasureIndex)}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px]"
+                title={`Jump back to Karaoke mode at Measure #${karaokeReturnTarget.originalMeasureIndex + 1}`}
+              >
+                <CornerUpLeft className="w-4 h-4" />
+                <Mic2 className="w-3.5 h-3.5" />
+                <span>Back to Karaoke mode (Measure #{karaokeReturnTarget.originalMeasureIndex + 1})</span>
+              </button>
+            )}
+
+            {sheetReturnTarget && onReturnToSheet && (
+              <button
+                id="verse-btn-return-to-sheet-origin"
+                type="button"
+                onClick={() => onReturnToSheet(sheetReturnTarget.originalMeasureIndex)}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-950 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px]"
+                title={`Jump back to Sheet mode at Measure #${sheetReturnTarget.originalMeasureIndex + 1}`}
+              >
+                <CornerUpLeft className="w-4 h-4" />
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Back to Sheet (Measure #{sheetReturnTarget.originalMeasureIndex + 1})</span>
+              </button>
+            )}
+
+            {/* Dismiss banner */}
+            {(karaokeReturnTarget ? onDismissKaraokeReturn : onDismissSheetReturn) && (
+              <button
+                type="button"
+                onClick={karaokeReturnTarget ? onDismissKaraokeReturn : onDismissSheetReturn}
+                className="p-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors cursor-pointer"
+                title="Dismiss return notice"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       {verses.map((verse, vIdx) => {
         const isPlayingThisVerse = playingVerseIdx === vIdx;
         const hasSelectedNoteInVerse = verse.notes.some(

@@ -1,6 +1,6 @@
 'use client';
 
-import { Song, LyricDisplayMode, InstrumentType, EditorEditMode, Measure, NumberedNotationNote } from '@/types/song';
+import { Song, LyricDisplayMode, InstrumentType, EditorEditMode, NoteEditSubMode, Measure, NumberedNotationNote } from '@/types/song';
 import { PRESET_SONGS } from '@/lib/presets';
 
 export const STORAGE_KEYS = {
@@ -19,6 +19,7 @@ export const STORAGE_KEYS = {
   STAGE_MODE_ZOOM: 'taigi_composer_stage_zoom',
   KARAOKE_LEAD_IN_ENABLED: 'taigi_karaoke_lead_in_enabled',
   EDITOR_EDIT_MODE: 'taigi_composer_editor_edit_mode',
+  NOTE_SUB_MODE: 'taigi_composer_note_sub_mode',
   AUTO_STEP_ADVANCE: 'taigi_composer_auto_step_advance',
   DECK_TAB: 'taigi_composer_deck_tab',
   AUTOSAVE_INTERVAL: 'taigi_composer_autosave_interval',
@@ -309,12 +310,26 @@ export function setStoredStageZoom(zoom: number): void {
 // ============================================================================
 export function getStoredEditorEditMode(): EditorEditMode {
   const val = safeGetItem(STORAGE_KEYS.EDITOR_EDIT_MODE);
-  if (val === 'verse' || val === 'measure' || val === 'sheet') return val;
-  return 'verse';
+  if (val === 'note' || val === 'sheet') return val;
+  if (val === 'verse' || val === 'measure') return 'note'; // Legacy migration
+  return 'note';
 }
 
 export function setStoredEditorEditMode(mode: EditorEditMode): void {
   safeSetItem(STORAGE_KEYS.EDITOR_EDIT_MODE, mode);
+}
+
+export function getStoredNoteSubMode(): NoteEditSubMode {
+  const val = safeGetItem(STORAGE_KEYS.NOTE_SUB_MODE);
+  if (val === 'verse' || val === 'measure') return val;
+  // If legacy editor edit mode was measure, respect it
+  const legacyEditMode = safeGetItem(STORAGE_KEYS.EDITOR_EDIT_MODE);
+  if (legacyEditMode === 'measure') return 'measure';
+  return 'verse';
+}
+
+export function setStoredNoteSubMode(mode: NoteEditSubMode): void {
+  safeSetItem(STORAGE_KEYS.NOTE_SUB_MODE, mode);
 }
 
 export function getStoredAutoStepAdvance(defaultVal = false): boolean {
