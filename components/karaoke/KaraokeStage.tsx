@@ -47,6 +47,27 @@ const isCJKChar = (char: string): boolean => {
 };
 
 /**
+ * Shared responsive font sizing for active lyric line syllables and upcoming cue
+ */
+export const getMainFontSizeClass = (zoomScale: number, showNotation: boolean): string => {
+  return !showNotation
+    ? zoomScale >= 1.75
+      ? 'text-4xl sm:text-6xl md:text-7xl lg:text-8xl min-h-[4.5rem] sm:min-h-[6.5rem]'
+      : zoomScale >= 1.5
+      ? 'text-3xl sm:text-5xl md:text-6xl lg:text-7xl min-h-[3.75rem] sm:min-h-[5.5rem]'
+      : zoomScale >= 1.25
+      ? 'text-2xl sm:text-4xl md:text-5xl lg:text-6xl min-h-[3.25rem] sm:min-h-[4.5rem]'
+      : 'text-2xl sm:text-4xl md:text-5xl lg:text-6xl min-h-[3rem] sm:min-h-[4rem]'
+    : zoomScale >= 1.75
+    ? 'text-3xl sm:text-5xl md:text-6xl lg:text-7xl min-h-[3.5rem] sm:min-h-[5rem]'
+    : zoomScale >= 1.5
+    ? 'text-2xl sm:text-4xl md:text-5xl lg:text-6xl min-h-[3rem] sm:min-h-[4.25rem]'
+    : zoomScale >= 1.25
+    ? 'text-xl sm:text-3xl md:text-4xl lg:text-5xl min-h-[2.5rem] sm:min-h-[3.75rem]'
+    : 'text-xl sm:text-3xl md:text-4xl lg:text-5xl min-h-[2.5rem] sm:min-h-[3.25rem]';
+};
+
+/**
  * Individual Syllable Cell with continuous gradient wipe & 3-tier vertical grid
  */
 interface SyllableCellProps {
@@ -120,39 +141,22 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
     t => t.measureIndex === item.measureIndex && t.noteIndex === item.noteIndex
   );
 
-  let isNoteActive = false;
-  let isPassed = false;
-  let wipePercent = 0;
+  const startSec = noteTiming?.startTimeSec ?? 0;
+  const durationSec = noteTiming?.durationSec ?? 0;
+  const endSec = noteTiming?.endTimeSec ?? (startSec + durationSec);
 
-  if (isActiveLine && noteTiming) {
-    const { startTimeSec, endTimeSec, durationSec } = noteTiming;
-    if (currentTime >= endTimeSec) {
-      isPassed = true;
-      wipePercent = 100;
-    } else if (currentTime >= startTimeSec && currentTime < endTimeSec) {
-      isNoteActive = true;
-      const progress = durationSec > 0 ? (currentTime - startTimeSec) / durationSec : 0;
-      wipePercent = Math.min(100, Math.max(0, Math.round(progress * 100)));
-    }
+  const isNoteActive = currentTime >= startSec && currentTime < endSec;
+  const isPassed = currentTime >= endSec && endSec > 0;
+
+  // Dynamic progressive wipe percentage [0..100]
+  let wipePercent = 0;
+  if (isPassed) {
+    wipePercent = 100;
+  } else if (isNoteActive && durationSec > 0) {
+    wipePercent = Math.min(100, Math.max(0, ((currentTime - startSec) / durationSec) * 100));
   }
 
-  // Musical attributes
-  const isPitched = !isNonNotation && typeof note.pitch === 'number' && note.pitch > 0;
-  const octaveTopDots = isPitched && note.octave > 0 ? note.octave : 0;
-  const octaveBottomDots = isPitched && note.octave < 0 ? Math.abs(note.octave) : 0;
-  const isThirtySecond = !isNonNotation && typeof note.duration === 'number' && note.duration <= 0.125;
-  const isSixteenth =
-    !isNonNotation && typeof note.duration === 'number' && (note.duration === 0.25 || note.duration === 0.375);
-  const isEighth =
-    !isNonNotation && typeof note.duration === 'number' && (note.duration === 0.5 || note.duration === 0.75);
-  const showDot =
-    !isNonNotation &&
-    (note.isDotted ||
-      note.duration === 1.5 ||
-      note.duration === 0.75 ||
-      note.duration === 3 ||
-      note.duration === 0.375 ||
-      note.duration === 1.75);
+  // Dashes count for sustained held notes
   const dashesCount = !isNonNotation
     ? note.duration === 2
       ? 1
@@ -162,7 +166,6 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
       ? 3
       : 0
     : 0;
-  const accidentalSymbol = note.accidental === '#' ? '♯' : note.accidental === 'b' ? '♭' : '';
 
   // Mode text routing
   let subRubyDisplay = '\u00A0';
@@ -206,22 +209,8 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
         color: unsungColorHex,
       };
 
-  // Font sizing: In Clean Performance Mode (no notation), scale text up generously
-  const mainFontSizeClass = !showNotation
-    ? zoomScale >= 1.75
-      ? 'text-4xl sm:text-6xl md:text-7xl lg:text-8xl min-h-[4.5rem] sm:min-h-[6.5rem]'
-      : zoomScale >= 1.5
-      ? 'text-3xl sm:text-5xl md:text-6xl lg:text-7xl min-h-[3.75rem] sm:min-h-[5.5rem]'
-      : zoomScale >= 1.25
-      ? 'text-2xl sm:text-4xl md:text-5xl lg:text-6xl min-h-[3.25rem] sm:min-h-[4.5rem]'
-      : 'text-2xl sm:text-4xl md:text-5xl lg:text-6xl min-h-[3rem] sm:min-h-[4rem]'
-    : zoomScale >= 1.75
-    ? 'text-3xl sm:text-5xl md:text-6xl lg:text-7xl min-h-[3.5rem] sm:min-h-[5rem]'
-    : zoomScale >= 1.5
-    ? 'text-2xl sm:text-4xl md:text-5xl lg:text-6xl min-h-[3rem] sm:min-h-[4.25rem]'
-    : zoomScale >= 1.25
-    ? 'text-xl sm:text-3xl md:text-4xl lg:text-5xl min-h-[2.5rem] sm:min-h-[3.75rem]'
-    : 'text-xl sm:text-3xl md:text-4xl lg:text-5xl min-h-[2.5rem] sm:min-h-[3.25rem]';
+  // Font sizing: Strictly invariant across all verses and line duration
+  const mainFontSizeClass = getMainFontSizeClass(zoomScale, showNotation);
 
   const rubyFontSizeClass = !showNotation
     ? zoomScale >= 1.5
@@ -239,16 +228,29 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
         !isNoteActive &&
         (verseTiming?.firstVocalStartSec ? currentTime < verseTiming.firstVocalStartSec + 0.4 : true)));
 
+  // Musical attributes
+  const isPitched = !isNonNotation && typeof note.pitch === 'number' && note.pitch > 0;
+  const octaveTopDots = isPitched && note.octave > 0 ? note.octave : 0;
+  const octaveBottomDots = isPitched && note.octave < 0 ? Math.abs(note.octave) : 0;
+  const isThirtySecond = !isNonNotation && typeof note.duration === 'number' && note.duration <= 0.125;
+  const isSixteenth =
+    !isNonNotation && typeof note.duration === 'number' && (note.duration === 0.25 || note.duration === 0.375);
+  const isEighth =
+    !isNonNotation && typeof note.duration === 'number' && (note.duration === 0.5 || note.duration === 0.75);
+  const showDot =
+    !isNonNotation &&
+    (note.isDotted ||
+      note.duration === 1.5 ||
+      note.duration === 0.75 ||
+      note.duration === 3 ||
+      note.duration === 0.375 ||
+      note.duration === 1.75);
+  const accidentalSymbol = note.accidental === '#' ? '♯' : note.accidental === 'b' ? '♭' : '';
+
   return (
     <div
-      className={`relative flex flex-col items-center justify-end px-1 sm:px-1.5 transition-all duration-150 select-none ${
+      className={`relative flex flex-col items-center justify-end px-1 sm:px-1.5 select-none ${
         dashesCount > 0 ? 'min-w-[48px] sm:min-w-[64px]' : 'min-w-[32px] sm:min-w-[44px]'
-      } ${
-        isNoteActive
-          ? 'scale-110 -translate-y-1'
-          : isFirstTarget
-          ? 'scale-105'
-          : ''
       }`}
     >
       {/* Visual Attack / Entry Cue Badge on First Sung Syllable */}
@@ -701,74 +703,26 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
     nextVerse && (isCurrentVerseInLastTwoBeats || isVerseCompleted)
   );
 
-  // Stable lyric geometry & adaptive forward cue engine:
-  // Strictly preserves the location and font size of the sung lyric line (0px movement, 0% shrink),
-  // while dynamically adapting the forward cue ("adopt others") to fit the available margin.
+  // Stable lyric geometry & adaptive forward cue placement:
+  // Strictly preserves 100% constant, invariant font size across the entire song and within lines.
+  // Adapts the placement of the forward cue ('inline' or 'below') without scaling or shifting the lyric notes.
   const canvasRef = useRef<HTMLDivElement>(null);
   const lineRowRef = useRef<HTMLDivElement>(null);
-  const [lyricLineScale, setLyricLineScale] = useState<number>(1);
-  const [cueFit, setCueFit] = useState<{
-    placement: 'inline' | 'below';
-    scale: number;
-  }>({ placement: 'inline', scale: 1 });
+  const [cuePlacement, setCuePlacement] = useState<'inline' | 'below'>('inline');
 
   const updateGeometry = useCallback(() => {
     if (!canvasRef.current || !lineRowRef.current) return;
 
     const canvasWidth = canvasRef.current.clientWidth;
-    const canvasHeight = canvasRef.current.clientHeight;
     const lyricWidth = lineRowRef.current.offsetWidth;
-    const lyricHeight = lineRowRef.current.offsetHeight;
+    const rightMargin = (canvasWidth - lyricWidth) / 2 - 16;
 
-    // 1. Calculate stable lyric line scale (strictly independent of the upcoming cue)
-    const availableWidth = Math.max(0, canvasWidth - 28);
-    const availableHeight = Math.max(0, canvasHeight - 20);
+    // Standard cue width with Unicode arrow + text + spacing is approx 130px.
+    // If available right margin can accommodate it without touching canvas edge, keep inline;
+    // otherwise place cleanly below the last note to avoid horizontal overflow.
+    const newPlacement: 'inline' | 'below' = rightMargin >= 130 ? 'inline' : 'below';
 
-    let newLyricScale = 1;
-    if (lyricWidth > 0 && availableWidth > 0 && lyricWidth > availableWidth) {
-      newLyricScale = Math.max(0.4, availableWidth / lyricWidth);
-    }
-    if (lyricHeight > 0 && availableHeight > 0 && lyricHeight > availableHeight) {
-      newLyricScale = Math.min(newLyricScale, Math.max(0.4, availableHeight / lyricHeight));
-    }
-
-    setLyricLineScale(prev => {
-      if (Math.abs(prev - newLyricScale) < 0.005) return prev;
-      return newLyricScale;
-    });
-
-    // 2. Adapt the upcoming forward cue to the remaining space ("adopt others")
-    // Space available between the right edge of the centered lyric line and canvas edge
-    const renderedLyricWidth = lyricWidth * newLyricScale;
-    const renderedLyricHeight = lyricHeight * newLyricScale;
-    const rightMargin = (canvasWidth - renderedLyricWidth) / 2 - 16;
-    const bottomMargin = (canvasHeight - renderedLyricHeight) / 2 - 12;
-
-    // Available margins in lineRowRef coordinate space (cue child inherits lyricLineScale)
-    const unscaledRightMargin = rightMargin / newLyricScale;
-    const unscaledBottomMargin = bottomMargin / newLyricScale;
-    const targetCueWidth = 140;
-
-    let newPlacement: 'inline' | 'below' = 'inline';
-    let newCueScale = 1;
-
-    if (unscaledRightMargin >= targetCueWidth) {
-      newPlacement = 'inline';
-      newCueScale = 1;
-    } else if (unscaledRightMargin >= 75) {
-      newPlacement = 'inline';
-      newCueScale = Math.max(0.65, unscaledRightMargin / targetCueWidth);
-    } else {
-      newPlacement = 'below';
-      newCueScale = unscaledBottomMargin < 36 ? Math.max(0.6, unscaledBottomMargin / 36) : 1;
-    }
-
-    setCueFit(prev => {
-      if (prev.placement === newPlacement && Math.abs(prev.scale - newCueScale) < 0.01) {
-        return prev;
-      }
-      return { placement: newPlacement, scale: newCueScale };
-    });
+    setCuePlacement(prev => (prev !== newPlacement ? newPlacement : prev));
   }, []);
 
   useLayoutEffect(() => {
@@ -1024,11 +978,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 >
                   <div
                     ref={lineRowRef}
-                    className="relative inline-flex flex-nowrap items-end justify-center gap-x-2 sm:gap-x-3.5 md:gap-x-5 shrink-0 transition-transform duration-150 ease-out"
-                    style={{
-                      transform: lyricLineScale < 1 ? `scale(${lyricLineScale})` : undefined,
-                      transformOrigin: 'center center',
-                    }}
+                    className="relative inline-flex flex-wrap items-end justify-center gap-x-2 sm:gap-x-3.5 md:gap-x-5 gap-y-3.5 sm:gap-y-5 shrink-0 transition-all duration-150"
                   >
                     {currentVerse.notes.map((item, idx) => (
                       <SyllableCell
@@ -1054,40 +1004,28 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                         <motion.div
                           initial={{
                             opacity: 0,
-                            x: cueFit.placement === 'inline' ? -6 : 0,
-                            y: cueFit.placement === 'below' ? -4 : 0,
+                            x: cuePlacement === 'inline' ? -6 : 0,
+                            y: cuePlacement === 'below' ? -4 : 0,
                           }}
                           animate={{ opacity: 0.75, x: 0, y: 0 }}
                           exit={{
                             opacity: 0,
-                            x: cueFit.placement === 'inline' ? 6 : 0,
-                            y: cueFit.placement === 'below' ? 4 : 0,
+                            x: cuePlacement === 'inline' ? 6 : 0,
+                            y: cuePlacement === 'below' ? 4 : 0,
                           }}
                           transition={{ duration: 0.2 }}
                           className={`select-none whitespace-nowrap break-keep break-inside-avoid pointer-events-none z-10 ${
-                            cueFit.placement === 'inline'
+                            cuePlacement === 'inline'
                               ? 'absolute left-full bottom-0 ml-2 sm:ml-3 flex flex-col items-start justify-end'
-                              : 'absolute right-0 top-full mt-1 sm:mt-1.5 flex flex-col items-end justify-start'
+                              : 'absolute right-0 top-full mt-1.5 flex flex-col items-end justify-start'
                           }`}
-                          style={{
-                            transform: cueFit.scale < 1 ? `scale(${cueFit.scale})` : undefined,
-                            transformOrigin: cueFit.placement === 'inline' ? 'left bottom' : 'right top',
-                          }}
                         >
                           <div className="relative flex items-baseline justify-center whitespace-nowrap">
                             <span
-                              className={`font-bold tracking-wide transition-all duration-100 whitespace-nowrap select-none ${
+                              className={`${getMainFontSizeClass(zoomScale, showNotation)} font-black tracking-wider flex items-center justify-center select-none ${
                                 effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo'
                                   ? 'font-serif italic font-extrabold'
                                   : 'font-sans'
-                              } ${
-                                zoomScale >= 1.75
-                                  ? 'text-2xl sm:text-4xl md:text-5xl lg:text-6xl min-h-[3rem] sm:min-h-[4rem]'
-                                  : zoomScale >= 1.5
-                                  ? 'text-xl sm:text-3xl md:text-4xl lg:text-5xl min-h-[2.5rem] sm:min-h-[3.5rem]'
-                                  : zoomScale >= 1.25
-                                  ? 'text-lg sm:text-2xl md:text-3xl lg:text-4xl min-h-[2rem] sm:min-h-[3rem]'
-                                  : 'text-base sm:text-xl md:text-2xl lg:text-3xl min-h-[1.75rem] sm:min-h-[2.5rem]'
                               } ${
                                 isDark ? 'text-amber-300' : 'text-blue-600'
                               }`}
@@ -1097,7 +1035,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                             </span>
                           </div>
 
-                          {showNotation && cueFit.placement === 'inline' && (
+                          {showNotation && cuePlacement === 'inline' && (
                             <div className="mt-1.5 invisible select-none pointer-events-none px-1.5 py-0.5 border border-transparent">
                               <span className="font-mono text-xs sm:text-base font-black">0</span>
                             </div>
