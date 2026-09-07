@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef, useState, useLayoutEffect, useCallback } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { LyricDisplayMode, VerseItem, VerseNoteRef } from '@/types/song';
 import { PlaybackState } from '@/lib/audioEngine';
 import { VerseTiming, KaraokeLeadInState } from '@/lib/karaokeSequencer';
@@ -497,6 +497,12 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
 
 SyllableCell.displayName = 'SyllableCell';
 
+export interface VerseLineItem {
+  id: string;
+  measureNumber: number;
+  notes: Array<{ item: VerseNoteRef; globalIdx: number }>;
+}
+
 export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   currentVerse,
   nextVerse,
@@ -703,49 +709,74 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
     nextVerse && (isCurrentVerseInLastTwoBeats || isVerseCompleted)
   );
 
-  // Stable lyric geometry & adaptive forward cue placement:
-  // Strictly preserves 100% constant, invariant font size across the entire song and within lines.
-  // Adapts the placement of the forward cue ('inline' or 'below') without scaling or shifting the lyric notes.
+  // Group active verse notes into lines based on measure boundaries.
+  // Multi-measure verses (e.g. Measure 13 & 14 in 雨夜花) split into natural, balanced lines.
+  // A maximum of 2 active lines are displayed simultaneously to keep the window height fixed and stable.
+  const verseLines = useMemo<VerseLineItem[]>(() => {
+    if (!currentVerse || !currentVerse.notes || currentVerse.notes.length === 0) return [];
+
+    const linesMap = new Map<number, VerseLineItem>();
+    const lineOrder: number[] = [];
+
+    currentVerse.notes.forEach((item, globalIdx) => {
+      const mNum = item.measureNumber ?? (item.measureIndex + 1);
+      if (!linesMap.has(mNum)) {
+        linesMap.set(mNum, {
+          id: `line-${mNum}`,
+          measureNumber: mNum,
+          notes: [],
+        });
+        lineOrder.push(mNum);
+      }
+      linesMap.get(mNum)!.notes.push({ item, globalIdx });
+    });
+
+    // Filter out lines that contain only non-notation or trailing line break notes
+    const validLines = lineOrder
+      .map(mNum => linesMap.get(mNum)!)
+      .filter(line =>
+        line.notes.some(n => {
+          const rawHanlo = n.item.note.lyric.hanlo ?? n.item.note.lyric.hanji ?? n.item.note.lyric.custom ?? '';
+          const rawRoman = n.item.note.lyric.poj ?? n.item.note.lyric.tl ?? '';
+          const isPitched = typeof n.item.note.pitch === 'number' && n.item.note.pitch > 0;
+          return (
+            (rawHanlo && rawHanlo !== '\n' && rawHanlo !== '↵' && !isPunctuationOrSpacer(rawHanlo)) ||
+            (rawRoman && rawRoman !== '\n' && rawRoman !== '↵' && !isPunctuationOrSpacer(rawRoman)) ||
+            isPitched
+          );
+        })
+      );
+
+    return validLines.length > 0
+      ? validLines
+      : [{ id: 'line-default', measureNumber: 1, notes: currentVerse.notes.map((item, globalIdx) => ({ item, globalIdx })) }];
+  }, [currentVerse]);
+
+  // If a verse has more than 2 measures, determine which 2 measures are currently active
+  const activeLineIndex = useMemo(() => {
+    if (!activeVerseTiming || verseLines.length <= 2) return 0;
+    for (let lIdx = 0; lIdx < verseLines.length; lIdx++) {
+      const line = verseLines[lIdx];
+      const isLineActive = line.notes.some(n => {
+        const timing = activeVerseTiming.notesTimeline?.find(
+          t => t.measureIndex === n.item.measureIndex && t.noteIndex === n.item.noteIndex
+        );
+        if (!timing) return false;
+        return playbackState.currentTime >= timing.startTimeSec && playbackState.currentTime < timing.endTimeSec;
+      });
+      if (isLineActive) return lIdx;
+    }
+    return 0;
+  }, [activeVerseTiming, verseLines, playbackState.currentTime]);
+
+  const visibleLines = useMemo(() => {
+    if (verseLines.length <= 2) return verseLines;
+    const startIndex = Math.floor(activeLineIndex / 2) * 2;
+    return verseLines.slice(startIndex, startIndex + 2);
+  }, [verseLines, activeLineIndex]);
+
   const canvasRef = useRef<HTMLDivElement>(null);
   const lineRowRef = useRef<HTMLDivElement>(null);
-  const [cuePlacement, setCuePlacement] = useState<'inline' | 'below'>('inline');
-
-  const updateGeometry = useCallback(() => {
-    if (!canvasRef.current || !lineRowRef.current) return;
-
-    const canvasWidth = canvasRef.current.clientWidth;
-    const lyricWidth = lineRowRef.current.offsetWidth;
-    const rightMargin = (canvasWidth - lyricWidth) / 2 - 16;
-
-    // Standard cue width with Unicode arrow + text + spacing is approx 130px.
-    // If available right margin can accommodate it without touching canvas edge, keep inline;
-    // otherwise place cleanly below the last note to avoid horizontal overflow.
-    const newPlacement: 'inline' | 'below' = rightMargin >= 130 ? 'inline' : 'below';
-
-    setCuePlacement(prev => (prev !== newPlacement ? newPlacement : prev));
-  }, []);
-
-  useLayoutEffect(() => {
-    updateGeometry();
-
-    if (typeof ResizeObserver !== 'undefined' && canvasRef.current) {
-      const observer = new ResizeObserver(() => {
-        updateGeometry();
-      });
-      observer.observe(canvasRef.current);
-      if (lineRowRef.current) {
-        observer.observe(lineRowRef.current);
-      }
-      return () => observer.disconnect();
-    }
-  }, [
-    updateGeometry,
-    currentVerse,
-    activeVerseIndex,
-    zoomScale,
-    showNotation,
-    displayMode,
-  ]);
 
   return (
     <div
@@ -964,7 +995,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
           {/* 2. Open Canvas with Maximized Typography & Vertical Space */}
           <div
             ref={canvasRef}
-            className="relative w-full flex-1 flex flex-col items-center justify-center py-6 sm:py-10 md:py-14 px-3 sm:px-6 min-h-[180px] sm:min-h-[220px] overflow-hidden"
+            className="relative w-full flex-1 flex flex-col items-center justify-center py-2 sm:py-3.5 px-3 sm:px-6 min-h-[180px] sm:min-h-[220px] overflow-hidden"
           >
             {currentVerse && currentVerse.notes.length > 0 ? (
               <AnimatePresence mode="wait" initial={false}>
@@ -974,55 +1005,52 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                   animate={{ opacity: 1, y: 0 }}
                   exit={isEcoMode ? undefined : { opacity: 0, y: -12 }}
                   transition={{ duration: 0.25, ease: 'easeOut' }}
-                  className="w-full flex items-center justify-center overflow-visible"
+                  className="w-full flex flex-col items-center justify-center overflow-visible"
                 >
                   <div
                     ref={lineRowRef}
-                    className="relative inline-flex flex-wrap items-end justify-center gap-x-2 sm:gap-x-3.5 md:gap-x-5 gap-y-3.5 sm:gap-y-5 shrink-0 transition-all duration-150"
+                    className="w-full max-w-full flex flex-col items-center justify-center gap-y-2 sm:gap-y-3.5 md:gap-y-4"
                   >
-                    {currentVerse.notes.map((item, idx) => (
-                      <SyllableCell
-                        key={`${item.measureIndex}-${item.noteIndex}-${idx}`}
-                        item={item}
-                        noteIndex={idx}
-                        isActiveLine={true}
-                        currentTime={playbackState.currentTime}
-                        verseTiming={activeVerseTiming}
-                        effectiveMode={effectiveMode}
-                        isFirstVocalNote={idx === currentFirstVocal}
-                        showNotation={showNotation}
-                        stageTheme={stageTheme}
-                        zoomScale={zoomScale}
-                        isEcoMode={isEcoMode}
-                        isComingLineAwaiting={isAwaitingVocal || Boolean(leadIn && leadIn.isLeadIn)}
-                      />
+                    {visibleLines.map(line => (
+                      <div
+                        key={line.id}
+                        className="w-full max-w-full flex flex-wrap items-end justify-center gap-x-2 sm:gap-x-3.5 md:gap-x-5 gap-y-2"
+                      >
+                        {line.notes.map(({ item, globalIdx }) => (
+                          <SyllableCell
+                            key={`${item.measureIndex}-${item.noteIndex}-${globalIdx}`}
+                            item={item}
+                            noteIndex={globalIdx}
+                            isActiveLine={true}
+                            currentTime={playbackState.currentTime}
+                            verseTiming={activeVerseTiming}
+                            effectiveMode={effectiveMode}
+                            isFirstVocalNote={globalIdx === currentFirstVocal}
+                            showNotation={showNotation}
+                            stageTheme={stageTheme}
+                            zoomScale={zoomScale}
+                            isEcoMode={isEcoMode}
+                            isComingLineAwaiting={isAwaitingVocal || Boolean(leadIn && leadIn.isLeadIn)}
+                          />
+                        ))}
+                      </div>
                     ))}
+                  </div>
 
-                    {/* Upcoming Starting Chars / Words Cue (Appears from the last 2 beats of the verse) */}
+                  {/* Dedicated Upcoming Lyric Cue Row (Atomic, strictly on its own new line, zero shift to active lyrics) */}
+                  <div className="w-full flex items-center justify-center min-h-[2.5rem] sm:min-h-[3rem] mt-1.5 sm:mt-2">
                     <AnimatePresence>
                       {showUpcomingCue && upcomingStartPreview && (
                         <motion.div
-                          initial={{
-                            opacity: 0,
-                            x: cuePlacement === 'inline' ? -6 : 0,
-                            y: cuePlacement === 'below' ? -4 : 0,
-                          }}
-                          animate={{ opacity: 0.75, x: 0, y: 0 }}
-                          exit={{
-                            opacity: 0,
-                            x: cuePlacement === 'inline' ? 6 : 0,
-                            y: cuePlacement === 'below' ? 4 : 0,
-                          }}
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 0.85, y: 0 }}
+                          exit={{ opacity: 0, y: 4 }}
                           transition={{ duration: 0.2 }}
-                          className={`select-none whitespace-nowrap break-keep break-inside-avoid pointer-events-none z-10 ${
-                            cuePlacement === 'inline'
-                              ? 'absolute left-full bottom-0 ml-2 sm:ml-3 flex flex-col items-start justify-end'
-                              : 'absolute right-0 top-full mt-1.5 flex flex-col items-end justify-start'
-                          }`}
+                          className="select-none whitespace-nowrap break-keep break-inside-avoid pointer-events-none z-10 inline-flex items-center justify-center"
                         >
                           <div className="relative flex items-baseline justify-center whitespace-nowrap">
                             <span
-                              className={`${getMainFontSizeClass(zoomScale, showNotation)} font-black tracking-wider flex items-center justify-center select-none ${
+                              className={`${getMainFontSizeClass(zoomScale, showNotation)} font-black tracking-wider flex items-center justify-center select-none whitespace-nowrap break-keep ${
                                 effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo'
                                   ? 'font-serif italic font-extrabold'
                                   : 'font-sans'
@@ -1034,12 +1062,6 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                               {upcomingStartPreview}
                             </span>
                           </div>
-
-                          {showNotation && cuePlacement === 'inline' && (
-                            <div className="mt-1.5 invisible select-none pointer-events-none px-1.5 py-0.5 border border-transparent">
-                              <span className="font-mono text-xs sm:text-base font-black">0</span>
-                            </div>
-                          )}
                         </motion.div>
                       )}
                     </AnimatePresence>
