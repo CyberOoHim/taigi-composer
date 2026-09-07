@@ -5,9 +5,9 @@ import { LyricDisplayMode, NumberedNotationNote, VerseItem, VerseNoteRef } from 
 import { PlaybackState } from '@/lib/audioEngine';
 import { VerseTiming, KaraokeLeadInState } from '@/lib/karaokeSequencer';
 import { KaraokeSection } from './SectionJumpBar';
-import { KaraokeStageTheme, KaraokeLayoutMode } from '@/lib/storage';
+import { KaraokeStageTheme, KaraokeLayoutMode, KaraokeLyricAlign } from '@/lib/storage';
 import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
-import { CheckCircle2, Wind, Pencil } from 'lucide-react';
+import { CheckCircle2, Wind, Pencil, AlignCenter, AlignLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export interface KaraokeStageProps {
@@ -33,6 +33,8 @@ export interface KaraokeStageProps {
   onToggleShowNotation?: () => void;
   layoutMode?: KaraokeLayoutMode;
   onToggleLayoutMode?: () => void;
+  lyricAlign?: KaraokeLyricAlign;
+  onToggleLyricAlign?: () => void;
   onEditCurrentLyric?: (measureIndex: number) => void;
 }
 
@@ -584,6 +586,8 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   onToggleShowNotation,
   layoutMode = 'single_line',
   onToggleLayoutMode,
+  lyricAlign = 'center',
+  onToggleLyricAlign,
   onEditCurrentLyric,
 }) => {
   const isDark = stageTheme === 'dark';
@@ -866,7 +870,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   return (
     <div
       id="ktv-stage-container"
-      className={`relative flex flex-col items-center justify-between p-4 sm:p-6 md:p-8 min-h-[480px] sm:min-h-[540px] md:min-h-[600px] select-none overflow-hidden transition-all duration-300 border-b ${
+      className={`relative flex-1 flex flex-col items-center justify-between p-1 sm:p-2 md:p-2.5 min-h-[480px] sm:min-h-[540px] md:min-h-[620px] select-none overflow-hidden transition-all duration-300 border-b ${
         isDark
           ? 'bg-gradient-to-b from-[#0b0e17] via-[#06070a] to-[#0b0e17] border-zinc-800/80 text-white'
           : 'bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] border-slate-300 text-slate-900'
@@ -904,11 +908,11 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
         )}
       </AnimatePresence>
 
-      {/* MAIN STAGE ARENA: DEDICATED UNIFIED SINGLE LYRIC WINDOW */}
-      <div className="w-full max-w-6xl z-10 flex flex-col items-center justify-center my-auto">
+      {/* MAIN STAGE ARENA: DEDICATED UNIFIED SINGLE LYRIC WINDOW (Minimized outer margins, flex-1 height) */}
+      <div className="w-full max-w-6xl z-10 flex-1 flex flex-col items-center justify-center min-h-0 my-0">
         <div
           id="ktv-active-lyric-window"
-          className={`relative w-full flex flex-col justify-between rounded-2xl transition-all duration-300 shadow-2xl min-h-[400px] sm:min-h-[460px] md:min-h-[520px] overflow-hidden ${
+          className={`relative w-full flex-1 flex flex-col justify-between rounded-2xl transition-all duration-300 shadow-2xl min-h-[460px] sm:min-h-[520px] md:min-h-[600px] overflow-hidden ${
             isDark
               ? 'bg-zinc-900/85 border border-amber-500/40 shadow-amber-950/20'
               : 'bg-white border-2 border-blue-500/70 shadow-lg shadow-blue-100'
@@ -923,7 +927,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 : 'bg-slate-50/90 border-slate-200 text-slate-700'
             }`}
           >
-            {/* Left: Active verse indicator & section & edit button */}
+            {/* Left: Active verse indicator & section & edit button & align button */}
             <div className="flex items-center gap-2 flex-wrap">
               <span
                 className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[10px] sm:text-xs border ${
@@ -972,6 +976,36 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 >
                   <Pencil className="w-3 h-3 text-amber-400" />
                   <span>編輯歌詞</span>
+                </button>
+              )}
+
+              {onToggleLyricAlign && (
+                <button
+                  id="ktv-stage-lyric-align-btn"
+                  type="button"
+                  onClick={onToggleLyricAlign}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold text-[11px] sm:text-xs border transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs ${
+                    isDark
+                      ? lyricAlign === 'left'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-400/60'
+                        : 'bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                      : lyricAlign === 'left'
+                        ? 'bg-blue-100 text-blue-800 border-blue-400'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                  }`}
+                  title={lyricAlign === 'left' ? '歌詞靠左（點擊切換為置中）' : '歌詞置中（點擊切換為靠左）'}
+                >
+                  {lyricAlign === 'left' ? (
+                    <>
+                      <AlignLeft className="w-3 h-3 text-amber-400" />
+                      <span>靠左</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlignCenter className="w-3 h-3 text-zinc-400" />
+                      <span>置中</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -1044,30 +1078,50 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
           {/* 2. Open Canvas with Maximized Typography & Vertical Space */}
           <div
             ref={canvasRef}
-            className="relative w-full flex-1 flex flex-col items-center justify-between py-2 sm:py-3.5 px-3 sm:px-6 min-h-[280px] sm:min-h-[340px] md:min-h-[400px] overflow-visible"
+            className="relative w-full flex-1 flex flex-col justify-between py-2 sm:py-3.5 px-3 sm:px-6 min-h-[360px] sm:min-h-[440px] md:min-h-[500px] overflow-visible"
           >
-            {/* Active Lyric Display Area */}
-            <div className="w-full flex-1 flex flex-col items-center justify-center my-auto">
+            {/* Active Lyric Display Area: anchored at 22.5% height from top for complete visual stability */}
+            <div className="w-full flex-1 flex flex-col justify-start relative">
+              {/* 22.5% Top Height Anchor Spacer: All new lines flow downwards from here without moving the starting anchor */}
+              <div
+                className="w-full shrink-0 h-[22.5%] min-h-[30px] pointer-events-none"
+                aria-hidden="true"
+              />
+
               {currentVerse && currentVerse.notes.length > 0 ? (
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.div
                     key={`active-verse-${activeVerseIndex}-${currentVerse.verseIndex ?? 0}`}
-                    initial={isEcoMode ? false : { opacity: 0, y: 12 }}
+                    initial={isEcoMode ? false : { opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={isEcoMode ? undefined : { opacity: 0, y: -12 }}
-                    transition={{ duration: 0.25, ease: 'easeOut' }}
-                    className="w-full flex flex-col items-center justify-center overflow-visible"
+                    exit={isEcoMode ? undefined : { opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className={`w-full flex flex-col overflow-visible ${
+                      lyricAlign === 'left' ? 'items-start' : 'items-center'
+                    }`}
                   >
                     <div
                       ref={lineRowRef}
-                      className="w-full max-w-full flex flex-col items-center justify-center gap-y-2 sm:gap-y-3.5 md:gap-y-4"
+                      className={`w-full max-w-5xl mx-auto px-4 sm:px-8 md:px-12 flex flex-col gap-y-2 sm:gap-y-3.5 md:gap-y-4 ${
+                        lyricAlign === 'left' ? 'items-start text-left' : 'items-center text-center'
+                      }`}
                     >
-                      {visibleLines.map(line => (
-                        <div
-                          key={line.id}
-                          className="w-full max-w-full flex flex-wrap items-end justify-center gap-x-2 sm:gap-x-3.5 md:gap-x-5 gap-y-2"
-                        >
-                          {line.notes.map(({ item, globalIdx }) => {
+                      {visibleLines.map((line, lineIdx) => {
+                        const isSucceedingLine = lineIdx > 0;
+                        return (
+                          <div
+                            key={line.id}
+                            className={`w-full flex flex-wrap items-end gap-x-2 sm:gap-x-3.5 md:gap-x-5 gap-y-2 transition-all duration-200 ${
+                              lyricAlign === 'left' ? 'justify-start' : 'justify-center'
+                            } ${
+                              isSucceedingLine
+                                ? lyricAlign === 'left'
+                                  ? 'pl-8 sm:pl-12 md:pl-16'
+                                  : 'pl-6 sm:pl-10 md:pl-12'
+                                : ''
+                            }`}
+                          >
+                            {line.notes.map(({ item, globalIdx }) => {
                             let incomingCueOverride: IncomingAttackCue | null = null;
                             let hasBouncingBall = false;
 
@@ -1101,7 +1155,8 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                             );
                           })}
                         </div>
-                      ))}
+                      );
+                    })}
                     </div>
                   </motion.div>
                 </AnimatePresence>

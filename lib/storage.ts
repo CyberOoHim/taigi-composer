@@ -30,12 +30,14 @@ export const STORAGE_KEYS = {
   KARAOKE_STAGE_THEME: 'taigi_karaoke_stage_theme',
   KARAOKE_SHOW_NOTATION: 'taigi_karaoke_show_notation',
   KARAOKE_LAYOUT_MODE: 'taigi_karaoke_layout_mode',
+  KARAOKE_LYRIC_ALIGN: 'taigi_karaoke_lyric_align',
 } as const;
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
 export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
 export type KaraokeStageTheme = 'dark' | 'daylight';
 export type KaraokeLayoutMode = 'two_line' | 'single_line';
+export type KaraokeLyricAlign = 'center' | 'left';
 
 /**
  * Safe local storage getter with fallback
@@ -411,4 +413,15 @@ export function getStoredLayoutMode(defaultVal: KaraokeLayoutMode = 'two_line'):
 export function setStoredLayoutMode(mode: KaraokeLayoutMode): void {
   safeSetItem(STORAGE_KEYS.KARAOKE_LAYOUT_MODE, mode);
 }
+
+export function getStoredLyricAlign(defaultVal: KaraokeLyricAlign = 'center'): KaraokeLyricAlign {
+  const val = safeGetItem(STORAGE_KEYS.KARAOKE_LYRIC_ALIGN);
+  if (val === 'center' || val === 'left') return val;
+  return defaultVal;
+}
+
+export function setStoredLyricAlign(align: KaraokeLyricAlign): void {
+  safeSetItem(STORAGE_KEYS.KARAOKE_LYRIC_ALIGN, align);
+}
+
 

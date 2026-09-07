@@ -34,8 +34,11 @@ import {
   setStoredShowNotation,
   getStoredLayoutMode,
   setStoredLayoutMode,
+  getStoredLyricAlign,
+  setStoredLyricAlign,
   KaraokeStageTheme,
   KaraokeLayoutMode,
+  KaraokeLyricAlign,
 } from '@/lib/storage';
 import { computeVersesTiming, getKaraokeStageSequenceState } from '@/lib/karaokeSequencer';
 import confetti from 'canvas-confetti';
@@ -53,6 +56,8 @@ import {
   Moon,
   Music,
   Type,
+  AlignCenter,
+  AlignLeft,
 } from 'lucide-react';
 
 export type { KaraokeSection } from './karaoke/SectionJumpBar';
@@ -167,6 +172,11 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     return 'two_line';
   });
 
+  const [lyricAlign, setLyricAlignState] = useState<KaraokeLyricAlign>(() => {
+    if (typeof window !== 'undefined') return getStoredLyricAlign('center');
+    return 'center';
+  });
+
   const toggleLeadInEnabled = useCallback(() => {
     setLeadInEnabledState(prev => {
       const next = !prev;
@@ -195,6 +205,14 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     setLayoutModeState(prev => {
       const next: KaraokeLayoutMode = prev === 'two_line' ? 'single_line' : 'two_line';
       setStoredLayoutMode(next);
+      return next;
+    });
+  }, []);
+
+  const toggleLyricAlign = useCallback(() => {
+    setLyricAlignState(prev => {
+      const next: KaraokeLyricAlign = prev === 'center' ? 'left' : 'center';
+      setStoredLyricAlign(next);
       return next;
     });
   }, []);
@@ -900,6 +918,22 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
             {showNotation ? <Music className="w-3.5 h-3.5 text-amber-400" /> : <Type className="w-3.5 h-3.5 text-zinc-400" />}
             <span>{showNotation ? '簡譜: 開' : '純歌詞模式'}</span>
           </button>
+
+          {/* Lyric Alignment Toggle (置中 / 靠左) */}
+          <button
+            id="ktv-lyric-align-toggle"
+            type="button"
+            onClick={toggleLyricAlign}
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl text-xs font-bold border transition-all active:scale-95 touch-manipulation cursor-pointer ${
+              lyricAlign === 'left'
+                ? 'bg-amber-500/20 text-amber-300 border-amber-400/50 shadow-xs'
+                : 'bg-[#0a0c10] text-zinc-400 hover:text-white hover:bg-zinc-800 border-zinc-800'
+            }`}
+            title="切換歌詞水平對齊（置中 vs 靠左）"
+          >
+            {lyricAlign === 'left' ? <AlignLeft className="w-3.5 h-3.5 text-amber-400" /> : <AlignCenter className="w-3.5 h-3.5 text-zinc-400" />}
+            <span>{lyricAlign === 'left' ? '歌詞: 靠左' : '歌詞: 置中'}</span>
+          </button>
         </div>
       </div>
 
@@ -963,6 +997,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         onToggleShowNotation={toggleShowNotation}
         layoutMode={layoutMode}
         onToggleLayoutMode={toggleLayoutMode}
+        lyricAlign={lyricAlign}
+        onToggleLyricAlign={toggleLyricAlign}
         onEditCurrentLyric={handleEditMeasureInternal}
       />
 
