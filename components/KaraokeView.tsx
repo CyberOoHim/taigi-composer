@@ -866,7 +866,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               onClick={handleZoomOut}
               disabled={stageZoom <= 1.0}
               className="min-w-[32px] min-h-[32px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 font-bold text-zinc-200 transition-all active:scale-90 touch-manipulation flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
-              title="縮小字級 Zoom Out (-)"
+              title="縮小舞台歌詞 Stage Lyrics Zoom Out (-)"
             >
               <Minus className="w-3.5 h-3.5 text-zinc-300" />
             </button>
@@ -875,7 +875,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               type="button"
               onClick={cycleZoom}
               className="px-2 font-mono font-bold text-amber-300 min-w-[50px] text-center cursor-pointer hover:text-amber-200 transition-colors select-none"
-              title={`Stage Zoom: Currently ${Math.round(stageZoom * 100)}% - Click to cycle (100%-175%)`}
+              title={`Stage Lyrics Zoom: Currently ${Math.round(stageZoom * 100)}% - Click to cycle (100%-175%)`}
             >
               {Math.round(stageZoom * 100)}%
             </button>
@@ -885,7 +885,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               onClick={handleZoomIn}
               disabled={stageZoom >= 1.75}
               className="min-w-[32px] min-h-[32px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 font-bold text-zinc-200 transition-all active:scale-90 touch-manipulation flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
-              title="放大字級 Zoom In (+)"
+              title="放大舞台歌詞 Stage Lyrics Zoom In (+)"
             >
               <Plus className="w-3.5 h-3.5 text-amber-400" />
             </button>

@@ -28,6 +28,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useGeminiAuth } from '@/hooks/useGeminiAuth';
+import { UiZoomControl } from '@/components/UiZoomControl';
 
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -205,6 +206,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 </>
               )}
             </button>
+          )}
+
+          {/* Quick UI Text Zoom (- / +) when toolbar is collapsed */}
+          {!isExpanderOpen && (
+            <UiZoomControl idPrefix="header-collapsed-ui-zoom" compact />
           )}
 
           {/* Expander Bar Toggle Button (Default Opened) */}
@@ -553,6 +559,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               </button>
             )}
 
+            {/* Global UI Text Zoom (- / +) Control */}
+            <UiZoomControl idPrefix="header-expander-ui-zoom" />
+
             {/* Keyboard Shortcuts Trigger */}
             <button
               id="header-shortcuts-btn"
@@ -645,6 +654,21 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60">
                 <span>Next Lyric (羅馬字 / 漢羅)</span>
                 <kbd className="px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono font-bold text-zinc-800 dark:text-zinc-200">Tab / Space / Enter</kbd>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60">
+                <span>UI Text Zoom In</span>
+                <kbd className="px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono font-bold text-zinc-800 dark:text-zinc-200">Alt + + / Option + +</kbd>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60">
+                <span>UI Text Zoom Out</span>
+                <kbd className="px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono font-bold text-zinc-800 dark:text-zinc-200">Alt + - / Option + -</kbd>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60">
+                <span>Reset UI Text Zoom (100%)</span>
+                <kbd className="px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 font-mono font-bold text-zinc-800 dark:text-zinc-200">Alt + 0 / Option + 0</kbd>
               </div>
             </div>
 

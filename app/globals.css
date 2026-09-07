@@ -2,6 +2,32 @@
 @import "tw-animate-css";
 
 /* =========================================================================
+   UI TEXT ZOOM ACCESSIBILITY ENGINE
+   ========================================================================= */
+:root {
+  --ui-text-zoom: 1;
+}
+
+/* Dynamically scaled arbitrary pixel font-size utilities */
+.text-\[7px\] { font-size: calc(7px * var(--ui-text-zoom, 1)); }
+.text-\[8px\] { font-size: calc(8px * var(--ui-text-zoom, 1)); }
+.text-\[9px\] { font-size: calc(9px * var(--ui-text-zoom, 1)); }
+.text-\[10px\] { font-size: calc(10px * var(--ui-text-zoom, 1)); }
+.text-\[11px\] { font-size: calc(11px * var(--ui-text-zoom, 1)); }
+.text-\[12px\] { font-size: calc(12px * var(--ui-text-zoom, 1)); }
+.text-\[13px\] { font-size: calc(13px * var(--ui-text-zoom, 1)); }
+.text-\[14px\] { font-size: calc(14px * var(--ui-text-zoom, 1)); }
+.text-\[15px\] { font-size: calc(15px * var(--ui-text-zoom, 1)); }
+
+@media (min-width: 640px) {
+  .sm\:text-\[9px\] { font-size: calc(9px * var(--ui-text-zoom, 1)); }
+  .sm\:text-\[10px\] { font-size: calc(10px * var(--ui-text-zoom, 1)); }
+  .sm\:text-\[11px\] { font-size: calc(11px * var(--ui-text-zoom, 1)); }
+  .sm\:text-\[12px\] { font-size: calc(12px * var(--ui-text-zoom, 1)); }
+  .sm\:text-\[13px\] { font-size: calc(13px * var(--ui-text-zoom, 1)); }
+}
+
+/* =========================================================================
    POWER SAVING & HARDWARE OPTIMIZATION FOR ALL DEVICES & IPADS
    ========================================================================= */
 

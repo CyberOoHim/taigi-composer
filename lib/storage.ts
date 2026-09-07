@@ -17,6 +17,7 @@ export const STORAGE_KEYS = {
   TEMPO_MULTIPLIER: 'taigi_composer_tempo_multiplier',
   SHOW_MIXER: 'taigi_composer_show_mixer',
   STAGE_MODE_ZOOM: 'taigi_composer_stage_zoom',
+  UI_TEXT_ZOOM: 'taigi_composer_ui_text_zoom',
   KARAOKE_LEAD_IN_ENABLED: 'taigi_karaoke_lead_in_enabled',
   EDITOR_EDIT_MODE: 'taigi_composer_editor_edit_mode',
   NOTE_SUB_MODE: 'taigi_composer_note_sub_mode',
@@ -305,6 +306,19 @@ export function getStoredStageZoom(defaultVal = 1.0): number {
 
 export function setStoredStageZoom(zoom: number): void {
   safeSetItem(STORAGE_KEYS.STAGE_MODE_ZOOM, String(zoom));
+}
+
+export function getStoredUiZoom(defaultVal = 1.0): number {
+  const val = safeGetItem(STORAGE_KEYS.UI_TEXT_ZOOM);
+  if (val !== null) {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0.7 && num <= 2.0) return num;
+  }
+  return defaultVal;
+}
+
+export function setStoredUiZoom(zoom: number): void {
+  safeSetItem(STORAGE_KEYS.UI_TEXT_ZOOM, String(zoom));
 }
 
 // ============================================================================

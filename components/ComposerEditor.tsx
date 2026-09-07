@@ -50,6 +50,7 @@ import { VerseModeView } from './composer/VerseModeView';
 import { MeasureModeView } from './composer/MeasureModeView';
 import { SheetModeView } from './composer/SheetModeView';
 import { MeasureOrganizerModal } from './composer/MeasureOrganizerModal';
+import { UiZoomControl } from '@/components/UiZoomControl';
 import {
   Plus,
   Music2,
@@ -2587,6 +2588,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                 </button>
               </div>
             )}
+
+            {/* UI Text Zoom (- / +) in Score Bar */}
+            <UiZoomControl idPrefix="composer-score-ui-zoom" />
 
             <button
               type="button"

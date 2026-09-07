@@ -414,7 +414,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
                 onClick={onZoomOut}
                 disabled={zoomScale <= 1.0}
                 className="min-w-[36px] min-h-[36px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 font-bold text-zinc-200 transition-all active:scale-90 touch-manipulation flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
-                title="縮小字級 Zoom Out (-)"
+                title="縮小舞台歌詞 Stage Lyrics Zoom Out (-)"
               >
                 <Minus className="w-4 h-4 text-zinc-300" />
               </button>
@@ -424,7 +424,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
               type="button"
               onClick={onCycleZoom}
               className="px-2 font-mono font-bold text-amber-400 min-w-[48px] text-center cursor-pointer hover:text-amber-300 select-none"
-              title={`Stage Zoom: Currently ${Math.round(zoomScale * 100)}% - Click to cycle`}
+              title={`Stage Lyrics Zoom: Currently ${Math.round(zoomScale * 100)}% - Click to cycle`}
             >
               {Math.round(zoomScale * 100)}%
             </button>
@@ -435,7 +435,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
                 onClick={onZoomIn}
                 disabled={zoomScale >= 1.75}
                 className="min-w-[36px] min-h-[36px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-zinc-800 font-bold text-zinc-200 transition-all active:scale-90 touch-manipulation flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
-                title="放大字級 Zoom In (+)"
+                title="放大舞台歌詞 Stage Lyrics Zoom In (+)"
               >
                 <Plus className="w-4 h-4 text-amber-400" />
               </button>
