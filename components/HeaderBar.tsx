@@ -131,110 +131,111 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </div>
         </div>
 
-        {/* Center: DAW Monitor Mode Rocker (Karaoke / Editor / Split) */}
-        <div id="view-mode-switcher" className="flex items-center bg-zinc-100 dark:bg-[#0a0c10] p-1 rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 shadow-inner shrink-0">
-          <button
-            id="tab-btn-karaoke"
-            type="button"
-            onClick={() => setActiveTab('karaoke')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer touch-manipulation min-h-[38px] whitespace-nowrap shrink-0 active:scale-95 ${
-              activeTab === 'karaoke'
-                ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
-                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold'
-            }`}
-            title="Karaoke View"
-          >
-            <Mic2 className="w-4 h-4 shrink-0" />
-            <span className="whitespace-nowrap">Karaoke</span>
-          </button>
-
-          <button
-            id="tab-btn-editor"
-            type="button"
-            onClick={() => setActiveTab('editor')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer touch-manipulation min-h-[38px] whitespace-nowrap shrink-0 active:scale-95 ${
-              activeTab === 'editor'
-                ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
-                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold'
-            }`}
-            title="Score Editor"
-          >
-            <Music className="w-4 h-4 shrink-0" />
-            <span className="whitespace-nowrap">Score Editor</span>
-          </button>
-
-          <button
-            id="tab-btn-split"
-            type="button"
-            onClick={() => setActiveTab('split')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer touch-manipulation min-h-[38px] whitespace-nowrap shrink-0 active:scale-95 ${
-              activeTab === 'split'
-                ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
-                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold'
-            }`}
-            title="Split Studio View"
-          >
-            <Columns className="w-4 h-4 shrink-0" />
-            <span className="whitespace-nowrap">Split View</span>
-          </button>
-        </div>
-
-        {/* Right: Expander Bar Trigger & Quick Playback */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* If toolbar is collapsed, provide quick Play/Pause in header */}
-          {!isExpanderOpen && (
+        {/* Scrollable Action Rail (DAW Monitor Mode Rocker + Expander Bar Trigger) */}
+        <div
+          id="header-nav-scroll-container"
+          className="flex-1 min-w-0 flex items-center justify-between gap-2 sm:gap-4 overflow-x-auto no-scrollbar touch-pan-x overscroll-x-contain py-1 pl-1 pr-1"
+        >
+          {/* Center: DAW Monitor Mode Rocker (Karaoke / Editor / Split) */}
+          <div id="view-mode-switcher" className="flex items-center bg-zinc-100 dark:bg-[#0a0c10] p-1 rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 shadow-inner shrink-0 sm:mx-auto">
             <button
-              id="header-quick-play-btn"
+              id="tab-btn-karaoke"
               type="button"
-              onClick={onTogglePlay}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] whitespace-nowrap shrink-0 ${
-                isPlaying
-                  ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md shadow-amber-500/30 font-black'
-                  : 'bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white'
+              onClick={() => setActiveTab('karaoke')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer touch-manipulation min-h-[38px] whitespace-nowrap shrink-0 active:scale-95 ${
+                activeTab === 'karaoke'
+                  ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold'
               }`}
-              title={isPlaying ? 'Pause Playback (Space)' : 'Play Full Song (Space)'}
+              title="Karaoke View"
             >
-              {isPlaying ? (
-                <>
-                  <Pause className="w-4 h-4 fill-current shrink-0" />
-                  <span className="hidden sm:inline whitespace-nowrap">Pause</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 fill-current ml-0.5 shrink-0" />
-                  <span className="hidden sm:inline whitespace-nowrap">Play</span>
-                </>
-              )}
+              <Mic2 className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">Karaoke</span>
             </button>
-          )}
 
-          {/* Quick UI Text Zoom (- / +) when toolbar is collapsed */}
-          {!isExpanderOpen && (
-            <UiZoomControl idPrefix="header-collapsed-ui-zoom" compact />
-          )}
+            <button
+              id="tab-btn-editor"
+              type="button"
+              onClick={() => setActiveTab('editor')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer touch-manipulation min-h-[38px] whitespace-nowrap shrink-0 active:scale-95 ${
+                activeTab === 'editor'
+                  ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold'
+              }`}
+              title="Score Editor"
+            >
+              <Music className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">Score Editor</span>
+            </button>
 
-          {/* Expander Bar Toggle Button (Default Opened) */}
-          <button
-            id="header-expander-toggle-btn"
-            type="button"
-            onClick={handleToggleExpander}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] ${
-              isExpanderOpen
-                ? 'bg-amber-500/15 text-amber-900 dark:text-amber-200 border-amber-400/50 dark:border-amber-600/50 shadow-xs'
-                : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#141720] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-700/80'
-            }`}
-            aria-expanded={isExpanderOpen}
-            title={isExpanderOpen ? '收合工具列 (Collapse Studio Toolbar)' : '展開工具列 (Expand Studio Toolbar)'}
-          >
-            <SlidersHorizontal className={`w-4 h-4 shrink-0 ${isExpanderOpen ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400'}`} />
-            <span className="whitespace-nowrap">
-              {isExpanderOpen ? '收合工具' : '展開工具'}
-            </span>
-            {isDirty && !isExpanderOpen && (
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" title="有尚未儲存的修改" />
+            <button
+              id="tab-btn-split"
+              type="button"
+              onClick={() => setActiveTab('split')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer touch-manipulation min-h-[38px] whitespace-nowrap shrink-0 active:scale-95 ${
+                activeTab === 'split'
+                  ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold'
+              }`}
+              title="Split Studio View"
+            >
+              <Columns className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">Split View</span>
+            </button>
+          </div>
+
+          {/* Right: Expander Bar Trigger & Quick Playback */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
+            {/* If toolbar is collapsed, provide quick Play/Pause in header */}
+            {!isExpanderOpen && (
+              <button
+                id="header-quick-play-btn"
+                type="button"
+                onClick={onTogglePlay}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] whitespace-nowrap shrink-0 ${
+                  isPlaying
+                    ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md shadow-amber-500/30 font-black'
+                    : 'bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white'
+                }`}
+                title={isPlaying ? 'Pause Playback (Space)' : 'Play Full Song (Space)'}
+              >
+                {isPlaying ? (
+                  <>
+                    <Pause className="w-4 h-4 fill-current shrink-0" />
+                    <span className="hidden sm:inline whitespace-nowrap">Pause</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 fill-current ml-0.5 shrink-0" />
+                    <span className="hidden sm:inline whitespace-nowrap">Play</span>
+                  </>
+                )}
+              </button>
             )}
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${isExpanderOpen ? 'rotate-180 text-amber-600 dark:text-amber-400' : 'text-zinc-400'}`} />
-          </button>
+
+            {/* Expander Bar Toggle Button (Default Opened) */}
+            <button
+              id="header-expander-toggle-btn"
+              type="button"
+              onClick={handleToggleExpander}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] shrink-0 ${
+                isExpanderOpen
+                  ? 'bg-amber-500/15 text-amber-900 dark:text-amber-200 border-amber-400/50 dark:border-amber-600/50 shadow-xs'
+                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#141720] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-700/80'
+              }`}
+              aria-expanded={isExpanderOpen}
+              title={isExpanderOpen ? '收合工具列 (Collapse Studio Toolbar)' : '展開工具列 (Expand Studio Toolbar)'}
+            >
+              <SlidersHorizontal className={`w-4 h-4 shrink-0 ${isExpanderOpen ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400'}`} />
+              <span className="whitespace-nowrap">
+                {isExpanderOpen ? '收合工具' : '展開工具'}
+              </span>
+              {isDirty && !isExpanderOpen && (
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" title="有尚未儲存的修改" />
+              )}
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${isExpanderOpen ? 'rotate-180 text-amber-600 dark:text-amber-400' : 'text-zinc-400'}`} />
+            </button>
+          </div>
         </div>
       </div>
 
