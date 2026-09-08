@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { LyricDisplayMode, NumberedNotationNote, VerseItem, VerseNoteRef } from '@/types/song';
 import { PlaybackState } from '@/lib/audioEngine';
 import { VerseTiming, KaraokeLeadInState } from '@/lib/karaokeSequencer';
@@ -95,6 +95,11 @@ interface SyllableCellProps {
   incomingCueOverride?: IncomingAttackCue | null;
   hasBouncingBall?: boolean;
   secPerBeat?: number;
+  effectiveTiming?: {
+    startTimeSec: number;
+    durationSec: number;
+    endTimeSec: number;
+  };
 }
 
 const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
@@ -113,6 +118,7 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
   incomingCueOverride = null,
   hasBouncingBall = false,
   secPerBeat = 0.75,
+  effectiveTiming,
 }) => {
   const isIncomingCue = Boolean(incomingCueOverride);
   const note = item.note;
@@ -137,7 +143,7 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
   // Render punctuation spacers
   if (!isIncomingCue && isPunctuationOrSpacer(rawHanlo)) {
     return (
-      <div className="flex items-center justify-center self-center px-1 font-sans select-none opacity-60">
+      <div className="flex items-center justify-center self-center px-0.5 sm:px-1 font-sans select-none opacity-60">
         <span
           className={
             zoomScale >= 1.5
@@ -157,14 +163,14 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
     return null;
   }
 
-  // Calculate high-precision syllable wipe progress
+  // Calculate high-precision syllable wipe progress (with continuation note absorption support)
   const noteTiming = verseTiming?.notesTimeline?.find(
     t => t.measureIndex === item.measureIndex && t.noteIndex === item.noteIndex
   );
 
-  const startSec = noteTiming?.startTimeSec ?? 0;
-  const durationSec = noteTiming?.durationSec ?? 0;
-  const endSec = noteTiming?.endTimeSec ?? (startSec + durationSec);
+  const startSec = effectiveTiming?.startTimeSec ?? (noteTiming?.startTimeSec ?? 0);
+  const durationSec = effectiveTiming?.durationSec ?? (noteTiming?.durationSec ?? 0);
+  const endSec = effectiveTiming?.endTimeSec ?? (noteTiming?.endTimeSec ?? (startSec + durationSec));
 
   const isNoteActive = !isIncomingCue && (currentTime >= startSec && currentTime < endSec);
   const isPassed = !isIncomingCue && (currentTime >= endSec && endSec > 0);
@@ -177,8 +183,8 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
     wipePercent = Math.min(100, Math.max(0, ((currentTime - startSec) / durationSec) * 100));
   }
 
-  // Dashes count for sustained held notes (suppressed during incoming cue)
-  const dashesCount = !isIncomingCue && !isNonNotation
+  // Dashes count for sustained held notes (suppressed during incoming cue and in pure lyrics mode)
+  const dashesCount = !isIncomingCue && !isNonNotation && showNotation
     ? note.duration === 2
       ? 1
       : note.duration === 3
@@ -274,12 +280,26 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
     noteForNotation.duration === 1.75;
   const accidentalSymbol = noteForNotation.accidental === '#' ? '♯' : noteForNotation.accidental === 'b' ? '♭' : '';
 
+  const isAnnotationOnly = !isIncomingCue && !hasExplicitText && Boolean(note.annotation);
+  const isRomanEndWord =
+    !showNotation &&
+    (effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo') &&
+    hasRoman &&
+    !rawRoman.endsWith('-') &&
+    !rawRoman.endsWith('~');
+
   return (
     <div
-      className={`relative flex flex-col items-center justify-end px-1 sm:px-1.5 select-none transition-opacity duration-150 ${
+      className={`relative flex flex-col items-center justify-end select-none transition-opacity duration-150 ${
         isIncomingCue ? 'opacity-60' : ''
       } ${
-        dashesCount > 0 ? 'min-w-[48px] sm:min-w-[64px]' : 'min-w-[32px] sm:min-w-[44px]'
+        showNotation
+          ? dashesCount > 0
+            ? 'min-w-[48px] sm:min-w-[64px] px-1 sm:px-1.5'
+            : 'min-w-[32px] sm:min-w-[44px] px-1 sm:px-1.5'
+          : isAnnotationOnly
+          ? 'min-w-0 px-1 self-center'
+          : `min-w-0 px-0.5 ${isRomanEndWord ? 'mr-1.5 sm:mr-2' : ''}`
       }`}
     >
       {/* Rhythmic Bouncing Ball Attack Cue (bounces on top of 1st incoming syllable during the last 1 beat) */}
@@ -333,7 +353,7 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
       )}
 
       {/* TIER 1: RUBY PRONUNCIATION (Ample line-height so POJ/TL tone marks never crop) */}
-      {(effectiveMode === 'roman_major_hanlo' || effectiveMode === 'hanlo_major_roman') && (
+      {!isAnnotationOnly && (effectiveMode === 'roman_major_hanlo' || effectiveMode === 'hanlo_major_roman') && (
         <div
           className={`${rubyFontSizeClass} pt-1 pb-0.5 flex items-center justify-center font-sans tracking-wide leading-normal overflow-visible ${
             effectiveMode === 'hanlo_major_roman' ? 'italic font-serif' : 'font-medium'
@@ -361,51 +381,53 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
       )}
 
       {/* TIER 2: MAIN DISPLAY LYRIC (with Continuous Syllable Wipe) */}
-      <div className="relative flex items-baseline justify-center">
-        <span
-          className={`${mainFontSizeClass} font-black tracking-wider flex items-center justify-center px-0.5 transition-all duration-100 ${
-            effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo'
-              ? 'font-serif italic font-extrabold'
-              : 'font-sans'
-          } ${
-            isNoteActive && !isEcoMode
-              ? isDark
-                ? 'drop-shadow-[0_0_14px_rgba(245,158,11,0.85)]'
-                : 'drop-shadow-[0_0_8px_rgba(37,99,235,0.4)]'
-              : ''
-          } ${
-            isFirstTarget
-              ? isDark
-                ? 'ring-1 ring-amber-400/60 rounded px-1'
-                : 'ring-1 ring-blue-500/60 rounded px-1'
-              : ''
-          }`}
-          style={textFillStyle}
-        >
-          {mainWordDisplay}
-        </span>
-
-        {/* Trailing Sustained Dashes */}
-        {dashesCount > 0 && (
+      {!isAnnotationOnly ? (
+        <div className="relative flex items-baseline justify-center">
           <span
-            className={`text-base sm:text-xl font-bold ml-1 tracking-widest ${
-              isNoteActive
+            className={`${mainFontSizeClass} font-black tracking-wider flex items-center justify-center px-0.5 transition-all duration-100 ${
+              effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo'
+                ? 'font-serif italic font-extrabold'
+                : 'font-sans'
+            } ${
+              isNoteActive && !isEcoMode
                 ? isDark
-                  ? 'text-amber-300 font-black'
-                  : 'text-blue-600 font-black'
-                : isPassed
+                  ? 'drop-shadow-[0_0_14px_rgba(245,158,11,0.85)]'
+                  : 'drop-shadow-[0_0_8px_rgba(37,99,235,0.4)]'
+                : ''
+            } ${
+              isFirstTarget
                 ? isDark
-                  ? 'text-amber-400/90'
-                  : 'text-blue-500'
-                : isDark
-                ? 'text-zinc-500'
-                : 'text-slate-400'
+                  ? 'ring-1 ring-amber-400/60 rounded px-1'
+                  : 'ring-1 ring-blue-500/60 rounded px-1'
+                : ''
             }`}
+            style={textFillStyle}
           >
-            {' -'.repeat(dashesCount)}
+            {mainWordDisplay}
           </span>
-        )}
-      </div>
+
+          {/* Trailing Sustained Dashes */}
+          {dashesCount > 0 && (
+            <span
+              className={`text-base sm:text-xl font-bold ml-1 tracking-widest ${
+                isNoteActive
+                  ? isDark
+                    ? 'text-amber-300 font-black'
+                    : 'text-blue-600 font-black'
+                  : isPassed
+                  ? isDark
+                    ? 'text-amber-400/90'
+                    : 'text-blue-500'
+                  : isDark
+                  ? 'text-zinc-500'
+                  : 'text-slate-400'
+              }`}
+            >
+              {' -'.repeat(dashesCount)}
+            </span>
+          )}
+        </div>
+      ) : null}
 
       {/* TIER 3: NUMBERED NOTATION (Pitch, Octave Dots, Accidentals, Underlines) */}
       {showNotation && (
@@ -561,7 +583,15 @@ SyllableCell.displayName = 'SyllableCell';
 export interface VerseLineItem {
   id: string;
   measureNumber: number;
-  notes: Array<{ item: VerseNoteRef; globalIdx: number }>;
+  notes: Array<{
+    item: VerseNoteRef;
+    globalIdx: number;
+    effectiveTiming?: {
+      startTimeSec: number;
+      durationSec: number;
+      endTimeSec: number;
+    };
+  }>;
 }
 
 export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
@@ -801,57 +831,244 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   // Group active verse notes into lines based on measure boundaries.
   // Multi-measure verses (e.g. Measure 13 & 14 in 雨夜花) split into natural, balanced lines.
   // A maximum of 2 active lines are displayed simultaneously to keep the window height fixed and stable.
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const lineRowRef = useRef<HTMLDivElement>(null);
+
+  const [containerWidth, setContainerWidth] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      return Math.min(1024, Math.max(320, window.innerWidth - 64));
+    }
+    return 900;
+  });
+
+  useEffect(() => {
+    const el = lineRowRef.current || canvasRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const w = entry.contentRect.width;
+        if (w > 0) {
+          setContainerWidth(w);
+        }
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Smart lyric line wrapping engine (Zoom-Aware & Width-Aware, no short lines)
   const verseLines = useMemo<VerseLineItem[]>(() => {
     if (!currentVerse || !currentVerse.notes || currentVerse.notes.length === 0) return [];
 
-    const linesMap = new Map<number, VerseLineItem>();
-    const lineOrder: number[] = [];
+    const rawTimeline = activeVerseTiming?.notesTimeline || [];
+
+    // Step 1: Preprocess notes into display note references
+    type DisplayNote = {
+      item: VerseNoteRef;
+      globalIdx: number;
+      effectiveTiming: {
+        startTimeSec: number;
+        durationSec: number;
+        endTimeSec: number;
+      };
+    };
+
+    const displayNotes: DisplayNote[] = [];
 
     currentVerse.notes.forEach((item, globalIdx) => {
-      const mNum = item.measureNumber ?? (item.measureIndex + 1);
-      if (!linesMap.has(mNum)) {
-        linesMap.set(mNum, {
-          id: `line-${mNum}`,
-          measureNumber: mNum,
-          notes: [],
+      const timing =
+        rawTimeline.find(
+          t => t.measureIndex === item.measureIndex && t.noteIndex === item.noteIndex
+        ) || rawTimeline[globalIdx];
+      const startSec = timing?.startTimeSec ?? 0;
+      const durationSec = timing?.durationSec ?? 0;
+      const endSec = timing?.endTimeSec ?? (startSec + durationSec);
+
+      const note = item.note;
+      const rawHanlo = (note.lyric.hanlo ?? note.lyric.hanji ?? note.lyric.custom ?? '').trim();
+      const rawRoman = (note.lyric.poj ?? note.lyric.tl ?? '').trim();
+      const isLineBreak = rawHanlo === '\n' || rawHanlo === '↵' || rawRoman === '\n' || rawRoman === '↵';
+      const isPunct = isPunctuationOrSpacer(rawHanlo) || isPunctuationOrSpacer(rawRoman);
+      const hasText = (Boolean(rawHanlo) || Boolean(rawRoman)) && !isLineBreak;
+      const hasAnnotation = Boolean(note.annotation);
+      const isPitched = typeof note.pitch === 'number' && note.pitch > 0;
+
+      if (isLineBreak) return;
+
+      if (!showNotation) {
+        // 純歌詞模式:
+        // If note has no text and no annotation, it's a slur/melisma/continuation note (e.g. Note 11)
+        if (!hasText && !hasAnnotation && !isPunct) {
+          if (displayNotes.length > 0) {
+            const prev = displayNotes[displayNotes.length - 1];
+            if (endSec > prev.effectiveTiming.endTimeSec) {
+              prev.effectiveTiming.endTimeSec = endSec;
+              prev.effectiveTiming.durationSec = prev.effectiveTiming.endTimeSec - prev.effectiveTiming.startTimeSec;
+            }
+          }
+          return;
+        }
+
+        displayNotes.push({
+          item,
+          globalIdx,
+          effectiveTiming: {
+            startTimeSec: startSec,
+            durationSec,
+            endTimeSec: endSec,
+          },
         });
-        lineOrder.push(mNum);
+      } else {
+        // 簡譜模式: keep all pitched, lyrical, or annotation notes
+        if (hasText || isPitched || hasAnnotation || isPunct) {
+          displayNotes.push({
+            item,
+            globalIdx,
+            effectiveTiming: {
+              startTimeSec: startSec,
+              durationSec,
+              endTimeSec: endSec,
+            },
+          });
+        }
       }
-      linesMap.get(mNum)!.notes.push({ item, globalIdx });
     });
 
-    // Filter out lines that contain only non-notation or trailing line break notes
-    const validLines = lineOrder
-      .map(mNum => linesMap.get(mNum)!)
-      .filter(line =>
-        line.notes.some(n => {
-          const rawHanlo = n.item.note.lyric.hanlo ?? n.item.note.lyric.hanji ?? n.item.note.lyric.custom ?? '';
-          const rawRoman = n.item.note.lyric.poj ?? n.item.note.lyric.tl ?? '';
-          const isPitched = typeof n.item.note.pitch === 'number' && n.item.note.pitch > 0;
-          return (
-            (rawHanlo && rawHanlo !== '\n' && rawHanlo !== '↵' && !isPunctuationOrSpacer(rawHanlo)) ||
-            (rawRoman && rawRoman !== '\n' && rawRoman !== '↵' && !isPunctuationOrSpacer(rawRoman)) ||
-            isPitched
-          );
-        })
-      );
+    if (displayNotes.length === 0) {
+      return [{ id: 'line-default', measureNumber: 1, notes: currentVerse.notes.map((item, globalIdx) => ({ item, globalIdx })) }];
+    }
 
-    return validLines.length > 0
-      ? validLines
-      : [{ id: 'line-default', measureNumber: 1, notes: currentVerse.notes.map((item, globalIdx) => ({ item, globalIdx })) }];
-  }, [currentVerse]);
+    // Step 2: Estimate visual footprint of each display note to decide if single-line fits
+    const estimateNoteFootprint = (dn: DisplayNote): number => {
+      if (showNotation) {
+        const baseNoteWidth = zoomScale >= 1.75 ? 76 : zoomScale >= 1.5 ? 68 : zoomScale >= 1.25 ? 56 : 48;
+        const gap = zoomScale >= 1.5 ? 16 : 12;
+        return baseNoteWidth + gap;
+      }
 
-  // If a verse has more than 2 measures, determine which 2 measures are currently active
+      const n = dn.item.note;
+      const rawH = (n.lyric.hanlo ?? n.lyric.hanji ?? n.lyric.custom ?? '').trim();
+      const rawR = (n.lyric.poj ?? n.lyric.tl ?? '').trim();
+
+      if (!rawH && !rawR && n.annotation) {
+        return 48;
+      }
+      if (isPunctuationOrSpacer(rawH) || isPunctuationOrSpacer(rawR)) {
+        return 24;
+      }
+
+      const baseCharWidth = zoomScale >= 1.75 ? 96 : zoomScale >= 1.5 ? 74 : zoomScale >= 1.25 ? 60 : 50;
+
+      if (effectiveMode === 'roman_major_hanlo' || effectiveMode === 'hanlo_major_roman') {
+        const romanWidth = Math.max(1, rawR.length) * (baseCharWidth * 0.42);
+        const hanjiWidth = Math.max(1, rawH.length) * baseCharWidth;
+        return Math.max(hanjiWidth, romanWidth) + 6;
+      }
+      if (effectiveMode === 'roman') {
+        return Math.max(1, rawR.length) * (baseCharWidth * 0.52) + 8;
+      }
+      return Math.max(1, rawH.length) * baseCharWidth + 4;
+    };
+
+    const totalEstimatedWidth = displayNotes.reduce((sum, dn) => sum + estimateNoteFootprint(dn), 0);
+    const vocalCount = displayNotes.filter(dn => {
+      const h = (dn.item.note.lyric.hanlo ?? dn.item.note.lyric.hanji ?? dn.item.note.lyric.custom ?? '').trim();
+      const p = (dn.item.note.lyric.poj ?? dn.item.note.lyric.tl ?? '').trim();
+      return (h && !isPunctuationOrSpacer(h)) || (p && !isPunctuationOrSpacer(p));
+    }).length;
+
+    const maxSingleLineSyllables = !showNotation
+      ? (zoomScale >= 1.75 ? 7 : zoomScale >= 1.5 ? 8 : zoomScale >= 1.25 ? 10 : 12)
+      : (zoomScale >= 1.5 ? 6 : 8);
+
+    const availableWidth = Math.max(300, containerWidth - 48);
+    const canFitSingleLine = totalEstimatedWidth <= availableWidth && vocalCount <= maxSingleLineSyllables;
+
+    if (canFitSingleLine) {
+      return [
+        {
+          id: `line-single-${currentVerse.id || currentVerse.verseIndex}`,
+          measureNumber: displayNotes[0]?.item.measureNumber ?? 1,
+          notes: displayNotes,
+        },
+      ];
+    }
+
+    // Step 3: Smart 2-line balancing (Avoid orphan lines, favor natural syntactic/musical pauses)
+    let bestSplit = -1;
+    let bestScore = -Infinity;
+
+    for (let i = 1; i < displayNotes.length; i++) {
+      const left = displayNotes.slice(0, i);
+      const right = displayNotes.slice(i);
+
+      const leftVocal = left.filter(dn => {
+        const h = (dn.item.note.lyric.hanlo ?? dn.item.note.lyric.hanji ?? dn.item.note.lyric.custom ?? '').trim();
+        const p = (dn.item.note.lyric.poj ?? dn.item.note.lyric.tl ?? '').trim();
+        return (h && !isPunctuationOrSpacer(h)) || (p && !isPunctuationOrSpacer(p));
+      }).length;
+
+      const rightVocal = right.filter(dn => {
+        const h = (dn.item.note.lyric.hanlo ?? dn.item.note.lyric.hanji ?? dn.item.note.lyric.custom ?? '').trim();
+        const p = (dn.item.note.lyric.poj ?? dn.item.note.lyric.tl ?? '').trim();
+        return (h && !isPunctuationOrSpacer(h)) || (p && !isPunctuationOrSpacer(p));
+      }).length;
+
+      const minVocal = vocalCount >= 8 ? 3 : 2;
+      if (leftVocal < minVocal || rightVocal < minVocal) {
+        continue;
+      }
+
+      const prevNote = displayNotes[i - 1].item.note;
+      const nextNote = displayNotes[i].item.note;
+      const prevHanlo = (prevNote.lyric.hanlo ?? prevNote.lyric.hanji ?? prevNote.lyric.custom ?? '').trim();
+      const isPunctSplit = isPunctuationOrSpacer(prevHanlo);
+      const isRestSplit = (prevNote.pitch === 0 || prevNote.pitch === 'empty') || (nextNote.pitch === 0 || nextNote.pitch === 'empty');
+      const isMeasureSplit = displayNotes[i - 1].item.measureNumber !== displayNotes[i].item.measureNumber;
+
+      let score = 0;
+      if (isPunctSplit) score += 100;
+      if (isRestSplit) score += 60;
+      if (isMeasureSplit) score += 40;
+
+      score -= Math.abs(leftVocal - rightVocal) * 15;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestSplit = i;
+      }
+    }
+
+    if (bestSplit === -1) {
+      bestSplit = Math.floor(displayNotes.length / 2);
+    }
+
+    const line1Notes = displayNotes.slice(0, bestSplit);
+    const line2Notes = displayNotes.slice(bestSplit);
+
+    return [
+      {
+        id: `line-1-${currentVerse.id || currentVerse.verseIndex}`,
+        measureNumber: line1Notes[0]?.item.measureNumber ?? 1,
+        notes: line1Notes,
+      },
+      {
+        id: `line-2-${currentVerse.id || currentVerse.verseIndex}`,
+        measureNumber: line2Notes[0]?.item.measureNumber ?? 2,
+        notes: line2Notes,
+      },
+    ];
+  }, [currentVerse, activeVerseTiming, showNotation, zoomScale, effectiveMode, containerWidth]);
+
+  // If a verse has more than 2 lines, determine which line is currently active
   const activeLineIndex = useMemo(() => {
-    if (!activeVerseTiming || verseLines.length <= 2) return 0;
+    if (!activeVerseTiming || verseLines.length <= 1) return 0;
     for (let lIdx = 0; lIdx < verseLines.length; lIdx++) {
       const line = verseLines[lIdx];
       const isLineActive = line.notes.some(n => {
-        const timing = activeVerseTiming.notesTimeline?.find(
-          t => t.measureIndex === n.item.measureIndex && t.noteIndex === n.item.noteIndex
-        );
-        if (!timing) return false;
-        return playbackState.currentTime >= timing.startTimeSec && playbackState.currentTime < timing.endTimeSec;
+        const startSec = n.effectiveTiming?.startTimeSec ?? 0;
+        const endSec = n.effectiveTiming?.endTimeSec ?? 0;
+        return playbackState.currentTime >= startSec && playbackState.currentTime < endSec;
       });
       if (isLineActive) return lIdx;
     }
@@ -863,9 +1080,6 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
     const startIndex = Math.floor(activeLineIndex / 2) * 2;
     return verseLines.slice(startIndex, startIndex + 2);
   }, [verseLines, activeLineIndex]);
-
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const lineRowRef = useRef<HTMLDivElement>(null);
 
   return (
     <div
@@ -1111,7 +1325,11 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                         return (
                           <div
                             key={line.id}
-                            className={`w-full flex flex-wrap items-end gap-x-2 sm:gap-x-3.5 md:gap-x-5 gap-y-2 transition-all duration-200 ${
+                            className={`w-full flex flex-wrap items-end ${
+                              showNotation
+                                ? 'gap-x-2 sm:gap-x-3.5 md:gap-x-5 gap-y-2'
+                                : 'gap-x-0.5 sm:gap-x-1 gap-y-1.5'
+                            } transition-all duration-200 ${
                               lyricAlign === 'left' ? 'justify-start' : 'justify-center'
                             } ${
                               isSucceedingLine
@@ -1121,40 +1339,41 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                                 : ''
                             }`}
                           >
-                            {line.notes.map(({ item, globalIdx }) => {
-                            let incomingCueOverride: IncomingAttackCue | null = null;
-                            let hasBouncingBall = false;
+                            {line.notes.map(({ item, globalIdx, effectiveTiming }) => {
+                              let incomingCueOverride: IncomingAttackCue | null = null;
+                              let hasBouncingBall = false;
 
-                            if (cuePhase >= 1 && globalIdx === currentFirstVocal && incomingCues.first) {
-                              incomingCueOverride = incomingCues.first;
-                              hasBouncingBall = cuePhase === 2;
-                            } else if (cuePhase >= 2 && globalIdx === currentSecondVocal && incomingCues.second) {
-                              incomingCueOverride = incomingCues.second;
-                              hasBouncingBall = false;
-                            }
+                              if (cuePhase >= 1 && globalIdx === currentFirstVocal && incomingCues.first) {
+                                incomingCueOverride = incomingCues.first;
+                                hasBouncingBall = cuePhase === 2;
+                              } else if (cuePhase >= 2 && globalIdx === currentSecondVocal && incomingCues.second) {
+                                incomingCueOverride = incomingCues.second;
+                                hasBouncingBall = false;
+                              }
 
-                            return (
-                              <SyllableCell
-                                key={`${item.measureIndex}-${item.noteIndex}-${globalIdx}`}
-                                item={item}
-                                noteIndex={globalIdx}
-                                isActiveLine={true}
-                                currentTime={playbackState.currentTime}
-                                verseTiming={activeVerseTiming}
-                                effectiveMode={effectiveMode}
-                                isFirstVocalNote={globalIdx === currentFirstVocal}
-                                showNotation={showNotation}
-                                stageTheme={stageTheme}
-                                zoomScale={zoomScale}
-                                isEcoMode={isEcoMode}
-                                isComingLineAwaiting={isAwaitingVocal || Boolean(leadIn && leadIn.isLeadIn)}
-                                incomingCueOverride={incomingCueOverride}
-                                hasBouncingBall={hasBouncingBall}
-                                secPerBeat={secPerBeat}
-                              />
-                            );
-                          })}
-                        </div>
+                              return (
+                                <SyllableCell
+                                  key={`${item.measureIndex}-${item.noteIndex}-${globalIdx}`}
+                                  item={item}
+                                  noteIndex={globalIdx}
+                                  isActiveLine={true}
+                                  currentTime={playbackState.currentTime}
+                                  verseTiming={activeVerseTiming}
+                                  effectiveMode={effectiveMode}
+                                  isFirstVocalNote={globalIdx === currentFirstVocal}
+                                  showNotation={showNotation}
+                                  stageTheme={stageTheme}
+                                  zoomScale={zoomScale}
+                                  isEcoMode={isEcoMode}
+                                  isComingLineAwaiting={isAwaitingVocal || Boolean(leadIn && leadIn.isLeadIn)}
+                                  incomingCueOverride={incomingCueOverride}
+                                  hasBouncingBall={hasBouncingBall}
+                                  secPerBeat={secPerBeat}
+                                  effectiveTiming={effectiveTiming}
+                                />
+                              );
+                            })}
+                          </div>
                       );
                     })}
                     </div>
