@@ -118,8 +118,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     return 0.5;
   });
   const [metronomeVolume, setMetronomeVolumeState] = useState<number>(() => {
-    if (typeof window !== 'undefined') return getStoredMetronomeVolume(0.15);
-    return 0.15;
+    if (typeof window !== 'undefined') return getStoredMetronomeVolume(0.45);
+    return 0.45;
   });
   const [transpose, setTransposeState] = useState<number>(() => {
     if (typeof window !== 'undefined') return getStoredTranspose(0);
@@ -225,20 +225,33 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     }
   }, [audioEngine, song.key]);
 
+  const metronomePreviewTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const setMelodyVolume = useCallback((vol: number) => {
     setMelodyVolumeState(vol);
     setStoredMelodyVolume(vol);
-  }, []);
+    audioEngine.setOptions({ melodyVolume: vol });
+  }, [audioEngine]);
 
   const setBackingVolume = useCallback((vol: number) => {
     setBackingVolumeState(vol);
     setStoredBackingVolume(vol);
-  }, []);
+    audioEngine.setOptions({ backingVolume: vol });
+  }, [audioEngine]);
 
   const setMetronomeVolume = useCallback((vol: number) => {
     setMetronomeVolumeState(vol);
     setStoredMetronomeVolume(vol);
-  }, []);
+    audioEngine.setOptions({ metronomeVolume: vol });
+    if (!audioEngine.getIsPlaying() && vol > 0.01) {
+      if (metronomePreviewTimerRef.current) {
+        clearTimeout(metronomePreviewTimerRef.current);
+      }
+      metronomePreviewTimerRef.current = setTimeout(() => {
+        audioEngine.previewMetronome(false);
+      }, 120);
+    }
+  }, [audioEngine]);
 
   const setTranspose = useCallback((tr: number | ((prev: number) => number)) => {
     setTransposeState(prev => {

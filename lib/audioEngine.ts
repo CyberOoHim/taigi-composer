@@ -42,7 +42,7 @@ export class AudioEngine {
     instrument: 'piano',
     melodyVolume: 0.85,
     backingVolume: 0.45,
-    metronomeVolume: 0.2,
+    metronomeVolume: 0.45,
     transpose: 0,
     tempoMultiplier: 1.0,
     loopMeasure: null,
@@ -386,6 +386,14 @@ export class AudioEngine {
       } catch (e) {
         console.warn('[AudioEngine] Gain node initialization warning:', e);
       }
+    } else if (this.ctx && this.masterGain) {
+      if (!this.metronomeGain) {
+        try {
+          this.metronomeGain = this.ctx.createGain();
+          this.metronomeGain.gain.setValueAtTime(this.options.metronomeVolume, this.ctx.currentTime);
+          this.metronomeGain.connect(this.masterGain);
+        } catch {}
+      }
     }
 
     const state = this.ctx.state as string;
@@ -441,10 +449,16 @@ export class AudioEngine {
   public setOptions(opts: Partial<AudioEngineOptions>) {
     const prevInstrument = this.options.instrument;
     this.options = { ...this.options, ...opts };
-    if (this.ctx && this.melodyGain && this.backingGain && this.metronomeGain) {
-      this.melodyGain.gain.setValueAtTime(this.options.melodyVolume, this.ctx.currentTime);
-      this.backingGain.gain.setValueAtTime(this.options.backingVolume, this.ctx.currentTime);
-      this.metronomeGain.gain.setValueAtTime(this.options.metronomeVolume, this.ctx.currentTime);
+    if (this.ctx) {
+      if (this.melodyGain && this.options.melodyVolume !== undefined) {
+        this.melodyGain.gain.setValueAtTime(this.options.melodyVolume, this.ctx.currentTime);
+      }
+      if (this.backingGain && this.options.backingVolume !== undefined) {
+        this.backingGain.gain.setValueAtTime(this.options.backingVolume, this.ctx.currentTime);
+      }
+      if (this.metronomeGain && this.options.metronomeVolume !== undefined) {
+        this.metronomeGain.gain.setValueAtTime(this.options.metronomeVolume, this.ctx.currentTime);
+      }
     }
     // Seamlessly re-seek if primary instrument changed during active playback so subsequent notes use the new sound tone
     if (opts.instrument && opts.instrument !== prevInstrument && this.isPlaying && this.currentSong) {
@@ -890,28 +904,36 @@ export class AudioEngine {
   }
 
   /**
-   * Play a metronome click
+   * Play a metronome click (punchy woodblock tone with crisp transient)
    */
   private playMetronomeClick(startTime: number, isDownbeat: boolean) {
-    if (this.options.ecoMode) return;
     if (!this.ctx || !this.metronomeGain || this.options.metronomeVolume <= 0.01) return;
 
-    const osc = this.ctx.createOscillator();
-    this.registerOscillator(osc);
-    const gain = this.ctx.createGain();
+    try {
+      const osc = this.ctx.createOscillator();
+      this.registerOscillator(osc);
+      const gain = this.ctx.createGain();
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(isDownbeat ? 1200 : 800, startTime);
+      // Punchy woodblock click with clear harmonic body that cuts through instruments
+      osc.type = 'triangle';
+      const startFreq = isDownbeat ? 2200 : 1400;
+      const targetFreq = isDownbeat ? 1600 : 1000;
+      osc.frequency.setValueAtTime(startFreq, startTime);
+      osc.frequency.exponentialRampToValueAtTime(targetFreq, startTime + 0.008);
 
-    gain.gain.setValueAtTime(0.001, startTime);
-    gain.gain.linearRampToValueAtTime(isDownbeat ? 0.6 : 0.35, startTime + 0.002);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.04);
+      const peakGain = isDownbeat ? 0.95 : 0.75;
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.001);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.045);
 
-    osc.connect(gain);
-    gain.connect(this.metronomeGain);
+      osc.connect(gain);
+      gain.connect(this.metronomeGain);
 
-    osc.start(startTime);
-    osc.stop(startTime + 0.05);
+      osc.start(startTime);
+      osc.stop(startTime + 0.05);
+    } catch (err) {
+      console.warn('[AudioEngine] playMetronomeClick error:', err);
+    }
   }
 
   /**
@@ -1388,6 +1410,15 @@ export class AudioEngine {
       }
     });
 
+    // Schedule metronome clicks for the verse
+    const tsParts = (song.timeSignature || '4/4').split('/');
+    const beatsPerBar = parseInt(tsParts[0], 10) || 4;
+    const totalVerseBeatsCount = Math.ceil(totalVerseBeats);
+    for (let b = 0; b < totalVerseBeatsCount; b++) {
+      const beatTime = audioStart + b * secPerBeat;
+      this.playMetronomeClick(beatTime, b % beatsPerBar === 0);
+    }
+
     // Start UI tracking loop
     this.startTrackingLoop(totalVerseDurationSec, timelineEvents);
 
@@ -1401,6 +1432,42 @@ export class AudioEngine {
     }, (totalVerseDurationSec + 0.08) * 1000);
 
     this.scheduledTimeoutIds.push(stopTimer as unknown as number);
+  }
+
+  /**
+   * Play a single preview metronome click immediately (useful for mixer slider feedback & testing)
+   */
+  public previewMetronome(isDownbeat = true): void {
+    if (typeof window === 'undefined') return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const state = this.ctx.state as string;
+    if (state === 'suspended' || state === 'interrupted') {
+      this.ctx.resume().catch(() => {});
+    }
+
+    if (!this.metronomeGain && this.masterGain) {
+      this.metronomeGain = this.ctx.createGain();
+      this.metronomeGain.connect(this.masterGain);
+    }
+
+    if (!this.metronomeGain) return;
+
+    // Use current metronome volume if > 0, otherwise temporary audible volume for preview
+    const originalVol = this.options.metronomeVolume;
+    const testVol = originalVol > 0.01 ? originalVol : 0.45;
+    this.metronomeGain.gain.setValueAtTime(testVol, this.ctx.currentTime);
+
+    this.playMetronomeClick(this.ctx.currentTime + 0.01, isDownbeat);
+
+    if (originalVol <= 0.01) {
+      setTimeout(() => {
+        if (this.ctx && this.metronomeGain) {
+          this.metronomeGain.gain.setValueAtTime(originalVol, this.ctx.currentTime);
+        }
+      }, 70);
+    }
   }
 
   /**

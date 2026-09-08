@@ -246,11 +246,15 @@ export function setStoredBackingVolume(vol: number): void {
   safeSetItem(STORAGE_KEYS.BACKING_VOLUME, String(vol));
 }
 
-export function getStoredMetronomeVolume(defaultVal = 0.15): number {
+export function getStoredMetronomeVolume(defaultVal = 0.45): number {
   const val = safeGetItem(STORAGE_KEYS.METRONOME_VOLUME);
   if (val !== null) {
     const num = parseFloat(val);
-    if (!isNaN(num) && num >= 0 && num <= 1) return num;
+    if (!isNaN(num) && num >= 0 && num <= 1) {
+      // If the previously saved default was the old whisper-quiet 0.15, upgrade to 0.45 for audible clarity
+      if (Math.abs(num - 0.15) < 0.01) return 0.45;
+      return num;
+    }
   }
   return defaultVal;
 }
