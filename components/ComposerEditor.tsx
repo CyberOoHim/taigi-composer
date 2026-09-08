@@ -291,7 +291,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             );
           }
           if (vIdx !== -1) {
-            scrollToCardElement(`verse-card-${vIdx}`, { align: 'top' });
+            scrollToCardElement(`verse-card-${vIdx}`, { align: 'top', headerOffset: 0 });
             const highlightPoll = setInterval(() => {
               const el = document.getElementById(`verse-card-${vIdx}`);
               if (el) {
@@ -305,7 +305,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             safeTimeout(() => clearInterval(highlightPoll), 1200);
           }
         } else if (targetMode === 'measure') {
-          scrollToCardElement(`measure-card-${validMeasureIdx}`, { align: 'top' });
+          scrollToCardElement(`measure-card-${validMeasureIdx}`, { align: 'top', headerOffset: 0 });
           const highlightPoll = setInterval(() => {
             const el = document.getElementById(`measure-card-${validMeasureIdx}`);
             if (el) {
@@ -318,7 +318,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           }, 40);
           safeTimeout(() => clearInterval(highlightPoll), 1200);
         } else {
-          scrollToCardElement(`sheet-measure-row-${validMeasureIdx}`, { align: 'top' });
+          scrollToCardElement(`sheet-measure-row-${validMeasureIdx}`, { align: 'top', headerOffset: 0 });
           const el =
             document.getElementById(`sheet-measure-row-${validMeasureIdx}`) ||
             document.getElementById(`sheet-measure-flat-row-${validMeasureIdx}`);

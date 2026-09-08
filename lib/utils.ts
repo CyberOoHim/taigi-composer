@@ -15,7 +15,7 @@ export interface ScrollToCardOptions {
 
 export function scrollToCardElement(
   elementId: string,
-  headerOffsetOrOptions: number | ScrollToCardOptions = 80
+  headerOffsetOrOptions: number | ScrollToCardOptions = { align: 'top', headerOffset: 0 }
 ) {
   if (typeof window === 'undefined') return;
 
@@ -42,10 +42,12 @@ export function scrollToCardElement(
     // Detect actual sticky header height if present in DOM
     const headerEl = document.querySelector('header');
     const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 64;
+    // For 'top' alignment (default for editing cards), default to 0 so the top edge of the card
+    // is flush with the top of the viewport, eliminating any lingering banner or extra gap.
     const effectiveHeaderOffset =
       options.headerOffset !== undefined
         ? options.headerOffset
-        : Math.max(headerHeight + topPadding, 80);
+        : (align === 'top' ? 0 : Math.max(headerHeight + topPadding, 80));
 
     const viewportHeight = window.innerHeight;
     const availableHeight = viewportHeight - effectiveHeaderOffset - bottomPadding;

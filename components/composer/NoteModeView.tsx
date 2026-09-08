@@ -243,10 +243,10 @@ export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
           v.notes.some(n => n.measureIndex === mIdx)
         );
         const targetVIdx = matchingVerseIdx >= 0 ? matchingVerseIdx : 0;
-        scrollToCardElement(`verse-card-${targetVIdx}`, { align: 'top' });
+        scrollToCardElement(`verse-card-${targetVIdx}`, { align: 'top', headerOffset: 0 });
       } else {
         const targetMIdx = selectedMeasureIndex ?? 0;
-        scrollToCardElement(`measure-card-${targetMIdx}`, { align: 'top' });
+        scrollToCardElement(`measure-card-${targetMIdx}`, { align: 'top', headerOffset: 0 });
       }
     }, 50);
   };

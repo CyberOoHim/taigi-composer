@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NumberedNotationNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, VerseItem, VerseNoteRef, ArticulationType, Song } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import { isNonNotationItem, isPunctuationOrSpacer, getMeasureRhythmReport } from '@/lib/taigiUtils';
@@ -194,8 +194,24 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
 }) => {
   const [hoveredSplitKey, setHoveredSplitKey] = useState<string | null>(null);
 
+  // Ensure active verse card is positioned starting from the top on initial mount or when active verse changes
+  const prevVerseIdxRef = useRef<number | null>(null);
+  useEffect(() => {
+    const targetMIdx = selectedMeasureIndex ?? 0;
+    let targetVIdx = verses.findIndex(v =>
+      v.notes.some(n => n.measureIndex === targetMIdx && n.noteIndex === (selectedNoteIndex ?? 0))
+    );
+    if (targetVIdx === -1) {
+      targetVIdx = verses.findIndex(v => v.notes.some(n => n.measureIndex === targetMIdx));
+    }
+    if (targetVIdx !== -1 && prevVerseIdxRef.current !== targetVIdx) {
+      prevVerseIdxRef.current = targetVIdx;
+      scrollToCardElement(`verse-card-${targetVIdx}`, { align: 'top', headerOffset: 0 });
+    }
+  }, [selectedMeasureIndex, selectedNoteIndex, verses]);
+
   return (
-    <div id="verse-mode-container" className="flex flex-col gap-6">
+    <div id="verse-mode-container" className="flex flex-col gap-6 pb-[75vh]">
       {/* JUMP RETURN NAVIGATION BANNER (Karaoke Mode / Sheet Mode) */}
       {(karaokeReturnTarget || sheetReturnTarget) && (
         <div
@@ -315,8 +331,12 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
               if (firstContentNote) {
                 onSelectNote(firstContentNote.measureIndex, firstContentNote.noteIndex);
               }
+              if (!hasSelectedNoteInVerse) {
+                prevVerseIdxRef.current = vIdx;
+                scrollToCardElement(`verse-card-${vIdx}`, { align: 'top', headerOffset: 0 });
+              }
             }}
-            className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs cursor-pointer scroll-mt-28 sm:scroll-mt-32 ${
+            className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs cursor-pointer scroll-mt-0 ${
               isPlayingThisVerse
                 ? 'border-amber-500 ring-2 ring-amber-400 bg-amber-500/10 dark:bg-amber-950/30 shadow-md'
                 : hasSelectedNoteInVerse
@@ -408,7 +428,8 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                                 ))
                           ) || prevVerse.notes[0];
                         if (target) onSelectNote(target.measureIndex, target.noteIndex);
-                        scrollToCardElement(`verse-card-${vIdx - 1}`, { align: 'top' });
+                        prevVerseIdxRef.current = vIdx - 1;
+                        scrollToCardElement(`verse-card-${vIdx - 1}`, { align: 'top', headerOffset: 0 });
                       }
                     }}
                     disabled={vIdx === 0}
@@ -437,7 +458,8 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                                 ))
                           ) || nextVerse.notes[0];
                         if (target) onSelectNote(target.measureIndex, target.noteIndex);
-                        scrollToCardElement(`verse-card-${vIdx + 1}`, { align: 'top' });
+                        prevVerseIdxRef.current = vIdx + 1;
+                        scrollToCardElement(`verse-card-${vIdx + 1}`, { align: 'top', headerOffset: 0 });
                       }
                     }}
                     disabled={vIdx === verses.length - 1}
