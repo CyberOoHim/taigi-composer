@@ -6,22 +6,24 @@
  * Universal CLI and library for converting sheet music in diverse input formats:
  * - Text-based Numbered Musical Notation (簡譜) with lyrics (.txt, .md, .tab, .jianpu, .lrc)
  * - Standard MIDI Files (.mid, .midi)
- * - Scanned Sheet Music Images (.png, .jpg, .jpeg, .webp, .bmp, .gif)
- * - Multi-page PDF documents (.pdf)
- * - Raw text string (--text "...") or standard input pipe (-)
+ * - Song JSON files and streams (.json) for sanitization & rhythm balancing
+ * - Direct text string (--text "...") or standard input pipe (-)
+ * 
+ * Visual sheet music (images/PDF) and freeform text scores are handled directly
+ * by the Antigravity Agent using its native multimodal capabilities without any external API calls.
  * 
  * Produces 100% schema-compliant Song JSON ready for direct import into the Taigi Composer / Karaoke app.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { GoogleGenAI } from '@google/genai';
 import { parseMidiBuffer, midiToSongJson } from './midi-parser.mjs';
-import { isStructuredAppText, parseStructuredTextScore, buildTextTranscriptionPrompt } from './text-parser.mjs';
+import { isStructuredAppText, parseStructuredTextScore } from './text-parser.mjs';
 
 const SUPPORTED_IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif']);
 const SUPPORTED_TEXT_EXTS = new Set(['.txt', '.md', '.tab', '.jianpu', '.lrc']);
 const SUPPORTED_MIDI_EXTS = new Set(['.mid', '.midi']);
+const SUPPORTED_JSON_EXTS = new Set(['.json']);
 const VALID_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const VALID_TIME_SIGS = ['4/4', '3/4', '2/4', '6/8'];
 
@@ -31,52 +33,48 @@ function printHelp() {
 
 Converts musical scores and notations into the standardized JSON format qualified
 for direct import into the Taigi Composer & Karaoke application.
+Zero external API calls — 100% local, offline, deterministic processing!
 
 Supported Input Types:
   1. Text-based Numbered Notation with Lyrics:
-     - Structured app text format (deterministic, zero-cost, instant)
-     - Freeform / informal text notation with lyrics (AI-powered)
-  2. Standard MIDI Files (.mid, .midi)
-     - Automatic note, tempo, meter, rests, and lyric extraction (deterministic)
-  3. Sheet Music Images (.png, .jpg, .jpeg, .webp, .bmp, .gif)
-     - Multimodal Gemini Vision transcription
-  4. PDF Documents (.pdf)
-     - Multi-page document score transcription
+     - Structured app text format (deterministic, offline, instant)
+  2. Standard MIDI Files (.mid, .midi):
+     - Automatic note, tempo, meter, rests, and lyric extraction (deterministic, offline)
+  3. Song JSON (.json, string, or stdin):
+     - Normalization, rhythm balance checking, rest padding (--auto-fix-rhythm), and formatting
+  4. Visual Sheet Music (Images / PDF) & Freeform Text:
+     - Handled directly by the Antigravity Agent using its native multimodal capabilities
+       (no external API keys or network requests needed; see SKILL.md)
 
 Usage:
   node convert-sheet.mjs <input(s)...> [options]
   cat score.txt | node convert-sheet.mjs - [options]
 
 Arguments:
-  <input(s)...>             One or more files (Text, MIDI, Images, PDF) or "-" for stdin
+  <input(s)...>             One or more files (Text, MIDI, JSON) or "-" for stdin
 
 Options:
-  --text, -t <string>       Direct text input with numbered notation & lyrics
+  --text, -t <string>       Direct text input (structured notation or draft JSON)
   --output, -o <file>       Output JSON file path (default: <title>.taigi.json)
   --key, -k <key>           Override key signature (e.g. F, C, G, Bb, D, Eb)
   --time <time>             Override time signature (e.g. 4/4, 3/4, 2/4, 6/8)
   --bpm, -b <bpm>           Override BPM (e.g. 80, 92, 108)
   --title <title>           Override song title
   --auto-fix-rhythm         Automatically pad under-beat measures with rest notes
-  --ai-enrich               Use Gemini AI to enrich lyrics with Pe̍h-ōe-jī (POJ) Romanization
-  --model, -m <model>       Gemini model (default: gemini-2.5-flash)
-  --api-key <key>           Gemini API key (defaults to GEMINI_API_KEY environment variable)
   --strict                  Exit with error if measure beats do not match time signature
   --help, -h                Show this help guide
 
 Examples:
-  # 1. Text-based numbered notation with lyrics:
-  node convert-sheet.mjs song-score.txt -o my_song.taigi.json
+  # 1. Structured numbered notation score:
+  node convert-sheet.mjs score.txt -o my_song.taigi.json
   node convert-sheet.mjs --text "Title: 望春風\\nKey: F\\n[Measure 1]\\nNumbered Notation: 5 6 1 2\\n漢羅: 獨 夜 無 伴"
 
   # 2. Standard MIDI conversion:
-  node convert-sheet.mjs song.mid --auto-fix-rhythm -o song.taigi.json
-  node convert-sheet.mjs song.mid --ai-enrich -o song_with_poj.taigi.json
+  node convert-sheet.mjs track.mid --auto-fix-rhythm -o song.taigi.json
 
-  # 3. Sheet music image & PDF transcription:
-  node convert-sheet.mjs score.png --key F --time 4/4
-  node convert-sheet.mjs page1.jpg page2.jpg -o full_song.taigi.json
-  node convert-sheet.mjs booklet.pdf -o hymn.taigi.json
+  # 3. Sanitize and balance draft Song JSON (e.g. created by Agent):
+  node convert-sheet.mjs draft.json --auto-fix-rhythm -o final.taigi.json
+  cat draft.json | node convert-sheet.mjs - --auto-fix-rhythm -o final.taigi.json
 `);
 }
 
@@ -85,14 +83,11 @@ function parseArgs(args) {
     inputs: [],
     directText: null,
     output: null,
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
     key: null,
     time: null,
     bpm: null,
     title: null,
     autoFixRhythm: false,
-    aiEnrich: false,
-    apiKey: process.env.GEMINI_API_KEY || null,
     strict: false,
     help: false,
   };
@@ -105,10 +100,8 @@ function parseArgs(args) {
     }
     if (arg === '--output' || arg === '-o') {
       options.output = args[++i];
-    } else if (arg === '--text' || arg === '-t') {
+    } else if (arg === '--text' || arg === '-t' || arg === '--json' || arg === '-j') {
       options.directText = args[++i];
-    } else if (arg === '--model' || arg === '-m') {
-      options.model = args[++i];
     } else if (arg === '--key' || arg === '-k') {
       options.key = args[++i];
     } else if (arg === '--time') {
@@ -119,10 +112,6 @@ function parseArgs(args) {
       options.title = args[++i];
     } else if (arg === '--auto-fix-rhythm') {
       options.autoFixRhythm = true;
-    } else if (arg === '--ai-enrich') {
-      options.aiEnrich = true;
-    } else if (arg === '--api-key') {
-      options.apiKey = args[++i];
     } else if (arg === '--strict') {
       options.strict = true;
     } else if (arg.startsWith('-') && arg !== '-') {
@@ -167,140 +156,54 @@ function normalizePitch(p) {
   return 1;
 }
 
-function getMimeType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === '.pdf') return 'application/pdf';
-  if (ext === '.png') return 'image/png';
-  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
-  if (ext === '.webp') return 'image/webp';
-  if (ext === '.gif') return 'image/gif';
-  if (ext === '.bmp') return 'image/bmp';
-  throw new Error(`Unsupported visual file type: ${ext}`);
-}
-
-function buildVisionTranscriptionPrompt(fileCount, isPdf, options) {
-  const sourceDescription = isPdf
-    ? `The input is a PDF score document (${fileCount} file).`
-    : `The user provided ${fileCount} sheet music image(s) in sequential reading order.`;
-
-  return `You are a world-class music transcription AI and expert in Numbered Musical Notation (簡譜) and Taiwanese Hokkien songs (Taigi).
-${sourceDescription}
-
-Task: Carefully transcribe the sheet music into structured, valid JSON adhering strictly to the Taigi Song Schema.
-
-Critical Transcription Rules:
-1. **Metadata**:
-   - "title": Song title (e.g., "望春風", "雨夜花", "思慕的人"). Look at the header of the sheet.
-   ${options.title ? `- Use forced title: "${options.title}"` : ''}
-   - "subtitle": Subtitle or alternative title if present.
-   - "composer": Composer name (作曲).
-   - "lyricist": Lyricist name (作詞).
-   - "key": Key signature (e.g. "F", "C", "G", "Bb", "D", "Eb"). Look for "1 = F", "1 = C", etc. Defaults to "F" or "C" if not found.
-   ${options.key ? `- Use forced key: "${options.key}"` : ''}
-   - "timeSignature": Time signature (e.g. "4/4", "3/4", "2/4", "6/8"). Look for time signature at the beginning of the first system.
-   ${options.time ? `- Use forced timeSignature: "${options.time}"` : ''}
-   - "bpm": Tempo in beats per minute (e.g. 76, 80, 88, 96). Default to 80 if unspecified.
-   ${options.bpm ? `- Use forced bpm: ${options.bpm}` : ''}
-
-2. **Measures & Note Structure**:
-   - Sequence measures chronologically from measure 1 to the end across all pages without omitting or duplicating.
-   - "measureNumber": 1, 2, 3...
-   - "chord": Harmonic chord symbol above the measure if present (e.g., "F", "C7", "Am", "Dm", "Bb", "G7").
-   - "section": Optional section tag (e.g., "前奏", "主歌", "副歌", "尾奏", "Verse 1", "Chorus", "Intro", "Outro").
-   - "barlineType": "single" (default), "double", "end", "repeat_start", "repeat_end".
-   - "isLineBreak": true if this measure marks the end of a printed line/system or singing phrase.
-
-3. **Numbered Notation Note Decoding**:
-   - "pitch": 
-     * 1 (Do), 2 (Re), 3 (Mi), 4 (Fa), 5 (Sol), 6 (La), 7 (Ti)
-     * 0 (Rest / 休止符)
-     * "empty" (Blank spacer / punctuation / line marker)
-   - "octave":
-     * 0: middle octave (no dots)
-     * 1: one dot above (高音 1̇, 2̇, etc.)
-     * 2: two dots above (倍高音)
-     * -1: one dot below (低音 5̣, 6̣, etc.)
-     * -2: two dots below (倍低音)
-   - "accidental": "" (natural), "#" (sharp), "b" (flat).
-   - "duration": Duration in beats (relative to quarter note = 1):
-     * Whole note (4 beats): 5 - - - -> duration: 4
-     * Dotted half note (3 beats): 5 - - -> duration: 3
-     * Half note (2 beats): 5 - -> duration: 2
-     * Dotted quarter note (1.5 beats): 5· -> duration: 1.5, isDotted: true
-     * Quarter note (1 beat): 5 -> duration: 1
-     * Dotted 8th note (0.75 beats): 5· with 1 underline -> duration: 0.75, isDotted: true
-     * 8th note (0.5 beats): 5 with 1 underline -> duration: 0.5
-     * 16th note (0.25 beats): 5 with 2 underlines -> duration: 0.25
-   - "isDotted": true if dotted.
-   - "tieToNext": true if curved tie connects to next note of same pitch.
-   - "slurToNext": true if curved slur connects singing notes across different pitches.
-
-4. **Lyrics Alignment (Taiwanese Hokkien / Taigi)**:
-   - For every note that has a sung lyric syllable:
-     "lyric": {
-       "hanlo": "漢字或漢羅混合 (e.g., 獨, 夜, 無, 伴, 守, 燈, 下)",
-       "poj": "Pe̍h-ōe-jī 白話字羅馬字含調符 (e.g., To̍k, iā, bô, phōaⁿ, siú, teng, ē)"
-     }
-   - For rests (pitch 0) or notes tied from previous notes, set lyric to {}.
-
-5. **Karaoke Phrase Structuring**:
-   - Organize measures into natural singing phrases (2 to 4 measures, 4 to 8 syllables per phrase).
-   - Conclude each phrase by setting "isLineBreak": true on that measure.
-
-Return ONLY the raw JSON object conforming to the schema.`;
-}
-
-/**
- * AI Lyric Enrichment: adds accurate Pe̍h-ōe-jī (POJ) to song notes with Taiwanese Han characters
- */
-async function enrichSongLyricsWithAI(song, ai, modelName) {
-  console.log(`🤖 Enriching lyrics with Pe̍h-ōe-jī (POJ) tone diacritics via Gemini (${modelName})...`);
-
-  // Collect all syllables
-  const syllables = [];
-  song.measures.forEach((m, mIdx) => {
-    m.notes.forEach((n, nIdx) => {
-      const han = n.lyric?.hanlo || n.lyric?.hanji || n.lyric?.custom || '';
-      if (han && han !== '—' && han !== '-' && n.pitch !== 0 && n.pitch !== 'empty') {
-        syllables.push({ mIdx, nIdx, han });
-      }
-    });
-  });
-
-  if (syllables.length === 0) return song;
-
-  const prompt = `You are an expert Taiwanese Hokkien (Taigi / 白話字) linguist.
-The following is an ordered list of Han / Hanlo lyrics from a Taiwanese song ("${song.title}"):
-${JSON.stringify(syllables.map(s => s.han))}
-
-Provide the exact corresponding Pe̍h-ōe-jī (POJ) Romanization with official tone marks (á, à, â, ā, a̍, etc.) for each syllable.
-Return a JSON array of strings of equal length:
-Example: ["To̍k", "iā", "bô", "phōaⁿ", "siú", "teng", "ē"]
-Return ONLY the JSON array.`;
-
+function isJsonString(str) {
+  if (!str || typeof str !== 'string') return false;
+  const trimmed = str.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return false;
   try {
-    const res = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: { responseMimeType: 'application/json' },
-    });
-    const pojList = JSON.parse(res.text || '[]');
-    if (Array.isArray(pojList)) {
-      syllables.forEach((s, idx) => {
-        if (pojList[idx]) {
-          const m = song.measures[s.mIdx];
-          if (m && m.notes[s.nIdx]) {
-            m.notes[s.nIdx].lyric.poj = pojList[idx];
-          }
-        }
-      });
-      console.log(`✨ Successfully enriched ${syllables.length} lyric syllables with POJ.`);
-    }
-  } catch (err) {
-    console.warn('⚠️  Could not complete AI lyric enrichment:', err.message || err);
+    const parsed = JSON.parse(trimmed);
+    return Boolean(parsed && (parsed.measures || parsed.title));
+  } catch {
+    return false;
   }
+}
 
-  return song;
+function printAgentVisualGuidance(fileList) {
+  console.log(`
+📷 Visual Score File(s) Detected: ${fileList.join(', ')}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Visual sheet music (scanned images & PDF documents) are transcribed
+directly by the Antigravity Agent using its native multimodal vision tools.
+Zero external API calls or API keys are required!
+
+Agent Direct Transcription Workflow:
+  1. Inspect the score image or PDF using the agent's view_file tool.
+  2. Transcribe key (1=F), meter (4/4), measures, notes (pitch 1-7, 0,
+     durations, ties/slurs, chords), and lyrics.
+  3. Enrich Taiwanese Hokkien Hanlo with accurate Pe̍h-ōe-jī (POJ) tone diacritics.
+  4. Split into short, meaningful karaoke phrases (2-4 measures, 4-8 syllables).
+  5. Save as Song JSON and validate using:
+     node .agents/skills/sheet-music-to-json/scripts/validate-song-json.mjs <song.json>
+
+See .agents/skills/sheet-music-to-json/SKILL.md for complete instructions.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`);
+}
+
+function printAgentFreeformGuidance() {
+  console.log(`
+📝 Freeform Text Score Detected:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Unstructured text notation is transcribed directly by the Antigravity Agent
+without external API calls.
+
+Agent Workflow:
+  1. Inspect the score text directly.
+  2. Structure the score into the canonical format (see SKILL.md Section 2A)
+     or transcribe directly into Song JSON adhering to schema.json.
+  3. Validate with validate-song-json.mjs.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`);
 }
 
 /**
@@ -458,26 +361,18 @@ async function main() {
 
   let rawSong = null;
 
-  // 1. Direct text passed via --text / -t
+  // 1. Direct text passed via --text / -t / --json / -j
   if (options.directText) {
     const text = options.directText;
-    if (isStructuredAppText(text)) {
+    if (isJsonString(text)) {
+      console.log('📦 Detected direct Song JSON input. Sanitizing and formatting...');
+      rawSong = JSON.parse(text);
+    } else if (isStructuredAppText(text)) {
       console.log('📝 Detected structured app score text format. Parsing deterministically...');
       rawSong = parseStructuredTextScore(text, options);
     } else {
-      console.log('📝 Detected freeform text numbered notation. Transcribing with Gemini...');
-      if (!options.apiKey) {
-        console.error('Error: Gemini API key required for freeform text transcription. Set GEMINI_API_KEY.');
-        process.exit(1);
-      }
-      const ai = new GoogleGenAI({ apiKey: options.apiKey });
-      const prompt = buildTextTranscriptionPrompt(text, options);
-      const res = await ai.models.generateContent({
-        model: options.model,
-        contents: prompt,
-        config: { responseMimeType: 'application/json' },
-      });
-      rawSong = JSON.parse(res.text || '{}');
+      printAgentFreeformGuidance();
+      process.exit(1);
     }
   }
 
@@ -485,23 +380,15 @@ async function main() {
   else if (options.inputs.length === 1 && options.inputs[0] === '-') {
     console.log('📥 Reading score from standard input (stdin)...');
     const text = fs.readFileSync(0, 'utf-8');
-    if (isStructuredAppText(text)) {
+    if (isJsonString(text)) {
+      console.log('📦 Detected Song JSON from stdin. Sanitizing and formatting...');
+      rawSong = JSON.parse(text);
+    } else if (isStructuredAppText(text)) {
       console.log('📝 Detected structured app score text format. Parsing deterministically...');
       rawSong = parseStructuredTextScore(text, options);
     } else {
-      console.log('📝 Detected freeform text numbered notation. Transcribing with Gemini...');
-      if (!options.apiKey) {
-        console.error('Error: Gemini API key required for freeform text transcription. Set GEMINI_API_KEY.');
-        process.exit(1);
-      }
-      const ai = new GoogleGenAI({ apiKey: options.apiKey });
-      const prompt = buildTextTranscriptionPrompt(text, options);
-      const res = await ai.models.generateContent({
-        model: options.model,
-        contents: prompt,
-        config: { responseMimeType: 'application/json' },
-      });
-      rawSong = JSON.parse(res.text || '{}');
+      printAgentFreeformGuidance();
+      process.exit(1);
     }
   }
 
@@ -509,6 +396,12 @@ async function main() {
   else if (options.inputs.length > 0) {
     const firstInput = options.inputs[0];
     const ext = path.extname(firstInput).toLowerCase();
+
+    // Visual score guidance for images / PDF
+    if (SUPPORTED_IMAGE_EXTS.has(ext) || ext === '.pdf') {
+      printAgentVisualGuidance(options.inputs);
+      process.exit(0);
+    }
 
     // Verify all files exist
     for (const f of options.inputs) {
@@ -518,31 +411,30 @@ async function main() {
       }
     }
 
-    // A. Text file input
-    if (SUPPORTED_TEXT_EXTS.has(ext)) {
+    // A. JSON file input (e.g. draft from agent)
+    if (SUPPORTED_JSON_EXTS.has(ext)) {
+      console.log(`📦 Reading Song JSON from: ${firstInput}`);
+      const rawText = fs.readFileSync(firstInput, 'utf-8');
+      rawSong = JSON.parse(rawText);
+    }
+
+    // B. Text file input
+    else if (SUPPORTED_TEXT_EXTS.has(ext)) {
       console.log(`📄 Reading text score from: ${firstInput}`);
       const text = fs.readFileSync(firstInput, 'utf-8');
-      if (isStructuredAppText(text)) {
+      if (isJsonString(text)) {
+        console.log('📦 File contains Song JSON. Sanitizing and formatting...');
+        rawSong = JSON.parse(text);
+      } else if (isStructuredAppText(text)) {
         console.log('📝 Parsing structured notation deterministically...');
         rawSong = parseStructuredTextScore(text, options);
       } else {
-        console.log(`🤖 Freeform notation detected. Invoking Gemini model (${options.model})...`);
-        if (!options.apiKey) {
-          console.error('Error: Gemini API key required for freeform text transcription. Set GEMINI_API_KEY.');
-          process.exit(1);
-        }
-        const ai = new GoogleGenAI({ apiKey: options.apiKey });
-        const prompt = buildTextTranscriptionPrompt(text, options);
-        const res = await ai.models.generateContent({
-          model: options.model,
-          contents: prompt,
-          config: { responseMimeType: 'application/json' },
-        });
-        rawSong = JSON.parse(res.text || '{}');
+        printAgentFreeformGuidance();
+        process.exit(1);
       }
     }
 
-    // B. MIDI file input
+    // C. MIDI file input
     else if (SUPPORTED_MIDI_EXTS.has(ext)) {
       console.log(`🎹 Parsing Standard MIDI file: ${firstInput}`);
       const buf = fs.readFileSync(firstInput);
@@ -551,55 +443,8 @@ async function main() {
       console.log(`✨ Successfully extracted ${rawSong.measures.length} measures from MIDI!`);
     }
 
-    // C. Images or PDF
-    else if (SUPPORTED_IMAGE_EXTS.has(ext) || ext === '.pdf') {
-      if (!options.apiKey) {
-        console.error('Error: Gemini API key required for vision transcription. Set GEMINI_API_KEY or pass --api-key <key>.');
-        process.exit(1);
-      }
-
-      console.log(`\n🎵 Transcribing ${options.inputs.length} visual score file(s)...`);
-      const ai = new GoogleGenAI({ apiKey: options.apiKey });
-      let hasPdf = false;
-
-      const contentParts = options.inputs.map(filePath => {
-        const mimeType = getMimeType(filePath);
-        if (mimeType === 'application/pdf') hasPdf = true;
-        const fileBuffer = fs.readFileSync(filePath);
-        return {
-          inlineData: {
-            data: fileBuffer.toString('base64'),
-            mimeType,
-          },
-        };
-      });
-
-      const promptText = buildVisionTranscriptionPrompt(options.inputs.length, hasPdf, options);
-      contentParts.push({ text: promptText });
-
-      console.log(`🤖 Invoking Gemini Vision model (${options.model})...`);
-      const response = await ai.models.generateContent({
-        model: options.model,
-        contents: contentParts,
-        config: { responseMimeType: 'application/json' },
-      });
-
-      const text = response.text || '{}';
-      try {
-        rawSong = JSON.parse(text);
-      } catch (parseErr) {
-        const match = text.match(/\{[\s\S]*\}/);
-        if (match) {
-          rawSong = JSON.parse(match[0]);
-        } else {
-          console.error('Failed to parse model output as JSON:', text);
-          process.exit(1);
-        }
-      }
-    }
-
     else {
-      console.error(`Error: Unsupported file type: "${ext}". Supported: Text (.txt, .md), MIDI (.mid), Images (.png, .jpg), PDF (.pdf).`);
+      console.error(`Error: Unsupported file type: "${ext}". Supported: Text (.txt, .md), MIDI (.mid), JSON (.json).`);
       process.exit(1);
     }
   }
@@ -609,16 +454,10 @@ async function main() {
     process.exit(1);
   }
 
-  // Optional AI Lyric Enrichment
-  if (options.aiEnrich && options.apiKey) {
-    const ai = new GoogleGenAI({ apiKey: options.apiKey });
-    rawSong = await enrichSongLyricsWithAI(rawSong, ai, options.model);
-  }
-
   // Sanitize and normalize
   const { song, rhythmWarnings, autoFixedMeasures, expectedBeats } = sanitizeAndFormatSong(rawSong, options);
 
-  const cleanTitle = song.title.replace(/[\\/:*?"<>| ]+/g, '_');
+  const cleanTitle = (song.title || 'untitled').replace(/[\\/:*?"<>| ]+/g, '_');
   const outputPath = options.output || `${cleanTitle}.taigi.json`;
   fs.writeFileSync(outputPath, JSON.stringify(song, null, 2), 'utf-8');
 

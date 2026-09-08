@@ -5,8 +5,9 @@
 - **Static Export & API Routes**: GitHub Actions builds with `STATIC_EXPORT=true` (`output: 'export'`). Never set `export const dynamic = 'force-dynamic'` on route handlers (use `force-static` for `/api/gemini/auth-status` and avoid dynamic flags on POST routes) to prevent static export build failures.
 
 ## Agent Skills
-- **`sheet-music-to-json`**: Located at `.agents/skills/sheet-music-to-json/` (and `.agents/sheet-music-to-json/`). Converts musical sheet images (PNG, JPG, WEBP) or PDF documents into the app's standard Song JSON format (`*.taigi.json`).
-  - Run converter: `node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs <file-or-files> [options]`
+- **`sheet-music-to-json`**: Located at `.agents/skills/sheet-music-to-json/` (and `.agents/sheet-music-to-json/`). Converts musical scores and notations (Text, MIDI, Images, PDF) into the app's standard Song JSON format (`*.taigi.json`) with zero external API calls.
+  - Visual sheet images & PDF documents: Handled directly by the agent via native multimodal vision tools.
+  - Run converter (structured text & MIDI, or JSON sanitizer): `node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs <file-or-files> [options]`
   - Run validator: `node .agents/skills/sheet-music-to-json/scripts/validate-song-json.mjs <song.json>`
   - Documentation: See `.agents/skills/sheet-music-to-json/SKILL.md`
 

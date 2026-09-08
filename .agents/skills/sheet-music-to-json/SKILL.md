@@ -16,20 +16,19 @@ This skill enables agents and automated workflows to take musical scores from di
 ## 1. Quick Start
 
 ### Supported Input Modalities
-1. **Text-Based Numbered Notation with Lyrics (`.txt`, `.md`, `--text`, `stdin`)**:
-   - **Canonical App Text Format**: Deterministic, zero-cost, instant parser (`text-parser.mjs`).
-   - **Freeform / Markdown Notation**: AI-powered transcription via Gemini.
-2. **Standard MIDI Files (`.mid`, `.midi`)**:
-   - Parses note pitches, scale degrees (1–7), metric note durations, rests, tempo, time signature, markers, and embedded lyrics deterministically.
-   - Optional `--ai-enrich` generates authentic Taiwanese Pe̍h-ōe-jī (POJ) tone diacritics.
-3. **Scanned Sheet Images (`.png`, `.jpg`, `.jpeg`, `.webp`)**:
-   - Multimodal Gemini Vision transcription with chronological measure sequencing.
-4. **PDF Score Documents (`.pdf`)**:
-   - Native multi-page document transcription.
+1. **Visual Sheet Music (Scanned Images & Multi-Page PDFs)**:
+   - Formats: `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.pdf`
+   - **Direct Agent Multimodal Handling**: The Antigravity Agent inspects the images/PDF directly using its native `view_file` tool and transcribes the score into Song JSON adhering strictly to `schema.json`. Zero external API calls or API keys are required.
+2. **Text-Based Numbered Notation with Lyrics (`.txt`, `.md`, `--text`, `stdin`)**:
+   - **Canonical App Text Format**: Deterministic, offline, zero-cost parser (`convert-sheet.mjs`).
+   - **Freeform / Markdown Notation**: Direct Agent handling without external API calls.
+3. **Standard MIDI Files (`.mid`, `.midi`)**:
+   - Deterministic offline extraction of note pitches, scale degrees (1–7), note durations, rests, tempo, time signature, markers, and embedded lyrics via `convert-sheet.mjs`.
+   - Direct Agent lyric enrichment: The Agent directly adds authentic Taiwanese Pe̍h-ōe-jī (POJ) tone diacritics to lyrics without external API calls.
 
 ### CLI Usage Examples
 ```bash
-# 1. Text-based numbered notation with lyrics:
+# 1. Text-based numbered notation with lyrics (canonical format):
 node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs score.txt -o my_song.taigi.json
 
 # Piped text from standard input:
@@ -40,14 +39,12 @@ node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs --text "Title:
 
 # 2. Standard MIDI file conversion:
 node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs track.mid --auto-fix-rhythm -o song.taigi.json
-node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs track.mid --ai-enrich -o song_with_poj.taigi.json
 
-# 3. Sheet music images & PDF documents:
-node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs score.pdf -o hymn.taigi.json
-node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs page1.png page2.png --key F --time 4/4
+# 3. Sanitize and balance draft Song JSON (e.g. created by Agent transcription):
+node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs draft.json --auto-fix-rhythm -o final.taigi.json
 
 # 4. Validate output against the app schema and import test:
-node .agents/skills/sheet-music-to-json/scripts/validate-song-json.mjs ./my_song.taigi.json
+node .agents/skills/sheet-music-to-json/scripts/validate-song-json.mjs ./final.taigi.json
 ```
 
 ---
@@ -95,9 +92,16 @@ The parser extracts:
 - Captures track lyrics (meta 0x05) and markers (meta 0x06) and pairs them with notes.
 - Use `--auto-fix-rhythm` to automatically pad any incomplete measure with rest notes.
 
-### C. Visual Scores (Images & PDF)
-- Uses Gemini Vision (`gemini-2.5-flash` or `gemini-3.1-pro-preview`).
-- Accurately reads key signatures (`1=F`), meter (`4/4`, `3/4`), slurs, ties, grace notes, chords, and bilingual lyrics.
+### C. Visual Scores (Images & PDF) - Direct Agent Handling
+The Antigravity Agent inspects sheet music files directly without calling any external APIs:
+1. **View Image or PDF**: The agent invokes `view_file` on the score image (`.png`, `.jpg`, `.webp`) or `.pdf`.
+2. **Decode Notation Elements**:
+   - Header: title, subtitle, composer, lyricist, key signature (e.g. `1=F`), time signature (`4/4`, `3/4`), tempo (BPM).
+   - Systems & Measures: barlines, measure numbers, chords above numbers (`F`, `C7`, `Dm`), section markers (`前奏`, `主歌`, `副歌`).
+   - Notes: scale degree pitches (`1` to `7`), rests (`0`), octave dots (above: `1, 2`, below: `-1, -2`), durations (`4`, `2`, `1`, `0.5`, `0.25`), dots, ties, and slurs.
+   - Taiwanese Hokkien Lyrics: aligns each syllable to its note, transcribing traditional characters into `hanlo` and authentic Church Romanization with tone marks into `poj`.
+3. **Format to Song JSON**: Emits compliant Song JSON matching the schema below.
+4. **Sanitize & Validate**: The agent runs `validate-song-json.mjs` (and optionally `convert-sheet.mjs --auto-fix-rhythm` to balance measure beats).
 
 ---
 
@@ -192,7 +196,7 @@ Use `--auto-fix-rhythm` to automatically insert padding rests into any measure t
 
 ### D. Lyrics Extraction (Taigi / Taiwanese Hokkien)
 - Transcribe **both** `hanlo` (漢字/漢羅) and `poj` (白話字/Pe̍h-ōe-jī).
-- If original lyrics only have Chinese characters, the `--ai-enrich` flag generates accurate corresponding POJ Romanization with official tone diacritics.
+- The Agent directly provides both `hanlo` (漢字/漢羅) and accurate `poj` (白話字) with official tone diacritics using its Taiwanese Hokkien linguistic knowledge, without calling external APIs.
 - For notes that continue a sustained syllable under a tie or slur, set `lyric: { hanlo: "—", poj: "—" }` or `{}`.
 
 ### E. Verse & Phrase Segmentation for Karaoke Readability (Short While Meaningful)
@@ -219,20 +223,34 @@ To deliver an optimal singing and reading experience, **the skill must split ver
 
 ## 5. Workflow: From Score File to In-App Playback
 
-1. **Step 1**: Place your file in the workspace (Text, MIDI, Images, or PDF).
-2. **Step 2**: Run the conversion script:
+### Workflow A: Visual Sheet Music (Images & PDF) and Freeform Text (Direct Agent Handling)
+1. **Step 1 - Inspect**: The Agent inspects the visual score or freeform score directly using `view_file`.
+2. **Step 2 - Transcribe**: The Agent decodes key, meter, measures, Numbered Notation pitch numbers, durations, ties/slurs, and bilingual lyrics (Hanlo + POJ tone marks), structuring karaoke phrases.
+3. **Step 3 - Write & Balance**: The Agent writes the Song JSON directly, or passes draft JSON through the sanitizer to auto-pad deficit measures:
    ```bash
-   node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs ./input-file.txt -o ./my-song.taigi.json
+   node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs draft.json --auto-fix-rhythm -o my-song.taigi.json
+   ```
+4. **Step 4 - Validate**:
+   ```bash
+   node .agents/skills/sheet-music-to-json/scripts/validate-song-json.mjs ./my-song.taigi.json
+   ```
+
+### Workflow B: Structured Text & Standard MIDI Files (Deterministic Local CLI)
+1. **Step 1**: Place your canonical structured text score (`.txt`) or Standard MIDI file (`.mid`) in the workspace.
+2. **Step 2**: Run the deterministic conversion script:
+   ```bash
+   node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs ./track.mid --auto-fix-rhythm -o ./my-song.taigi.json
    ```
 3. **Step 3**: Verify with the validator:
    ```bash
    node .agents/skills/sheet-music-to-json/scripts/validate-song-json.mjs ./my-song.taigi.json
    ```
-4. **Step 4**: Import into the application:
-   - In the web app, click **"Library / Import"** in the top navigation bar.
-   - Switch to the **"Import"** tab.
-   - Click **"Choose File"** and select `my-song.taigi.json` (or paste its content).
-   - The song is automatically loaded into the **Interactive Score Editor**, **Virtual Piano Keyboard**, **Rehearsal Stage**, and **Karaoke Prompter**.
+
+### Step 4: Import into the Application
+- In the web app, click **"Library / Import"** in the top navigation bar.
+- Switch to the **"Import"** tab.
+- Click **"Choose File"** and select `my-song.taigi.json` (or paste its content).
+- The song is automatically loaded into the **Interactive Score Editor**, **Virtual Piano Keyboard**, **Rehearsal Stage**, and **Karaoke Prompter**.
 
 ---
 
@@ -242,17 +260,17 @@ To deliver an optimal singing and reading experience, **the skill must split ver
 .agents/skills/sheet-music-to-json/
 ├── SKILL.md                          # Main skill documentation
 ├── scripts/
-│   ├── convert-sheet.mjs             # Multi-format CLI converter (Text, MIDI, Images, PDF)
+│   ├── convert-sheet.mjs             # CLI converter (Text, MIDI) & JSON sanitizer/rhythm balancer
 │   ├── midi-parser.mjs               # Standard MIDI file parser & scale-degree mapper
-│   ├── text-parser.mjs               # Structured & freeform text score parser
-│   └── validate-song-json.mjs        # Schema & app import validator
+│   ├── text-parser.mjs               # Structured text score parser & prompt specification
+│   └── validate-song-json.mjs        # Schema, rhythm & karaoke readability validator
 ├── resources/
 │   ├── schema.json                   # Formal Song JSON Schema
 │   └── taigi-notation-reference.md   # Music theory, notation & multi-format reference
 └── examples/
     ├── sample-output.taigi.json      # Complete, verified example of "望春風"
     ├── sample-numbered-notation.txt  # Human-readable structured text score example
-    └── sample-prompt.txt             # Multimodal prompt template for vision models
+    └── sample-prompt.txt             # Agent transcription reference & prompt specification
 ```
 
 ---
@@ -260,7 +278,7 @@ To deliver an optimal singing and reading experience, **the skill must split ver
 ## 7. Troubleshooting & FAQ
 
 - **Q: What if the score is in Western 5-line staff notation rather than Numbered Notation?**
-  - The conversion script instructs the vision model to transcribe pitch degrees and key signatures into Numbered Notation representation relative to the detected key. For example, in Key F, note F4 maps to pitch `1`, G4 to `2`, A4 to `3`, Bb4 to `4`, C5 to `5`, etc.
+  - The Agent transcribes pitch degrees and key signatures into Numbered Notation representation relative to the detected key. For example, in Key F, note F4 maps to pitch `1`, G4 to `2`, A4 to `3`, Bb4 to `4`, C5 to `5`, etc.
 - **Q: What if a PDF has multiple songs?**
   - Extract only the relevant page range before converting, or pass individual page images to avoid combining separate songs into one.
 - **Q: Rhythm Warning on pickup measures?**

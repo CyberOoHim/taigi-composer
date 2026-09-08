@@ -140,17 +140,17 @@ The conversion tool (`convert-sheet.mjs`) supports four primary input modalities
    羅馬字: To̍k iā bô phōaⁿ siú
    漢羅: 獨 夜 無 伴 守
    ```
-2. **Freeform / Markdown / ASCII Notation** (AI-powered):
-   Accepts arbitrary text sheets such as `1=F 4/4 | 5. 6 1 2 | 3 - 2 1 | 獨夜無伴守燈下`. Gemini transcribes and aligns lyrics automatically.
+2. **Freeform / Markdown / ASCII Notation** (Direct Agent Handling):
+   Accepts arbitrary text sheets such as `1=F 4/4 | 5. 6 1 2 | 3 - 2 1 | 獨夜無伴守燈下`. The Antigravity Agent directly reads, structures, and transcribes notes and aligns lyrics without external API calls.
 
 ### B. Standard MIDI Files (.mid, .midi)
-- Automatically parses Format 0 and Format 1 MIDI files.
+- Automatically parses Format 0 and Format 1 MIDI files deterministically offline.
 - Computes scale degrees (1–7) based on Key signature and converts note-on/note-off ticks to metric note durations.
 - Automatically inserts rest notes (`pitch: 0`) for gaps between notes.
 - Extracts track lyrics (Meta event 0x05) and markers (Meta event 0x06).
-- Supports `--ai-enrich` to generate accurate Pe̍h-ōe-jī (POJ) Romanization for extracted lyrics.
+- The Agent directly enriches extracted lyrics with authentic Pe̍h-ōe-jī (POJ) Romanization tone diacritics.
 
 ### C. Sheet Images (.png, .jpg, .webp) & PDF (.pdf)
-- Multimodal Gemini Vision transcription with multi-page sequencing and strict schema validation.
-- Auto-detects key signatures, barlines, chords, grace notes, and Taigi lyrics.
+- Direct Multimodal Agent Vision transcription with multi-page sequencing and strict schema validation.
+- Auto-detects key signatures, barlines, chords, grace notes, and Taigi lyrics directly without external API calls.
 

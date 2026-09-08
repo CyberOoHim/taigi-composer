@@ -245,7 +245,8 @@ export function parseStructuredTextScore(text, options = {}) {
 }
 
 /**
- * Generate Gemini prompt for unstructured or freeform text numbered notation with lyrics
+ * Guideline and prompt specification for direct agent transcription of unstructured
+ * or freeform text numbered notation with lyrics.
  */
 export function buildTextTranscriptionPrompt(rawText, options = {}) {
   return `You are an expert Taiwanese Hokkien (Taigi / 臺語) music theorist, Numbered Musical Notation (簡譜) transcriber, and lyric editor.
