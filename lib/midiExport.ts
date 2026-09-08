@@ -15,12 +15,20 @@ import {
   isTieActive,
 } from './taigiUtils';
 
+export type MidiLyricMode = 'hanlo' | 'poj' | 'both' | 'none';
+
 export interface MidiExportOptions {
   includeAccompaniment?: boolean;
-  lyricType?: 'hanlo' | 'poj' | 'none';
+  lyricType?: MidiLyricMode;
   instrument?: InstrumentType;
   tempoBpm?: number;
   transpose?: number;
+  format?: 'mid' | 'kar';
+  includeKaraokeTrack?: boolean;
+  includeMelodyLyrics?: boolean;
+  includeTextEvents?: boolean;
+  addTune1000Header?: boolean;
+  smartRomanSpacing?: boolean;
 }
 
 /** Standard MIDI pulses per quarter note (ticks per beat) */
@@ -226,7 +234,216 @@ function buildConductorTrack(song: Song, options: MidiExportOptions): number[] {
 }
 
 /**
- * Create Track 1 (Melody & Vocal line with lyrics and articulations):
+ * Extract and normalize lyric text from a note according to the selected mode,
+ * with graceful fallback so no syllables are dropped if only one dialect is populated.
+ */
+export function extractNoteLyric(
+  note: NumberedNotationNote,
+  mode: MidiLyricMode
+): { text: string; rawHanlo: string; rawPoj: string; isLineBreak: boolean } {
+  if (mode === 'none' || !note.lyric) {
+    return { text: '', rawHanlo: '', rawPoj: '', isLineBreak: false };
+  }
+
+  const rawHanlo = (note.lyric.hanlo || note.lyric.custom || note.lyric.hanji || '').trim();
+  const rawPoj = (note.lyric.poj || note.lyric.tl || '').trim();
+
+  // Detect explicit \n in lyric syllables
+  const isLineBreak =
+    note.lyric.hanlo === '\n' ||
+    note.lyric.poj === '\n' ||
+    note.lyric.custom === '\n' ||
+    note.lyric.hanji === '\n';
+
+  if (isLineBreak) {
+    return { text: '', rawHanlo, rawPoj, isLineBreak: true };
+  }
+
+  let text = '';
+  if (mode === 'hanlo') {
+    text = rawHanlo || rawPoj;
+  } else if (mode === 'poj') {
+    text = rawPoj || rawHanlo;
+  } else if (mode === 'both') {
+    if (rawHanlo && rawPoj && rawHanlo !== rawPoj) {
+      text = `${rawHanlo} (${rawPoj})`;
+    } else {
+      text = rawHanlo || rawPoj;
+    }
+  }
+
+  return { text, rawHanlo, rawPoj, isLineBreak: false };
+}
+
+/**
+ * Format a syllable for standard MIDI Karaoke (.kar / Tune 1000) players:
+ * - \ prefix indicates start of a new verse/paragraph
+ * - / prefix indicates start of a new line
+ * - Leading space for separated Roman words
+ */
+export function formatKaraokeSyllable(
+  text: string,
+  mode: MidiLyricMode,
+  isFirstOfVerse: boolean,
+  isFirstOfLine: boolean,
+  prevEndedWithHyphen: boolean
+): string {
+  if (!text) return '';
+
+  if (isFirstOfVerse) {
+    return `\\${text}`;
+  }
+  if (isFirstOfLine) {
+    return `/${text}`;
+  }
+
+  if (mode === 'poj') {
+    // If not continuing a hyphenated word, prepend space for English/Roman word separation
+    if (!text.startsWith('-') && !prevEndedWithHyphen) {
+      return ` ${text}`;
+    }
+  }
+
+  return text;
+}
+
+/**
+ * Create Dedicated Karaoke / Words Track (Track 1 in MIDI Karaoke .kar files):
+ * Recognized by vanBasco's Karaoke Player, Karaoke 5, KarFun, and media players.
+ * Emits Tune 1000 header tags (@KMIDI, @V, @T) and synchronized Text/Lyric events.
+ */
+function buildKaraokeWordsTrack(song: Song, options: MidiExportOptions): number[] {
+  const events: TimedMidiEvent[] = [];
+  const lyricType = options.lyricType || 'hanlo';
+
+  // 1. Track Name: "Words" (standard identifier for MIDI karaoke players)
+  const trackName = stringToBytes('Words');
+  events.push({
+    tick: 0,
+    priority: 0,
+    data: [0xff, 0x03, ...writeVLQ(trackName.length), ...trackName],
+  });
+
+  // 2. Tune 1000 MIDI Karaoke Header Events (tick 0, Text Event 0xFF 0x01)
+  if (options.addTune1000Header ?? true) {
+    const headerTags = [
+      '@KMIDI KARAOKE FILE',
+      '@V0100',
+      `@I Taigi Numbered Notation Score`,
+      `@T${song.title || 'Untitled'}`,
+      `@T${song.composer ? `Music: ${song.composer}` : 'Taigi Traditional'}`,
+      ...(song.lyricist ? [`@T${`Lyrics: ${song.lyricist}`}`] : []),
+      `@TKey: 1=${song.key} | Meter: ${song.timeSignature} | BPM: ${song.bpm}`,
+    ];
+
+    for (const tag of headerTags) {
+      const tagBytes = stringToBytes(tag);
+      events.push({
+        tick: 0,
+        priority: 0,
+        data: [0xff, 0x01, ...writeVLQ(tagBytes.length), ...tagBytes],
+      });
+    }
+  }
+
+  let currentTick = 0;
+  let isNextVerse = true;
+  let isNextLine = false;
+  let lastSectionName = '';
+  let prevEndedWithHyphen = false;
+
+  for (let mIdx = 0; mIdx < song.measures.length; mIdx++) {
+    const measure = song.measures[mIdx];
+
+    if (measure.section && measure.section.trim()) {
+      const secTrimmed = measure.section.trim();
+      if (secTrimmed !== lastSectionName) {
+        lastSectionName = secTrimmed;
+        isNextVerse = true;
+      }
+    }
+
+    const notes = measure.notes || [];
+
+    for (let nIdx = 0; nIdx < notes.length; nIdx++) {
+      const note = notes[nIdx];
+
+      if (note.pitch === 'empty' || isNonNotationItem(note) || (typeof note.duration === 'number' && note.duration <= 0)) {
+        if (
+          note.lyric?.hanlo === '\n' ||
+          note.lyric?.poj === '\n' ||
+          note.lyric?.custom === '\n' ||
+          note.lyric?.hanji === '\n'
+        ) {
+          isNextLine = true;
+        }
+        continue;
+      }
+
+      const noteDurationBeats = typeof note.duration === 'number' ? note.duration : 1;
+      const noteTicks = Math.round(noteDurationBeats * TICKS_PER_BEAT);
+
+      const prevNote = nIdx > 0 ? notes[nIdx - 1] : mIdx > 0 ? song.measures[mIdx - 1]?.notes?.slice(-1)[0] : null;
+      const isContinuationOfTie = isTieActive(prevNote, note);
+
+      if (isContinuationOfTie) {
+        currentTick += noteTicks;
+        continue;
+      }
+
+      const { text, rawPoj, isLineBreak } = extractNoteLyric(note, lyricType);
+
+      if (isLineBreak) {
+        isNextLine = true;
+        currentTick += noteTicks;
+        continue;
+      }
+
+      if (text && text.trim()) {
+        const syllableFormatted = formatKaraokeSyllable(
+          text.trim(),
+          lyricType,
+          isNextVerse,
+          isNextLine,
+          prevEndedWithHyphen
+        );
+
+        isNextVerse = false;
+        isNextLine = false;
+        prevEndedWithHyphen = rawPoj.endsWith('-') || text.endsWith('-');
+
+        const sylBytes = stringToBytes(syllableFormatted);
+
+        // Text Event (0xFF 0x01) - read by vanBasco and players
+        events.push({
+          tick: currentTick,
+          priority: 0,
+          data: [0xff, 0x01, ...writeVLQ(sylBytes.length), ...sylBytes],
+        });
+
+        // Lyric Event (0xFF 0x05)
+        events.push({
+          tick: currentTick,
+          priority: 0,
+          data: [0xff, 0x05, ...writeVLQ(sylBytes.length), ...sylBytes],
+        });
+      }
+
+      currentTick += noteTicks;
+    }
+
+    if (measure.isLineBreak) {
+      isNextLine = true;
+    }
+  }
+
+  return buildTrackChunk(events);
+}
+
+/**
+ * Create Track (Melody & Vocal line with note-aligned lyrics and articulations):
+ * Includes standard Lyric events (0xFF 0x05) directly on notes for DAWs and notation software
+ * (MuseScore, Logic Pro, GarageBand, Cubase, Sibelius, Synthesizer V, Vocaloid).
  */
 function buildMelodyTrack(song: Song, options: MidiExportOptions): number[] {
   const events: TimedMidiEvent[] = [];
@@ -251,6 +468,7 @@ function buildMelodyTrack(song: Song, options: MidiExportOptions): number[] {
 
   const transpose = options.transpose || 0;
   const lyricType = options.lyricType || 'hanlo';
+  const includeMelodyLyrics = options.includeMelodyLyrics ?? true;
 
   // Flatten notes across measures with measure markers
   let currentTick = 0;
@@ -282,12 +500,10 @@ function buildMelodyTrack(song: Song, options: MidiExportOptions): number[] {
       const noteTicks = Math.round(noteDurationBeats * TICKS_PER_BEAT);
 
       // Check if this note is the destination of a continuous tie from the previous note
-      // If previous note tied to this one with the same pitch, the Note On was already extended
       const prevNote = nIdx > 0 ? notes[nIdx - 1] : mIdx > 0 ? song.measures[mIdx - 1]?.notes?.slice(-1)[0] : null;
       const isContinuationOfTie = isTieActive(prevNote, note);
 
       if (isContinuationOfTie) {
-        // Just advance time because the previous note sustains through this note's duration
         currentTick += noteTicks;
         continue;
       }
@@ -320,24 +536,6 @@ function buildMelodyTrack(song: Song, options: MidiExportOptions): number[] {
 
       const totalSustainedTicks = Math.round(totalSustainedBeats * TICKS_PER_BEAT);
 
-      // Lyric meta event at the start of this note
-      if (lyricType !== 'none') {
-        let lyricText = '';
-        if (lyricType === 'hanlo') {
-          lyricText = note.lyric?.hanlo || note.lyric?.custom || note.lyric?.hanji || '';
-        } else if (lyricType === 'poj') {
-          lyricText = note.lyric?.poj || note.lyric?.tl || '';
-        }
-        if (lyricText && lyricText.trim()) {
-          const lyricBytes = stringToBytes(lyricText.trim());
-          events.push({
-            tick: currentTick,
-            priority: 0,
-            data: [0xff, 0x05, ...writeVLQ(lyricBytes.length), ...lyricBytes],
-          });
-        }
-      }
-
       // Pitch calculation
       const midiPitch = calculateMidiNote(
         song.key,
@@ -347,37 +545,56 @@ function buildMelodyTrack(song: Song, options: MidiExportOptions): number[] {
         transpose
       );
 
-      if (midiPitch !== null) {
-        // Check for pre-grace notes
-        const preGrace = (note.preGraceNotes || []).slice(0, 3);
-        const graceTicksPerNote = 60; // 32nd note duration
-        const totalGraceTicks = preGrace.length * graceTicksPerNote;
+      const preGrace = (note.preGraceNotes || []).slice(0, 3);
+      const graceTicksPerNote = 60;
+      const totalGraceTicks = preGrace.length * graceTicksPerNote;
+      let startMainTick = currentTick;
 
-        let startMainTick = currentTick;
+      if (midiPitch !== null && preGrace.length > 0 && totalSustainedTicks > totalGraceTicks + 60) {
+        preGrace.forEach((g: GraceNote, gIdx: number) => {
+          const gPitch = calculateMidiNote(song.key, g.pitch, g.octave || 0, g.accidental || '', transpose);
+          if (gPitch !== null) {
+            const gStart = currentTick + gIdx * graceTicksPerNote;
+            const gEnd = gStart + graceTicksPerNote;
+            events.push({
+              tick: gStart,
+              priority: 3,
+              data: [0x90 | channel, gPitch, 80],
+            });
+            events.push({
+              tick: gEnd,
+              priority: 1,
+              data: [0x80 | channel, gPitch, 0],
+            });
+          }
+        });
+        startMainTick = currentTick + totalGraceTicks;
+      }
 
-        if (preGrace.length > 0 && totalSustainedTicks > totalGraceTicks + 60) {
-          preGrace.forEach((g: GraceNote, gIdx: number) => {
-            const gPitch = calculateMidiNote(song.key, g.pitch, g.octave || 0, g.accidental || '', transpose);
-            if (gPitch !== null) {
-              const gStart = currentTick + gIdx * graceTicksPerNote;
-              const gEnd = gStart + graceTicksPerNote;
-              // Note On
-              events.push({
-                tick: gStart,
-                priority: 3,
-                data: [0x90 | channel, gPitch, 80],
-              });
-              // Note Off
-              events.push({
-                tick: gEnd,
-                priority: 1,
-                data: [0x80 | channel, gPitch, 0],
-              });
-            }
+      // Note-attached Lyric meta events (0xFF 0x05 & 0xFF 0x01) directly at main note onset
+      if (lyricType !== 'none' && includeMelodyLyrics) {
+        const { text, isLineBreak } = extractNoteLyric(note, lyricType);
+        if (!isLineBreak && text && text.trim()) {
+          const cleanSyllable = text.trim();
+          const lyricBytes = stringToBytes(cleanSyllable);
+
+          // Standard Lyric Event (0xFF 0x05) for notation / DAW engines (MuseScore, Logic Pro, SynthV)
+          events.push({
+            tick: startMainTick,
+            priority: 0,
+            data: [0xff, 0x05, ...writeVLQ(lyricBytes.length), ...lyricBytes],
           });
-          startMainTick = currentTick + totalGraceTicks;
-        }
 
+          // Also Text Event (0xFF 0x01) for engines that read text events
+          events.push({
+            tick: startMainTick,
+            priority: 0,
+            data: [0xff, 0x01, ...writeVLQ(lyricBytes.length), ...lyricBytes],
+          });
+        }
+      }
+
+      if (midiPitch !== null) {
         // Articulation velocity & gate adjustment
         let velocity = 92;
         let gateRatio = 0.94;
@@ -418,7 +635,7 @@ function buildMelodyTrack(song: Song, options: MidiExportOptions): number[] {
 }
 
 /**
- * Create Track 2 (Chord Accompaniment track on Channel 1):
+ * Create Track (Chord Accompaniment track on Channel 1):
  */
 function buildAccompanimentTrack(song: Song, options: MidiExportOptions): number[] {
   const events: TimedMidiEvent[] = [];
@@ -432,7 +649,7 @@ function buildAccompanimentTrack(song: Song, options: MidiExportOptions): number
     data: [0xff, 0x03, ...writeVLQ(trackName.length), ...trackName],
   });
 
-  // Program Change: Acoustic Grand Piano (0) or Nylon Guitar (24)
+  // Program Change: Acoustic Grand Piano (0)
   events.push({
     tick: 0,
     priority: 2,
@@ -443,7 +660,6 @@ function buildAccompanimentTrack(song: Song, options: MidiExportOptions): number
   let currentTick = 0;
 
   for (const measure of song.measures) {
-    // Measure beat calculation
     let measureBeats = 0;
     for (const n of measure.notes) {
       if (!isNonNotationItem(n) && n.pitch !== 'empty' && typeof n.duration === 'number' && n.duration > 0) {
@@ -468,13 +684,11 @@ function buildAccompanimentTrack(song: Song, options: MidiExportOptions): number
           const chordEndTick = chordStartTick + Math.round(ticksPerChord * 0.9);
 
           for (const pitch of chordMidiNotes) {
-            // Note On
             events.push({
               tick: chordStartTick,
               priority: 3,
               data: [0x90 | channel, pitch, 68],
             });
-            // Note Off
             events.push({
               tick: chordEndTick,
               priority: 1,
@@ -493,15 +707,29 @@ function buildAccompanimentTrack(song: Song, options: MidiExportOptions): number
 
 /**
  * Generate a complete Standard MIDI File (Format 1) as a Uint8Array.
+ * If lyrics are enabled, embeds both a dedicated "Words" track (for karaoke players like vanBasco)
+ * and note-level Lyric events (for DAWs and score notation editors).
  */
 export function exportSongToMidi(song: Song, options: MidiExportOptions = {}): Uint8Array {
   const includeAccomp = options.includeAccompaniment ?? true;
+  const lyricType = options.lyricType || 'hanlo';
+  const includeKaraoke = (options.includeKaraokeTrack ?? true) && lyricType !== 'none';
 
   // Track chunks
   const conductorTrack = buildConductorTrack(song, options);
-  const melodyTrack = buildMelodyTrack(song, options);
-  const tracks: number[][] = [conductorTrack, melodyTrack];
+  const tracks: number[][] = [conductorTrack];
 
+  // Dedicated Karaoke Words Track (Format 1 Track 1)
+  if (includeKaraoke) {
+    const wordsTrack = buildKaraokeWordsTrack(song, options);
+    tracks.push(wordsTrack);
+  }
+
+  // Vocal / Melody Track with note events and note-attached lyric events
+  const melodyTrack = buildMelodyTrack(song, options);
+  tracks.push(melodyTrack);
+
+  // Accompaniment Track
   if (includeAccomp) {
     const accompTrack = buildAccompanimentTrack(song, options);
     tracks.push(accompTrack);
@@ -535,25 +763,86 @@ export function exportSongToMidi(song: Song, options: MidiExportOptions = {}): U
 /**
  * Create a downloadable Blob of the exported MIDI file.
  */
-export function createMidiBlob(midiBytes: Uint8Array): Blob {
-  return new Blob([midiBytes.buffer as ArrayBuffer], { type: 'audio/midi' });
+export function createMidiBlob(midiBytes: Uint8Array, mimeType: string = 'audio/midi'): Blob {
+  return new Blob([midiBytes.buffer as ArrayBuffer], { type: mimeType });
 }
 
 /**
- * Directly trigger a browser download for the song as a .mid file.
+ * Directly trigger a browser download for the song as a .mid or .kar file.
  */
 export function downloadMidiFile(song: Song, options: MidiExportOptions = {}): void {
+  const isKar = options.format === 'kar';
   const midiBytes = exportSongToMidi(song, options);
-  const blob = createMidiBlob(midiBytes);
+  const mimeType = isKar ? 'audio/midi-karaoke' : 'audio/midi';
+  const blob = createMidiBlob(midiBytes, mimeType);
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   const cleanTitle = (song.title || 'Untitled')
     .replace(/[\\/:*?"<>|]/g, '_')
     .replace(/\s+/g, '_');
-  link.download = `${cleanTitle}.mid`;
+  const ext = isKar ? 'kar' : 'mid';
+  link.download = `${cleanTitle}.${ext}`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Analyze a song's lyrics structure for previewing synchronized MIDI output in the UI.
+ */
+export interface SongMidiLyricsSummary {
+  totalSyllables: number;
+  measuresWithLyrics: number;
+  hasLineBreaks: boolean;
+  hasSections: boolean;
+  previewLines: Array<{
+    measureNumber: number;
+    section?: string;
+    text: string;
+  }>;
+}
+
+export function getSongMidiLyricsSummary(
+  song: Song,
+  lyricType: MidiLyricMode = 'hanlo'
+): SongMidiLyricsSummary {
+  let totalSyllables = 0;
+  let measuresWithLyrics = 0;
+  let hasLineBreaks = false;
+  let hasSections = false;
+  const previewLines: Array<{ measureNumber: number; section?: string; text: string }> = [];
+
+  song.measures.forEach((measure, mIdx) => {
+    if (measure.section) hasSections = true;
+    if (measure.isLineBreak) hasLineBreaks = true;
+
+    const measureSyllables: string[] = [];
+    (measure.notes || []).forEach(note => {
+      const { text, isLineBreak } = extractNoteLyric(note, lyricType);
+      if (isLineBreak) hasLineBreaks = true;
+      if (text && text.trim()) {
+        totalSyllables++;
+        measureSyllables.push(text.trim());
+      }
+    });
+
+    if (measureSyllables.length > 0) {
+      measuresWithLyrics++;
+      previewLines.push({
+        measureNumber: mIdx + 1,
+        section: measure.section,
+        text: measureSyllables.join(' · '),
+      });
+    }
+  });
+
+  return {
+    totalSyllables,
+    measuresWithLyrics,
+    hasLineBreaks,
+    hasSections,
+    previewLines,
+  };
 }

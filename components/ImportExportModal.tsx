@@ -9,7 +9,11 @@ import {
   importSongFromJson,
   importSongFromText,
 } from '@/lib/songParser';
-import { downloadMidiFile } from '@/lib/midiExport';
+import {
+  downloadMidiFile,
+  getSongMidiLyricsSummary,
+  MidiLyricMode,
+} from '@/lib/midiExport';
 import {
   getStoredCustomLibrary,
   saveSongToCustomLibrary,
@@ -51,6 +55,8 @@ interface ImportExportModalProps {
   onStartFreshSong?: () => void;
   modifiedPresetIds?: Set<string>;
   onResetPreset?: (presetId: string) => void;
+  initialTab?: 'presets' | 'custom' | 'export' | 'import' | 'ai_scan';
+  initialExportFormat?: 'json' | 'text' | 'midi';
 }
 
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({
@@ -62,13 +68,22 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   onStartFreshSong,
   modifiedPresetIds = new Set(),
   onResetPreset,
+  initialTab,
+  initialExportFormat,
 }) => {
   const { hasApiKey } = useGeminiAuth();
-  const [activeTab, setActiveTab] = useState<'presets' | 'custom' | 'export' | 'import' | 'ai_scan'>('presets');
-  const [exportFormat, setExportFormat] = useState<'json' | 'text' | 'midi'>('json');
+  const [activeTab, setActiveTab] = useState<'presets' | 'custom' | 'export' | 'import' | 'ai_scan'>(
+    () => initialTab || 'presets'
+  );
+  const [exportFormat, setExportFormat] = useState<'json' | 'text' | 'midi'>(
+    () => initialExportFormat || 'json'
+  );
   const [midiAccompaniment, setMidiAccompaniment] = useState(true);
-  const [midiLyricType, setMidiLyricType] = useState<'hanlo' | 'poj' | 'none'>('hanlo');
+  const [midiLyricType, setMidiLyricType] = useState<MidiLyricMode>('hanlo');
   const [midiInstrument, setMidiInstrument] = useState<InstrumentType>('piano');
+  const [midiFormat, setMidiFormat] = useState<'mid' | 'kar'>('mid');
+  const [midiKaraokeTrack, setMidiKaraokeTrack] = useState(true);
+  const [midiMelodyLyrics, setMidiMelodyLyrics] = useState(true);
   const [copied, setCopied] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -132,8 +147,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
-
+  // Compute export previews before any conditional early returns
   const currentExportString =
     exportFormat === 'json'
       ? exportSongToJson(currentSong)
@@ -141,9 +155,29 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
       ? exportSongToText(currentSong)
       : '';
 
+  const midiLyricsSummary = React.useMemo(() => {
+    return getSongMidiLyricsSummary(currentSong, midiLyricType);
+  }, [currentSong, midiLyricType]);
+
+  if (!isOpen) return null;
+
   const handleCopyExport = () => {
     if (exportFormat === 'midi') {
-      const summary = `MIDI Export (.mid) for ${currentSong.title}\nKey: 1=${currentSong.key} | Meter: ${currentSong.timeSignature} | BPM: ${currentSong.bpm}\nMeasures: ${currentSong.measures.length} | Accompaniment: ${midiAccompaniment ? 'Yes' : 'No'} | Lyrics: ${midiLyricType}\nFormat: Standard MIDI File Format 1 (480 PPQ)`;
+      const lyricDesc =
+        midiLyricType === 'none'
+          ? 'None (Instrumental only)'
+          : `${midiLyricType.toUpperCase()} (${midiLyricsSummary.totalSyllables} syllables, ${midiLyricsSummary.measuresWithLyrics} measures)`;
+
+      const summary = `MIDI Export Specification for ${currentSong.title}
+Key: 1=${currentSong.key} | Meter: ${currentSong.timeSignature} | BPM: ${currentSong.bpm}
+Total Measures: ${currentSong.measures.length} | Division: 480 Ticks/Beat (PPQ)
+Tracks:
+  - Track 0: Conductor (Tempo, Time Signature, Key Signature)
+${midiKaraokeTrack && midiLyricType !== 'none' ? '  - Track 1: Words / Karaoke (Tune 1000 @KMIDI standard lyrics)\n' : ''}  - Track ${midiKaraokeTrack && midiLyricType !== 'none' ? '2' : '1'}: Melody / Vocal (${midiInstrument}, note-level 0xFF 0x05 lyrics)
+${midiAccompaniment ? `  - Track ${midiKaraokeTrack && midiLyricType !== 'none' ? '3' : '2'}: Accompaniment (Acoustic Piano Chords)\n` : ''}Lyrics Mode: ${lyricDesc}
+Synchronized Syllables:
+${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? ` · ${l.section}` : ''}] ${l.text}`).join('\n') || '  (No lyrics)'}`;
+
       navigator.clipboard.writeText(summary);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -154,13 +188,20 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleDownloadMidi = (format: 'mid' | 'kar') => {
+    downloadMidiFile(currentSong, {
+      includeAccompaniment: midiAccompaniment,
+      lyricType: midiLyricType,
+      instrument: midiInstrument,
+      format,
+      includeKaraokeTrack: midiKaraokeTrack,
+      includeMelodyLyrics: midiMelodyLyrics,
+    });
+  };
+
   const handleDownloadFile = () => {
     if (exportFormat === 'midi') {
-      downloadMidiFile(currentSong, {
-        includeAccompaniment: midiAccompaniment,
-        lyricType: midiLyricType,
-        instrument: midiInstrument,
-      });
+      handleDownloadMidi(midiFormat);
       return;
     }
     const extension = exportFormat === 'json' ? 'taigi.json' : 'txt';
@@ -585,13 +626,13 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Download {exportFormat === 'midi' ? '.mid' : 'File'}</span>
+                    <span>Download {exportFormat === 'midi' ? (midiFormat === 'kar' ? '.kar' : '.mid') : 'File'}</span>
                   </button>
                 </div>
               </div>
 
               {exportFormat === 'midi' ? (
-                <div id="midi-export-config" className="flex flex-col gap-3.5 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50">
+                <div id="midi-export-config" className="flex flex-col gap-4 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50">
                   {/* Song Metadata Strip */}
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     <span className="px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/20">
@@ -611,18 +652,61 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                     </span>
                   </div>
 
+                  {/* Format & File Extension Selector */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                    <div>
+                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                        Export File Type (輸出檔案格式)
+                      </span>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Choose between standard DAW MIDI (.mid) or player-ready MIDI Karaoke (.kar).
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setMidiFormat('mid')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          midiFormat === 'mid'
+                            ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                        }`}
+                      >
+                        .MID (Standard)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMidiFormat('kar')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          midiFormat === 'kar'
+                            ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                        }`}
+                      >
+                        .KAR (Karaoke)
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Settings Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Lyric Sync Mode */}
                     <div className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col gap-2">
-                      <label className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                        Lyric Synchronization (歌詞事件)
-                      </label>
-                      <div className="grid grid-cols-3 gap-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                          Synchronized Lyrics (同步歌詞)
+                        </label>
+                        {midiLyricsSummary.totalSyllables > 0 && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            {midiLyricsSummary.totalSyllables} syllables
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
                         <button
                           type="button"
                           onClick={() => setMidiLyricType('hanlo')}
-                          className={`px-2 py-1.5 rounded-md font-medium text-center transition-all ${
+                          className={`px-2 py-1.5 rounded-md font-medium text-center transition-all cursor-pointer ${
                             midiLyricType === 'hanlo'
                               ? 'bg-amber-500 text-zinc-950 font-bold'
                               : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
@@ -633,7 +717,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setMidiLyricType('poj')}
-                          className={`px-2 py-1.5 rounded-md font-medium text-center transition-all ${
+                          className={`px-2 py-1.5 rounded-md font-medium text-center transition-all cursor-pointer ${
                             midiLyricType === 'poj'
                               ? 'bg-amber-500 text-zinc-950 font-bold'
                               : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
@@ -643,18 +727,29 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                         </button>
                         <button
                           type="button"
+                          onClick={() => setMidiLyricType('both')}
+                          className={`px-2 py-1.5 rounded-md font-medium text-center transition-all cursor-pointer ${
+                            midiLyricType === 'both'
+                              ? 'bg-amber-500 text-zinc-950 font-bold'
+                              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                          }`}
+                        >
+                          雙語 (Both)
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setMidiLyricType('none')}
-                          className={`px-2 py-1.5 rounded-md font-medium text-center transition-all ${
+                          className={`px-2 py-1.5 rounded-md font-medium text-center transition-all cursor-pointer ${
                             midiLyricType === 'none'
                               ? 'bg-amber-500 text-zinc-950 font-bold'
                               : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                           }`}
                         >
-                          None (純音符)
+                          None (純音)
                         </button>
                       </div>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-tight">
-                        Embeds MIDI Lyric Meta Events (0xFF 0x05) visible in GarageBand, Logic, MuseScore, and Sibelius.
+                        Embeds UTF-8 lyric events synchronized with each note onset and syllable duration.
                       </p>
                     </div>
 
@@ -677,9 +772,50 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                         <option value="bell">Glockenspiel / Bell (GM #10)</option>
                       </select>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-tight">
-                        General MIDI program change assigned to Track 1 (Channel 1).
+                        General MIDI program change assigned to Melody / Vocal track.
                       </p>
                     </div>
+                  </div>
+
+                  {/* Track Inclusion Options */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Dedicated Words / Karaoke Track */}
+                    <label className="flex items-start gap-2.5 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 cursor-pointer hover:border-amber-400/60 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={midiKaraokeTrack}
+                        disabled={midiLyricType === 'none'}
+                        onChange={e => setMidiKaraokeTrack(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 rounded text-amber-500 focus:ring-amber-500 focus:ring-offset-0 border-zinc-300 dark:border-zinc-700 cursor-pointer disabled:opacity-50"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                          Dedicated Karaoke Track (Track 1 &quot;Words&quot;)
+                        </span>
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                          Tune 1000 standard tags (@KMIDI, @V, @T) with verse (\) and line (/) markers.
+                        </span>
+                      </div>
+                    </label>
+
+                    {/* Note-Level Lyrics */}
+                    <label className="flex items-start gap-2.5 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 cursor-pointer hover:border-amber-400/60 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={midiMelodyLyrics}
+                        disabled={midiLyricType === 'none'}
+                        onChange={e => setMidiMelodyLyrics(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 rounded text-amber-500 focus:ring-amber-500 focus:ring-offset-0 border-zinc-300 dark:border-zinc-700 cursor-pointer disabled:opacity-50"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                          Note-Level Lyric Events (0xFF 0x05)
+                        </span>
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                          Attaches lyrics directly to note onsets for DAWs, Synthesizer V, and MuseScore.
+                        </span>
+                      </div>
+                    </label>
                   </div>
 
                   {/* Chord Accompaniment Toggle */}
@@ -695,21 +831,73 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
                         Include Chord Accompaniment Track (Channel 2 和弦伴奏音軌)
                       </span>
                       <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                        Generates polyphonic acoustic piano harmonies from score chords across each measure.
+                        Generates acoustic grand piano harmonies from score chords across each measure.
                       </span>
                     </div>
                   </label>
 
-                  {/* Big CTA button */}
-                  <button
-                    id="midi-download-primary-btn"
-                    type="button"
-                    onClick={handleDownloadFile}
-                    className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download {currentSong.title || 'Score'}.mid</span>
-                  </button>
+                  {/* Live Synchronized Lyrics Preview Section */}
+                  <div className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                        <Music className="w-3.5 h-3.5 text-amber-500" />
+                        Synchronized Lyric Syllables in MIDI ({midiLyricType.toUpperCase()})
+                      </span>
+                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {midiLyricsSummary.measuresWithLyrics} of {currentSong.measures.length} measures with lyrics
+                      </span>
+                    </div>
+
+                    {midiLyricType === 'none' ? (
+                      <div className="p-3 rounded-md bg-zinc-50 dark:bg-zinc-950 text-zinc-500 dark:text-zinc-400 text-xs text-center">
+                        Lyric synchronization disabled. MIDI will be exported as pure instrumental tracks.
+                      </div>
+                    ) : midiLyricsSummary.totalSyllables === 0 ? (
+                      <div className="p-3 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs text-center border border-amber-500/20">
+                        No lyrics detected in this score yet. You can type Hanlo or POJ in the score editor.
+                      </div>
+                    ) : (
+                      <div className="max-h-36 overflow-y-auto space-y-1.5 p-2 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-200/60 dark:border-zinc-800/60 font-mono text-xs">
+                        {midiLyricsSummary.previewLines.map((line, idx) => (
+                          <div key={idx} className="flex items-start gap-2">
+                            <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 shrink-0 w-12">
+                              M{line.measureNumber}
+                            </span>
+                            {line.section && (
+                              <span className="text-[10px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 shrink-0">
+                                {line.section}
+                              </span>
+                            )}
+                            <span className="text-zinc-800 dark:text-zinc-200 break-all font-sans text-xs">
+                              {line.text}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dual Action Download Buttons */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                    <button
+                      id="midi-download-mid-btn"
+                      type="button"
+                      onClick={() => handleDownloadMidi('mid')}
+                      className="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download .MID (Standard MIDI)</span>
+                    </button>
+                    <button
+                      id="midi-download-kar-btn"
+                      type="button"
+                      onClick={() => handleDownloadMidi('kar')}
+                      className="py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download .KAR (Karaoke MIDI)</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <textarea

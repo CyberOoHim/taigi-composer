@@ -77,6 +77,8 @@ export default function Home() {
   const [activeTab, setActiveTabState] = useState<ActiveTabMode>('split');
   const [displayMode, setDisplayModeState] = useState<LyricDisplayMode>('all');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
+  const [importExportTab, setImportExportTab] = useState<'presets' | 'custom' | 'export' | 'import' | 'ai_scan'>('presets');
+  const [importExportFormat, setImportExportFormat] = useState<'json' | 'text' | 'midi'>('json');
   const [isAlignerOpen, setIsAlignerOpen] = useState(false);
   const [isGeminiAuthOpen, setIsGeminiAuthOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -485,6 +487,17 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo, handleTogglePlay, handleSaveSong]);
 
+  const handleOpenLibrary = useCallback(() => {
+    setImportExportTab('presets');
+    setIsImportExportOpen(true);
+  }, []);
+
+  const handleOpenMidiExport = useCallback(() => {
+    setImportExportTab('export');
+    setImportExportFormat('midi');
+    setIsImportExportOpen(true);
+  }, []);
+
   return (
     <div className="min-h-screen bg-zinc-100 dark:bg-[#0c0e14] text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-amber-500/30">
       {/* Top DAW Master Transport Console */}
@@ -494,7 +507,8 @@ export default function Home() {
         onStartFreshSong={handleStartFreshSong}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenImportExport={() => setIsImportExportOpen(true)}
+        onOpenImportExport={handleOpenLibrary}
+        onOpenMidiExport={handleOpenMidiExport}
         onOpenGeminiAuth={() => setIsGeminiAuthOpen(true)}
         onOpenScanner={() => setIsScannerOpen(true)}
         isPlaying={isPlaying}
@@ -717,6 +731,7 @@ export default function Home() {
 
       {/* Modals */}
       <ImportExportModal
+        key={`${isImportExportOpen ? 'open' : 'closed'}-${importExportTab}-${importExportFormat}`}
         isOpen={isImportExportOpen}
         onClose={() => setIsImportExportOpen(false)}
         currentSong={song}
@@ -725,6 +740,8 @@ export default function Home() {
         onStartFreshSong={handleStartFreshSong}
         modifiedPresetIds={modifiedPresetIds}
         onResetPreset={handleResetPreset}
+        initialTab={importExportTab}
+        initialExportFormat={importExportFormat}
       />
 
       <QuickLyricAlignerModal

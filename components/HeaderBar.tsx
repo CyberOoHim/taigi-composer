@@ -26,6 +26,7 @@ import {
   Check,
   ChevronDown,
   SlidersHorizontal,
+  Download,
 } from 'lucide-react';
 import { useGeminiAuth } from '@/hooks/useGeminiAuth';
 import { UiZoomControl } from '@/components/UiZoomControl';
@@ -40,6 +41,7 @@ interface HeaderBarProps {
   activeTab: ActiveTabMode;
   setActiveTab: (tab: ActiveTabMode) => void;
   onOpenImportExport: () => void;
+  onOpenMidiExport?: () => void;
   onOpenGeminiAuth?: () => void;
   onOpenScanner?: () => void;
   isPlaying: boolean;
@@ -71,6 +73,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   activeTab,
   setActiveTab,
   onOpenImportExport,
+  onOpenMidiExport,
   onOpenGeminiAuth,
   onOpenScanner,
   isPlaying,
@@ -499,6 +502,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <Library className="w-4 h-4 text-amber-500 shrink-0" />
               <span className="whitespace-nowrap">Library</span>
             </button>
+
+            {/* Direct Export MIDI Trigger */}
+            {onOpenMidiExport && (
+              <button
+                id="header-export-midi-btn"
+                type="button"
+                onClick={onOpenMidiExport}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 rounded-xl border border-amber-500/30 text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0"
+                title="Export MIDI with Synchronized Lyrics (.mid / .kar)"
+              >
+                <Download className="w-4 h-4 text-amber-500 shrink-0" />
+                <span className="whitespace-nowrap">MIDI</span>
+              </button>
+            )}
 
             {/* AI Score Scanner Modal Trigger */}
             {onOpenScanner && (
