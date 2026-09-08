@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { Download, X, WifiOff, Smartphone } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -18,35 +18,36 @@ declare global {
   }
 }
 
+const emptySubscribe = () => () => {};
+
+function subscribeOnline(callback: () => void) {
+  window.addEventListener('online', callback);
+  window.addEventListener('offline', callback);
+  return () => {
+    window.removeEventListener('online', callback);
+    window.removeEventListener('offline', callback);
+  };
+}
+
+function getIsOfflineSnapshot(): boolean {
+  return typeof navigator !== 'undefined' ? !navigator.onLine : false;
+}
+
+function getIsOfflineServerSnapshot(): boolean {
+  return false;
+}
+
 export const PwaManager: React.FC = () => {
+  const hasMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
+  const isOffline = useSyncExternalStore(subscribeOnline, getIsOfflineSnapshot, getIsOfflineServerSnapshot);
+
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return Boolean(
-      window.matchMedia?.('(display-mode: standalone)').matches ||
-        (window.navigator as unknown as { standalone?: boolean }).standalone === true
-    );
-  });
-  const [isIosPrompt, setIsIosPrompt] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const isStandalone = Boolean(
-      window.matchMedia?.('(display-mode: standalone)').matches ||
-        (window.navigator as unknown as { standalone?: boolean }).standalone === true
-    );
-    let dismissed: string | null = null;
-    try { dismissed = sessionStorage.getItem('pwa_prompt_dismissed'); } catch { /* storage blocked */ }
-    return Boolean(isIos && !isStandalone && !dismissed);
-  });
-  const [showBanner, setShowBanner] = useState<boolean>(() => isIosPrompt);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
   const [hasUpdate, setHasUpdate] = useState(false);
-  const [isOffline, setIsOffline] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return !navigator.onLine;
-  });
 
-  // Register Service Worker & online/offline listeners
+  // Register Service Worker
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       // Use relative or basePath for SW registration
@@ -72,41 +73,22 @@ export const PwaManager: React.FC = () => {
           console.warn('Service Worker registration skipped or failed:', err);
         });
     }
-
-    // Check online/offline status via event listener
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
   }, []);
 
-  // Listen for beforeinstallprompt event
+  // Listen for beforeinstallprompt and appinstalled events
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
       // Prevent automatic mini-infobar
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
-
-      // Check if user previously dismissed in this session
-      let dismissed: string | null = null;
-      try { dismissed = sessionStorage.getItem('pwa_prompt_dismissed'); } catch { /* storage blocked */ }
-      if (!dismissed) {
-        setShowBanner(true);
-      }
     };
 
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
-      setShowBanner(false);
+      setIsDismissed(true);
       console.log('Taigi Composer PWA was installed successfully');
     };
 
@@ -131,13 +113,30 @@ export const PwaManager: React.FC = () => {
       setIsInstallable(false);
     }
     setDeferredPrompt(null);
-    setShowBanner(false);
+    setIsDismissed(true);
   }, [deferredPrompt]);
 
   const handleDismiss = () => {
-    setShowBanner(false);
+    setIsDismissed(true);
     try { sessionStorage.setItem('pwa_prompt_dismissed', 'true'); } catch { /* storage blocked */ }
   };
+
+  if (!hasMounted) {
+    return null;
+  }
+
+  const isStandalone = Boolean(
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true
+  );
+  const isIos =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let sessionDismissed = false;
+  try { sessionDismissed = sessionStorage.getItem('pwa_prompt_dismissed') === 'true'; } catch { /* storage blocked */ }
+
+  const isIosPrompt = Boolean(isIos && !isStandalone && !sessionDismissed && !isDismissed);
+  const showBanner = !isDismissed && !sessionDismissed && !isInstalled && !isStandalone && (isInstallable || isIosPrompt);
 
   return (
     <>

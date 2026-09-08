@@ -74,14 +74,8 @@ export default function Home() {
   }, [isEcoMode]);
 
   // Default to 'split' (雙視窗) as requested
-  const [activeTab, setActiveTabState] = useState<ActiveTabMode>(() => {
-    if (typeof window !== 'undefined') return getStoredActiveTab();
-    return 'split';
-  });
-  const [displayMode, setDisplayModeState] = useState<LyricDisplayMode>(() => {
-    if (typeof window !== 'undefined') return getStoredDisplayMode();
-    return 'all';
-  });
+  const [activeTab, setActiveTabState] = useState<ActiveTabMode>('split');
+  const [displayMode, setDisplayModeState] = useState<LyricDisplayMode>('all');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isAlignerOpen, setIsAlignerOpen] = useState(false);
   const [isGeminiAuthOpen, setIsGeminiAuthOpen] = useState(false);
@@ -99,10 +93,7 @@ export default function Home() {
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [autosaveInterval, setAutosaveIntervalState] = useState<number>(() => {
-    if (typeof window !== 'undefined') return getStoredAutosaveInterval(0);
-    return 0; // Default: Manual Save
-  });
+  const [autosaveInterval, setAutosaveIntervalState] = useState<number>(0);
   const [customSongs, setCustomSongs] = useState<Song[]>([]);
   const [modifiedPresetIds, setModifiedPresetIds] = useState<Set<string>>(new Set());
   const hasInitializedRef = React.useRef(false);
@@ -122,6 +113,13 @@ export default function Home() {
         ]);
 
         if (!isMounted) return;
+
+        const storedTab = getStoredActiveTab();
+        if (storedTab && storedTab !== 'split') setActiveTabState(storedTab);
+        const storedMode = getStoredDisplayMode();
+        if (storedMode && storedMode !== 'all') setDisplayModeState(storedMode);
+        const storedAutosave = getStoredAutosaveInterval(0);
+        if (storedAutosave !== 0) setAutosaveIntervalState(storedAutosave);
         setCustomSongs(customList);
         setModifiedPresetIds(modifiedIds);
 

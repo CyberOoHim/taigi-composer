@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 
 interface BatteryManager extends EventTarget {
   charging: boolean;
@@ -16,27 +16,51 @@ interface NavigatorWithBattery extends Navigator {
 }
 
 const STORAGE_KEY = 'taigi_composer_power_save_mode';
+const ECO_MODE_EVENT = 'taigi_composer_eco_mode_change';
+
+function getEcoModeSnapshot(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved !== null) {
+      return saved === 'true';
+    }
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      return true;
+    }
+    const ua = navigator.userAgent || '';
+    return (
+      /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function getEcoModeServerSnapshot(): boolean {
+  return false;
+}
+
+function subscribeEcoMode(callback: () => void) {
+  window.addEventListener('storage', callback);
+  window.addEventListener(ECO_MODE_EVENT, callback);
+  const mediaQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  mediaQuery?.addEventListener('change', callback);
+
+  return () => {
+    window.removeEventListener('storage', callback);
+    window.removeEventListener(ECO_MODE_EVENT, callback);
+    mediaQuery?.removeEventListener('change', callback);
+  };
+}
 
 export function usePowerSaveMode() {
-  const [isEcoMode, setIsEcoMode] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved !== null) {
-        return saved === 'true';
-      }
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        return true;
-      }
-      const ua = navigator.userAgent || '';
-      return (
-        /iPad|iPhone|iPod/.test(ua) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-      );
-    } catch {
-      return false;
-    }
-  });
+  const isEcoMode = useSyncExternalStore(
+    subscribeEcoMode,
+    getEcoModeSnapshot,
+    getEcoModeServerSnapshot
+  );
 
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
   const [isCharging, setIsCharging] = useState<boolean | null>(null);
@@ -51,6 +75,20 @@ export function usePowerSaveMode() {
       }
     }
   }, [isEcoMode]);
+
+  const setEcoMode = useCallback((val: boolean) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(val));
+      window.dispatchEvent(new Event(ECO_MODE_EVENT));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleEcoMode = useCallback(() => {
+    const current = getEcoModeSnapshot();
+    setEcoMode(!current);
+  }, [setEcoMode]);
 
   // Battery status listener
   useEffect(() => {
@@ -73,7 +111,7 @@ export function usePowerSaveMode() {
         let saved: string | null = null;
         try { saved = localStorage.getItem(STORAGE_KEY); } catch { /* storage blocked */ }
         if (saved === null && battery.level <= 0.2 && !battery.charging) {
-          setIsEcoMode(true);
+          setEcoMode(true);
         }
 
         handleLevelChange = () => {
@@ -82,7 +120,7 @@ export function usePowerSaveMode() {
           let savedPref: string | null = null;
           try { savedPref = localStorage.getItem(STORAGE_KEY); } catch { /* storage blocked */ }
           if (savedPref === null && battery.level <= 0.2 && !battery.charging) {
-            setIsEcoMode(true);
+            setEcoMode(true);
           }
         };
 
@@ -105,45 +143,7 @@ export function usePowerSaveMode() {
         }
       };
     }
-  }, []);
-
-  // Listen to prefers-reduced-motion changes
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-    const handleChange = (e: MediaQueryListEvent) => {
-      let saved: string | null = null;
-      try { saved = localStorage.getItem(STORAGE_KEY); } catch { /* storage blocked */ }
-      if (saved === null) {
-        setIsEcoMode(e.matches);
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
-
-  const toggleEcoMode = useCallback(() => {
-    setIsEcoMode(prev => {
-      const next = !prev;
-      try {
-        localStorage.setItem(STORAGE_KEY, String(next));
-      } catch {
-        // ignore storage errors
-      }
-      return next;
-    });
-  }, []);
-
-  const setEcoMode = useCallback((val: boolean) => {
-    setIsEcoMode(val);
-    try {
-      localStorage.setItem(STORAGE_KEY, String(val));
-    } catch {
-      // ignore
-    }
-  }, []);
+  }, [setEcoMode]);
 
   return {
     isEcoMode,

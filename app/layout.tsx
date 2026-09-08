@@ -50,13 +50,6 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var z=localStorage.getItem('taigi_composer_ui_text_zoom');if(z){var v=parseFloat(z);if(!isNaN(v)&&v>=0.7&&v<=2.0){document.documentElement.style.fontSize=(v*100)+'%';document.documentElement.style.setProperty('--ui-text-zoom',String(v));document.documentElement.setAttribute('data-ui-zoom',String(Math.round(v*100)));}}}catch(e){}})();`,
-          }}
-        />
-      </head>
       <body suppressHydrationWarning className="antialiased">
         {children}
         <PwaManager />

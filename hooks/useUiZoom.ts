@@ -39,7 +39,11 @@ function initMemoryZoom() {
   hasInitialized = true;
   const stored = getStoredUiZoom(UI_ZOOM_DEFAULT);
   memoryZoom = stored;
-  applyUiZoomToDOM(memoryZoom);
+  if (typeof requestAnimationFrame !== 'undefined') {
+    requestAnimationFrame(() => applyUiZoomToDOM(memoryZoom));
+  } else {
+    setTimeout(() => applyUiZoomToDOM(memoryZoom), 0);
+  }
 }
 
 /**
