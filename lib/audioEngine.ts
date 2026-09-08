@@ -439,16 +439,38 @@ export class AudioEngine {
   }
 
   public setOptions(opts: Partial<AudioEngineOptions>) {
+    const prevInstrument = this.options.instrument;
     this.options = { ...this.options, ...opts };
     if (this.ctx && this.melodyGain && this.backingGain && this.metronomeGain) {
       this.melodyGain.gain.setValueAtTime(this.options.melodyVolume, this.ctx.currentTime);
       this.backingGain.gain.setValueAtTime(this.options.backingVolume, this.ctx.currentTime);
       this.metronomeGain.gain.setValueAtTime(this.options.metronomeVolume, this.ctx.currentTime);
     }
+    // Seamlessly re-seek if primary instrument changed during active playback so subsequent notes use the new sound tone
+    if (opts.instrument && opts.instrument !== prevInstrument && this.isPlaying && this.currentSong) {
+      const curTime = this.getCurrentPlaybackTime();
+      this.seek(this.currentSong, curTime);
+    }
   }
 
   public getOptions(): Required<AudioEngineOptions> {
     return { ...this.options };
+  }
+
+  /**
+   * Play a quick audition tone for a given instrument (e.g. Do / tonic note)
+   */
+  public previewInstrumentTone(key: KeySignature = 'C', instrument?: InstrumentType) {
+    const inst = instrument || this.options.instrument;
+    const testNote: NumberedNotationNote = {
+      id: `preview-inst-${inst}`,
+      pitch: 1,
+      octave: 0,
+      duration: 1,
+      lyric: { hanlo: '音' },
+      instrument: inst,
+    };
+    this.previewNote(key, testNote);
   }
 
   /**
@@ -637,6 +659,7 @@ export class AudioEngine {
     const osc = this.ctx.createOscillator();
     this.registerOscillator(osc);
     const gain = this.ctx.createGain();
+    let outputNode: AudioNode = osc;
 
     if (options?.glideFromFreq && options.glideFromFreq > 0) {
       osc.frequency.setValueAtTime(options.glideFromFreq, startTime);
@@ -666,7 +689,7 @@ export class AudioEngine {
           osc.frequency.setValueAtTime(freq, startTime);
         }
 
-        // Sub oscillator for depth
+        // Sub oscillator for acoustic hammer resonance and body depth
         const subOsc = this.ctx.createOscillator();
         this.registerOscillator(subOsc);
         const subGain = this.ctx.createGain();
@@ -679,16 +702,17 @@ export class AudioEngine {
         subOsc.start(startTime);
         subOsc.stop(startTime + effectiveDuration + 0.1);
 
-        // Fast punch attack or softened legato attack
+        // Fast punch attack or softened legato attack with safe monotonic decay
+        const attackTime = isLegato ? Math.min(0.022, effectiveDuration * 0.2) : Math.min(0.012, effectiveDuration * 0.15);
         gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.linearRampToValueAtTime(0.8 * volMul, startTime + attackTime);
         if (isLegato) {
-          gain.gain.linearRampToValueAtTime(0.7 * volMul, startTime + 0.022);
-          gain.gain.setValueAtTime(0.5 * volMul, startTime + effectiveDuration * 0.85);
+          gain.gain.setValueAtTime(0.55 * volMul, startTime + effectiveDuration * 0.85);
           gain.gain.linearRampToValueAtTime(0.0001, startTime + effectiveDuration);
         } else {
-          gain.gain.linearRampToValueAtTime(0.8 * volMul, startTime + 0.012);
-          gain.gain.exponentialRampToValueAtTime(0.35 * volMul, startTime + 0.15);
-          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(effectiveDuration * 0.95, 0.2));
+          const midDecay = Math.min(0.14, effectiveDuration * 0.45);
+          gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.35 * volMul), startTime + midDecay);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(effectiveDuration * 0.95, midDecay + 0.04));
         }
         break;
       }
@@ -699,15 +723,17 @@ export class AudioEngine {
           osc.frequency.setValueAtTime(freq, startTime);
         }
 
-        // Subtle vibrato LFO
+        // Subtle vibrato LFO (starts gently and stops strictly within note duration)
         const lfo = this.ctx.createOscillator();
         this.registerOscillator(lfo);
         const lfoGain = this.ctx.createGain();
         lfo.frequency.setValueAtTime(5.5, startTime); // 5.5 Hz vibrato
         lfoGain.gain.setValueAtTime(freq * 0.015, startTime);
         lfo.connect(osc.frequency);
-        lfo.start(startTime + 0.1);
-        lfo.stop(startTime + effectiveDuration);
+        const lfoStart = startTime + Math.min(0.08, effectiveDuration * 0.25);
+        const lfoStop = startTime + effectiveDuration + 0.05;
+        lfo.start(lfoStart);
+        lfo.stop(lfoStop);
 
         // Overtone harmonic for breathy timber
         const overtone = this.ctx.createOscillator();
@@ -716,16 +742,16 @@ export class AudioEngine {
         overtone.type = 'triangle';
         overtone.frequency.setValueAtTime(freq * 3, startTime);
         overtoneGain.gain.setValueAtTime(0.08 * volMul, startTime);
-        overtoneGain.gain.exponentialRampToValueAtTime(0.001, startTime + effectiveDuration);
+        overtoneGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
         overtone.connect(overtoneGain);
         overtoneGain.connect(gain);
         overtone.start(startTime);
-        overtone.stop(startTime + effectiveDuration);
+        overtone.stop(startTime + effectiveDuration + 0.05);
 
         // Soft breathy attack and smooth sustain
         gain.gain.setValueAtTime(0.0001, startTime);
-        const fluteAttack = isLegato ? 0.02 : 0.06;
-        gain.gain.linearRampToValueAtTime(0.7 * volMul, startTime + fluteAttack);
+        const fluteAttack = isLegato ? Math.min(0.02, effectiveDuration * 0.2) : Math.min(0.05, effectiveDuration * 0.25);
+        gain.gain.linearRampToValueAtTime(0.72 * volMul, startTime + fluteAttack);
         gain.gain.setValueAtTime(0.65 * volMul, startTime + effectiveDuration * 0.85);
         gain.gain.linearRampToValueAtTime(0.0001, startTime + effectiveDuration);
         break;
@@ -737,15 +763,17 @@ export class AudioEngine {
           osc.frequency.setValueAtTime(freq, startTime);
         }
 
-        // Gentle whistle vibrato LFO (5.8 Hz)
+        // Gentle whistle vibrato LFO (5.8 Hz) with safe bounds
         const lfo = this.ctx.createOscillator();
         this.registerOscillator(lfo);
         const lfoGain = this.ctx.createGain();
         lfo.frequency.setValueAtTime(5.8, startTime);
         lfoGain.gain.setValueAtTime(freq * 0.012, startTime);
         lfo.connect(osc.frequency);
-        lfo.start(startTime + 0.08);
-        lfo.stop(startTime + effectiveDuration);
+        const whistleLfoStart = startTime + Math.min(0.06, effectiveDuration * 0.2);
+        const whistleLfoStop = startTime + effectiveDuration + 0.05;
+        lfo.start(whistleLfoStart);
+        lfo.stop(whistleLfoStop);
 
         // Breath / air overtone for authentic whistle timbre
         const breath = this.ctx.createOscillator();
@@ -754,21 +782,21 @@ export class AudioEngine {
         breath.type = 'sine';
         breath.frequency.setValueAtTime(freq * 2, startTime);
         breathGain.gain.setValueAtTime(0.04 * volMul, startTime);
-        breathGain.gain.exponentialRampToValueAtTime(0.001, startTime + effectiveDuration);
+        breathGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
         breath.connect(breathGain);
         breathGain.connect(gain);
         breath.start(startTime);
-        breath.stop(startTime + effectiveDuration);
+        breath.stop(startTime + effectiveDuration + 0.05);
 
         gain.gain.setValueAtTime(0.0001, startTime);
-        const whistleAttack = isLegato ? 0.02 : 0.04;
+        const whistleAttack = isLegato ? Math.min(0.018, effectiveDuration * 0.2) : Math.min(0.035, effectiveDuration * 0.2);
         gain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + whistleAttack);
         gain.gain.setValueAtTime(0.75 * volMul, startTime + effectiveDuration * 0.82);
         gain.gain.linearRampToValueAtTime(0.0001, startTime + effectiveDuration);
         break;
       }
       case 'guitar': {
-        // Nylon acoustic guitar pluck
+        // Nylon acoustic guitar pluck with warm resonant filter
         osc.type = 'sawtooth';
         if (!options?.glideFromFreq) {
           osc.frequency.setValueAtTime(freq, startTime);
@@ -776,21 +804,22 @@ export class AudioEngine {
 
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(freq * 4, startTime);
-        filter.frequency.exponentialRampToValueAtTime(freq * 1.2, startTime + Math.max(effectiveDuration * 0.6, 0.15));
+        filter.frequency.setValueAtTime(Math.min(3200, freq * 4), startTime);
+        const filterDecay = Math.max(effectiveDuration * 0.6, 0.15);
+        filter.frequency.exponentialRampToValueAtTime(Math.max(100, freq * 1.2), startTime + filterDecay);
 
-        osc.disconnect();
         osc.connect(filter);
-        filter.connect(gain);
+        outputNode = filter;
 
         gain.gain.setValueAtTime(0.0001, startTime);
-        gain.gain.linearRampToValueAtTime(0.75 * volMul, startTime + (isLegato ? 0.018 : 0.008));
-        gain.gain.exponentialRampToValueAtTime(0.25 * volMul, startTime + 0.2);
+        const guitarAttack = isLegato ? 0.018 : 0.008;
+        gain.gain.linearRampToValueAtTime(0.75 * volMul, startTime + guitarAttack);
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.25 * volMul), startTime + 0.18);
         gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration * (isLegato ? 0.98 : 0.9));
         break;
       }
       case 'synth': {
-        // Classic 80s/90s KTV Karaoke FM Brass / Synth Lead
+        // Classic 80s/90s KTV Karaoke FM Brass / Synth Lead with warm filter sweep
         osc.type = 'sawtooth';
         if (!options?.glideFromFreq) {
           osc.frequency.setValueAtTime(freq, startTime);
@@ -798,21 +827,25 @@ export class AudioEngine {
 
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(1600, startTime);
-        filter.Q.setValueAtTime(3.0, startTime);
+        filter.frequency.setValueAtTime(Math.min(3200, Math.max(1400, freq * 3.2)), startTime);
+        filter.Q.setValueAtTime(2.8, startTime);
+        filter.frequency.exponentialRampToValueAtTime(
+          Math.min(1800, Math.max(650, freq * 1.6)),
+          startTime + Math.min(0.25, effectiveDuration * 0.55)
+        );
 
-        osc.disconnect();
         osc.connect(filter);
-        filter.connect(gain);
+        outputNode = filter;
 
-        gain.gain.setValueAtTime(0.001, startTime);
-        gain.gain.linearRampToValueAtTime(0.6 * volMul, startTime + (isLegato ? 0.015 : 0.03));
-        gain.gain.setValueAtTime(0.5 * volMul, startTime + effectiveDuration * 0.75);
+        gain.gain.setValueAtTime(0.0001, startTime);
+        const synthAttack = isLegato ? 0.015 : 0.025;
+        gain.gain.linearRampToValueAtTime(0.68 * volMul, startTime + synthAttack);
+        gain.gain.setValueAtTime(0.55 * volMul, startTime + effectiveDuration * 0.75);
         gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
         break;
       }
       case 'bell': {
-        // Glockenspiel / music box bell
+        // Glockenspiel / music box bell with sparkling bell overtone
         osc.type = 'sine';
         if (!options?.glideFromFreq) {
           osc.frequency.setValueAtTime(freq, startTime);
@@ -828,16 +861,28 @@ export class AudioEngine {
         bell2.connect(bell2Gain);
         bell2Gain.connect(gain);
         bell2.start(startTime);
-        bell2.stop(startTime + effectiveDuration);
+        bell2.stop(startTime + effectiveDuration + 0.05);
 
         gain.gain.setValueAtTime(0.0001, startTime);
         gain.gain.linearRampToValueAtTime(0.8 * volMul, startTime + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(effectiveDuration, 1.8));
+        break;
+      }
+      default: {
+        // Fallback acoustic tone
+        osc.type = 'triangle';
+        if (!options?.glideFromFreq) {
+          osc.frequency.setValueAtTime(freq, startTime);
+        }
+        gain.gain.setValueAtTime(0.0001, startTime);
+        const attack = isLegato ? 0.02 : 0.012;
+        gain.gain.linearRampToValueAtTime(0.75 * volMul, startTime + attack);
         gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
         break;
       }
     }
 
-    osc.connect(gain);
+    outputNode.connect(gain);
     gain.connect(destination);
 
     osc.start(startTime);

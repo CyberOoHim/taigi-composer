@@ -220,7 +220,10 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   const setInstrument = useCallback((inst: InstrumentType) => {
     setInstrumentState(inst);
     setStoredInstrument(inst);
-  }, []);
+    if (!audioEngine.getIsPlaying()) {
+      audioEngine.previewInstrumentTone(song.key, inst);
+    }
+  }, [audioEngine, song.key]);
 
   const setMelodyVolume = useCallback((vol: number) => {
     setMelodyVolumeState(vol);

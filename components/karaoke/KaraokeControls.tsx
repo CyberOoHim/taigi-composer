@@ -14,6 +14,7 @@ import {
   SkipBack,
   SkipForward,
   Disc,
+  Volume2,
   Maximize2,
   Minimize2,
   ZoomIn,
@@ -365,7 +366,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
         </div>
 
         {/* Instrument Selector */}
-        <div id="ktv-instrument-control" className="flex items-center min-h-[44px] gap-1.5 bg-[#0a0c10] rounded-xl p-1.5 border border-zinc-800 text-xs">
+        <div id="ktv-instrument-control" className="flex items-center min-h-[44px] gap-1.5 bg-[#0a0c10] hover:bg-[#0e1118] rounded-xl p-1.5 border border-zinc-800 hover:border-zinc-700/80 focus-within:border-amber-500/50 text-xs transition-colors shadow-xs">
           <span className="px-1 font-medium text-zinc-400 flex items-center gap-1">
             <Disc className="w-4 h-4 text-amber-400" />
             <span className="hidden sm:inline">Tone:</span>
@@ -374,15 +375,25 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
             id="ktv-instrument-select"
             value={instrument}
             onChange={e => onSetInstrument(e.target.value as InstrumentType)}
-            className="bg-[#141720] text-zinc-200 font-medium px-2.5 py-1.5 min-h-[36px] rounded-lg border border-zinc-700/80 focus:outline-hidden focus:border-amber-400 cursor-pointer touch-manipulation"
+            className="bg-[#121520] hover:bg-[#181d2a] text-amber-300 font-semibold px-2.5 py-1.5 min-h-[36px] rounded-lg border border-amber-500/40 hover:border-amber-400 focus:outline-hidden focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 cursor-pointer touch-manipulation transition-all shadow-xs text-xs tracking-wide"
           >
-            <option value="piano">Grand Piano (鋼琴)</option>
-            <option value="flute">Traditional Flute (竹笛)</option>
-            <option value="whistle">Whistle (口笛)</option>
-            <option value="guitar">Acoustic Guitar (吉他)</option>
-            <option value="synth">80s Synth (合成器)</option>
-            <option value="bell">Glockenspiel (鐘琴)</option>
+            <option value="piano" className="bg-[#121520] text-zinc-100 py-1">🎹 Grand Piano (鋼琴)</option>
+            <option value="flute" className="bg-[#121520] text-zinc-100 py-1">🎋 Traditional Flute (竹笛)</option>
+            <option value="whistle" className="bg-[#121520] text-zinc-100 py-1">🎵 Whistle (口笛)</option>
+            <option value="guitar" className="bg-[#121520] text-zinc-100 py-1">🎸 Acoustic Guitar (吉他)</option>
+            <option value="synth" className="bg-[#121520] text-zinc-100 py-1">⚡ 80s Synth (合成器)</option>
+            <option value="bell" className="bg-[#121520] text-zinc-100 py-1">🔔 Glockenspiel (鐘琴)</option>
           </select>
+          <button
+            id="ktv-instrument-audition-btn"
+            type="button"
+            onClick={() => onSetInstrument(instrument)}
+            title="Test & Audition Tone (試聽音色)"
+            aria-label="Test & Audition Tone"
+            className="w-8 h-8 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:text-amber-300 flex items-center justify-center transition-all active:scale-90 cursor-pointer touch-manipulation"
+          >
+            <Volume2 className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         {/* Mixer & Tempo Toggle */}
