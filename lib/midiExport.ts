@@ -42,6 +42,7 @@ export const GM_INSTRUMENT_MAP: Record<InstrumentType, number> = {
   whistle: 78, // Whistle
   synth: 80,  // Lead 1 (square)
   bell: 9,    // Glockenspiel
+  cello: 42,  // Cello
 };
 
 /** Key signature sharp/flat count (-7 to +7) */

@@ -88,7 +88,7 @@ export type LyricDisplayMode =
   | 'poj_only'
   | 'custom_only';
 
-export type InstrumentType = 'piano' | 'flute' | 'whistle' | 'guitar' | 'synth' | 'bell';
+export type InstrumentType = 'piano' | 'flute' | 'whistle' | 'guitar' | 'synth' | 'bell' | 'cello';
 
 export type EditorEditMode = 'note' | 'sheet' | 'verse' | 'measure';
 export type NoteEditSubMode = 'verse' | 'measure';

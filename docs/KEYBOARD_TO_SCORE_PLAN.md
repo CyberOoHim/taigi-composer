@@ -24,7 +24,7 @@ Building upon and extending the existing **"Hum-to-Score" (哼唱記譜)** syste
 | **Silence / Rest Handling** | RMS below noise floor threshold (-42dB) | **Inter-Note Gap Calculation:** If $(t_{\text{down}}^{(i+1)} - t_{\text{up}}^{(i)}) > \theta_{\text{rest}}$, generate a rest segment (`isRest: true`, `midi: null`) | Both feed cleanly into `cleanRawSegments()` and `autoFillTrailingRests()`. |
 | **Beat Quantization** | Quantizes raw duration in milliseconds to beats based on `song.bpm` and selected grid | Identical tempo-aware beat quantizer (`quantizeDurationToBeats`) | **100% Shared:** Reuses `QuantizeGrid` ('quarter', 'eighth', 'sixteenth', 'thirtysecond') and human tempo jitter tolerance. |
 | **Measure Barline Packing** | Barline overflow split with ties (`tieToNext: true`) conforming to time signature | Identical barline packaging (`segmentNotesIntoMeasures`) | **100% Shared:** Reuses 4/4, 3/4, 2/4, 6/8 measure packing, trailing rest auto-fill, and barline numbering. |
-| **Playback & Verification** | Dual-track player (recorded microphone audio vs. synthesized score preview) | Dual-mode player (live performance timestamp replay vs. quantized score synth playback) | Reuses `AudioEngine` synthesizer with selectable instrument timbers (Piano, Flute, Erhu, Guitar, Synth). |
+| **Playback & Verification** | Dual-track player (recorded microphone audio vs. synthesized score preview) | Dual-mode player (live performance timestamp replay vs. quantized score synth playback) | Reuses `AudioEngine` synthesizer with selectable instrument timbers (Piano, Flute, Cello, Guitar, Synth). |
 
 ---
 

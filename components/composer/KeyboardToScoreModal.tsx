@@ -1616,7 +1616,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                     >
                       <option value="piano">鋼琴 (Piano)</option>
                       <option value="flute">竹笛 (Flute)</option>
-                      <option value="erhu">二胡 (Erhu)</option>
+                      <option value="cello">大提琴 (Cello)</option>
                       <option value="guitar">吉他 (Guitar)</option>
                       <option value="synth">合成器 (Synth)</option>
                     </select>

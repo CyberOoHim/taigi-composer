@@ -770,6 +770,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                         <option value="guitar">Acoustic Guitar Nylon (GM #25)</option>
                         <option value="synth">Lead 1 Square Synth (GM #81)</option>
                         <option value="bell">Glockenspiel / Bell (GM #10)</option>
+                        <option value="cello">Cello (GM #43)</option>
                       </select>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-tight">
                         General MIDI program change assigned to Melody / Vocal track.

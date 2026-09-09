@@ -46,6 +46,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Music,
+  Music2,
   Grid,
   Zap,
   Sparkles,
@@ -1665,6 +1666,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
               guitar: { timbre: '撥弦', icon: Sliders },
               synth: { timbre: '電音', icon: Zap },
               bell: { timbre: '清脆', icon: Bell },
+              cello: { timbre: '醇厚', icon: Music2 },
             };
 
             const ornamentPresets: {

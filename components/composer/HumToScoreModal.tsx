@@ -60,7 +60,7 @@ import {
   Wand2,
 } from 'lucide-react';
 
-export type InstrumentPresetId = 'vocal' | 'flute' | 'erhu' | 'guitar';
+export type InstrumentPresetId = 'vocal' | 'flute' | 'cello' | 'guitar' | 'erhu';
 
 export interface InstrumentPresetConfig {
   id: InstrumentPresetId;
@@ -125,15 +125,15 @@ export const INSTRUMENT_PRESETS: InstrumentPresetConfig[] = [
     filterQ: 0.8,
   },
   {
-    id: 'erhu',
-    name: 'Erhu',
-    nameZh: '二胡 / 擦弦',
+    id: 'cello',
+    name: 'Cello',
+    nameZh: '大提琴 / 擦弦',
     icon: '🎻',
     description: 'Bowed strings with harmonic suppression & glissando protection',
     tips: '換弓與清晰換把運指有助精確分音，已抗二次泛音八度跳音',
     yinConfig: {
       threshold: 0.12,
-      minFrequency: 180,
+      minFrequency: 65,
       maxFrequency: 1800,
       silenceThreshold: 0.009,
       medianFilterSize: 5,
@@ -145,7 +145,7 @@ export const INSTRUMENT_PRESETS: InstrumentPresetConfig[] = [
       refractoryPeriodMs: 90,
     },
     filterType: 'highpass',
-    filterFreq: 160,
+    filterFreq: 60,
   },
   {
     id: 'guitar',
@@ -339,7 +339,7 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
 
   // Selected preset configuration
   const activePreset = useMemo(() => {
-    return INSTRUMENT_PRESETS.find(p => p.id === presetId) || INSTRUMENT_PRESETS[0];
+    return INSTRUMENT_PRESETS.find(p => p.id === presetId || (presetId === 'erhu' && p.id === 'cello')) || INSTRUMENT_PRESETS[0];
   }, [presetId]);
 
   // Clean up all resources when modal closes
@@ -1729,7 +1729,7 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
                     >
                       <option value="piano">鋼琴 (Piano)</option>
                       <option value="flute">竹笛 (Flute)</option>
-                      <option value="erhu">二胡 (Erhu)</option>
+                      <option value="cello">大提琴 (Cello)</option>
                       <option value="guitar">吉他 (Guitar)</option>
                       <option value="synth">合成器 (Synth)</option>
                     </select>

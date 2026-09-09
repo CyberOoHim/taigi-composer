@@ -1257,12 +1257,14 @@ export const INSTRUMENT_LABELS: Record<InstrumentType, { en: string; zh: string 
   guitar: { en: 'Acoustic Guitar', zh: '吉他' },
   synth: { en: '80s Synth', zh: '合成器' },
   bell: { en: 'Glockenspiel', zh: '鐘琴' },
+  cello: { en: 'Cello', zh: '大提琴' },
 };
 
 export const INSTRUMENT_OPTIONS: { value: InstrumentType; labelZh: string; labelEn: string }[] = [
   { value: 'whistle', labelZh: '口笛', labelEn: 'Whistle (口笛)' },
   { value: 'flute', labelZh: '竹笛', labelEn: 'Bamboo Flute (竹笛)' },
   { value: 'piano', labelZh: '鋼琴', labelEn: 'Grand Piano (鋼琴)' },
+  { value: 'cello', labelZh: '大提琴', labelEn: 'Cello (大提琴)' },
   { value: 'guitar', labelZh: '吉他', labelEn: 'Acoustic Guitar (吉他)' },
   { value: 'synth', labelZh: '合成器', labelEn: '80s Synth (合成器)' },
   { value: 'bell', labelZh: '鐘琴', labelEn: 'Glockenspiel (鐘琴)' },

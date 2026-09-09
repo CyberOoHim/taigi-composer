@@ -1053,6 +1053,86 @@ export class AudioEngine {
         gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(effectiveDuration * 0.98, 0.3));
         break;
       }
+      case 'cello': {
+        // Expressive bowed acoustic cello (violoncello) / bowed strings:
+        // Rich sawtooth string oscillation with bow friction / rosin scrape, wooden body resonance cavity (130Hz air cavity + 450Hz wood formant), and expressive delayed warm vibrato
+        osc.type = 'sawtooth';
+        if (!options?.glideFromFreq) {
+          osc.frequency.setValueAtTime(freq, startTime);
+        }
+
+        // 1. Cello Wooden Body Formant Filter (dual-stage warmth: lowpass + resonant peak around 450Hz)
+        const celloFilter = this.ctx.createBiquadFilter();
+        celloFilter.type = 'lowpass';
+        // Warm cello body cutoff: rich harmonic warmth without harsh treble
+        celloFilter.frequency.setValueAtTime(Math.min(3800, Math.max(900, freq * 3.2)), startTime);
+        celloFilter.Q.setValueAtTime(1.8, startTime);
+
+        // Body resonance peak (simulating the wooden soundbox cavity at ~450 Hz)
+        const bodyPeaking = this.ctx.createBiquadFilter();
+        bodyPeaking.type = 'peaking';
+        bodyPeaking.frequency.setValueAtTime(450, startTime);
+        bodyPeaking.Q.setValueAtTime(1.5, startTime);
+        bodyPeaking.gain.setValueAtTime(3.5, startTime); // +3.5dB body resonance
+
+        osc.connect(celloFilter);
+        celloFilter.connect(bodyPeaking);
+        outputNode = bodyPeaking;
+
+        // 2. Deep Sub-body Resonance (Air Cavity Helmholtz Resonance)
+        // Adds acoustic body weight and depth
+        const airCavity = this.ctx.createOscillator();
+        this.registerOscillator(airCavity);
+        const airCavityGain = this.ctx.createGain();
+        airCavity.type = 'triangle';
+        airCavity.frequency.setValueAtTime(freq, startTime);
+        airCavityGain.gain.setValueAtTime(0.25 * volMul, startTime);
+        airCavityGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        airCavity.connect(airCavityGain);
+        airCavityGain.connect(gain);
+        airCavity.start(startTime);
+        airCavity.stop(startTime + effectiveDuration + 0.05);
+
+        // 3. Rosin / Bow Scrape Initial Friction Transient (highpass bow bite on string)
+        const rosinBite = this.ctx.createOscillator();
+        this.registerOscillator(rosinBite);
+        const rosinGain = this.ctx.createGain();
+        const rosinFilter = this.ctx.createBiquadFilter();
+        rosinFilter.type = 'bandpass';
+        rosinFilter.frequency.setValueAtTime(2200, startTime);
+        rosinFilter.Q.setValueAtTime(2.0, startTime);
+        rosinBite.type = 'sawtooth';
+        rosinBite.frequency.setValueAtTime(freq * 2.5, startTime);
+        rosinGain.gain.setValueAtTime(0.22 * volMul, startTime);
+        rosinGain.gain.exponentialRampToValueAtTime(0.0001, startTime + (isLegato ? 0.025 : 0.045));
+        rosinBite.connect(rosinFilter);
+        rosinFilter.connect(rosinGain);
+        rosinGain.connect(gain);
+        rosinBite.start(startTime);
+        rosinBite.stop(startTime + 0.06);
+
+        // 4. Warm delayed cello vibrato (5.2 Hz classical singing vibrato)
+        const lfo = this.ctx.createOscillator();
+        this.registerOscillator(lfo);
+        const lfoGain = this.ctx.createGain();
+        lfo.frequency.setValueAtTime(5.2, startTime);
+        const celloVibStart = startTime + Math.min(0.08, effectiveDuration * 0.25);
+        lfoGain.gain.setValueAtTime(0.0001, startTime);
+        lfoGain.gain.setValueAtTime(0.0001, celloVibStart);
+        lfoGain.gain.linearRampToValueAtTime(freq * 0.015, celloVibStart + Math.min(0.18, effectiveDuration * 0.35));
+        lfo.connect(osc.frequency);
+        lfo.connect(airCavity.frequency);
+        lfo.start(startTime);
+        lfo.stop(startTime + effectiveDuration + 0.05);
+
+        // 5. Bow envelope: realistic bow attack (26ms, or 12ms for legato), singing sustain, smooth bow release
+        gain.gain.setValueAtTime(0.0001, startTime);
+        const bowAttack = isLegato ? 0.012 : 0.026;
+        gain.gain.linearRampToValueAtTime(0.82 * volMul, startTime + bowAttack);
+        gain.gain.setValueAtTime(0.74 * volMul, startTime + effectiveDuration * 0.88);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        break;
+      }
       default: {
         // Baseline acoustic reference tone (pure warm triangle oscillator with smooth envelope)
         osc.type = 'triangle';

@@ -383,6 +383,7 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
             <option value="guitar" className="bg-[#121520] text-zinc-100 py-1">🎸 Acoustic Guitar (吉他)</option>
             <option value="synth" className="bg-[#121520] text-zinc-100 py-1">⚡ 80s Synth (合成器)</option>
             <option value="bell" className="bg-[#121520] text-zinc-100 py-1">🔔 Glockenspiel (鐘琴)</option>
+            <option value="cello" className="bg-[#121520] text-zinc-100 py-1">🎻 Cello (大提琴)</option>
           </select>
           <button
             id="ktv-instrument-audition-btn"
