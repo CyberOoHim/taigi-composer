@@ -454,6 +454,7 @@ export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
           onDuplicateVerse={onDuplicateVerse}
           onMoveVerseOrder={onMoveVerseOrder}
           onDeleteVerse={onDeleteVerse}
+          onDeleteMeasure={onDeleteMeasure}
           onQuickToggleMeasureDuration={onQuickToggleMeasureDuration}
           onScaleMeasureDuration={onScaleMeasureDuration}
           onSetUniformMeasureDuration={onSetUniformMeasureDuration}

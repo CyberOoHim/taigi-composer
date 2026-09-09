@@ -70,6 +70,7 @@ import {
   Clock,
   CornerUpLeft,
   Keyboard,
+  Trash2,
 } from 'lucide-react';
 
 interface ComposerEditorProps {
@@ -1460,7 +1461,17 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     const renumbered = renumberMeasures(newMeasures);
 
     onUpdateSong({ ...song, measures: renumbered });
-    setSelectedCoord([Math.max(0, mIdx - 1), 0]);
+    setSelectedCoord([Math.max(0, Math.min(newMeasures.length - 1, mIdx)), 0]);
+    setSelectedMeasureIndices(prev => {
+      if (prev.size === 0) return prev;
+      const next = new Set<number>();
+      prev.forEach(i => {
+        if (i < mIdx) next.add(i);
+        else if (i > mIdx) next.add(i - 1);
+      });
+      return next;
+    });
+    showNotice(`Deleted Measure #${mIdx + 1}`);
   };
 
   // Measure Chord change
@@ -2690,12 +2701,39 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             </button>
 
             <button
+              id="composer-score-add-measure-btn"
               type="button"
               onClick={handleAddMeasure}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl font-bold shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+              title="Add a new measure at the end of the song"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Measure</span>
+            </button>
+
+            {/* Delete Measure Button */}
+            <button
+              id="composer-score-delete-measure-btn"
+              type="button"
+              onClick={() => {
+                const targetIdx = selectedMeasureIndex !== null ? selectedMeasureIndex : song.measures.length - 1;
+                handleDeleteMeasure(targetIdx);
+              }}
+              disabled={song.measures.length <= 1}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 rounded-xl font-bold shadow-2xs transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer touch-manipulation min-h-[36px]"
+              title={
+                song.measures.length <= 1
+                  ? 'Song must retain at least one measure'
+                  : `Delete Measure #${(selectedMeasureIndex !== null ? selectedMeasureIndex : song.measures.length - 1) + 1}`
+              }
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+              <span>Delete Measure</span>
+              {song.measures.length > 1 && (
+                <span className="text-[10px] font-mono opacity-80">
+                  (M.{(selectedMeasureIndex !== null ? selectedMeasureIndex : song.measures.length - 1) + 1})
+                </span>
+              )}
             </button>
           </div>
         </div>

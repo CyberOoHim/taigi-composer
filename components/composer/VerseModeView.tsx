@@ -100,6 +100,7 @@ interface VerseModeViewProps {
   onDuplicateVerse?: (verse: VerseItem) => void;
   onMoveVerseOrder?: (fromVerseIdx: number, toVerseIdx: number) => void;
   onDeleteVerse?: (verse: VerseItem) => void;
+  onDeleteMeasure?: (mIdx: number) => void;
 
   // Duration actions for selected measure
   onQuickToggleMeasureDuration?: (mIdx?: number) => void;
@@ -184,6 +185,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   onDuplicateVerse,
   onMoveVerseOrder,
   onDeleteVerse,
+  onDeleteMeasure,
   onQuickToggleMeasureDuration,
   onScaleMeasureDuration,
   onSetUniformMeasureDuration,
@@ -670,26 +672,43 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                             )}
                           </div>
 
-                          {/* Rhythm health status pill */}
-                          <div
-                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-mono font-bold shrink-0 ${
-                              rhythm.isFull
-                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
-                                : rhythm.isUnder
-                                ? 'bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800'
-                                : 'bg-rose-50 text-rose-900 border border-rose-300 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800'
-                            }`}
-                          >
-                            {rhythm.isFull ? (
-                              <CheckCircle2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 dark:text-emerald-400" />
-                            ) : (
-                              <AlertCircle className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${rhythm.isUnder ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`} />
-                            )}
-                            <span>{rhythm.currentBeats}/{rhythm.expectedBeats}<span className="hidden lg:inline"> beats</span></span>
-                            {!rhythm.isFull && (
-                              <span className="font-sans font-medium opacity-90 text-[9px]">
-                                {rhythm.isUnder ? `(-${rhythm.absDiff})` : `(+${rhythm.absDiff})`}
-                              </span>
+                          {/* Right: Rhythm health status pill & Delete Measure button */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <div
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-mono font-bold shrink-0 ${
+                                rhythm.isFull
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
+                                  : rhythm.isUnder
+                                  ? 'bg-amber-50 text-amber-900 border border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800'
+                                  : 'bg-rose-50 text-rose-900 border border-rose-300 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800'
+                              }`}
+                            >
+                              {rhythm.isFull ? (
+                                <CheckCircle2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 dark:text-emerald-400" />
+                              ) : (
+                                <AlertCircle className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${rhythm.isUnder ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`} />
+                              )}
+                              <span>{rhythm.currentBeats}/{rhythm.expectedBeats}<span className="hidden lg:inline"> beats</span></span>
+                              {!rhythm.isFull && (
+                                <span className="font-sans font-medium opacity-90 text-[9px]">
+                                  {rhythm.isUnder ? `(-${rhythm.absDiff})` : `(+${rhythm.absDiff})`}
+                                </span>
+                              )}
+                            </div>
+
+                            {onDeleteMeasure && song.measures.length > 1 && (
+                              <button
+                                id={`verse-measure-delete-btn-${mIdx}`}
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  onDeleteMeasure(mIdx);
+                                }}
+                                className="p-1 rounded-md text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                                title={`Delete Measure #${mIdx + 1}`}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
                             )}
                           </div>
                         </div>
@@ -952,6 +971,23 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                               <span>Merge</span>
                             </button>
                           )}
+
+                          {/* Delete Measure */}
+                          {onDeleteMeasure && song.measures.length > 1 && (
+                            <button
+                              id={`verse-closing-barline-delete-btn-${item.measureIndex}`}
+                              type="button"
+                              onClick={e => {
+                                e.stopPropagation();
+                                onDeleteMeasure(item.measureIndex);
+                              }}
+                              className="px-1 py-0.5 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/70 dark:hover:bg-rose-900/70 text-rose-700 dark:text-rose-300 rounded text-[10px] font-bold text-center cursor-pointer transition-colors flex items-center justify-center gap-0.5 whitespace-nowrap"
+                              title={`Delete Measure #${item.measureNumber}`}
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                              <span>Del Bar</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1013,6 +1049,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   containerType="verse"
                   containerLabel={`Verse ${vIdx + 1}`}
                   onDuplicateContainer={() => onDuplicateVerse?.(verse)}
+                  onDeleteMeasure={onDeleteMeasure && selectedMeasureIndex !== null ? () => onDeleteMeasure(selectedMeasureIndex) : undefined}
                   onMoveContainerBackward={vIdx > 0 ? () => onMoveVerseOrder?.(vIdx, vIdx - 1) : undefined}
                   onMoveContainerForward={vIdx < verses.length - 1 ? () => onMoveVerseOrder?.(vIdx, vIdx + 1) : undefined}
                   canMoveContainerBackward={vIdx > 0}

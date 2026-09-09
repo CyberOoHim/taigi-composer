@@ -1238,6 +1238,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     containerType="measure"
                     containerLabel={`Measure #${mIdx + 1}`}
                     onDuplicateContainer={() => onDuplicateMeasure(mIdx)}
+                    onDeleteMeasure={() => onDeleteMeasure(mIdx)}
                     onMoveContainerBackward={mIdx > 0 ? () => onMoveMeasureOrder?.(mIdx, mIdx - 1) : undefined}
                     onMoveContainerForward={mIdx < song.measures.length - 1 ? () => onMoveMeasureOrder?.(mIdx, mIdx + 1) : undefined}
                     canMoveContainerBackward={mIdx > 0}

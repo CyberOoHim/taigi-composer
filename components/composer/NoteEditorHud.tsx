@@ -105,6 +105,7 @@ export interface NoteEditorHudProps {
   containerType?: 'measure' | 'verse';
   containerLabel?: string;
   onDuplicateContainer?: () => void;
+  onDeleteMeasure?: () => void;
   onMoveContainerBackward?: () => void;
   onMoveContainerForward?: () => void;
   canMoveContainerBackward?: boolean;
@@ -321,6 +322,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   containerType,
   containerLabel,
   onDuplicateContainer,
+  onDeleteMeasure,
   onMoveContainerBackward,
   onMoveContainerForward,
   canMoveContainerBackward = false,
@@ -910,6 +912,21 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
               <Copy className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <span className="hidden sm:inline">Duplicate {containerType === 'verse' ? 'Verse' : 'Measure'}</span>
               <span className="sm:hidden">Dup {containerType === 'verse' ? 'Verse' : 'Bar'}</span>
+            </button>
+          )}
+
+          {/* Delete Measure Action */}
+          {onDeleteMeasure && (
+            <button
+              id="hud-delete-measure-btn"
+              type="button"
+              onClick={onDeleteMeasure}
+              className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 rounded-xl text-xs font-bold border border-rose-200 dark:border-rose-900/60 transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
+              title={`Delete current measure (#${selectedMeasureIndex + 1})`}
+            >
+              <Trash2 className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+              <span className="hidden sm:inline">Delete Measure</span>
+              <span className="sm:hidden">Del Bar</span>
             </button>
           )}
 
