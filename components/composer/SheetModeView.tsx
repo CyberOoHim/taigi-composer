@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { BarlineType, LyricDisplayMode, Song, VerseItem, VerseNoteRef } from '@/types/song';
 import { getMeasureRhythmReport, groupSongIntoVerses } from '@/lib/taigiUtils';
 import { NumberedNotationNoteComponent } from '@/components/NumberedNotationNoteComponent';
+import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
 import {
   CheckCircle2,
   AlertCircle,
@@ -511,6 +512,9 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                 )}
               </button>
             )}
+
+            {/* Chord Playback Control in Sheet Header */}
+            <ChordPlaybackControl variant="compact" previewKeyChord={song.key} idPrefix="sheet-header-chord" />
 
             {/* Primary Add Trigger */}
             {sheetPerspective === 'measure' ? (
@@ -1598,8 +1602,9 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
             </div>
           </div>
 
-          {/* Right: Master Play Key */}
+          {/* Right: Master Play Key & Chord Control */}
           <div className="flex items-center gap-2 shrink-0">
+            <ChordPlaybackControl variant="compact" previewKeyChord={song.key} idPrefix="sheet-floating-chord" />
             <button
               id="sheet-floating-play-key-btn"
               type="button"

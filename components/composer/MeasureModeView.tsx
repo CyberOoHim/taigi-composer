@@ -17,6 +17,7 @@ import {
 } from '@/lib/taigiUtils';
 import { NoteCell } from './NoteCell';
 import { NoteEditorHud } from './NoteEditorHud';
+import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
 import { suggestChordsForMeasure } from '@/lib/chordArranger';
 import {
   Play,
@@ -468,6 +469,11 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                       </>
                     )}
                   </button>
+
+                  {/* Chord Playback Control on active/playing Measure */}
+                  {(isPlayingThisMeasure || isSelectedMeasure) && (
+                    <ChordPlaybackControl variant="compact" previewKeyChord={song.key} idPrefix={`measure-chord-${mIdx}`} />
+                  )}
 
                   {/* Previous / Next Measure Switcher */}
                   <div className="flex items-center bg-zinc-100 dark:bg-[#0a0c10] rounded-xl border border-zinc-200/90 dark:border-zinc-700 p-0.5 shadow-2xs">

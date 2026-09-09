@@ -1,5 +1,5 @@
 import { ArticulationType, GraceNote, InstrumentType, NumberedNotationNote, KeySignature, Measure, Song } from '@/types/song';
-import { getChordNotes, getMeasureChords, getPitchFrequency, isNonNotationItem, isSamePitch, isSlurActive, isTieActive } from './taigiUtils';
+import { getChordNotes, getEffectiveMeasureChords, getMeasureChords, getPitchFrequency, isNonNotationItem, isSamePitch, isSlurActive, isTieActive } from './taigiUtils';
 
 export interface PlaybackState {
   isPlaying: boolean;
@@ -20,7 +20,8 @@ export interface LoopRange {
 export interface AudioEngineOptions {
   instrument?: InstrumentType;
   melodyVolume?: number;    // 0 to 1
-  backingVolume?: number;   // 0 to 1
+  backingVolume?: number;   // 0 to 1 (chord accompaniment volume)
+  chordEnabled?: boolean;   // chord accompaniment toggle (default true)
   metronomeVolume?: number; // 0 to 1
   transpose?: number;       // Semitones (-12 to +12)
   tempoMultiplier?: number; // 0.5 to 2.0
@@ -42,7 +43,8 @@ export class AudioEngine {
   private options: Required<AudioEngineOptions> = {
     instrument: 'piano',
     melodyVolume: 0.85,
-    backingVolume: 0.35,
+    backingVolume: 0.6,
+    chordEnabled: true,
     metronomeVolume: 0.45,
     transpose: 0,
     tempoMultiplier: 1.0,
@@ -201,6 +203,21 @@ export class AudioEngine {
       window.addEventListener('pointerdown', this.unlockOnUserGesture, { capture: true, passive: true });
       window.addEventListener('touchstart', this.unlockOnUserGesture, { capture: true, passive: true });
       window.addEventListener('keydown', this.unlockOnUserGesture, { capture: true, passive: true });
+
+      // Initialize persistent volume & chord settings if available
+      try {
+        const savedChord = localStorage.getItem('taigi_composer_chord_enabled');
+        if (savedChord !== null) {
+          this.options.chordEnabled = savedChord === 'true';
+        }
+        const savedBacking = localStorage.getItem('taigi_composer_backing_volume');
+        if (savedBacking !== null) {
+          const num = parseFloat(savedBacking);
+          if (!isNaN(num) && num >= 0 && num <= 1) {
+            this.options.backingVolume = num;
+          }
+        }
+      } catch {}
     }
   }
 
@@ -379,11 +396,12 @@ export class AudioEngine {
 
         this.backingFilter = this.ctx.createBiquadFilter();
         this.backingFilter.type = 'lowpass';
-        this.backingFilter.frequency.setValueAtTime(1000, this.ctx.currentTime);
+        this.backingFilter.frequency.setValueAtTime(1600, this.ctx.currentTime);
         this.backingFilter.Q.setValueAtTime(0.7, this.ctx.currentTime);
 
         this.backingGain = this.ctx.createGain();
-        this.backingGain.gain.setValueAtTime(this.options.backingVolume, this.ctx.currentTime);
+        const effectiveBacking = this.options.chordEnabled !== false ? this.options.backingVolume : 0;
+        this.backingGain.gain.setValueAtTime(effectiveBacking, this.ctx.currentTime);
         this.backingFilter.connect(this.backingGain);
         this.backingGain.connect(this.masterGain);
 
@@ -460,8 +478,9 @@ export class AudioEngine {
       if (this.melodyGain && this.options.melodyVolume !== undefined) {
         this.melodyGain.gain.setValueAtTime(this.options.melodyVolume, this.ctx.currentTime);
       }
-      if (this.backingGain && this.options.backingVolume !== undefined) {
-        this.backingGain.gain.setValueAtTime(this.options.backingVolume, this.ctx.currentTime);
+      if (this.backingGain && (this.options.backingVolume !== undefined || this.options.chordEnabled !== undefined)) {
+        const effectiveBacking = this.options.chordEnabled !== false ? this.options.backingVolume : 0;
+        this.backingGain.gain.setValueAtTime(effectiveBacking, this.ctx.currentTime);
       }
       if (this.metronomeGain && this.options.metronomeVolume !== undefined) {
         this.metronomeGain.gain.setValueAtTime(this.options.metronomeVolume, this.ctx.currentTime);
@@ -1190,38 +1209,53 @@ export class AudioEngine {
   /**
    * Play chord accompaniment pattern with low bass foundation and warm harmonic pad.
    * Chords are routed through the backing low-pass filter to ensure clarity for the melody.
+   * When ecoMode is active, uses an energy-efficient reduced oscillator graph (2 voices, direct routing)
+   * to conserve CPU and battery without muting the harmonic accompaniment.
    */
   private playChordBeat(chordName: string, startTime: number, beatDuration: number, isDownbeat: boolean) {
-    if (this.options.ecoMode) return;
+    if (this.options.chordEnabled === false) return;
     if (!this.ctx || !this.backingGain || this.options.backingVolume <= 0.01) return;
     const chordFrequencies = getChordNotes(chordName, this.options.transpose);
     if (chordFrequencies.length === 0) return;
 
-    const targetDestination: AudioNode = this.backingFilter || this.backingGain;
+    const isEco = Boolean(this.options.ecoMode);
+    // In ecoMode, bypass the biquad lowpass filter DSP to conserve processing power
+    const targetDestination: AudioNode = isEco ? this.backingGain : (this.backingFilter || this.backingGain);
+    const now = this.ctx.currentTime;
+    const safeStart = Math.max(startTime, now + 0.005);
 
-    chordFrequencies.forEach((freq, idx) => {
+    // In ecoMode, synthesize a streamlined harmonic set to cut oscillator overhead by ~60-75%:
+    // - On downbeats: bass root + primary harmonic tone
+    // - On offbeats: bass root only
+    const activeFrequencies = isEco
+      ? (isDownbeat
+          ? [chordFrequencies[0], chordFrequencies[Math.min(2, chordFrequencies.length - 1)]]
+          : [chordFrequencies[0]])
+      : chordFrequencies;
+
+    activeFrequencies.forEach((freq, idx) => {
       const isBass = idx === 0;
 
-      // On non-downbeats, keep bass subtle to avoid metronomic thumping
-      if (!isDownbeat && isBass) return;
-
-      const stagger = isDownbeat && !isBass ? (idx - 1) * 0.016 : 0;
-      const noteTime = startTime + stagger;
+      // Skip stagger timing ramps in ecoMode to reduce timer complexity
+      const stagger = !isEco && isDownbeat && !isBass ? (idx - 1) * 0.016 : 0;
+      const noteTime = safeStart + stagger;
       const osc = this.ctx!.createOscillator();
       this.registerOscillator(osc);
       const gain = this.ctx!.createGain();
 
-      osc.type = 'triangle';
+      osc.type = isBass ? 'triangle' : 'sine';
       osc.frequency.setValueAtTime(freq, noteTime);
 
-      const noteDuration = isDownbeat ? beatDuration * 0.94 : beatDuration * 0.75;
+      const noteDuration = isDownbeat ? beatDuration * 0.94 : beatDuration * 0.78;
       const vol = isDownbeat
-        ? (isBass ? 0.28 : 0.16)
-        : 0.10;
+        ? (isBass ? 0.38 : 0.26)
+        : (isBass ? 0.20 : 0.18);
 
+      const attackTime = 0.012;
+      const decayDuration = Math.max(0.06, noteDuration);
       gain.gain.setValueAtTime(0.0001, noteTime);
-      gain.gain.linearRampToValueAtTime(vol, noteTime + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + noteDuration);
+      gain.gain.linearRampToValueAtTime(vol, noteTime + attackTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + decayDuration);
 
       osc.connect(gain);
       gain.connect(targetDestination);
@@ -1282,7 +1316,7 @@ export class AudioEngine {
     const beatsPerBar = parseInt(tsParts[0], 10) || 4;
     const totalMeasureDurationSec = Math.max(measureBeats, beatsPerBar) * secPerBeat;
 
-    const audioStart = this.ctx!.currentTime + 0.05;
+    const audioStart = this.ctx!.currentTime + 0.08;
     this.startAudioTime = audioStart;
 
     const timelineEvents: {
@@ -1355,7 +1389,7 @@ export class AudioEngine {
     });
 
     // Schedule chord backing & metronome for this measure
-    const measureChords = getMeasureChords(targetMeasure);
+    const measureChords = getEffectiveMeasureChords(song, measureIndex);
     for (let b = 0; b < beatsPerBar; b++) {
       const beatTime = audioStart + b * secPerBeat;
       this.playMetronomeClick(beatTime, b === 0);
@@ -1512,7 +1546,7 @@ export class AudioEngine {
 
       const tsParts = (measure.timeSignature || song.timeSignature).split('/');
       const beatsPerBar = parseInt(tsParts[0], 10) || 4;
-      const measureChords = getMeasureChords(measure);
+      const measureChords = getEffectiveMeasureChords(song, mIdx);
 
       for (let b = 0; b < beatsPerBar; b++) {
         const beatTime = audioStart + measureAccumTime + b * secPerBeat;
@@ -1581,7 +1615,7 @@ export class AudioEngine {
     }
     const totalVerseDurationSec = totalVerseBeats * secPerBeat;
 
-    const audioStart = this.ctx!.currentTime + 0.05;
+    const audioStart = this.ctx!.currentTime + 0.08;
     this.startAudioTime = audioStart;
 
     const timelineEvents: {
@@ -1665,7 +1699,7 @@ export class AudioEngine {
 
       const tsParts = (targetMeasure.timeSignature || song.timeSignature || '4/4').split('/');
       const beatsPerBar = parseInt(tsParts[0], 10) || 4;
-      const measureChords = getMeasureChords(targetMeasure);
+      const measureChords = getEffectiveMeasureChords(song, mIdx);
 
       for (let b = 0; b < beatsPerBar; b++) {
         const beatTime = audioStart + mStartTimeSec + b * secPerBeat;
@@ -1945,7 +1979,7 @@ export class AudioEngine {
       });
 
       // Schedule chord backing and metronome per beat of this measure
-      const measureChords = getMeasureChords(measure);
+      const measureChords = getEffectiveMeasureChords(song, mIdx);
       for (let b = 0; b < beatsPerBar; b++) {
         const beatTime = accumulatedSongTime + b * secPerBeat;
         if (beatTime >= startFromSec) {
@@ -2324,11 +2358,12 @@ export class AudioEngine {
 
       this.backingFilter = this.ctx.createBiquadFilter();
       this.backingFilter.type = 'lowpass';
-      this.backingFilter.frequency.setValueAtTime(1000, this.ctx.currentTime);
+      this.backingFilter.frequency.setValueAtTime(1600, this.ctx.currentTime);
       this.backingFilter.Q.setValueAtTime(0.7, this.ctx.currentTime);
 
       this.backingGain = this.ctx.createGain();
-      this.backingGain.gain.setValueAtTime(this.options.backingVolume, this.ctx.currentTime);
+      const effectiveBacking = this.options.chordEnabled !== false ? this.options.backingVolume : 0;
+      this.backingGain.gain.setValueAtTime(effectiveBacking, this.ctx.currentTime);
       this.backingFilter.connect(this.backingGain);
       this.backingGain.connect(this.masterGain);
 

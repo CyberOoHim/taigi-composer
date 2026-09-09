@@ -21,6 +21,7 @@ import {
   Minus,
   Plus,
 } from 'lucide-react';
+import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
 
 interface KaraokeControlsProps {
   playbackState: PlaybackState;
@@ -397,6 +398,9 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
           </button>
         </div>
 
+        {/* Chord Playback Control (Toggle & Volume) */}
+        <ChordPlaybackControl variant="toolbar" previewKeyChord={song.key} idPrefix="ktv-main-chord" />
+
         {/* Mixer & Tempo Toggle */}
         <button
           id="ktv-toggle-mixer-btn"
@@ -498,22 +502,8 @@ export const KaraokeControls: React.FC<KaraokeControlsProps> = React.memo(({
             />
           </div>
 
-          {/* Backing Chord Volume */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between text-xs text-zinc-400">
-              <span>Accompaniment</span>
-              <span className="font-mono text-zinc-200">{Math.round(backingVolume * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={backingVolume}
-              onChange={e => onSetBackingVolume(parseFloat(e.target.value))}
-              className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
-            />
-          </div>
+          {/* Backing Chord Volume & Toggle */}
+          <ChordPlaybackControl variant="card" previewKeyChord={song.key} idPrefix="ktv-mixer-chord" />
 
           {/* Metronome Volume */}
           <div className="flex flex-col gap-1.5">

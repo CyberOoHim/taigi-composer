@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
   INSTRUMENT: 'taigi_composer_instrument',
   MELODY_VOLUME: 'taigi_composer_melody_volume',
   BACKING_VOLUME: 'taigi_composer_backing_volume',
+  CHORD_ENABLED: 'taigi_composer_chord_enabled',
   METRONOME_VOLUME: 'taigi_composer_metronome_volume',
   TRANSPOSE: 'taigi_composer_transpose',
   TEMPO_MULTIPLIER: 'taigi_composer_tempo_multiplier',
@@ -233,7 +234,7 @@ export function setStoredMelodyVolume(vol: number): void {
   safeSetItem(STORAGE_KEYS.MELODY_VOLUME, String(vol));
 }
 
-export function getStoredBackingVolume(defaultVal = 0.5): number {
+export function getStoredBackingVolume(defaultVal = 0.6): number {
   const val = safeGetItem(STORAGE_KEYS.BACKING_VOLUME);
   if (val !== null) {
     const num = parseFloat(val);
@@ -242,8 +243,28 @@ export function getStoredBackingVolume(defaultVal = 0.5): number {
   return defaultVal;
 }
 
+export const CHORD_SETTINGS_EVENT = 'taigi_composer_chord_settings_change';
+
 export function setStoredBackingVolume(vol: number): void {
   safeSetItem(STORAGE_KEYS.BACKING_VOLUME, String(vol));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(CHORD_SETTINGS_EVENT, { detail: { chordVolume: vol } }));
+  }
+}
+
+export function getStoredChordEnabled(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.CHORD_ENABLED);
+  if (val !== null) {
+    return val === 'true';
+  }
+  return defaultVal;
+}
+
+export function setStoredChordEnabled(enabled: boolean): void {
+  safeSetItem(STORAGE_KEYS.CHORD_ENABLED, String(enabled));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(CHORD_SETTINGS_EVENT, { detail: { chordEnabled: enabled } }));
+  }
 }
 
 export function getStoredMetronomeVolume(defaultVal = 0.45): number {

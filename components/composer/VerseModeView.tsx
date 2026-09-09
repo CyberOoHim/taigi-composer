@@ -7,6 +7,7 @@ import { isNonNotationItem, isPunctuationOrSpacer, getMeasureRhythmReport } from
 import { scrollToCardElement } from '@/lib/utils';
 import { NoteCell } from './NoteCell';
 import { NoteEditorHud } from './NoteEditorHud';
+import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
 import {
   Play,
   Square,
@@ -418,6 +419,11 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                       </>
                     )}
                   </button>
+                )}
+
+                {/* Chord Playback Control on active/playing Verse */}
+                {(isPlayingThisVerse || hasSelectedNoteInVerse) && (
+                  <ChordPlaybackControl variant="compact" previewKeyChord={song.key} idPrefix={`verse-chord-${vIdx}`} />
                 )}
 
                 {/* Previous / Next Verse Switcher */}

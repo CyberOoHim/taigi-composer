@@ -53,6 +53,7 @@ import { SheetModeView } from './composer/SheetModeView';
 import { MeasureOrganizerModal } from './composer/MeasureOrganizerModal';
 import { HumToScoreModal, InsertionMode } from './composer/HumToScoreModal';
 import { KeyboardToScoreModal } from './composer/KeyboardToScoreModal';
+import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
 import { UiZoomControl } from '@/components/UiZoomControl';
 import {
   Plus,
@@ -2646,6 +2647,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                 </span>
               )}
             </button>
+
+            {/* Chord Playback Control (Toggle & Volume Slider) */}
+            <ChordPlaybackControl variant="toolbar" previewKeyChord={song.key} idPrefix="composer-score-chord" />
 
             {/* Undo / Redo in Score Header */}
             {onUndo && onRedo && (

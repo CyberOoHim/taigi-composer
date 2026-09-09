@@ -71,10 +71,16 @@ export function getPitchFrequency(
 export function getChordNotes(chordName: string, transposeSemitones: number = 0): number[] {
   if (!chordName || chordName.trim() === '') return [];
 
-  // Support slash chords e.g. "C/E", "G/B"
-  const [mainChord, slashBass] = chordName.trim().split('/');
+  // Clean and normalize accidentals & parentheses, e.g. "B♭", "(F)", "C#m"
+  const cleanName = chordName.trim().replace(/[()]/g, '').replace(/♭/g, 'b').replace(/♯/g, '#');
+  if (/^N\.?C\.?$/i.test(cleanName) || cleanName.toLowerCase() === 'none') {
+    return [];
+  }
 
-  const rootMatch = mainChord.match(/^([A-G][#b]?)(.*)$/);
+  // Support slash chords e.g. "C/E", "G/B"
+  const [mainChord, slashBass] = cleanName.split('/');
+
+  const rootMatch = mainChord.trim().match(/^([A-G][#b]?)(.*)$/);
   if (!rootMatch) return [];
 
   const rootStr = rootMatch[1] as KeySignature;
@@ -84,8 +90,9 @@ export function getChordNotes(chordName: string, transposeSemitones: number = 0)
 
   // Calculate Bass note:
   let bassSemitone = rootSemitone;
-  if (slashBass && KEY_SEMITONES[slashBass as KeySignature] !== undefined) {
-    bassSemitone = (KEY_SEMITONES[slashBass as KeySignature] ?? 0) + transposeSemitones;
+  const trimmedSlashBass = slashBass ? slashBass.trim() : '';
+  if (trimmedSlashBass && KEY_SEMITONES[trimmedSlashBass as KeySignature] !== undefined) {
+    bassSemitone = (KEY_SEMITONES[trimmedSlashBass as KeySignature] ?? 0) + transposeSemitones;
   }
   // Bass in octave 2 (MIDI 36 to 47)
   const bassMidi = 36 + (((bassSemitone % 12) + 12) % 12);
@@ -1294,6 +1301,73 @@ export function getMeasureChords(measure?: Partial<Measure> | { chord?: string; 
  */
 export function formatMeasureChords(chords: string[]): string {
   return chords.map(c => c.trim()).filter(Boolean).join(' ');
+}
+
+/**
+ * Resolves the effective chords for a measure within a song:
+ * 1. Checks if the measure directly specifies chords (e.g. measure.chords or measure.chord).
+ *    If explicitly set to "N.C." / "NC", returns [] (intentional rest / no chord).
+ * 2. Harmonic continuity: looks backward to preceding measures to find the currently active chord.
+ * 3. Looks forward to subsequent measures (useful if pickup measures didn't define a chord).
+ * 4. Falls back to Tonic (I) chord of the song key.
+ */
+export function getEffectiveMeasureChords(song: Song, measureIndex: number): string[] {
+  if (!song || !Array.isArray(song.measures) || measureIndex < 0 || measureIndex >= song.measures.length) {
+    return [];
+  }
+
+  const targetMeasure = song.measures[measureIndex];
+  if (!targetMeasure) return [];
+
+  // 1. Direct chords on target measure
+  const directChords = getMeasureChords(targetMeasure);
+  if (directChords.length > 0) {
+    const isExplicitNoChord = directChords.some(c => {
+      const u = c.trim().toUpperCase();
+      return u === 'N.C.' || u === 'NC' || u === 'NONE';
+    });
+    if (isExplicitNoChord) return [];
+    return directChords;
+  }
+
+  // 2. Look backward for currently active harmony (chords sustain until a new chord appears)
+  for (let i = measureIndex - 1; i >= 0; i--) {
+    const prevMeasure = song.measures[i];
+    if (prevMeasure) {
+      const prevChords = getMeasureChords(prevMeasure);
+      if (prevChords.length > 0) {
+        const isExplicitNoChord = prevChords.some(c => {
+          const u = c.trim().toUpperCase();
+          return u === 'N.C.' || u === 'NC' || u === 'NONE';
+        });
+        if (isExplicitNoChord) return [];
+        return prevChords;
+      }
+    }
+  }
+
+  // 3. Look forward in case chords begin on a subsequent measure (e.g. after a lead-in/anacrusis)
+  for (let i = measureIndex + 1; i < song.measures.length; i++) {
+    const nextMeasure = song.measures[i];
+    if (nextMeasure) {
+      const nextChords = getMeasureChords(nextMeasure);
+      if (nextChords.length > 0) {
+        const isExplicitNoChord = nextChords.some(c => {
+          const u = c.trim().toUpperCase();
+          return u === 'N.C.' || u === 'NC' || u === 'NONE';
+        });
+        if (!isExplicitNoChord) return nextChords;
+      }
+    }
+  }
+
+  // 4. Fallback to Tonic (I) chord of the key signature
+  const diatonic = getDiatonicChords(song.key || 'C');
+  if (diatonic && diatonic.length > 0 && diatonic[0].chord) {
+    return [diatonic[0].chord];
+  }
+
+  return [song.key || 'C'];
 }
 
 /**

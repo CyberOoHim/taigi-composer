@@ -29,6 +29,7 @@ import {
 } from '@/lib/taigiUtils';
 import { getDiatonicCandidateChords, suggestChordsForMeasure } from '@/lib/chordArranger';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
+import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
 import { getStoredDeckTab, setStoredDeckTab } from '@/lib/storage';
 import {
   Volume2,
@@ -736,6 +737,9 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
               )}
             </button>
           )}
+
+          {/* Chord Backing Control (Toggle & Volume) */}
+          <ChordPlaybackControl variant="compact" previewKeyChord={keySignature} idPrefix="hud-chord" />
 
           {/* Prev / Next Note Quick Navigation */}
           {onNavigatePrevNote && onNavigateNextNote && (
@@ -2154,18 +2158,21 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     </span>
                   </div>
 
-                  {/* Right action: Auto-Harmonize Measure Button */}
-                  <button
-                    id="hud-auto-harmonize-measure-btn"
-                    type="button"
-                    onClick={handleAutoHarmonizeCurrentMeasure}
-                    disabled={!currentMeasure || !onUpdateMeasureChord}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-xs shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-                    title="根據本小節旋律音高智慧分析並配上最佳和弦"
-                  >
-                    <Wand2 className="w-3.5 h-3.5" />
-                    <span>🪄 智慧配和弦</span>
-                  </button>
+                  {/* Right actions: Chord Playback Control & Auto-Harmonize Measure Button */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <ChordPlaybackControl variant="compact" previewKeyChord={keySignature} idPrefix="hud-tab-chord" />
+                    <button
+                      id="hud-auto-harmonize-measure-btn"
+                      type="button"
+                      onClick={handleAutoHarmonizeCurrentMeasure}
+                      disabled={!currentMeasure || !onUpdateMeasureChord}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-xs shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                      title="根據本小節旋律音高智慧分析並配上最佳和弦"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" />
+                      <span>🪄 智慧配和弦</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Interactive Chord Chips List with Beat Allocation */}

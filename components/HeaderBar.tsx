@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useGeminiAuth } from '@/hooks/useGeminiAuth';
 import { UiZoomControl } from '@/components/UiZoomControl';
+import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
 
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -312,6 +313,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 )}
               </button>
             )}
+
+            {/* Chord Playback Control (Toggle & Volume Slider - Global) */}
+            <ChordPlaybackControl variant="toolbar" previewKeyChord={song.key} idPrefix="header-chord" />
 
             <div className="w-[1px] h-5 bg-zinc-300 dark:bg-zinc-700/80 mx-0.5 shrink-0" />
 
