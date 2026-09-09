@@ -18,9 +18,11 @@ import {
   ActiveNoteState,
 } from '@/lib/keyboard/keyEventEngine';
 import { useWebMidi } from '@/lib/keyboard/webMidi';
+import type { RawNoteSegment } from '@/lib/pitch/onsetDetector';
 import {
   QuantizeGrid,
   midiToNumberedPitch,
+  quantizeDurationToBeats,
   type TranscriptionResult,
 } from '@/lib/pitch/scoreQuantizer';
 import { CHROMATIC_KEYS, STANDARD_TIME_SIGNATURES } from '@/lib/taigiUtils';
@@ -106,8 +108,8 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
   // Octave display view for piano bed: 'low_mid' (-1, 0), 'mid_high' (0, 1), 'all' (-1, 0, 1)
   const [octaveBedView, setOctaveBedView] = useState<'low_mid' | 'mid_high' | 'all'>('mid_high');
 
-  // Count-in state
-  const [countdownBeat, setCountdownBeat] = useState<number>(4);
+  // Count-in state (standardized to 3-beat countdown: 3 -> 2 -> 1 -> Record)
+  const [countdownBeat, setCountdownBeat] = useState<number>(3);
 
   // Metronome Pulse & Recording State
   const [currentBeatInBar, setCurrentBeatInBar] = useState<number>(1);
@@ -119,8 +121,19 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
   const [setupPreviewBeat, setSetupPreviewBeat] = useState<number>(1);
   const [setupPreviewPulse, setSetupPreviewPulse] = useState<boolean>(false);
 
-  // Active played notes state
+  // Active played notes state & live held duration tracking
   const [activeMidiSet, setActiveMidiSet] = useState<Set<number>>(new Set());
+  const [activeHeldBeats, setActiveHeldBeats] = useState<number | null>(null);
+  const [liveRecordedNotes, setLiveRecordedNotes] = useState<
+    Array<{
+      id: string;
+      pitch: PitchNumber;
+      octave: number;
+      accidental: '' | '#' | 'b';
+      duration: number;
+      solfege: string;
+    }>
+  >([]);
   const [lastPlayedNote, setLastPlayedNote] = useState<{
     pitch: PitchNumber;
     octave: number;
@@ -139,6 +152,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
 
   // Refs
   const keyEngineRef = useRef<KeyEventEngine | null>(null);
+  const countInIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
   const metronomeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -179,7 +193,6 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
         allowTriplets,
         accidentalPreference: accidentalPref,
         qwertyMappingMode,
-        restThresholdMs: 80,
         extendLegatoGaps: true,
       },
       {
@@ -226,6 +239,49 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
             return next;
           });
         },
+        onSegmentCommitted: (seg: RawNoteSegment) => {
+          if (seg.midi !== null) {
+            const pitchInfo = midiToNumberedPitch(seg.midi, activeKey, {
+              accidentalPreference: accidentalPref,
+              octaveShift: octaveShiftVal,
+            });
+            const q = quantizeDurationToBeats(
+              seg.durationMs,
+              activeBpm,
+              quantizeGrid,
+              allowTriplets,
+              true
+            );
+            const solfege =
+              pitchInfo.pitch === 1
+                ? 'Do'
+                : pitchInfo.pitch === 2
+                  ? 'Re'
+                  : pitchInfo.pitch === 3
+                    ? 'Mi'
+                    : pitchInfo.pitch === 4
+                      ? 'Fa'
+                      : pitchInfo.pitch === 5
+                        ? 'Sol'
+                        : pitchInfo.pitch === 6
+                          ? 'La'
+                          : pitchInfo.pitch === 7
+                            ? 'Ti'
+                            : '';
+
+            setLiveRecordedNotes(prev => [
+              ...prev.slice(-9),
+              {
+                id: `live-rec-${seg.startTimeMs}-${Date.now()}`,
+                pitch: pitchInfo.pitch,
+                octave: pitchInfo.octave,
+                accidental: pitchInfo.accidental,
+                duration: q.duration,
+                solfege,
+              },
+            ]);
+          }
+        },
         onOctaveShiftChange: shift => {
           setOctaveShiftVal(shift);
         },
@@ -240,6 +296,25 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       }
     };
   }, [activeKey, activeTimeSignature, activeBpm, octaveShiftVal, quantizeGrid, allowTriplets, accidentalPref, qwertyMappingMode, audioEngine]);
+
+  // Live held duration ticker during active recording
+  useEffect(() => {
+    if (step !== 'RECORDING') return;
+
+    const ticker = setInterval(() => {
+      const active = keyEngineRef.current?.getActiveNoteHeldDuration();
+      if (active) {
+        setActiveHeldBeats(active.estimatedBeats);
+      } else {
+        setActiveHeldBeats(null);
+      }
+    }, 40);
+
+    return () => {
+      clearInterval(ticker);
+      setActiveHeldBeats(null);
+    };
+  }, [step]);
 
   // Setup step: lightweight visual metronome pulse
   useEffect(() => {
@@ -274,6 +349,10 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
   const stopAllPipelines = useCallback(() => {
     stopAllPlayback();
 
+    if (countInIntervalRef.current) {
+      clearInterval(countInIntervalRef.current);
+      countInIntervalRef.current = null;
+    }
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
@@ -287,6 +366,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       keyEngineRef.current.stopRecording();
     }
     setActiveMidiSet(new Set());
+    setActiveHeldBeats(null);
   }, [stopAllPlayback]);
 
   // Actual recording execution
@@ -294,6 +374,8 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     setStep('RECORDING');
     setRecordingSeconds(0);
     setActiveMidiSet(new Set());
+    setActiveHeldBeats(null);
+    setLiveRecordedNotes([]);
     setLastPlayedNote(null);
 
     const engine = keyEngineRef.current;
@@ -343,11 +425,10 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     }, intervalMs);
   }, [activeTimeSignature, activeBpm, audioEngine]);
 
-  // Handle Count-in and Start Recording
+  // Handle Count-in and Start Recording (standardized 3-beat countdown: 3 -> 2 -> 1 -> Record)
   const startRecordingFlow = useCallback(() => {
     stopAllPipelines();
 
-    const beatsPerBar = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
     const secPerBeat = 60 / activeBpm;
 
     if (!enableCountIn) {
@@ -355,23 +436,32 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       return;
     }
 
+    const COUNT_IN_BEATS = 3;
     setStep('COUNTING_IN');
-    setCountdownBeat(beatsPerBar);
+    setCountdownBeat(COUNT_IN_BEATS);
 
-    let count = beatsPerBar;
+    let count = COUNT_IN_BEATS;
     audioEngine.playMetronomeTick(true);
 
-    const countInTimer = setInterval(() => {
+    if (countInIntervalRef.current) {
+      clearInterval(countInIntervalRef.current);
+      countInIntervalRef.current = null;
+    }
+
+    countInIntervalRef.current = setInterval(() => {
       count -= 1;
       if (count > 0) {
         setCountdownBeat(count);
         audioEngine.playMetronomeTick(false);
       } else {
-        clearInterval(countInTimer);
+        if (countInIntervalRef.current) {
+          clearInterval(countInIntervalRef.current);
+          countInIntervalRef.current = null;
+        }
         beginActiveRecording();
       }
     }, secPerBeat * 1000);
-  }, [activeTimeSignature, activeBpm, enableCountIn, stopAllPipelines, audioEngine, beginActiveRecording]);
+  }, [activeBpm, enableCountIn, stopAllPipelines, audioEngine, beginActiveRecording]);
 
   // Finish recording and transcribe
   const handleFinishRecording = useCallback(() => {
@@ -674,28 +764,64 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     return keys;
   }, [pianoOctaves, activeKey, accidentalPref]);
 
-  // Touch / Pointer Event Handlers for on-screen piano
-  const handleKeyPointerDown = (midi: number) => {
+  const getBeatDurationLabel = useCallback((beats: number): string => {
+    if (beats >= 3.65) return '4.0 拍 (全音符 1 - - -)';
+    if (beats >= 2.65) return '3.0 拍 (附點二分 1 - -)';
+    if (beats >= 1.65) return '2.0 拍 (二分音符 1 -)';
+    if (beats >= 1.35) return '1.5 拍 (附點四分 ♩·)';
+    if (beats >= 0.70) return '1.0 拍 (四分音符 ♩)';
+    if (beats >= 0.35) return '0.5 拍 (八分音符 ♪)';
+    return `${beats.toFixed(2)} 拍 (十六分 𝅘𝅥𝅯)`;
+  }, []);
+
+  // Touch / Pointer Event Handlers for on-screen piano with pointer capture
+  const handleKeyPointerDown = (e: React.PointerEvent, midi: number) => {
     isPointerDownRef.current = true;
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    } catch {}
     if (keyEngineRef.current) {
       keyEngineRef.current.noteOn(midi, 0.9, undefined, `touch-${midi}`);
     }
   };
 
-  const handleKeyPointerUp = (midi: number) => {
+  const handleKeyPointerUp = (e: React.PointerEvent, midi: number) => {
     isPointerDownRef.current = false;
+    try {
+      if ((e.currentTarget as HTMLElement).hasPointerCapture?.(e.pointerId)) {
+        (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+      }
+    } catch {}
     if (keyEngineRef.current) {
       keyEngineRef.current.noteOff(midi, undefined, `touch-${midi}`);
     }
   };
 
-  const handleKeyPointerEnter = (midi: number) => {
-    if (isPointerDownRef.current && keyEngineRef.current) {
+  const handleKeyPointerCancel = (e: React.PointerEvent, midi: number) => {
+    isPointerDownRef.current = false;
+    try {
+      if ((e.currentTarget as HTMLElement).hasPointerCapture?.(e.pointerId)) {
+        (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+      }
+    } catch {}
+    if (keyEngineRef.current) {
+      keyEngineRef.current.noteOff(midi, undefined, `touch-${midi}`);
+    }
+  };
+
+  const handleKeyPointerEnter = (e: React.PointerEvent, midi: number) => {
+    if (isPointerDownRef.current && keyEngineRef.current && e.buttons > 0) {
       keyEngineRef.current.noteOn(midi, 0.9, undefined, `touch-${midi}`);
     }
   };
 
-  const handleKeyPointerLeave = (midi: number) => {
+  const handleKeyPointerLeave = (e: React.PointerEvent, midi: number) => {
+    // If pointer is captured by this key, do not cut off note prematurely!
+    try {
+      if ((e.currentTarget as HTMLElement).hasPointerCapture?.(e.pointerId)) {
+        return;
+      }
+    } catch {}
     if (keyEngineRef.current) {
       keyEngineRef.current.noteOff(midi, undefined, `touch-${midi}`);
     }
@@ -955,7 +1081,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                         onChange={e => setEnableCountIn(e.target.checked)}
                         className="rounded-md accent-amber-500 cursor-pointer"
                       />
-                      <span>預備拍倒數 (Count-in 4 beats)</span>
+                      <span>預備拍倒數 (3 拍)</span>
                     </label>
 
                     <label className="flex items-center gap-1.5 text-[11px] text-zinc-600 dark:text-zinc-400 cursor-pointer">
@@ -1138,19 +1264,27 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                   </button>
                 </div>
 
-                {/* Last Played Note Readout */}
-                <div className="flex items-center gap-2">
+                {/* Last Played Note & Live Held Duration Readout */}
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-zinc-400">當前音高：</span>
                   {lastPlayedNote ? (
-                    <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono font-bold text-xs">
-                      <span className="text-sm font-black">
-                        {lastPlayedNote.accidental}
-                        {lastPlayedNote.pitch}
-                        {lastPlayedNote.octave > 0 ? '̇' : lastPlayedNote.octave < 0 ? '̣' : ''}
-                      </span>
-                      <span className="text-[10px] text-amber-200">
-                        ({lastPlayedNote.solfege})
-                      </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono font-bold text-xs">
+                        <span className="text-sm font-black">
+                          {lastPlayedNote.accidental}
+                          {lastPlayedNote.pitch}
+                          {lastPlayedNote.octave > 0 ? '̇' : lastPlayedNote.octave < 0 ? '̣' : ''}
+                        </span>
+                        <span className="text-[10px] text-amber-200">
+                          ({lastPlayedNote.solfege})
+                        </span>
+                      </div>
+                      {activeHeldBeats !== null && (
+                        <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold text-xs animate-pulse">
+                          <span className="text-[10px] text-emerald-400 uppercase tracking-wider">持續按住:</span>
+                          <span>{getBeatDurationLabel(activeHeldBeats)}</span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <span className="text-xs text-zinc-500 italic">等待彈奏...</span>
@@ -1180,6 +1314,30 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* LIVE RECORDED NOTES STREAM */}
+              {liveRecordedNotes.length > 0 && (
+                <div className="flex items-center gap-2 p-2.5 bg-zinc-950/70 rounded-xl border border-zinc-800/80 overflow-x-auto">
+                  <span className="text-[10px] font-bold text-zinc-400 font-mono shrink-0">
+                    已錄入音符：
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-nowrap">
+                    {liveRecordedNotes.map(n => (
+                      <div
+                        key={n.id}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs font-mono font-bold shadow-xs shrink-0"
+                      >
+                        <span className="text-amber-400 font-black">
+                          {n.accidental}{n.pitch}{n.octave > 0 ? '̇' : n.octave < 0 ? '̣' : ''}
+                        </span>
+                        <span className="text-[10px] px-1 rounded bg-zinc-800 text-zinc-300">
+                          {n.duration >= 1 ? `${n.duration}拍` : n.duration === 0.5 ? '½拍' : `${n.duration}拍`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* PIANO BED OCTAVE SWITCHER */}
               <div className="flex items-center justify-between px-1">
@@ -1225,19 +1383,23 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                         key={`wk-${wk.midi}`}
                         onPointerDown={e => {
                           e.preventDefault();
-                          handleKeyPointerDown(wk.midi);
+                          handleKeyPointerDown(e, wk.midi);
                         }}
                         onPointerUp={e => {
                           e.preventDefault();
-                          handleKeyPointerUp(wk.midi);
+                          handleKeyPointerUp(e, wk.midi);
+                        }}
+                        onPointerCancel={e => {
+                          e.preventDefault();
+                          handleKeyPointerCancel(e, wk.midi);
                         }}
                         onPointerEnter={e => {
                           e.preventDefault();
-                          handleKeyPointerEnter(wk.midi);
+                          handleKeyPointerEnter(e, wk.midi);
                         }}
                         onPointerLeave={e => {
                           e.preventDefault();
-                          handleKeyPointerLeave(wk.midi);
+                          handleKeyPointerLeave(e, wk.midi);
                         }}
                         className={`flex-1 flex flex-col justify-end items-center pb-2 border-r border-zinc-300 dark:border-zinc-800 rounded-b-lg cursor-pointer transition-all duration-75 relative ${
                           isActive
@@ -1284,20 +1446,25 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                           onPointerDown={e => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleKeyPointerDown(bk.midi);
+                            handleKeyPointerDown(e, bk.midi);
                           }}
                           onPointerUp={e => {
                             e.preventDefault();
                             e.stopPropagation();
-                            handleKeyPointerUp(bk.midi);
+                            handleKeyPointerUp(e, bk.midi);
+                          }}
+                          onPointerCancel={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleKeyPointerCancel(e, bk.midi);
                           }}
                           onPointerEnter={e => {
                             e.preventDefault();
-                            handleKeyPointerEnter(bk.midi);
+                            handleKeyPointerEnter(e, bk.midi);
                           }}
                           onPointerLeave={e => {
                             e.preventDefault();
-                            handleKeyPointerLeave(bk.midi);
+                            handleKeyPointerLeave(e, bk.midi);
                           }}
                           style={{
                             left: `${leftPos}%`,

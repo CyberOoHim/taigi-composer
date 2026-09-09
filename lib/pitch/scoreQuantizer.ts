@@ -355,10 +355,63 @@ export function quantizeDurationToBeats(
   durationMs: number,
   bpm: number = 80,
   grid: QuantizeGrid = 'eighth',
-  allowTriplets: boolean = false
+  allowTriplets: boolean = false,
+  keyboardMode: boolean = false
 ): QuantizedDurationResult {
   const msPerBeat = 60000 / Math.max(20, Math.min(300, bpm));
   const rawBeats = durationMs / msPerBeat;
+
+  // In keyboardMode (live screen piano, QWERTY typing, Web MIDI), human key press duration
+  // should naturally map to standard musical beat lengths (0.25, 0.5, 1, 2, 3, 4 beats)
+  // with human performance tolerance, preventing tenuto notes (e.g. 0.70-0.95 beat)
+  // from erroneously fragmenting into dotted eighths and rests.
+  if (keyboardMode && rawBeats <= 4.3) {
+    let kbDuration: NoteDuration | null = null;
+    if (grid === 'quarter') {
+      if (rawBeats >= 3.6) kbDuration = 4;
+      else if (rawBeats >= 2.6) kbDuration = 3;
+      else if (rawBeats >= 1.6) kbDuration = 2;
+      else kbDuration = 1;
+    } else if (grid === 'eighth') {
+      if (rawBeats >= 3.65) kbDuration = 4;
+      else if (rawBeats >= 2.65) kbDuration = 3;
+      else if (rawBeats >= 1.65) kbDuration = 2;
+      else if (rawBeats >= 1.35 && rawBeats < 1.65) kbDuration = 1.5;
+      else if (rawBeats >= 0.70) kbDuration = 1;
+      else if (allowTriplets && rawBeats >= 0.58 && rawBeats < 0.75) kbDuration = 0.667;
+      else if (allowTriplets && rawBeats >= 0.28 && rawBeats < 0.42) kbDuration = 0.333;
+      else if (rawBeats >= 0.35) kbDuration = 0.5;
+      else kbDuration = 0.5;
+    } else if (grid === 'sixteenth' || grid === 'thirtysecond') {
+      if (rawBeats >= 3.75) kbDuration = 4;
+      else if (rawBeats >= 2.75) kbDuration = 3;
+      else if (rawBeats >= 1.80) kbDuration = 2;
+      else if (rawBeats >= 1.35 && rawBeats < 1.65) kbDuration = 1.5;
+      else if (rawBeats >= 0.85 && rawBeats <= 1.20) kbDuration = 1;
+      else if (rawBeats >= 0.65 && rawBeats < 0.85) kbDuration = 0.75;
+      else if (rawBeats >= 0.38 && rawBeats < 0.65) kbDuration = 0.5;
+      else if (rawBeats >= 0.18 && rawBeats < 0.38) kbDuration = 0.25;
+      else kbDuration = getGridBeatValue(grid);
+    }
+
+    if (kbDuration !== null) {
+      const isDotted =
+        kbDuration === 1.5 ||
+        kbDuration === 0.75 ||
+        kbDuration === 3 ||
+        kbDuration === 0.375;
+      const isDoubleDotted = kbDuration === 1.75 || kbDuration === 3.5;
+      const isTriplet = kbDuration === 0.333 || kbDuration === 0.667;
+      return {
+        duration: kbDuration,
+        isDotted,
+        isDoubleDotted,
+        isTriplet,
+        rawBeats: Math.round(rawBeats * 1000) / 1000,
+        quantizationErrorBeats: Math.round((kbDuration - rawBeats) * 1000) / 1000,
+      };
+    }
+  }
 
   const minGridUnit = getGridBeatValue(grid);
   const candidates = getStandardDurationsForGrid(grid, allowTriplets);
@@ -508,7 +561,13 @@ export function quantizeRawSegments(
   const notes: NumberedNotationNote[] = [];
 
   cleaned.forEach((seg, index) => {
-    const quant = quantizeDurationToBeats(seg.durationMs, bpm, grid, allowTriplets);
+    const quant = quantizeDurationToBeats(
+      seg.durationMs,
+      bpm,
+      grid,
+      allowTriplets,
+      options.keyboardMode
+    );
 
     let pitch: PitchNumber = 0;
     let octave = 0;

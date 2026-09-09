@@ -27,6 +27,7 @@ import {
   resolveQwertyKey,
   QWERTY_KEY_DEFINITIONS,
   DEFAULT_KEY_ENGINE_CONFIG,
+  computeAdaptiveRestThreshold,
 } from '../lib/keyboard/keyEventEngine.ts';
 import {
   isWebMidiSupported,
@@ -894,6 +895,169 @@ describe('Stage 3 & 4: Web MIDI Integration & End-to-End Performance Workflow', 
     const shiftedDown = engine.transcribe({ octaveShift: -1 });
     assert.equal(shiftedDown.measures[0].notes[0].pitch, 1);
     assert.equal(shiftedDown.measures[0].notes[0].octave, -1);
+  });
+});
+
+describe('Stage 5: 3-Beat Countdown & Key Press Duration to Beat Length Mapping', () => {
+  it('computes adaptive rest thresholds properly based on tempo', () => {
+    // 60 BPM (1000ms/beat) -> 1000 * 0.35 = 350ms
+    assert.equal(computeAdaptiveRestThreshold(60), 350);
+
+    // 80 BPM (750ms/beat) -> 750 * 0.35 = 262.5 -> 263ms
+    assert.equal(computeAdaptiveRestThreshold(80), 263);
+
+    // 120 BPM (500ms/beat) -> 500 * 0.35 = 175 -> clamped to min 180ms
+    assert.equal(computeAdaptiveRestThreshold(120), 180);
+
+    // 40 BPM (1500ms/beat) -> 1500 * 0.35 = 525 -> clamped to max 380ms
+    assert.equal(computeAdaptiveRestThreshold(40), 380);
+  });
+
+  it('tracks live active note held duration and estimated beat length in real time', () => {
+    const clock = new VirtualClock();
+    const engine = new KeyEventEngine({ keySignature: 'C', bpm: 80 }, undefined, clock.now);
+
+    engine.startRecording(clock.now());
+
+    // Initially no active note
+    assert.equal(engine.getActiveNoteHeldDuration(clock.now()), null);
+
+    // Press C4 (MIDI 60)
+    engine.noteOn(60, 0.9, clock.now());
+
+    // Right after key onset (0ms held)
+    const atStart = engine.getActiveNoteHeldDuration(clock.now());
+    assert.ok(atStart);
+    assert.equal(atStart.midi, 60);
+    assert.equal(atStart.durationMs, 0);
+    assert.equal(atStart.estimatedBeats, 0);
+
+    // After 375ms (half a beat at 80 BPM)
+    clock.advance(375);
+    const atHalf = engine.getActiveNoteHeldDuration(clock.now());
+    assert.ok(atHalf);
+    assert.equal(atHalf.durationMs, 375);
+    assert.equal(atHalf.estimatedBeats, 0.5);
+
+    // After 750ms total (1 full beat)
+    clock.advance(375);
+    const atOne = engine.getActiveNoteHeldDuration(clock.now());
+    assert.ok(atOne);
+    assert.equal(atOne.durationMs, 750);
+    assert.equal(atOne.estimatedBeats, 1.0);
+
+    // After 1500ms total (2 full beats)
+    clock.advance(750);
+    const atTwo = engine.getActiveNoteHeldDuration(clock.now());
+    assert.ok(atTwo);
+    assert.equal(atTwo.durationMs, 1500);
+    assert.equal(atTwo.estimatedBeats, 2.0);
+
+    // Release note
+    engine.noteOff(60, clock.now());
+    assert.equal(engine.getActiveNoteHeldDuration(clock.now()), null);
+  });
+
+  it('transcribes human tenuto key releases into exact quarter, half, eighth, and whole beat lengths without spurious rests', () => {
+    const clock = new VirtualClock();
+    // Use default adaptive rest threshold for 80 BPM (~263ms)
+    const engine = new KeyEventEngine(
+      { keySignature: 'C', bpm: 80, timeSignature: '4/4' },
+      undefined,
+      clock.now
+    );
+
+    // Realistic human performance at 80 BPM (1 beat = 750ms):
+    // 1. Quarter note (Do, C4): held for 600ms (0.8 beat), released 150ms before beat 2
+    // 2. Quarter note (Re, D4): held for 620ms (0.83 beat), released 130ms before beat 3
+    // 3. Half note (Mi, E4): held for 1380ms (1.84 beats), released 120ms before beat 5
+    // All played in a continuous 4/4 measure!
+    engine.startRecording(clock.now());
+
+    // Beat 1: Note 1 (60)
+    engine.noteOn(60, 0.85, clock.now());
+    clock.advance(600); // 600ms hold
+    engine.noteOff(60, clock.now());
+    clock.advance(150); // 150ms articulation gap to beat 2
+
+    // Beat 2: Note 2 (62)
+    engine.noteOn(62, 0.85, clock.now());
+    clock.advance(620); // 620ms hold
+    engine.noteOff(62, clock.now());
+    clock.advance(130); // 130ms articulation gap to beat 3
+
+    // Beat 3-4: Note 3 (64)
+    engine.noteOn(64, 0.85, clock.now());
+    clock.advance(1380); // 1380ms hold (2 beats is 1500ms)
+    engine.noteOff(64, clock.now());
+
+    // Finalize at beat 4 end (3000ms total)
+    const segments = engine.finalize(clock.now());
+    const result = engine.transcribe({
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 80,
+      grid: 'eighth',
+    });
+
+    // Should pack into exactly 1 measure of 4 beats!
+    assert.equal(result.measures.length, 1);
+    const notes = result.measures[0].notes;
+    // Expected 3 notes: 1 (1 beat), 2 (1 beat), 3 (2 beats)
+    assert.equal(notes.length, 3);
+    assert.deepEqual(
+      notes.map(n => n.pitch),
+      [1, 2, 3]
+    );
+    assert.deepEqual(
+      notes.map(n => n.duration),
+      [1, 1, 2]
+    );
+    // Zero spurious rests in the measure!
+    assert.equal(notes.some(n => n.pitch === 0), false);
+  });
+
+  it('quantizes 3-beat held note as a dotted half note and 4-beat as a whole note', () => {
+    const clock = new VirtualClock();
+    const engine = new KeyEventEngine(
+      { keySignature: 'C', bpm: 80, timeSignature: '4/4' },
+      undefined,
+      clock.now
+    );
+
+    engine.startRecording(clock.now());
+
+    // Hold note for ~3 beats (2150ms, where 3 beats = 2250ms at 80 BPM)
+    engine.noteOn(60, 0.85, clock.now());
+    clock.advance(2150);
+    engine.noteOff(60, clock.now());
+
+    const result = engine.transcribe({
+      key: 'C',
+      bpm: 80,
+      grid: 'eighth',
+    });
+
+    assert.equal(result.notes.length, 1);
+    assert.equal(result.notes[0].pitch, 1);
+    assert.equal(result.notes[0].duration, 3); // 3 beats!
+
+    // Clear and hold note for ~4 beats (2900ms, where 4 beats = 3000ms at 80 BPM)
+    engine.clearSegments();
+    engine.startRecording(clock.now());
+    engine.noteOn(67, 0.85, clock.now());
+    clock.advance(2900);
+    engine.noteOff(67, clock.now());
+
+    const resultWhole = engine.transcribe({
+      key: 'C',
+      bpm: 80,
+      grid: 'eighth',
+    });
+
+    assert.equal(resultWhole.notes.length, 1);
+    assert.equal(resultWhole.notes[0].pitch, 5);
+    assert.equal(resultWhole.notes[0].duration, 4); // 4 beats!
   });
 });
 

@@ -125,6 +125,17 @@ const MOVABLE_DEGREE_OFFSETS: Record<string, number> = {
 
 export type QwertyMappingMode = 'chromatic_piano' | 'movable_solfege';
 
+/**
+ * Compute an adaptive silence / rest threshold based on BPM.
+ * At 80 BPM, a beat is 750ms -> 750 * 0.35 ≈ 263ms.
+ * Clamped between 180ms and 380ms so natural finger release transients
+ * are not mistaken for intentional musical rests (0).
+ */
+export function computeAdaptiveRestThreshold(bpm: number = 80): number {
+  const msPerBeat = 60000 / Math.max(20, Math.min(300, bpm));
+  return Math.round(Math.max(180, Math.min(380, msPerBeat * 0.35)));
+}
+
 export interface KeyEventEngineConfig {
   keySignature: KeySignature;
   timeSignature: TimeSignature;
@@ -133,7 +144,7 @@ export interface KeyEventEngineConfig {
   quantizeGrid: QuantizeGrid;
   allowTriplets: boolean;
   accidentalPreference: 'auto' | 'sharp' | 'flat';
-  restThresholdMs: number; // Minimum gap in ms to generate a discrete rest (default: 80ms)
+  restThresholdMs: number; // Minimum gap in ms to generate a discrete rest
   extendLegatoGaps: boolean; // Auto-extend notes when gap < restThresholdMs (default: true)
   qwertyMappingMode: QwertyMappingMode; // 'chromatic_piano' or 'movable_solfege'
   minNoteDurationMs: number; // Minimum note duration to keep (default: 25ms)
@@ -147,7 +158,7 @@ export const DEFAULT_KEY_ENGINE_CONFIG: Readonly<KeyEventEngineConfig> = {
   quantizeGrid: 'eighth',
   allowTriplets: false,
   accidentalPreference: 'auto',
-  restThresholdMs: 80,
+  restThresholdMs: 260,
   extendLegatoGaps: true,
   qwertyMappingMode: 'chromatic_piano',
   minNoteDurationMs: 25,
@@ -257,7 +268,16 @@ export class KeyEventEngine {
     callbacks?: KeyEventEngineCallbacks,
     nowProvider?: () => number
   ) {
-    this.config = { ...DEFAULT_KEY_ENGINE_CONFIG, ...config };
+    const effectiveRestThreshold =
+      config?.restThresholdMs !== undefined
+        ? config.restThresholdMs
+        : computeAdaptiveRestThreshold(config?.bpm ?? DEFAULT_KEY_ENGINE_CONFIG.bpm);
+
+    this.config = {
+      ...DEFAULT_KEY_ENGINE_CONFIG,
+      ...config,
+      restThresholdMs: effectiveRestThreshold,
+    };
     this.callbacks = callbacks || {};
     this.nowProvider =
       nowProvider ||
@@ -268,7 +288,46 @@ export class KeyEventEngine {
    * Update configuration parameters (tempo, key signature, quantize grid, etc.)
    */
   public updateConfig(config: Partial<KeyEventEngineConfig>): void {
-    this.config = { ...this.config, ...config };
+    const newBpm = config.bpm ?? this.config.bpm;
+    const newRestThreshold =
+      config.restThresholdMs !== undefined
+        ? config.restThresholdMs
+        : config.bpm !== undefined
+        ? computeAdaptiveRestThreshold(newBpm)
+        : this.config.restThresholdMs;
+
+    this.config = {
+      ...this.config,
+      ...config,
+      restThresholdMs: newRestThreshold,
+    };
+  }
+
+  /**
+   * Get the current duration (in milliseconds and estimated beats) of the actively held note, if any.
+   */
+  public getActiveNoteHeldDuration(nowMs?: number): {
+    midi: number;
+    pitch: PitchNumber;
+    octave: number;
+    accidental: '' | '#' | 'b';
+    durationMs: number;
+    estimatedBeats: number;
+  } | null {
+    if (!this.activeNote || this.activeNote.resolved) return null;
+    const now = nowMs ?? this.nowProvider();
+    const durationMs = Math.max(0, now - this.activeNote.startTimeMs);
+    const msPerBeat = 60000 / Math.max(20, Math.min(300, this.config.bpm));
+    const rawBeats = durationMs / msPerBeat;
+
+    return {
+      midi: this.activeNote.midi,
+      pitch: this.activeNote.pitch,
+      octave: this.activeNote.octave,
+      accidental: this.activeNote.accidental,
+      durationMs,
+      estimatedBeats: Math.round(rawBeats * 100) / 100,
+    };
   }
 
   public getConfig(): Readonly<KeyEventEngineConfig> {
