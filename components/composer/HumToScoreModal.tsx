@@ -33,6 +33,7 @@ import {
   cleanRawSegments,
   midiToNumberedPitch,
 } from '@/lib/pitch/scoreQuantizer';
+import { wakeLockManager } from '@/lib/wakeLock';
 import { CHROMATIC_KEYS, STANDARD_TIME_SIGNATURES } from '@/lib/taigiUtils';
 import { NumberedNotationNoteComponent } from '@/components/NumberedNotationNoteComponent';
 import {
@@ -305,6 +306,28 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
   const filterNodeRef = useRef<BiquadFilterNode | null>(null);
   const micGainNodeRef = useRef<GainNode | null>(null);
   const silentGainRef = useRef<GainNode | null>(null);
+  const yinDetectorRef = useRef<YinDetector | null>(null);
+  const noteSegmenterRef = useRef<NoteSegmenter | null>(null);
+  const recordingStartTimeRef = useRef<number>(0);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countInIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const metronomeClickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Audio elements
+  const micAudioElementRef = useRef<HTMLAudioElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameIdRef = useRef<number | null>(null);
+
+  // Cancellation and telemetry throttling refs
+  const isStartingStreamRef = useRef<boolean>(false);
+  const metronomePulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTelemetryTimeRef = useRef<number>(0);
+
+  // Selected preset configuration
+  const activePreset = useMemo(() => {
+    return INSTRUMENT_PRESETS.find(p => p.id === presetId || (presetId === 'erhu' && p.id === 'cello')) || INSTRUMENT_PRESETS[0];
+  }, [presetId]);
 
   // Dynamic mic gain adjustment
   const handleMicGainChange = useCallback((newGain: number) => {
@@ -322,28 +345,19 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
         micGainNodeRef.current.gain.value = clamped;
       }
     }
-  }, []);
-
-  const yinDetectorRef = useRef<YinDetector | null>(null);
-  const noteSegmenterRef = useRef<NoteSegmenter | null>(null);
-  const recordingStartTimeRef = useRef<number>(0);
-  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countInIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const metronomeClickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Audio elements
-  const micAudioElementRef = useRef<HTMLAudioElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const animFrameIdRef = useRef<number | null>(null);
-
-  // Selected preset configuration
-  const activePreset = useMemo(() => {
-    return INSTRUMENT_PRESETS.find(p => p.id === presetId || (presetId === 'erhu' && p.id === 'cello')) || INSTRUMENT_PRESETS[0];
-  }, [presetId]);
+    if (yinDetectorRef.current) {
+      const baseSilenceThreshold = activePreset.yinConfig.silenceThreshold ?? 0.008;
+      const effectiveSilenceThreshold =
+        baseSilenceThreshold * Math.min(4.5, Math.max(1.0, 1.0 + (clamped - 1.0) * 0.25));
+      yinDetectorRef.current.updateConfig({ silenceThreshold: effectiveSilenceThreshold });
+    }
+  }, [activePreset]);
 
   // Clean up all resources when modal closes
   const stopAllAudioPipelines = useCallback(() => {
+    isStartingStreamRef.current = false;
+    void wakeLockManager.release();
+
     // Stop timers
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -356,6 +370,10 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
     if (metronomeClickIntervalRef.current) {
       clearInterval(metronomeClickIntervalRef.current);
       metronomeClickIntervalRef.current = null;
+    }
+    if (metronomePulseTimeoutRef.current) {
+      clearTimeout(metronomePulseTimeoutRef.current);
+      metronomePulseTimeoutRef.current = null;
     }
     setIsBeatPulse(false);
     setIsDownbeatFlash(false);
@@ -491,6 +509,12 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
   const startRecordingStream = useCallback(async () => {
     setAudioError(null);
     recordedChunksRef.current = [];
+    isStartingStreamRef.current = true;
+
+    if (recordedAudioUrl) {
+      URL.revokeObjectURL(recordedAudioUrl);
+      setRecordedAudioUrl(null);
+    }
 
     // 1. Request microphone access
     let stream: MediaStream;
@@ -506,12 +530,20 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch (err: unknown) {
+        isStartingStreamRef.current = false;
         const errorMsg = err instanceof Error ? err.message : String(err);
         setAudioError(`Microphone access failed: ${errorMsg}. Please allow microphone permission in your browser.`);
         setStep('SETUP');
         return;
       }
     }
+
+    // Abort guard: if modal was closed while permission was pending, release stream and abort
+    if (!isStartingStreamRef.current) {
+      stream.getTracks().forEach(track => track.stop());
+      return;
+    }
+
     mediaStreamRef.current = stream;
 
     // 2. Setup Web Audio context & signal processing graph
@@ -523,6 +555,13 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
 
     if (audioCtx.state === 'suspended') {
       await audioCtx.resume();
+    }
+
+    // Secondary abort guard after potential resume delay
+    if (!isStartingStreamRef.current) {
+      stream.getTracks().forEach(track => track.stop());
+      try { audioCtx.close(); } catch {}
+      return;
     }
 
     const sourceNode = audioCtx.createMediaStreamSource(stream);
@@ -603,10 +642,15 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
       console.warn('[HumToScore] MediaRecorder init failed, continuing pitch detection:', err);
     }
 
-    // 4. Initialize YIN and Onset detectors with preset configuration
+    // 4. Initialize YIN and Onset detectors with preset configuration and gain-scaled silence gate
+    const baseSilenceThreshold = activePreset.yinConfig.silenceThreshold ?? 0.008;
+    const effectiveSilenceThreshold =
+      baseSilenceThreshold * Math.min(4.5, Math.max(1.0, 1.0 + (micGain - 1.0) * 0.25));
+
     const yin = new YinDetector({
       sampleRate: audioCtx.sampleRate,
       ...activePreset.yinConfig,
+      silenceThreshold: effectiveSilenceThreshold,
     });
     yinDetectorRef.current = yin;
 
@@ -620,6 +664,7 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
     setRecordingSeconds(0);
     setLiveTranscribedNotes([]);
     setStep('RECORDING');
+    void wakeLockManager.request();
 
     // Start live visualizer
     startCanvasVisualizer();
@@ -642,9 +687,11 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
     if (audibleClickRef.current) {
       audioEngine.playMetronomeTick(true);
     }
-    setTimeout(() => {
+    if (metronomePulseTimeoutRef.current) clearTimeout(metronomePulseTimeoutRef.current);
+    metronomePulseTimeoutRef.current = setTimeout(() => {
       setIsBeatPulse(false);
       setIsDownbeatFlash(false);
+      metronomePulseTimeoutRef.current = null;
     }, 140);
     beatCounter = 1;
 
@@ -656,9 +703,11 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
       setIsBeatPulse(true);
       setIsDownbeatFlash(isDownbeat);
 
-      setTimeout(() => {
+      if (metronomePulseTimeoutRef.current) clearTimeout(metronomePulseTimeoutRef.current);
+      metronomePulseTimeoutRef.current = setTimeout(() => {
         setIsBeatPulse(false);
         setIsDownbeatFlash(false);
+        metronomePulseTimeoutRef.current = null;
       }, 140);
 
       if (audibleClickRef.current) {
@@ -667,7 +716,7 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
       beatCounter++;
     }, secPerBeat * 1000);
 
-    // 5. Audio Process Handler (continuous stream analysis)
+    // 5. Audio Process Handler (continuous stream analysis with throttled UI telemetry)
     scriptProcessor.onaudioprocess = e => {
       const channelData = e.inputBuffer.getChannelData(0);
       const rms = calculateRms(channelData);
@@ -675,17 +724,22 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
 
       const pitchRes = yin.detectSmoothed(channelData);
 
-      setCurrentRms(rms);
-      setIsVoiced(pitchRes.isPitched);
+      // Throttled UI telemetry to avoid React render storm (~10 Hz max)
+      const now = performance.now();
+      if (now - lastTelemetryTimeRef.current >= 80) {
+        lastTelemetryTimeRef.current = now;
+        setCurrentRms(rms);
+        setIsVoiced(pitchRes.isPitched);
 
-      if (pitchRes.isPitched && pitchRes.frequency !== null) {
-        setCurrentPitchHz(pitchRes.frequency);
-        setCurrentMidi(pitchRes.nearestMidi);
-        setCurrentCents(pitchRes.centsOffNearestMidi);
-      } else {
-        setCurrentPitchHz(null);
-        setCurrentMidi(null);
-        setCurrentCents(0);
+        if (pitchRes.isPitched && pitchRes.frequency !== null) {
+          setCurrentPitchHz(pitchRes.frequency);
+          setCurrentMidi(pitchRes.nearestMidi);
+          setCurrentCents(pitchRes.centsOffNearestMidi);
+        } else {
+          setCurrentPitchHz(null);
+          setCurrentMidi(null);
+          setCurrentCents(0);
+        }
       }
 
       // Feed frame to Onset / Segmenter engine
@@ -735,6 +789,7 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
     audioEngine,
     startCanvasVisualizer,
     micGain,
+    recordedAudioUrl,
   ]);
 
   // Start Count-in Lead-in or go straight to recording
@@ -769,6 +824,8 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
 
   // Stop Recording & Run Final Transcription
   const handleStopRecording = useCallback(() => {
+    void wakeLockManager.release();
+
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
@@ -776,6 +833,10 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
     if (metronomeClickIntervalRef.current) {
       clearInterval(metronomeClickIntervalRef.current);
       metronomeClickIntervalRef.current = null;
+    }
+    if (metronomePulseTimeoutRef.current) {
+      clearTimeout(metronomePulseTimeoutRef.current);
+      metronomePulseTimeoutRef.current = null;
     }
     setIsBeatPulse(false);
     setIsDownbeatFlash(false);
@@ -800,14 +861,40 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
     }
     setRawSegments(finalSegments);
 
-    // Disconnect stream nodes
+    // Disconnect stream nodes and close AudioContext
     if (scriptProcessorRef.current) {
       try {
         scriptProcessorRef.current.disconnect();
       } catch {}
+      scriptProcessorRef.current = null;
+    }
+    if (filterNodeRef.current) {
+      try {
+        filterNodeRef.current.disconnect();
+      } catch {}
+      filterNodeRef.current = null;
+    }
+    if (micGainNodeRef.current) {
+      try {
+        micGainNodeRef.current.disconnect();
+      } catch {}
+      micGainNodeRef.current = null;
+    }
+    if (silentGainRef.current) {
+      try {
+        silentGainRef.current.disconnect();
+      } catch {}
+      silentGainRef.current = null;
     }
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try {
+        audioContextRef.current.close();
+      } catch {}
+      audioContextRef.current = null;
     }
 
     // Run transcription pipeline
@@ -834,6 +921,20 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
     accidentalPref,
     selectedMeasureIndex,
   ]);
+
+  // Page Visibility API handler: auto-finish recording if page goes to background
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleVisibilityChange = () => {
+      if (document.hidden && step === 'RECORDING') {
+        handleStopRecording();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isOpen, step, handleStopRecording]);
 
   // Re-transcribe with adjusted parameters in review mode
   const reTranscribeWithParams = useCallback(

@@ -23,8 +23,10 @@ import {
   QuantizeGrid,
   midiToNumberedPitch,
   quantizeDurationToBeats,
+  transcribeKeyboardSegmentsToMeasures,
   type TranscriptionResult,
 } from '@/lib/pitch/scoreQuantizer';
+import { wakeLockManager } from '@/lib/wakeLock';
 import { CHROMATIC_KEYS, STANDARD_TIME_SIGNATURES } from '@/lib/taigiUtils';
 import { NumberedNotationNoteComponent } from '@/components/NumberedNotationNoteComponent';
 import {
@@ -144,6 +146,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
 
   // Transcription output
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null);
+  const [rawSegments, setRawSegments] = useState<RawNoteSegment[]>([]);
 
   // Audio audition state (Review step)
   const [isRawPlaying, setIsRawPlaying] = useState<boolean>(false);
@@ -156,22 +159,60 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
   const metronomeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const metronomePulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audibleClickRef = useRef<boolean>(audibleClickDuringRecording);
   const isPointerDownRef = useRef<boolean>(false);
   const rawPlaybackTimersRef = useRef<number[]>([]);
+
+  // Closure-safe parameter refs for live callbacks
+  const activeKeyRef = useRef(activeKey);
+  const activeBpmRef = useRef(activeBpm);
+  const octaveShiftRef = useRef(octaveShiftVal);
+  const accidentalPrefRef = useRef(accidentalPref);
+  const quantizeGridRef = useRef(quantizeGrid);
+  const allowTripletsRef = useRef(allowTriplets);
 
   useEffect(() => {
     audibleClickRef.current = audibleClickDuringRecording;
   }, [audibleClickDuringRecording]);
 
-  // Web MIDI Hook
+  useEffect(() => {
+    activeKeyRef.current = activeKey;
+    activeBpmRef.current = activeBpm;
+    octaveShiftRef.current = octaveShiftVal;
+    accidentalPrefRef.current = accidentalPref;
+    quantizeGridRef.current = quantizeGrid;
+    allowTripletsRef.current = allowTriplets;
+  }, [activeKey, activeBpm, octaveShiftVal, accidentalPref, quantizeGrid, allowTriplets]);
+
+  // Web MIDI Hook with Step Gating (Sound audition in SETUP/REVIEW; recording in RECORDING)
   const handleIncomingMidiMessage = useCallback(
     (event: { data: Uint8Array | number[] }) => {
-      if (keyEngineRef.current) {
+      if (!keyEngineRef.current) return;
+
+      if (step === 'RECORDING') {
         keyEngineRef.current.handleMidiMessage(event);
+      } else if (step === 'SETUP' || step === 'REVIEW') {
+        // Audition preview note without mutating or starting performance recording
+        const data = event.data;
+        if (data && (data[0] & 0xf0) === 0x90 && (data.length <= 2 || data[2] > 0)) {
+          const midi = data[1];
+          const pitchInfo = midiToNumberedPitch(midi, activeKeyRef.current, {
+            accidentalPreference: accidentalPrefRef.current,
+            octaveShift: octaveShiftRef.current,
+          });
+          audioEngine.previewNote(activeKeyRef.current, {
+            id: `midi-audition-${midi}`,
+            pitch: pitchInfo.pitch,
+            octave: pitchInfo.octave,
+            accidental: pitchInfo.accidental,
+            duration: 1,
+            lyric: {},
+          });
+        }
       }
     },
-    []
+    [step, audioEngine]
   );
 
   const {
@@ -181,17 +222,17 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     isConnected: isMidiConnected,
   } = useWebMidi(handleIncomingMidiMessage, isOpen);
 
-  // Initialize and synchronize KeyEventEngine
+  // Initialize KeyEventEngine once upon mount
   useEffect(() => {
     const engine = new KeyEventEngine(
       {
-        keySignature: activeKey,
+        keySignature: activeKeyRef.current,
         timeSignature: activeTimeSignature,
-        bpm: activeBpm,
-        octaveShift: octaveShiftVal,
-        quantizeGrid,
-        allowTriplets,
-        accidentalPreference: accidentalPref,
+        bpm: activeBpmRef.current,
+        octaveShift: octaveShiftRef.current,
+        quantizeGrid: quantizeGridRef.current,
+        allowTriplets: allowTripletsRef.current,
+        accidentalPreference: accidentalPrefRef.current,
         qwertyMappingMode,
         extendLegatoGaps: true,
       },
@@ -230,7 +271,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
             duration: 1,
             lyric: {},
           };
-          audioEngine.previewNote(activeKey, tempNote);
+          audioEngine.previewNote(activeKeyRef.current, tempNote);
         },
         onNoteOff: (midi: number) => {
           setActiveMidiSet(prev => {
@@ -241,15 +282,15 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
         },
         onSegmentCommitted: (seg: RawNoteSegment) => {
           if (seg.midi !== null) {
-            const pitchInfo = midiToNumberedPitch(seg.midi, activeKey, {
-              accidentalPreference: accidentalPref,
-              octaveShift: octaveShiftVal,
+            const pitchInfo = midiToNumberedPitch(seg.midi, activeKeyRef.current, {
+              accidentalPreference: accidentalPrefRef.current,
+              octaveShift: octaveShiftRef.current,
             });
             const q = quantizeDurationToBeats(
               seg.durationMs,
-              activeBpm,
-              quantizeGrid,
-              allowTriplets,
+              activeBpmRef.current,
+              quantizeGridRef.current,
+              allowTripletsRef.current,
               true
             );
             const solfege =
@@ -295,9 +336,23 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
         engine.stopRecording();
       }
     };
-  }, [activeKey, activeTimeSignature, activeBpm, octaveShiftVal, quantizeGrid, allowTriplets, accidentalPref, qwertyMappingMode, audioEngine]);
+  }, [audioEngine, activeTimeSignature, qwertyMappingMode]);
 
-  // Live held duration ticker during active recording
+  // Synchronize configuration without destroying recorded performance buffer
+  useEffect(() => {
+    keyEngineRef.current?.updateConfig({
+      keySignature: activeKey,
+      timeSignature: activeTimeSignature,
+      bpm: activeBpm,
+      octaveShift: octaveShiftVal,
+      quantizeGrid,
+      allowTriplets,
+      accidentalPreference: accidentalPref,
+      qwertyMappingMode,
+    });
+  }, [activeKey, activeTimeSignature, activeBpm, octaveShiftVal, quantizeGrid, allowTriplets, accidentalPref, qwertyMappingMode]);
+
+  // Throttled live held duration ticker during active recording (eliminates idle re-renders)
   useEffect(() => {
     if (step !== 'RECORDING') return;
 
@@ -306,9 +361,9 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       if (active) {
         setActiveHeldBeats(active.estimatedBeats);
       } else {
-        setActiveHeldBeats(null);
+        setActiveHeldBeats(prev => (prev === null ? prev : null));
       }
-    }, 40);
+    }, 80);
 
     return () => {
       clearInterval(ticker);
@@ -348,6 +403,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
 
   const stopAllPipelines = useCallback(() => {
     stopAllPlayback();
+    void wakeLockManager.release();
 
     if (countInIntervalRef.current) {
       clearInterval(countInIntervalRef.current);
@@ -361,6 +417,12 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       clearInterval(metronomeIntervalRef.current);
       metronomeIntervalRef.current = null;
     }
+    if (metronomePulseTimeoutRef.current) {
+      clearTimeout(metronomePulseTimeoutRef.current);
+      metronomePulseTimeoutRef.current = null;
+    }
+    setIsBeatPulse(false);
+    setIsDownbeatFlash(false);
 
     if (keyEngineRef.current && keyEngineRef.current.isRecordingActive()) {
       keyEngineRef.current.stopRecording();
@@ -368,6 +430,14 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     setActiveMidiSet(new Set());
     setActiveHeldBeats(null);
   }, [stopAllPlayback]);
+
+  // Unmount lifecycle cleanup to prevent leaked intervals or synthesizer audio
+  useEffect(() => {
+    return () => {
+      stopAllPipelines();
+      void wakeLockManager.release();
+    };
+  }, [stopAllPipelines]);
 
   // Actual recording execution
   const beginActiveRecording = useCallback(() => {
@@ -377,6 +447,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     setActiveHeldBeats(null);
     setLiveRecordedNotes([]);
     setLastPlayedNote(null);
+    void wakeLockManager.request();
 
     const engine = keyEngineRef.current;
     if (engine) {
@@ -402,9 +473,11 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     if (audibleClickRef.current) {
       audioEngine.playMetronomeTick(true);
     }
-    setTimeout(() => {
+    if (metronomePulseTimeoutRef.current) clearTimeout(metronomePulseTimeoutRef.current);
+    metronomePulseTimeoutRef.current = setTimeout(() => {
       setIsBeatPulse(false);
       setIsDownbeatFlash(false);
+      metronomePulseTimeoutRef.current = null;
     }, 140);
 
     metronomeIntervalRef.current = setInterval(() => {
@@ -418,9 +491,11 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
         audioEngine.playMetronomeTick(isDown);
       }
 
-      setTimeout(() => {
+      if (metronomePulseTimeoutRef.current) clearTimeout(metronomePulseTimeoutRef.current);
+      metronomePulseTimeoutRef.current = setTimeout(() => {
         setIsBeatPulse(false);
         setIsDownbeatFlash(false);
+        metronomePulseTimeoutRef.current = null;
       }, 140);
     }, intervalMs);
   }, [activeTimeSignature, activeBpm, audioEngine]);
@@ -470,7 +545,10 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     const engine = keyEngineRef.current;
     if (!engine) return;
 
-    const result = engine.transcribe({
+    const segments = engine.finalize();
+    setRawSegments(segments);
+
+    const result = transcribeKeyboardSegmentsToMeasures(segments, {
       key: activeKey,
       bpm: activeBpm,
       timeSignature: activeTimeSignature,
@@ -485,6 +563,20 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     setStep('REVIEW');
   }, [stopAllPipelines, activeKey, activeBpm, activeTimeSignature, quantizeGrid, allowTriplets, octaveShiftVal, accidentalPref]);
 
+  // Page Visibility API handler: auto-finish recording if page goes to background
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleVisibilityChange = () => {
+      if (document.hidden && step === 'RECORDING') {
+        handleFinishRecording();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isOpen, step, handleFinishRecording]);
+
   // Re-transcribe with new options during Review
   const retranscribeCurrent = useCallback(
     (overrides?: {
@@ -493,15 +585,15 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       accidentalPreference?: 'auto' | 'sharp' | 'flat';
       allowTriplets?: boolean;
     }) => {
-      const engine = keyEngineRef.current;
-      if (!engine) return;
+      const segs = rawSegments.length > 0 ? rawSegments : (keyEngineRef.current?.getSegments() ?? []);
+      if (segs.length === 0) return;
 
       const newGrid = overrides?.grid ?? quantizeGrid;
       const newOct = overrides?.octaveShift ?? octaveShiftVal;
       const newAcc = overrides?.accidentalPreference ?? accidentalPref;
       const newTriplets = overrides?.allowTriplets ?? allowTriplets;
 
-      const result = engine.transcribe({
+      const result = transcribeKeyboardSegmentsToMeasures(segs, {
         key: activeKey,
         bpm: activeBpm,
         timeSignature: activeTimeSignature,
@@ -514,7 +606,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
 
       setTranscriptionResult(result);
     },
-    [activeKey, activeBpm, activeTimeSignature, quantizeGrid, octaveShiftVal, accidentalPref, allowTriplets]
+    [rawSegments, activeKey, activeBpm, activeTimeSignature, quantizeGrid, octaveShiftVal, accidentalPref, allowTriplets]
   );
 
   // Global Keydown / Keyup listener for computer QWERTY keyboard
@@ -571,10 +663,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       return;
     }
 
-    const engine = keyEngineRef.current;
-    if (!engine) return;
-
-    const segments = engine.getSegments();
+    const segments = rawSegments.length > 0 ? rawSegments : (keyEngineRef.current?.getSegments() ?? []);
     if (segments.length === 0) return;
 
     stopAllPlayback();
@@ -619,7 +708,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       }
     }, 50);
     rawPlaybackTimersRef.current.push(progressTicker as unknown as number);
-  }, [isRawPlaying, stopAllPlayback, activeKey, octaveShiftVal, accidentalPref, activeBpm, audioEngine]);
+  }, [isRawPlaying, stopAllPlayback, rawSegments, activeKey, octaveShiftVal, accidentalPref, activeBpm, audioEngine]);
 
   // Dual-Track Playback: Track 2 (Quantized Synth Preview)
   const handleToggleSynthPlay = useCallback(() => {
