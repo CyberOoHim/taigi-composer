@@ -19,6 +19,8 @@ import {
 import {
   midiToNumberedPitch,
   frequencyToNumberedPitch,
+  applyScaleDegreeAttraction,
+  type ScaleMode,
   quantizeDurationToBeats,
   quantizeRawSegments,
   segmentNotesIntoMeasures,
@@ -711,6 +713,173 @@ describe('Stage 2: Measure Layout & Barline Tie Splitting', () => {
     const transposed = transposeTranscribedNotes(original, 'C', 'F');
     // Note 1 (Do in C = C4) -> In Key F, C4 is Sol (5)
     assert.strictEqual(transposed[0].pitch, 5);
+  });
+});
+
+describe('Enhanced Vocal Pitch & Beat Length Accuracy (Hum-to-Score)', () => {
+  it('suppresses false sharps/flats from vocal pitch drift via diatonic scale attraction', () => {
+    // Middle C is 261.63 Hz. +55 cents = 270.06 Hz (in between C and C#)
+    const driftedCHz = midiToFrequency(60) * Math.pow(2, 55 / 1200);
+
+    // Diatonic mode: Human voice drifting +55 cents should stay on 1 (Do), not jump to #1
+    const diatonicResult = frequencyToNumberedPitch(driftedCHz, 'C', { scaleMode: 'diatonic' });
+    assert.strictEqual(diatonicResult.pitch, 1, 'Diatonic mode should attract +55 cents drift to 1 (Do)');
+    assert.strictEqual(diatonicResult.accidental, '');
+
+    // Chromatic mode: Strict 12-TET rounding rounds +55 cents up to C#4 (#1)
+    const chromaticResult = frequencyToNumberedPitch(driftedCHz, 'C', { scaleMode: 'chromatic' });
+    assert.strictEqual(chromaticResult.pitch, 1);
+    assert.strictEqual(chromaticResult.accidental, '#');
+  });
+
+  it('preserves authentic Taiwanese folk inflections (b7, #4, b3) under diatonic attraction', () => {
+    // Bb4 (b7 in Key C) = 466.16 Hz
+    const bb4Hz = 466.16;
+    const b7Result = frequencyToNumberedPitch(bb4Hz, 'C', { scaleMode: 'diatonic' });
+    assert.strictEqual(b7Result.pitch, 7);
+    assert.strictEqual(b7Result.accidental, 'b');
+
+    // F#4 (#4 in Key C) = 369.99 Hz
+    const fs4Hz = 369.99;
+    const sharp4Result = frequencyToNumberedPitch(fs4Hz, 'C', { scaleMode: 'diatonic' });
+    assert.strictEqual(sharp4Result.pitch, 4);
+    assert.strictEqual(sharp4Result.accidental, '#');
+
+    // Eb4 (b3 in Key C) = 311.13 Hz
+    const eb4Hz = 311.13;
+    const flat3Result = frequencyToNumberedPitch(eb4Hz, 'C', { scaleMode: 'diatonic' });
+    assert.strictEqual(flat3Result.pitch, 3);
+    assert.strictEqual(flat3Result.accidental, 'b');
+  });
+
+  it('attracts half-step passing tones in pentatonic mode (1, 2, 3, 5, 6)', () => {
+    // F4 (Fa, 349.23 Hz) in pentatonic mode pulls towards 3 (Mi)
+    const f4Hz = 349.23;
+    const pentatonicFa = frequencyToNumberedPitch(f4Hz, 'C', { scaleMode: 'pentatonic' });
+    assert.strictEqual(pentatonicFa.pitch, 3, 'Fa should attract to Mi in pentatonic mode');
+
+    // B4 (Ti, 493.88 Hz) in pentatonic mode pulls towards 1 (high Do)
+    const b4Hz = 493.88;
+    const pentatonicTi = frequencyToNumberedPitch(b4Hz, 'C', { scaleMode: 'pentatonic' });
+    assert.strictEqual(pentatonicTi.pitch, 1, 'Ti should attract to Do in pentatonic mode');
+    assert.strictEqual(pentatonicTi.octave, 1);
+  });
+
+  it('absorbs short articulation gaps (100-200ms) into full quarter notes at 80 BPM', () => {
+    // At 80 BPM (750ms/beat), 4 hummed syllables "da-da-da-da":
+    // Human singer holds sound for ~600ms, with ~150ms breath/release gap before next syllable
+    const rawSegments: RawNoteSegment[] = [
+      {
+        startTimeMs: 0,
+        endTimeMs: 600,
+        durationMs: 600,
+        midi: 60,
+        frequencyHz: 261.63,
+        avgRms: 0.2,
+        pitchSamples: [261.63],
+      },
+      {
+        startTimeMs: 750,
+        endTimeMs: 1350,
+        durationMs: 600,
+        midi: 62,
+        frequencyHz: 293.66,
+        avgRms: 0.2,
+        pitchSamples: [293.66],
+      },
+      {
+        startTimeMs: 1500,
+        endTimeMs: 2100,
+        durationMs: 600,
+        midi: 64,
+        frequencyHz: 329.63,
+        avgRms: 0.2,
+        pitchSamples: [329.63],
+      },
+      {
+        startTimeMs: 2250,
+        endTimeMs: 2850,
+        durationMs: 600,
+        midi: 67,
+        frequencyHz: 392.00,
+        avgRms: 0.2,
+        pitchSamples: [392.00],
+      },
+    ];
+
+    // With absorbArticulationGaps: true
+    const smoothed = transcribeAudioSegmentsToMeasures(rawSegments, {
+      bpm: 80,
+      timeSignature: '4/4',
+      key: 'C',
+      grid: 'eighth',
+      absorbArticulationGaps: true,
+      scaleMode: 'diatonic',
+    });
+
+    assert.strictEqual(smoothed.measures.length, 1);
+    const notes = smoothed.measures[0].notes;
+    // Exactly 4 notes, all quarter notes (duration = 1), zero rests!
+    assert.strictEqual(notes.length, 4, 'Should transcribe as exactly 4 notes without rest fragmentation');
+    assert.strictEqual(notes[0].pitch, 1);
+    assert.strictEqual(notes[0].duration, 1);
+    assert.strictEqual(notes[1].pitch, 2);
+    assert.strictEqual(notes[1].duration, 1);
+    assert.strictEqual(notes[2].pitch, 3);
+    assert.strictEqual(notes[2].duration, 1);
+    assert.strictEqual(notes[3].pitch, 5);
+    assert.strictEqual(notes[3].duration, 1);
+  });
+
+  it('quantizes vocal beat lengths cleanly (0.82 and 1.15 beats snap to 1.0 quarter note)', () => {
+    // At 80 BPM (750ms/beat):
+    // 0.82 beats = 615ms (slightly short hummed quarter)
+    const snapShort = quantizeDurationToBeats(615, 80, 'eighth', false, false);
+    assert.strictEqual(snapShort.duration, 1, '0.82 beats should snap cleanly to 1.0 quarter note in vocal mode');
+
+    // 1.15 beats = 862.5ms (slightly long hummed quarter)
+    const snapLong = quantizeDurationToBeats(862.5, 80, 'eighth', false, false);
+    assert.strictEqual(snapLong.duration, 1, '1.15 beats should snap cleanly to 1.0 quarter note in vocal mode');
+
+    // In keyboard mode on sixteenth grid, exact 0.75 beat (562.5ms) is preserved
+    const snapKeyboard = quantizeDurationToBeats(562.5, 80, 'sixteenth', false, true);
+    assert.strictEqual(snapKeyboard.duration, 0.75, 'In keyboard mode on sixteenth grid, exact 0.75 is preserved');
+  });
+
+  it('trims noisy attack/fry frames using energy-weighted pitch extraction in NoteSegmenter', () => {
+    const sampleRate = 44100;
+    const frameSize = 1024;
+    const segmenter = new NoteSegmenter({
+      sampleRate,
+      frameSize,
+      silenceThresholdRms: 0.008,
+      refractoryPeriodMs: 40,
+    });
+
+    const noisyAttackBuffer = generateSineBuffer(180, frameSize, sampleRate, 0.05);
+    const c4Buffer = generateSineBuffer(261.63, frameSize, sampleRate, 0.5);
+    const fryBuffer = generateSineBuffer(110, frameSize, sampleRate, 0.05);
+
+    // Frame 0 (consonant attack noise): low RMS (0.05), unvoiced/noisy pitch 180 Hz
+    segmenter.ingestFrame(noisyAttackBuffer, 0, 180, 0.3);
+
+    // Frames 1-5 (voiced vowel core): strong RMS (0.5), stable C4 (261.63 Hz)
+    segmenter.ingestFrame(c4Buffer, 25, 261.63, 0.98);
+    segmenter.ingestFrame(c4Buffer, 50, 261.63, 0.98);
+    segmenter.ingestFrame(c4Buffer, 75, 261.63, 0.98);
+    segmenter.ingestFrame(c4Buffer, 100, 261.63, 0.98);
+    segmenter.ingestFrame(c4Buffer, 125, 261.63, 0.98);
+
+    // Frame 6 (vocal fry / trailing noise): low RMS (0.05), low fry pitch 110 Hz
+    segmenter.ingestFrame(fryBuffer, 150, 110, 0.2);
+
+    const segments = segmenter.finalize(175);
+    assert.ok(segments.length > 0, 'Segment should be created');
+    assert.strictEqual(segments[0].midi, 60, 'Should accurately extract C4 despite attack and fry frame noise');
+    assert.ok(
+      Math.abs((segments[0].frequencyHz ?? 0) - 261.63) < 1.0,
+      `Frequency should be close to 261.63, got ${segments[0].frequencyHz}`
+    );
   });
 });
 

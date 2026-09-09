@@ -29,9 +29,11 @@ import {
 import {
   transcribeAudioSegmentsToMeasures,
   QuantizeGrid,
+  ScaleMode,
   shiftOctaves,
   cleanRawSegments,
   midiToNumberedPitch,
+  frequencyToNumberedPitch,
 } from '@/lib/pitch/scoreQuantizer';
 import { wakeLockManager } from '@/lib/wakeLock';
 import { CHROMATIC_KEYS, STANDARD_TIME_SIGNATURES } from '@/lib/taigiUtils';
@@ -219,6 +221,8 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
   const [audibleClickDuringRecording, setAudibleClickDuringRecording] = useState<boolean>(false);
   const [octaveShiftVal, setOctaveShiftVal] = useState<number>(0);
   const [accidentalPref, setAccidentalPref] = useState<'auto' | 'sharp' | 'flat'>('auto');
+  const [scaleMode, setScaleMode] = useState<ScaleMode>('diatonic');
+  const [absorbArticulation, setAbsorbArticulation] = useState<boolean>(true);
   const [insertionMode, setInsertionMode] = useState<InsertionMode>('cursor');
   const [synthInstrument, setSynthInstrument] = useState<InstrumentType>('piano');
 
@@ -345,11 +349,14 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
         micGainNodeRef.current.gain.value = clamped;
       }
     }
+    const baseSilenceThreshold = activePreset.yinConfig.silenceThreshold ?? 0.008;
+    const effectiveSilenceThreshold =
+      baseSilenceThreshold * Math.min(4.5, Math.max(1.0, 1.0 + (clamped - 1.0) * 0.25));
     if (yinDetectorRef.current) {
-      const baseSilenceThreshold = activePreset.yinConfig.silenceThreshold ?? 0.008;
-      const effectiveSilenceThreshold =
-        baseSilenceThreshold * Math.min(4.5, Math.max(1.0, 1.0 + (clamped - 1.0) * 0.25));
       yinDetectorRef.current.updateConfig({ silenceThreshold: effectiveSilenceThreshold });
+    }
+    if (noteSegmenterRef.current) {
+      noteSegmenterRef.current.updateConfig({ silenceThresholdRms: effectiveSilenceThreshold });
     }
   }, [activePreset]);
 
@@ -657,6 +664,7 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
     const segmenter = new NoteSegmenter({
       sampleRate: audioCtx.sampleRate,
       ...activePreset.onsetConfig,
+      silenceThresholdRms: effectiveSilenceThreshold,
     });
     noteSegmenterRef.current = segmenter;
 
@@ -742,23 +750,31 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
         }
       }
 
-      // Feed frame to Onset / Segmenter engine
+      // Feed frame to Onset / Segmenter engine with confidence probability
       const finishedSeg = segmenter.ingestFrame(
         channelData,
         timestampMs,
-        pitchRes.isPitched ? pitchRes.frequency : null
+        pitchRes.isPitched ? pitchRes.frequency : null,
+        pitchRes.probability
       );
 
       // If a note segment finished, update live rolling notes preview
       if (finishedSeg) {
         const segs = segmenter.getSegments();
-        const cleaned = cleanRawSegments(segs, 50, true);
+        const cleaned = cleanRawSegments(segs, 50, true, absorbArticulation, activeBpm);
         const liveNotes: NumberedNotationNote[] = cleaned.slice(-8).map((s, idx) => {
           if (s.midi !== null) {
-            const pitchInfo = midiToNumberedPitch(s.midi, activeKey, {
-              accidentalPreference: accidentalPref,
-              octaveShift: octaveShiftVal,
-            });
+            const pitchInfo = s.frequencyHz
+              ? frequencyToNumberedPitch(s.frequencyHz, activeKey, {
+                  accidentalPreference: accidentalPref,
+                  octaveShift: octaveShiftVal,
+                  scaleMode,
+                })
+              : midiToNumberedPitch(s.midi, activeKey, {
+                  accidentalPreference: accidentalPref,
+                  octaveShift: octaveShiftVal,
+                  scaleMode,
+                });
             return {
               id: `live-note-${idx}`,
               pitch: pitchInfo.pitch,
@@ -790,6 +806,8 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
     startCanvasVisualizer,
     micGain,
     recordedAudioUrl,
+    scaleMode,
+    absorbArticulation,
   ]);
 
   // Start Count-in Lead-in or go straight to recording
@@ -897,7 +915,7 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
       audioContextRef.current = null;
     }
 
-    // Run transcription pipeline
+    // Run transcription pipeline with scale attraction & articulation gap absorption
     const transcription = transcribeAudioSegmentsToMeasures(finalSegments, {
       key: activeKey,
       timeSignature: activeTimeSignature,
@@ -905,6 +923,8 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
       grid: quantizeGrid,
       octaveShift: octaveShiftVal,
       accidentalPreference: accidentalPref,
+      scaleMode,
+      absorbArticulationGaps: absorbArticulation,
       autoFillTrailingRests: true,
       startMeasureNumber: selectedMeasureIndex ? selectedMeasureIndex + 1 : 1,
     });
@@ -919,6 +939,8 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
     quantizeGrid,
     octaveShiftVal,
     accidentalPref,
+    scaleMode,
+    absorbArticulation,
     selectedMeasureIndex,
   ]);
 
@@ -938,7 +960,13 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
 
   // Re-transcribe with adjusted parameters in review mode
   const reTranscribeWithParams = useCallback(
-    (newGrid: QuantizeGrid, newOctave: number, newAccidental: 'auto' | 'sharp' | 'flat') => {
+    (
+      newGrid: QuantizeGrid,
+      newOctave: number,
+      newAccidental: 'auto' | 'sharp' | 'flat',
+      newScaleMode: ScaleMode = scaleMode,
+      newAbsorb: boolean = absorbArticulation
+    ) => {
       if (rawSegments.length === 0) return;
 
       const transcription = transcribeAudioSegmentsToMeasures(rawSegments, {
@@ -948,6 +976,8 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
         grid: newGrid,
         octaveShift: newOctave,
         accidentalPreference: newAccidental,
+        scaleMode: newScaleMode,
+        absorbArticulationGaps: newAbsorb,
         autoFillTrailingRests: true,
         startMeasureNumber: selectedMeasureIndex ? selectedMeasureIndex + 1 : 1,
       });
@@ -955,23 +985,33 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
       setTranscribedMeasures(transcription.measures);
       setAccuracyCents(transcription.summary.averagePitchAccuracyCents);
     },
-    [rawSegments, activeKey, activeTimeSignature, activeBpm, selectedMeasureIndex]
+    [rawSegments, activeKey, activeTimeSignature, activeBpm, selectedMeasureIndex, scaleMode, absorbArticulation]
   );
 
   const handleOctaveShift = (delta: number) => {
     const nextOctave = Math.max(-2, Math.min(2, octaveShiftVal + delta));
     setOctaveShiftVal(nextOctave);
-    reTranscribeWithParams(quantizeGrid, nextOctave, accidentalPref);
+    reTranscribeWithParams(quantizeGrid, nextOctave, accidentalPref, scaleMode, absorbArticulation);
   };
 
   const handleGridChange = (grid: QuantizeGrid) => {
     setQuantizeGrid(grid);
-    reTranscribeWithParams(grid, octaveShiftVal, accidentalPref);
+    reTranscribeWithParams(grid, octaveShiftVal, accidentalPref, scaleMode, absorbArticulation);
   };
 
   const handleAccidentalChange = (pref: 'auto' | 'sharp' | 'flat') => {
     setAccidentalPref(pref);
-    reTranscribeWithParams(quantizeGrid, octaveShiftVal, pref);
+    reTranscribeWithParams(quantizeGrid, octaveShiftVal, pref, scaleMode, absorbArticulation);
+  };
+
+  const handleScaleModeChange = (mode: ScaleMode) => {
+    setScaleMode(mode);
+    reTranscribeWithParams(quantizeGrid, octaveShiftVal, accidentalPref, mode, absorbArticulation);
+  };
+
+  const handleAbsorbArticulationChange = (absorb: boolean) => {
+    setAbsorbArticulation(absorb);
+    reTranscribeWithParams(quantizeGrid, octaveShiftVal, accidentalPref, scaleMode, absorb);
   };
 
   // Dual-Track Audio Playback: Track 1 (Mic Recording)
@@ -1038,17 +1078,24 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
     if (!isVoiced || currentMidi === null) {
       return { noteNum: '0', solfege: 'Rest', octaveDots: 0, accidental: '' };
     }
-    const numbered = midiToNumberedPitch(currentMidi, activeKey, {
-      accidentalPreference: accidentalPref,
-      octaveShift: octaveShiftVal,
-    });
+    const numbered = currentPitchHz
+      ? frequencyToNumberedPitch(currentPitchHz, activeKey, {
+          accidentalPreference: accidentalPref,
+          octaveShift: octaveShiftVal,
+          scaleMode,
+        })
+      : midiToNumberedPitch(currentMidi, activeKey, {
+          accidentalPreference: accidentalPref,
+          octaveShift: octaveShiftVal,
+          scaleMode,
+        });
     return {
       noteNum: String(numbered.pitch),
       solfege: SOLFEGE_MAP[String(numbered.pitch)] || '',
       octaveDots: numbered.octave,
       accidental: numbered.accidental,
     };
-  }, [isVoiced, currentMidi, activeKey, accidentalPref, octaveShiftVal]);
+  }, [isVoiced, currentMidi, currentPitchHz, activeKey, accidentalPref, octaveShiftVal, scaleMode]);
 
   if (!isOpen) return null;
 
@@ -1154,7 +1201,7 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
               </div>
 
               {/* Musical Parameters Bar */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
                 {/* Key Signature */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
@@ -1221,6 +1268,42 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
                         }`}
                       >
                         {g === 'quarter' ? '四分 ♩' : g === 'eighth' ? '八分 ♪' : '十六 𝅘𝅥𝅯'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Scale Degree Snapping */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
+                    <span>音階引力校正 (Scale)</span>
+                    <span className="text-[10px] text-amber-500 font-bold">防跑音</span>
+                  </label>
+                  <div className="flex items-center gap-1">
+                    {([
+                      { id: 'diatonic', label: '七聲 (薦)' },
+                      { id: 'pentatonic', label: '五聲' },
+                      { id: 'chromatic', label: '半音' },
+                    ] as const).map(s => (
+                      <button
+                        key={s.id}
+                        id={`hum-scale-btn-${s.id}`}
+                        type="button"
+                        onClick={() => setScaleMode(s.id)}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                          scaleMode === s.id
+                            ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black shadow-xs'
+                            : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-amber-400/40'
+                        }`}
+                        title={
+                          s.id === 'diatonic'
+                            ? '自然大調七聲（1-7）：容許輕微音準飄移，防止誤判升降記號（如 #1）'
+                            : s.id === 'pentatonic'
+                            ? '傳統五聲音階（1 2 3 5 6）：適配傳統民謠'
+                            : '全十二平均律半音階：不作約束'
+                        }
+                      >
+                        {s.label}
                       </button>
                     ))}
                   </div>
@@ -1317,7 +1400,7 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
               </div>
 
               {/* Metronome & Options Toggles */}
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col lg:flex-row gap-3">
                 <label className="flex items-center gap-2.5 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 flex-1 cursor-pointer">
                   <input
                     id="hum-countin-checkbox"
@@ -1332,6 +1415,24 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
                     </span>
                     <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
                       開唱前自動倒數 3 拍引導節奏 (3 • 2 • 1)
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2.5 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 flex-1 cursor-pointer">
+                  <input
+                    id="hum-absorb-articulation-checkbox"
+                    type="checkbox"
+                    checked={absorbArticulation}
+                    onChange={e => setAbsorbArticulation(e.target.checked)}
+                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400"
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                      人聲發音間隙平滑 (Articulation Smoothing)
+                    </span>
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      吸附自然換氣停頓，防止切碎為碎休止符
                     </span>
                   </div>
                 </label>
@@ -1901,7 +2002,7 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
               </div>
 
               {/* QUICK FINE-TUNING CONTROLS */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
                 {/* Octave Shift */}
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
@@ -1935,7 +2036,7 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
                 {/* Re-Quantize Grid */}
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                    重新量化 (Re-Quantize)
+                    拍點精度 (Re-Quantize)
                   </label>
                   <div className="flex items-center gap-1">
                     {(['quarter', 'eighth', 'sixteenth'] as QuantizeGrid[]).map(g => (
@@ -1945,7 +2046,7 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
                         onClick={() => handleGridChange(g)}
                         className={`flex-1 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
                           quantizeGrid === g
-                            ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black'
+                            ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black shadow-xs'
                             : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
                         }`}
                       >
@@ -1955,10 +2056,44 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
                   </div>
                 </div>
 
+                {/* Scale Mode Snapping */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                    音階約束 (Scale Snapping)
+                  </label>
+                  <div className="flex items-center gap-1">
+                    {([
+                      { id: 'diatonic', label: '七聲 (薦)' },
+                      { id: 'pentatonic', label: '五聲' },
+                      { id: 'chromatic', label: '半音' },
+                    ] as const).map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => handleScaleModeChange(s.id)}
+                        className={`flex-1 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                          scaleMode === s.id
+                            ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black shadow-xs'
+                            : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
+                        }`}
+                        title={
+                          s.id === 'diatonic'
+                            ? '七聲音階引力（防 #1 誤判）'
+                            : s.id === 'pentatonic'
+                            ? '傳統五聲音階（1 2 3 5 6）'
+                            : '全十二半音階'
+                        }
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Accidental Preference */}
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                    升降記號偏好 (Accidental)
+                    升降偏好 (Accidental)
                   </label>
                   <div className="flex items-center gap-1">
                     {(['auto', 'sharp', 'flat'] as const).map(p => (
@@ -1968,15 +2103,42 @@ export const HumToScoreModal: React.FC<HumToScoreModalProps> = ({
                         onClick={() => handleAccidentalChange(p)}
                         className={`flex-1 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
                           accidentalPref === p
-                            ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black'
+                            ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black shadow-xs'
                             : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
                         }`}
                       >
-                        {p === 'auto' ? '自動' : p === 'sharp' ? '升 (#)' : '降 (b)'}
+                        {p === 'auto' ? '自動' : p === 'sharp' ? '#' : 'b'}
                       </button>
                     ))}
                   </div>
                 </div>
+              </div>
+
+              {/* Articulation Gap Smoothing Toggle */}
+              <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                <div className="flex items-center gap-2">
+                  <Wand2 className="w-4 h-4 text-amber-500 shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                      人聲發音間隙平滑 (Articulation Smoothing)
+                    </span>
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      自動吸附自然換氣吐音間隔（~150ms），避免音符破碎成休止符
+                    </span>
+                  </div>
+                </div>
+                <button
+                  id="hum-review-toggle-absorb-btn"
+                  type="button"
+                  onClick={() => handleAbsorbArticulationChange(!absorbArticulation)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer touch-manipulation ${
+                    absorbArticulation
+                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40'
+                      : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 border-zinc-300 dark:border-zinc-700'
+                  }`}
+                >
+                  {absorbArticulation ? '已啟用 (吸附換氣)' : '已停用 (保留細碎休止)'}
+                </button>
               </div>
 
               {/* INSERTION TARGET OPTIONS */}

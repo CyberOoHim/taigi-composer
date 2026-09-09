@@ -294,8 +294,9 @@ export class OnsetDetector {
       nextState = 'SUSTAIN';
       if (pitchHz) {
         this.pitchSamplesInCurrentNote.push(pitchHz);
-        this.lastStablePitchHz = pitchHz;
-        this.lastStableMidi = Math.round(69 + 12 * Math.log2(pitchHz / 440));
+        const sorted = [...this.pitchSamplesInCurrentNote].sort((a, b) => a - b);
+        this.lastStablePitchHz = sorted[Math.floor(sorted.length / 2)];
+        this.lastStableMidi = Math.round(69 + 12 * Math.log2(this.lastStablePitchHz / 440));
       }
     }
 
@@ -331,11 +332,16 @@ export class NoteSegmenter {
     startTimeMs: number;
     isSilence: boolean;
     pitchSamples: number[];
+    pitchWeights: number[];
     rmsSamples: number[];
   } | null = null;
 
   constructor(options?: Partial<OnsetDetectorConfig>) {
     this.onsetDetector = new OnsetDetector(options);
+  }
+
+  public updateConfig(options: Partial<OnsetDetectorConfig>): void {
+    this.onsetDetector.updateConfig(options);
   }
 
   public reset(): void {
@@ -346,13 +352,16 @@ export class NoteSegmenter {
 
   /**
    * Feed a frame and update segmented notes stream.
+   * Optionally accepts a confidence probability score (0.0 to 1.0) from the pitch tracker.
    */
   public ingestFrame(
     buffer: Float32Array | number[],
     timestampMs: number,
-    pitchHz: number | null
+    pitchHz: number | null,
+    confidence: number = 1.0
   ): RawNoteSegment | null {
     const analysis = this.onsetDetector.processFrame(buffer, timestampMs, pitchHz);
+    const weight = Math.max(0.0001, analysis.rms * Math.max(0.1, confidence));
 
     // Initial frame initialization
     if (!this.activeSegment) {
@@ -360,6 +369,7 @@ export class NoteSegmenter {
         startTimeMs: timestampMs,
         isSilence: analysis.isSilent,
         pitchSamples: (pitchHz && !analysis.isSilent) ? [pitchHz] : [],
+        pitchWeights: (pitchHz && !analysis.isSilent) ? [weight] : [],
         rmsSamples: [analysis.rms],
       };
       return null;
@@ -377,6 +387,7 @@ export class NoteSegmenter {
         startTimeMs: timestampMs,
         isSilence: analysis.isSilent,
         pitchSamples: (pitchHz && !analysis.isSilent) ? [pitchHz] : [],
+        pitchWeights: (pitchHz && !analysis.isSilent) ? [weight] : [],
         rmsSamples: [analysis.rms],
       };
     } else {
@@ -384,6 +395,7 @@ export class NoteSegmenter {
       this.activeSegment.rmsSamples.push(analysis.rms);
       if (pitchHz && !analysis.isSilent) {
         this.activeSegment.pitchSamples.push(pitchHz);
+        this.activeSegment.pitchWeights.push(weight);
       }
     }
 
@@ -412,9 +424,45 @@ export class NoteSegmenter {
     let midi: number | null = null;
 
     if (!this.activeSegment.isSilence && this.activeSegment.pitchSamples.length > 0) {
-      const sortedPitches = [...this.activeSegment.pitchSamples].sort((a, b) => a - b);
-      const medianFreq = sortedPitches[Math.floor(sortedPitches.length / 2)];
-      avgFreq = Math.round(medianFreq * 10) / 10;
+      const pitches = this.activeSegment.pitchSamples;
+      const weights = this.activeSegment.pitchWeights;
+
+      // Energy-weighted pitch extraction:
+      // Filter out low-energy attack/release transients if we have sufficient samples (>= 4)
+      let candidateIndices = pitches.map((_, idx) => idx);
+      if (pitches.length >= 4 && weights.length === pitches.length) {
+        let maxWeight = 0;
+        for (let i = 0; i < weights.length; i++) {
+          if (weights[i] > maxWeight) maxWeight = weights[i];
+        }
+        const energyFloor = maxWeight * 0.20;
+        const robustIndices = candidateIndices.filter(i => weights[i] >= energyFloor);
+        if (robustIndices.length >= 2) {
+          candidateIndices = robustIndices;
+        }
+      }
+
+      // Compute energy-weighted median
+      const paired = candidateIndices.map(i => ({
+        pitch: pitches[i],
+        weight: Math.max(0.0001, weights[i] ?? 1.0),
+      }));
+
+      paired.sort((a, b) => a.pitch - b.pitch);
+
+      const totalWeight = paired.reduce((acc, cur) => acc + cur.weight, 0);
+      let cumulative = 0;
+      let weightedMedianFreq = paired[0].pitch;
+
+      for (const item of paired) {
+        cumulative += item.weight;
+        if (cumulative >= totalWeight * 0.5) {
+          weightedMedianFreq = item.pitch;
+          break;
+        }
+      }
+
+      avgFreq = Math.round(weightedMedianFreq * 10) / 10;
       midi = Math.round(69 + 12 * Math.log2(avgFreq / 440));
     }
 

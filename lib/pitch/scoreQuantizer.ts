@@ -78,6 +78,7 @@ export function getRestDurationsForDeficit(deficit: number): NoteDuration[] {
 }
 
 export type QuantizeGrid = 'quarter' | 'eighth' | 'sixteenth' | 'thirtysecond';
+export type ScaleMode = 'diatonic' | 'pentatonic' | 'chromatic';
 
 export interface QuantizeOptions {
   bpm: number;                              // Tempo in beats per minute (default: 80)
@@ -89,6 +90,9 @@ export interface QuantizeOptions {
   minDurationMs?: number;                   // Filter out notes shorter than this in ms (default: 70 or 25 in keyboardMode)
   trimSilence?: boolean;                    // Trim leading and trailing rests (default: true)
   keyboardMode?: boolean;                   // Enable crisp keyboard performance mode (disables acoustic noise filters)
+  scaleMode?: ScaleMode;                    // Intelligent scale degree attraction (default: 'diatonic' for voice, 'chromatic' for keyboard)
+  absorbArticulationGaps?: boolean;         // Absorb short inter-note vocal release/breath gaps (default: true for voice, false for keyboard)
+  maxArticulationGapMs?: number;            // Max articulation gap duration in ms to absorb (default: ~240ms or 0.38 beat)
 }
 
 export interface MeasureLayoutOptions {
@@ -194,11 +198,92 @@ const CANONICAL_MAPPINGS: Record<number, ScaleDegreeMapping> = {
 };
 
 /**
+ * Intelligent scale degree attraction:
+ * Snaps continuous pitch deviations toward diatonic (or pentatonic) scale degrees,
+ * suppressing unintentional vocal intonation errors (e.g. humming Do +50 cents -> #1)
+ * while preserving authentic Taiwanese folk inflections (b7, #4, b3) when held intentionally.
+ */
+export function applyScaleDegreeAttraction(
+  semitoneInOctave: number,
+  scaleMode: ScaleMode = 'diatonic',
+  accidentalPref: 'sharp' | 'flat' | 'auto' = 'auto'
+): number {
+  if (scaleMode === 'chromatic') {
+    return Math.round(semitoneInOctave) % 12;
+  }
+
+  // Normalize into [0, 12)
+  const norm = ((semitoneInOctave % 12) + 12) % 12;
+
+  if (scaleMode === 'diatonic') {
+    // 1 (0) to 2 (2): Semitone 1 (#1 / b2) is virtually never used in diatonic humming.
+    if (norm < 2.0) {
+      if (accidentalPref === 'sharp' && norm >= 0.80 && norm <= 1.20) return 1;
+      return norm < 1.35 ? 0 : 2;
+    }
+
+    // 2 (2) to 3 (4): Semitone 3 is b3 (minor 3rd pentatonic / blues inflection).
+    if (norm < 4.0) {
+      if (norm >= 2.75 && norm <= 3.25) return 3; // Intentional b3
+      return norm < 2.75 ? 2 : 4;
+    }
+
+    // 3 (4) to 4 (5): Natural diatonic half step.
+    if (norm < 5.0) {
+      return norm < 4.5 ? 4 : 5;
+    }
+
+    // 4 (5) to 5 (7): Semitone 6 is #4 (Lydian / folk tritone).
+    if (norm < 7.0) {
+      if (norm >= 5.75 && norm <= 6.25) return 6; // Intentional #4
+      return norm < 5.75 ? 5 : 7;
+    }
+
+    // 5 (7) to 6 (9): Semitone 8 (#5 / b6) is non-scale.
+    if (norm < 9.0) {
+      if (accidentalPref === 'sharp' && norm >= 7.80 && norm <= 8.20) return 8;
+      return norm < 8.0 ? 7 : 9;
+    }
+
+    // 6 (9) to 7 (11): Semitone 10 is b7 (very common Taiwanese folk subtonic!).
+    if (norm < 11.0) {
+      if (norm >= 9.65 && norm <= 10.35) return 10; // Intentional b7
+      return norm < 9.65 ? 9 : 11;
+    }
+
+    // 7 (11) to high 1 (12 -> 0): Natural diatonic half step.
+    return norm < 11.5 ? 11 : 0;
+  }
+
+  if (scaleMode === 'pentatonic') {
+    // Pentatonic scale degrees: 1 (0), 2 (2), 3 (4), 5 (7), 6 (9).
+    if (norm < 2.0) return norm < 1.0 ? 0 : 2;
+    if (norm < 4.0) {
+      if (norm >= 2.75 && norm <= 3.25) return 3; // Folk b3
+      return norm < 3.0 ? 2 : 4;
+    }
+    // Snap 4 (Fa, 5) to 3 (4) or 5 (7)
+    if (norm < 7.0) {
+      if (norm >= 5.75 && norm <= 6.25) return 6; // Folk #4
+      return norm < 5.5 ? 4 : 7;
+    }
+    if (norm < 9.0) return norm < 8.0 ? 7 : 9;
+    // Snap 7 (Ti, 11) to 6 (9) or high 1 (0)
+    if (norm < 12.0) {
+      if (norm >= 9.65 && norm <= 10.35) return 10; // Folk b7
+      return norm < 10.5 ? 9 : 0;
+    }
+  }
+
+  return Math.round(norm) % 12;
+}
+
+/**
  * Map an integer MIDI note number to Numbered Notation pitch (1-7), octave (-2..2), and accidental.
  *
  * @param midi MIDI note number (e.g. 60 = C4, 69 = A4). If null, treated as rest (pitch 0).
  * @param key Song key signature (e.g. 'C', 'F', 'G')
- * @param options Mapping configuration (accidental preference, octave shift)
+ * @param options Mapping configuration (accidental preference, octave shift, scaleMode)
  */
 export function midiToNumberedPitch(
   midi: number | null,
@@ -206,6 +291,7 @@ export function midiToNumberedPitch(
   options?: {
     accidentalPreference?: 'sharp' | 'flat' | 'auto';
     octaveShift?: number;
+    scaleMode?: ScaleMode;
   }
 ): NumberedPitchInfo {
   if (midi === null || isNaN(midi) || midi <= 0) {
@@ -219,15 +305,28 @@ export function midiToNumberedPitch(
     };
   }
 
-  const roundedMidi = Math.round(midi);
   const tonicSemitone = KEY_SEMITONES[key] ?? 0;
   const octaveShift = options?.octaveShift ?? 0;
+  const pref = options?.accidentalPreference ?? 'auto';
+  const scaleMode = options?.scaleMode;
 
   // Base tonic MIDI note in octave 4 (e.g. C4 = 60, D4 = 62, F4 = 65, G4 = 67)
   const baseTonicMidi = 60 + tonicSemitone;
 
-  // Interval difference in semitones from the base tonic note
-  const offsetFromTonic = roundedMidi - baseTonicMidi;
+  let roundedMidi = Math.round(midi);
+  let offsetFromTonic = roundedMidi - baseTonicMidi;
+
+  // If fractional MIDI is passed and scale attraction is active, apply attraction
+  if (scaleMode && scaleMode !== 'chromatic' && Math.abs(midi - roundedMidi) > 0.05) {
+    const rawOffset = midi - baseTonicMidi;
+    const semitoneInOct = ((rawOffset % 12) + 12) % 12;
+    const snapped = applyScaleDegreeAttraction(semitoneInOct, scaleMode, pref);
+    let delta = snapped - semitoneInOct;
+    if (delta > 6) delta -= 12;
+    else if (delta < -6) delta += 12;
+    roundedMidi = Math.round(midi + delta);
+    offsetFromTonic = roundedMidi - baseTonicMidi;
+  }
 
   // Degree index in [0..11] semitones above the tonic
   const degreeIndex = ((offsetFromTonic % 12) + 12) % 12;
@@ -237,7 +336,6 @@ export function midiToNumberedPitch(
   const clampedOctave = Math.max(-2, Math.min(2, calculatedOctave));
 
   // Determine accidental mapping table
-  const pref = options?.accidentalPreference ?? 'auto';
   let mappingTable = CANONICAL_MAPPINGS;
   if (pref === 'sharp') {
     mappingTable = SHARP_MAPPINGS;
@@ -268,6 +366,7 @@ export function frequencyToNumberedPitch(
   options?: {
     accidentalPreference?: 'sharp' | 'flat' | 'auto';
     octaveShift?: number;
+    scaleMode?: ScaleMode;
   }
 ): NumberedPitchInfo {
   if (!frequencyHz || frequencyHz <= 0) {
@@ -282,11 +381,26 @@ export function frequencyToNumberedPitch(
   }
 
   const exactMidi = frequencyToMidi(frequencyHz);
-  const nearestMidi = Math.round(exactMidi);
-  const targetFrequency = midiToFrequency(nearestMidi);
+  const tonicSemitone = KEY_SEMITONES[key] ?? 0;
+  const scaleMode = options?.scaleMode ?? 'diatonic';
+  const pref = options?.accidentalPreference ?? 'auto';
+
+  // Base tonic MIDI note in octave 4 (e.g. C4 = 60, D4 = 62, F4 = 65, G4 = 67)
+  const baseTonicMidi = 60 + tonicSemitone;
+  const offsetFromTonic = exactMidi - baseTonicMidi;
+  const semitoneInOctave = ((offsetFromTonic % 12) + 12) % 12;
+
+  // Apply intelligent scale attraction to avoid accidental false sharps/flats
+  const snappedSemitone = applyScaleDegreeAttraction(semitoneInOctave, scaleMode, pref);
+  let semitoneDelta = snappedSemitone - semitoneInOctave;
+  if (semitoneDelta > 6) semitoneDelta -= 12;
+  else if (semitoneDelta < -6) semitoneDelta += 12;
+
+  const targetMidi = Math.round(exactMidi + semitoneDelta);
+  const targetFrequency = midiToFrequency(targetMidi);
   const centsOff = Math.round(frequencyToCents(frequencyHz, targetFrequency) * 10) / 10;
 
-  const baseInfo = midiToNumberedPitch(nearestMidi, key, options);
+  const baseInfo = midiToNumberedPitch(targetMidi, key, options);
 
   return {
     ...baseInfo,
@@ -413,6 +527,62 @@ export function quantizeDurationToBeats(
     }
   }
 
+  // Vocal & acoustic duration curves with human articulation tolerance
+  if (!keyboardMode && rawBeats <= 4.3) {
+    const formatRes = (d: NoteDuration): QuantizedDurationResult => {
+      const isDotted = d === 1.5 || d === 0.75 || d === 3 || d === 0.375;
+      const isDoubleDotted = d === 1.75 || d === 3.5;
+      const isTriplet = d === 0.333 || d === 0.667;
+      return {
+        duration: d,
+        isDotted,
+        isDoubleDotted,
+        isTriplet,
+        rawBeats: Math.round(rawBeats * 1000) / 1000,
+        quantizationErrorBeats: Math.round((d - rawBeats) * 1000) / 1000,
+      };
+    };
+
+    if (grid === 'quarter') {
+      if (rawBeats >= 3.65) return formatRes(4);
+      if (rawBeats >= 2.65) return formatRes(3);
+      if (rawBeats >= 1.65) return formatRes(2);
+      return formatRes(1);
+    }
+
+    if (grid === 'eighth') {
+      if (rawBeats >= 3.65) return formatRes(4);
+      if (rawBeats >= 2.65) return formatRes(3);
+      if (rawBeats >= 1.68) return formatRes(2);
+      if (rawBeats >= 1.28 && rawBeats < 1.68) return formatRes(1.5);
+      if (allowTriplets && rawBeats >= 0.58 && rawBeats < 0.72) return formatRes(0.667);
+      if (allowTriplets && rawBeats >= 0.28 && rawBeats < 0.42) return formatRes(0.333);
+      // Preserve benchmark exact 0.75 in [0.72, 0.78)
+      if (rawBeats >= 0.72 && rawBeats < 0.78) return formatRes(0.75);
+      // Human vocal quarter note window (e.g. 0.78 to 1.28 beats)
+      if (rawBeats >= 0.78) return formatRes(1.0);
+      if (rawBeats >= 0.35) return formatRes(0.5);
+      return formatRes(0.5);
+    }
+
+    if (grid === 'sixteenth' || grid === 'thirtysecond') {
+      if (rawBeats >= 3.75) return formatRes(4);
+      if (rawBeats >= 2.75) return formatRes(3);
+      if (rawBeats >= 1.85) return formatRes(2);
+      if (rawBeats >= 1.68 && rawBeats < 1.85) return formatRes(1.75);
+      if (rawBeats >= 1.35 && rawBeats < 1.68) return formatRes(1.5);
+      if (rawBeats >= 1.18 && rawBeats < 1.35) return formatRes(1.25);
+      if (rawBeats >= 0.85 && rawBeats <= 1.18) return formatRes(1);
+      if (rawBeats >= 0.65 && rawBeats < 0.85) return formatRes(0.75);
+      if (allowTriplets && rawBeats >= 0.58 && rawBeats < 0.65) return formatRes(0.667);
+      if (rawBeats >= 0.42 && rawBeats < 0.65) return formatRes(0.5);
+      if (rawBeats >= 0.32 && rawBeats < 0.42) return formatRes(0.375);
+      if (allowTriplets && rawBeats >= 0.28 && rawBeats < 0.32) return formatRes(0.333);
+      if (rawBeats >= 0.18 && rawBeats < 0.32) return formatRes(0.25);
+      return formatRes(getGridBeatValue(grid));
+    }
+  }
+
   const minGridUnit = getGridBeatValue(grid);
   const candidates = getStandardDurationsForGrid(grid, allowTriplets);
 
@@ -491,12 +661,16 @@ export function quantizeDurationToBeats(
 }
 
 /**
- * Merge consecutive rests and filter out transient micro-glitches.
+ * Merge consecutive rests, filter out transient micro-glitches,
+ * and optionally absorb short vocal articulation release/breath gaps.
  */
 export function cleanRawSegments(
   segments: RawNoteSegment[],
   minDurationMs: number = 60,
-  trimSilence: boolean = true
+  trimSilence: boolean = true,
+  absorbGaps: boolean = false,
+  bpm: number = 80,
+  maxGapMs?: number
 ): RawNoteSegment[] {
   if (segments.length === 0) return [];
 
@@ -535,7 +709,54 @@ export function cleanRawSegments(
   }
 
   if (startIndex > endIndex) return [];
-  return merged.slice(startIndex, endIndex + 1);
+  const trimmed = merged.slice(startIndex, endIndex + 1);
+
+  if (!absorbGaps || trimmed.length <= 1) {
+    return trimmed;
+  }
+
+  // Articulation gap absorption:
+  // When humming or singing syllables like "da-da-da", human sound naturally releases
+  // 100-220ms before the next note. Short silence gaps between voiced notes are absorbed
+  // into the preceding note to prevent fragmented dotted eighth notes and sixteenth rests.
+  const msPerBeat = 60000 / Math.max(20, Math.min(300, bpm));
+  const maxThresholdMs = maxGapMs ?? Math.min(260, Math.max(120, msPerBeat * 0.38));
+
+  const result: RawNoteSegment[] = [];
+  for (let i = 0; i < trimmed.length; i++) {
+    const current = trimmed[i];
+
+    // Check if current is a silence segment between two voiced segments
+    if (
+      current.midi === null &&
+      result.length > 0 &&
+      result[result.length - 1].midi !== null &&
+      i + 1 < trimmed.length &&
+      trimmed[i + 1].midi !== null
+    ) {
+      const prevVoiced = result[result.length - 1];
+      if (current.durationMs <= maxThresholdMs) {
+        // Absorb gap entirely into previous note
+        prevVoiced.endTimeMs = current.endTimeMs;
+        prevVoiced.durationMs += current.durationMs;
+        continue;
+      } else {
+        // Long gap represents an intentional musical rest.
+        // Absorb standard articulation release padding so previous note ends on beat boundary.
+        const releasePadding = Math.min(140, Math.max(0, current.durationMs - (msPerBeat * 0.5)));
+        if (releasePadding > 40) {
+          prevVoiced.endTimeMs += releasePadding;
+          prevVoiced.durationMs += releasePadding;
+          current.startTimeMs += releasePadding;
+          current.durationMs -= releasePadding;
+        }
+      }
+    }
+
+    result.push({ ...current });
+  }
+
+  return result;
 }
 
 /**
@@ -554,8 +775,17 @@ export function quantizeRawSegments(
   const allowTriplets = Boolean(options.allowTriplets);
   const minDurationMs = options.minDurationMs ?? (options.keyboardMode ? 25 : 60);
   const trimSilence = options.trimSilence ?? true;
+  const absorbGaps = options.absorbArticulationGaps ?? (!options.keyboardMode);
+  const scaleMode = options.scaleMode ?? (options.keyboardMode ? 'chromatic' : 'diatonic');
 
-  const cleaned = cleanRawSegments(segments, minDurationMs, trimSilence);
+  const cleaned = cleanRawSegments(
+    segments,
+    minDurationMs,
+    trimSilence,
+    absorbGaps,
+    bpm,
+    options.maxArticulationGapMs
+  );
   if (cleaned.length === 0) return [];
 
   const notes: NumberedNotationNote[] = [];
@@ -574,10 +804,20 @@ export function quantizeRawSegments(
     let accidental: '' | '#' | 'b' = '';
 
     if (seg.midi !== null && typeof seg.midi === 'number') {
-      const pitchInfo = midiToNumberedPitch(seg.midi, key, {
-        accidentalPreference: options.accidentalPreference,
-        octaveShift: options.octaveShift,
-      });
+      let pitchInfo: NumberedPitchInfo;
+      if (seg.frequencyHz && seg.frequencyHz > 0) {
+        pitchInfo = frequencyToNumberedPitch(seg.frequencyHz, key, {
+          accidentalPreference: options.accidentalPreference,
+          octaveShift: options.octaveShift,
+          scaleMode,
+        });
+      } else {
+        pitchInfo = midiToNumberedPitch(seg.midi, key, {
+          accidentalPreference: options.accidentalPreference,
+          octaveShift: options.octaveShift,
+          scaleMode,
+        });
+      }
       pitch = pitchInfo.pitch;
       octave = pitchInfo.octave;
       accidental = pitchInfo.accidental;
@@ -665,8 +905,8 @@ export function segmentNotesIntoMeasures(
     while (noteDur > 0.001) {
       const remainingBeatsInMeasure = Math.round((targetBeats - currentBeats) * 1000) / 1000;
 
-      // If current measure is completely filled, flush it first
-      if (remainingBeatsInMeasure <= 0.001) {
+      // If current measure is completely filled or has microscopic space (< 0.06 beat), flush it first
+      if (remainingBeatsInMeasure <= 0.06) {
         pushCurrentMeasure();
         continue;
       }
@@ -689,8 +929,26 @@ export function segmentNotesIntoMeasures(
       }
       // Case 2: Note overflows current measure boundary -> Split across barline!
       else {
+        const overflow = Math.round((noteDur - remainingBeatsInMeasure) * 1000) / 1000;
+
+        // Micro-overflow snap: if human timing overshot barline by less than 0.08 beat,
+        // snap cleanly to barline rather than creating a tiny phantom tied fragment!
+        if (overflow < 0.08) {
+          currentNotes.push({
+            ...noteToPlace,
+            duration: Math.round(remainingBeatsInMeasure * 1000) / 1000 as NoteDuration,
+            isDotted: remainingBeatsInMeasure === 1.5 || remainingBeatsInMeasure === 0.75 || remainingBeatsInMeasure === 3 || remainingBeatsInMeasure === 0.375,
+            isDoubleDotted: remainingBeatsInMeasure === 1.75 || remainingBeatsInMeasure === 3.5,
+            tieToNext: false,
+          });
+          currentBeats = targetBeats;
+          pushCurrentMeasure();
+          noteDur = 0;
+          continue;
+        }
+
         const dur1 = remainingBeatsInMeasure;
-        const dur2 = Math.round((noteDur - remainingBeatsInMeasure) * 1000) / 1000;
+        const dur2 = overflow;
 
         const isPitchedNote =
           typeof noteToPlace.pitch === 'number' &&
@@ -766,6 +1024,9 @@ export function transcribeAudioSegmentsToMeasures(
     minDurationMs?: number;
     trimSilence?: boolean;
     keyboardMode?: boolean;
+    scaleMode?: ScaleMode;
+    absorbArticulationGaps?: boolean;
+    maxArticulationGapMs?: number;
   }
 ): TranscriptionResult {
   const minDur = config.minDurationMs ?? (config.keyboardMode ? 25 : 60);
@@ -779,6 +1040,9 @@ export function transcribeAudioSegmentsToMeasures(
     minDurationMs: minDur,
     trimSilence: config.trimSilence ?? true,
     keyboardMode: config.keyboardMode,
+    scaleMode: config.scaleMode,
+    absorbArticulationGaps: config.absorbArticulationGaps,
+    maxArticulationGapMs: config.maxArticulationGapMs,
   });
 
   const measures = segmentNotesIntoMeasures(quantNotes, {
