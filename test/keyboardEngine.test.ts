@@ -29,6 +29,10 @@ import {
   DEFAULT_KEY_ENGINE_CONFIG,
 } from '../lib/keyboard/keyEventEngine.ts';
 import {
+  isWebMidiSupported,
+  setupWebMidiListener,
+} from '../lib/keyboard/webMidi.ts';
+import {
   transcribeAudioSegmentsToMeasures,
   transcribeKeyboardSegmentsToMeasures,
   quantizeRawSegments,
@@ -743,3 +747,153 @@ describe('Stage 2: Quantization & Barline Packaging Engine', () => {
     assert.equal(result24.measures[1].notes.length, 1);
   });
 });
+
+describe('Stage 3 & 4: Web MIDI Integration & End-to-End Performance Workflow', () => {
+  it('checks Web MIDI support gracefully without crashing in non-browser environments', () => {
+    const supported = isWebMidiSupported();
+    assert.equal(typeof supported, 'boolean');
+  });
+
+  it('sets up Web MIDI listener and forwards MIDI events accurately', async () => {
+    const receivedEvents: Array<{ data: Uint8Array | number[] }> = [];
+    const receivedDevices: any[] = [];
+
+    // Mock navigator.requestMIDIAccess
+    const mockInput = {
+      id: 'midi-in-1',
+      name: 'Yamaha P-125 Digital Piano',
+      manufacturer: 'Yamaha',
+      state: 'connected',
+      connection: 'open',
+      onmidimessage: null as any,
+    };
+
+    const mockMidiAccess = {
+      inputs: new Map([['midi-in-1', mockInput]]),
+      onstatechange: null as any,
+    };
+
+    const originalNavigator = (globalThis as any).navigator;
+    (globalThis as any).navigator = {
+      ...originalNavigator,
+      requestMIDIAccess: async () => mockMidiAccess,
+    };
+
+    try {
+      const cleanup = await setupWebMidiListener(
+        event => receivedEvents.push(event),
+        devices => receivedDevices.push(devices)
+      );
+
+      assert.ok(cleanup, 'setupWebMidiListener should return a cleanup function');
+      assert.equal(receivedDevices.length, 1);
+      assert.equal(receivedDevices[0][0].name, 'Yamaha P-125 Digital Piano');
+
+      // Simulate Note On (0x90, C4=60, vel=100)
+      mockInput.onmidimessage({ data: [0x90, 60, 100] });
+      assert.equal(receivedEvents.length, 1);
+      assert.deepEqual(receivedEvents[0].data, [0x90, 60, 100]);
+
+      // Cleanup
+      cleanup();
+      assert.equal(mockInput.onmidimessage, null);
+    } finally {
+      (globalThis as any).navigator = originalNavigator;
+    }
+  });
+
+  it('simulates end-to-end QWERTY performance, rest input, and backspace undo', () => {
+    const clock = new VirtualClock();
+    const engine = new KeyEventEngine(
+      {
+        keySignature: 'C',
+        bpm: 80, // 1 beat = 750ms
+        quantizeGrid: 'quarter',
+      },
+      undefined,
+      clock.now
+    );
+
+    engine.startRecording(clock.now());
+
+    // 1. Play Note 1 (A = C4) for 1 beat (750ms)
+    engine.handleKeyDown({ code: 'KeyA', key: 'a' }, clock.now());
+    clock.advance(750);
+    engine.handleKeyUp({ code: 'KeyA', key: 'a' }, clock.now());
+
+    // 2. Play Note 2 (S = D4) for 1 beat (750ms)
+    engine.handleKeyDown({ code: 'KeyS', key: 's' }, clock.now());
+    clock.advance(750);
+    engine.handleKeyUp({ code: 'KeyS', key: 's' }, clock.now());
+
+    // 3. Play Note 3 (D = E4), then immediately UNDO it via Backspace
+    engine.handleKeyDown({ code: 'KeyD', key: 'd' }, clock.now());
+    clock.advance(750);
+    engine.handleKeyUp({ code: 'KeyD', key: 'd' }, clock.now());
+
+    const segmentsBeforeUndo = engine.getSegments();
+    assert.equal(segmentsBeforeUndo.length, 3);
+    assert.equal(segmentsBeforeUndo[2].midi, 64); // Note 3 (E4)
+
+    // Press Backspace to undo Note 3 (which occupied 750ms, now becoming a 1-beat rest)
+    engine.handleKeyDown({ code: 'Backspace', key: 'backspace' }, clock.now());
+    const segmentsAfterUndo = engine.getSegments();
+    assert.equal(segmentsAfterUndo.length, 2);
+    assert.equal(segmentsAfterUndo[0].midi, 60); // C4
+    assert.equal(segmentsAfterUndo[1].midi, 62); // D4
+
+    // 4. Play Note 5 (G = G4) for 1 beat (750ms). NoteOn will detect the 750ms gap as rest
+    engine.handleKeyDown({ code: 'KeyG', key: 'g' }, clock.now());
+    clock.advance(750);
+    engine.handleKeyUp({ code: 'KeyG', key: 'g' }, clock.now());
+
+    // Transcribe into measures
+    const result = engine.transcribe({
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 80,
+      grid: 'quarter',
+    });
+
+    assert.equal(result.measures.length, 1);
+    const notes = result.measures[0].notes;
+    // Expected: 1 (Do), 2 (Re), 0 (Rest), 5 (Sol)
+    assert.equal(notes.length, 4);
+    assert.equal(notes[0].pitch, 1);
+    assert.equal(notes[1].pitch, 2);
+    assert.equal(notes[2].pitch, 0); // Rest
+    assert.equal(notes[3].pitch, 5);
+  });
+
+  it('supports dynamic re-quantization with octave transposition', () => {
+    const clock = new VirtualClock();
+    const engine = new KeyEventEngine(
+      { keySignature: 'C', bpm: 80, quantizeGrid: 'quarter' },
+      undefined,
+      clock.now
+    );
+
+    engine.startRecording(clock.now());
+
+    // Play Note 1 (C4)
+    engine.noteOn(60, 0.9, clock.now());
+    clock.advance(750);
+    engine.noteOff(60, clock.now());
+
+    // Normal transcription: pitch 1, octave 0
+    const normal = engine.transcribe({ octaveShift: 0 });
+    assert.equal(normal.measures[0].notes[0].pitch, 1);
+    assert.equal(normal.measures[0].notes[0].octave, 0);
+
+    // Dynamic Re-transcription with +1 Octave Shift: pitch 1, octave 1
+    const shiftedUp = engine.transcribe({ octaveShift: 1 });
+    assert.equal(shiftedUp.measures[0].notes[0].pitch, 1);
+    assert.equal(shiftedUp.measures[0].notes[0].octave, 1);
+
+    // Dynamic Re-transcription with -1 Octave Shift: pitch 1, octave -1
+    const shiftedDown = engine.transcribe({ octaveShift: -1 });
+    assert.equal(shiftedDown.measures[0].notes[0].pitch, 1);
+    assert.equal(shiftedDown.measures[0].notes[0].octave, -1);
+  });
+});
+

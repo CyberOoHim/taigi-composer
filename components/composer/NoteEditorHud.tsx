@@ -48,6 +48,7 @@ import {
   Bell,
   Wind,
   Mic2,
+  Keyboard,
 } from 'lucide-react';
 
 export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
@@ -111,6 +112,7 @@ export interface NoteEditorHudProps {
   onTogglePlayMeasure?: (mIdx: number) => void;
   isPlayingMeasure?: boolean;
   onOpenHumToScore?: () => void;
+  onOpenKeyboardToScore?: () => void;
 }
 
 const PITCH_SOLFEGE: Record<number, string> = {
@@ -326,6 +328,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   onTogglePlayMeasure,
   isPlayingMeasure = false,
   onOpenHumToScore,
+  onOpenKeyboardToScore,
 }) => {
   const [activeTab, setActiveTabState] = useState<DeckTabMode>(() => {
     if (typeof window !== 'undefined') return getStoredDeckTab();
@@ -819,6 +822,21 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
               <Mic2 className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">哼唱收音</span>
               <span className="sm:hidden">哼唱</span>
+            </button>
+          )}
+
+          {/* Keyboard-to-Score Audio Recording */}
+          {onOpenKeyboardToScore && (
+            <button
+              id="hud-open-keyboard-to-score-btn"
+              type="button"
+              onClick={onOpenKeyboardToScore}
+              className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
+              title="鍵盤彈奏入譜 (Keyboard-to-Score)"
+            >
+              <Keyboard className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">鍵盤彈奏</span>
+              <span className="sm:hidden">鍵盤</span>
             </button>
           )}
 

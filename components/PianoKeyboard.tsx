@@ -4,7 +4,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { NumberedNotationNote, KeySignature, PitchNumber } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import { KEY_SEMITONES, SCALE_DEGREE_SEMITONES } from '@/lib/taigiUtils';
-import { Music, Sparkles } from 'lucide-react';
+import { Music, Sparkles, Keyboard } from 'lucide-react';
 
 interface PianoKeyboardProps {
   keySignature: KeySignature;
@@ -12,6 +12,7 @@ interface PianoKeyboardProps {
   onSelectPitch: (pitch: PitchNumber, octave: number, accidental: '' | '#' | 'b') => void;
   audioEngine: AudioEngine;
   className?: string;
+  onOpenKeyboardToScore?: () => void;
 }
 
 // 12 chromatic note names
@@ -35,6 +36,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
   onSelectPitch,
   audioEngine,
   className = '',
+  onOpenKeyboardToScore,
 }) => {
   // Octave display range view: 'low_mid' (-1, 0), 'mid_high' (0, 1), 'all' (-1, 0, 1), 'mid' (0)
   const [octaveView, setOctaveView] = useState<'low_mid' | 'mid_high' | 'all' | 'mid'>('low_mid');
@@ -243,6 +245,19 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
           <span className="daw-lcd px-2.5 py-1 rounded-lg text-xs font-mono font-bold shadow-xs">
             Key: <strong className="text-amber-400 font-black">1 = {keySignature}</strong>
           </span>
+
+          {onOpenKeyboardToScore && (
+            <button
+              id="piano-open-keyboard-to-score-btn"
+              type="button"
+              onClick={onOpenKeyboardToScore}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
+              title="開啟鍵盤彈奏即時轉譜 (Keyboard-to-Score)"
+            >
+              <Keyboard className="w-3.5 h-3.5" />
+              <span>彈奏入譜</span>
+            </button>
+          )}
         </div>
 
         {/* View Mode & Octave Selectors */}

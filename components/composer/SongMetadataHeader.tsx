@@ -25,6 +25,7 @@ import {
   Wand2,
   Activity,
   X,
+  Keyboard,
 } from 'lucide-react';
 import { useGeminiAuth } from '@/hooks/useGeminiAuth';
 import {
@@ -44,6 +45,7 @@ interface SongMetadataHeaderProps {
   onOpenAligner: () => void;
   onOpenScanner?: () => void;
   onOpenHumToScore?: () => void;
+  onOpenKeyboardToScore?: () => void;
   onStartFreshSong?: () => void;
   onOpenOrganizer?: () => void;
   editMode?: string;
@@ -61,6 +63,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   onOpenAligner,
   onOpenScanner,
   onOpenHumToScore,
+  onOpenKeyboardToScore,
   onStartFreshSong,
   onOpenOrganizer,
   editMode,
@@ -755,6 +758,23 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               <span className="hidden sm:inline">哼唱入譜</span>
               <span className="hidden md:inline text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold ml-0.5">
                 Hum
+              </span>
+            </button>
+          )}
+
+          {/* Keyboard-to-Score / Musical Typing Transcription Trigger */}
+          {onOpenKeyboardToScore && (
+            <button
+              id="composer-open-keyboard-to-score-btn"
+              type="button"
+              onClick={onOpenKeyboardToScore}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 font-bold text-xs rounded-xl shadow-2xs transition-all min-h-[40px] bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 active:scale-95 cursor-pointer touch-manipulation"
+              title="螢幕鋼琴與電腦鍵盤彈奏即時轉譜 (Keyboard-to-Score: 支援觸控鋼琴、QWERTY 打字、Web MIDI)"
+            >
+              <Keyboard className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span className="hidden sm:inline">鍵盤入譜</span>
+              <span className="hidden md:inline text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold ml-0.5">
+                Key
               </span>
             </button>
           )}

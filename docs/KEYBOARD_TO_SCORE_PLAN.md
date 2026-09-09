@@ -278,8 +278,8 @@ Stage 3: Keyboard-to-Score Modal UI       ──► Stage 4: Web MIDI & Composer
 | :--- | :--- | :--- | :---: |
 | **Stage 1** | Input Engine & Segment Generator (`lib/keyboard/keyEventEngine.ts`) | Touch/Mouse/QWERTY event tracking, high-res timestamping, monophonic legato overlap resolution, inter-note rest gap detection, automated unit test benchmarks. | ✅ Complete |
 | **Stage 2** | Quantization & Barline Packaging Engine | Integration with `lib/pitch/scoreQuantizer.ts`, tempo-aware beat snapping, cross-measure tie splitting, key signature degree transposition, benchmark suite validation. | ✅ Complete |
-| **Stage 3** | Keyboard-to-Score Recording Modal UI (`components/composer/KeyboardToScoreModal.tsx`) | Touch piano bed, metronome count-in, QWERTY typing overlays, live notation roll, A/B review audition player, quick fine-tuning bar, responsive layout. | Ready to Implement |
-| **Stage 4** | Web MIDI Support & Full Composer Integration | `navigator.requestMIDIAccess()` hardware listener, Score bar button, Note Mode & HUD wiring, `useSongHistory` Undo/Redo integration, end-to-end user verification. | Ready to Implement |
+| **Stage 3** | Keyboard-to-Score Recording Modal UI (`components/composer/KeyboardToScoreModal.tsx`) | Touch piano bed, metronome count-in, QWERTY typing overlays, live notation roll, A/B review audition player, quick fine-tuning bar, responsive layout. | ✅ Complete |
+| **Stage 4** | Web MIDI Support & Full Composer Integration | `navigator.requestMIDIAccess()` hardware listener (`lib/keyboard/webMidi.ts`), Score bar button, Note Mode & HUD wiring, `useSongHistory` Undo/Redo integration, end-to-end user verification. | ✅ Complete |
 
 ---
 
@@ -297,15 +297,15 @@ Stage 3: Keyboard-to-Score Modal UI       ──► Stage 4: Web MIDI & Composer
 - [x] Test key signature transposition across all 12 keys (Key of C, F, G, D, Bb, etc.) and accidental spelling preferences.
 
 ### Stage 3: Keyboard-to-Score Recording Modal UI
-- [ ] Create `components/composer/KeyboardToScoreModal.tsx` following the visual craftsmanship and layout established in `HumToScoreModal.tsx`.
-- [ ] Build responsive multi-octave piano keyboard bed with clear numbered notation labels (`1-7`, octave dots) and Solfege subtitles.
-- [ ] Build metronome audio clicks and visual beat pulse ring using `AudioEngine`.
-- [ ] Build live scrolling roll rendering notes as the user performs.
-- [ ] Build dual playback comparison player (original performance vs. quantized synthesizer).
-- [ ] Implement one-click fine-tuning controls: Re-quantize (♩/♪/𝅘𝅥𝅯), Shift Octaves ($\pm 1, \pm 2$), Accidental Preference (Auto/#/b).
+- [x] Create `components/composer/KeyboardToScoreModal.tsx` following the visual craftsmanship and layout established in `HumToScoreModal.tsx`.
+- [x] Build responsive multi-octave piano keyboard bed with clear numbered notation labels (`1-7`, octave dots) and Solfege subtitles.
+- [x] Build metronome audio clicks and visual beat pulse ring using `AudioEngine`.
+- [x] Build live scrolling roll rendering notes as the user performs.
+- [x] Build dual playback comparison player (original performance vs. quantized synthesizer).
+- [x] Implement one-click fine-tuning controls: Re-quantize (♩/♪/𝅘𝅥𝅯), Shift Octaves ($\pm 1, \pm 2$), Accidental Preference (Auto/#/b).
 
 ### Stage 4: Web MIDI Support & Composer Integration
-- [ ] Add optional Web MIDI API controller listener (`navigator.requestMIDIAccess`) for plug-and-play hardware keyboard input.
-- [ ] Add "鍵盤入譜" button to `ComposerEditor.tsx` persistent score toolbar, `NoteModeView.tsx` perspective switch bar, and `NoteEditorHud.tsx`.
-- [ ] Connect commit flow to `onUpdateSong` and `useSongHistory` ensuring seamless `Ctrl+Z` Undo and `Ctrl+Y` Redo.
-- [ ] Verify full application build (`compile_applet`) and ESLint validation (`lint_applet`).
+- [x] Add optional Web MIDI API controller listener (`navigator.requestMIDIAccess`) in `lib/keyboard/webMidi.ts` for plug-and-play hardware keyboard input.
+- [x] Add "鍵盤入譜" button to `ComposerEditor.tsx` persistent score toolbar, `SongMetadataHeader.tsx`, `NoteModeView.tsx` perspective switch bar, `NoteEditorHud.tsx`, and `PianoKeyboard.tsx`.
+- [x] Connect commit flow to `onUpdateSong` and `useSongHistory` ensuring seamless `Ctrl+Z` Undo and `Ctrl+Y` Redo.
+- [x] Verify full test suite (`bun test`), TypeScript compiler (`tsc --noEmit`), and ESLint validation (`bun run lint`).
