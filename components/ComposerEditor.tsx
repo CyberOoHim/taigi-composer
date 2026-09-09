@@ -33,6 +33,7 @@ import {
   setUniformNoteDuration,
   determineTargetQuarterEighthDuration,
 } from '@/lib/taigiUtils';
+import { autoArrangeSongChords, autoArrangeVerseChords } from '@/lib/chordArranger';
 import { scrollToCardElement } from '@/lib/utils';
 import {
   getStoredEditorEditMode,
@@ -1484,6 +1485,23 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     onUpdateSong({ ...song, measures: newMeasures });
   };
 
+  // Auto-harmonize Verse chords
+  const handleAutoHarmonizeVerse = useCallback(
+    (vIdx: number) => {
+      const updated = autoArrangeVerseChords(song, vIdx, verses);
+      onUpdateSong(updated);
+      showNotice(`🪄 第 ${vIdx + 1} 段歌詞所有小節已完成智慧配和弦！`);
+    },
+    [song, verses, onUpdateSong, showNotice]
+  );
+
+  // Auto-harmonize entire Song chords
+  const handleAutoHarmonizeSong = useCallback(() => {
+    const updated = autoArrangeSongChords(song);
+    onUpdateSong(updated);
+    showNotice(`🪄 全曲已智慧自動配和弦！共配置 ${updated.measures.length} 個小節`);
+  }, [song, onUpdateSong, showNotice]);
+
   // Measure Section change
   const handleUpdateMeasureSection = useCallback(
     (mIdx: number, section: string) => {
@@ -2700,6 +2718,18 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
               <span>鍵盤入譜</span>
             </button>
 
+            {/* Auto-Harmonize Entire Song Button */}
+            <button
+              id="composer-score-auto-chords-btn"
+              type="button"
+              onClick={handleAutoHarmonizeSong}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 border border-indigo-300/80 dark:border-indigo-700/80 rounded-xl font-bold shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+              title="智慧分析旋律音高與節奏，為全曲所有小節自動配和弦 (可隨時復原)"
+            >
+              <Wand2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>全曲配和弦</span>
+            </button>
+
             <button
               id="composer-score-add-measure-btn"
               type="button"
@@ -3019,6 +3049,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onDeleteMeasure={handleDeleteMeasure}
             onUpdateMeasureSection={handleUpdateMeasureSection}
             onUpdateMeasureChord={handleUpdateMeasureChord}
+            onAutoHarmonizeVerse={handleAutoHarmonizeVerse}
             onDistributeMeasureLyrics={handleDistributeMeasureLyrics}
             onMoveMeasureOrder={handleMoveMeasureOrder}
             onToggleLineBreak={handleToggleMeasureLineBreak}

@@ -35,7 +35,7 @@ export const STORAGE_KEYS = {
 } as const;
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
-export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
+export type DeckTabMode = 'numpad' | 'piano' | 'chords' | 'ornaments' | 'lyrics';
 export type KaraokeStageTheme = 'dark' | 'daylight';
 export type KaraokeLayoutMode = 'two_line' | 'single_line';
 export type KaraokeLyricAlign = 'center' | 'left';
@@ -364,7 +364,7 @@ export function setStoredAutoStepAdvance(advance: boolean): void {
 
 export function getStoredDeckTab(): DeckTabMode {
   const val = safeGetItem(STORAGE_KEYS.DECK_TAB);
-  if (val === 'numpad' || val === 'piano' || val === 'ornaments' || val === 'lyrics') return val;
+  if (val === 'numpad' || val === 'piano' || val === 'chords' || val === 'ornaments' || val === 'lyrics') return val;
   return 'numpad';
 }
 

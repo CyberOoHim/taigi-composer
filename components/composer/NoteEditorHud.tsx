@@ -1,7 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArticulationType, GraceNote, InstrumentType, NumberedNotationNote, KeySignature, NoteDuration, PitchNumber } from '@/types/song';
+import {
+  ArticulationType,
+  GraceNote,
+  InstrumentType,
+  NumberedNotationNote,
+  KeySignature,
+  NoteDuration,
+  PitchNumber,
+  Measure,
+  TimeSignature,
+} from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import {
   getDurationChineseInfo,
@@ -14,7 +24,10 @@ import {
   isPunctuationZeroNote,
   isStandaloneAnnotationNote,
   getPunctuationDisplayChar,
+  getMeasureChords,
+  formatMeasureChords,
 } from '@/lib/taigiUtils';
+import { getDiatonicCandidateChords, suggestChordsForMeasure } from '@/lib/chordArranger';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { getStoredDeckTab, setStoredDeckTab } from '@/lib/storage';
 import {
@@ -49,9 +62,12 @@ import {
   Wind,
   Mic2,
   Keyboard,
+  Layers,
+  X,
+  RefreshCw,
 } from 'lucide-react';
 
-export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
+export type DeckTabMode = 'numpad' | 'piano' | 'chords' | 'ornaments' | 'lyrics';
 
 export interface NoteEditorHudProps {
   currentNote: NumberedNotationNote;
@@ -59,6 +75,9 @@ export interface NoteEditorHudProps {
   selectedNoteIndex: number | null;
   keySignature: KeySignature;
   audioEngine: AudioEngine;
+  currentMeasure?: Measure;
+  timeSignature?: TimeSignature;
+  onUpdateMeasureChord?: (mIdx: number, chord: string) => void;
   onUpdateSelectedNote: (updater: (note: NumberedNotationNote) => NumberedNotationNote) => void;
   onSetPitch: (pitch: PitchNumber) => void;
   onSetOctave: (delta: number) => void;
@@ -280,6 +299,9 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   selectedNoteIndex,
   keySignature,
   audioEngine,
+  currentMeasure,
+  timeSignature,
+  onUpdateMeasureChord,
   onUpdateSelectedNote,
   onSetPitch,
   onSetOctave,
@@ -344,6 +366,70 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [isPianoCollapsed, setIsPianoCollapsed] = useState<boolean>(false);
+
+  // Multi-Chord State
+  const [chordMode, setChordMode] = useState<'append' | 'replace'>('append');
+  const [chordInputText, setChordInputText] = useState<string>('');
+  const [lastHarmonization, setLastHarmonization] = useState<any>(null);
+
+  const handleCommitFreeformChord = React.useCallback(() => {
+    if (!onUpdateMeasureChord || selectedMeasureIndex === null) return;
+    const tokens = getMeasureChords({ chord: chordInputText });
+    if (tokens.length === 0) return;
+
+    const current = currentMeasure ? getMeasureChords(currentMeasure) : [];
+    const updated = chordMode === 'append' ? [...current, ...tokens] : tokens;
+    onUpdateMeasureChord(selectedMeasureIndex, formatMeasureChords(updated));
+    setChordInputText('');
+    showNotice(`已更新第 ${selectedMeasureIndex + 1} 小節和弦：${formatMeasureChords(updated)}`);
+    if (tokens[0]) audioEngine.previewChord(tokens[0]);
+  }, [chordInputText, chordMode, currentMeasure, onUpdateMeasureChord, selectedMeasureIndex, showNotice, audioEngine]);
+
+  const handleAddDiatonicChord = React.useCallback((chord: string) => {
+    if (!onUpdateMeasureChord || selectedMeasureIndex === null) return;
+    const current = currentMeasure ? getMeasureChords(currentMeasure) : [];
+    const updated = chordMode === 'append' ? [...current, chord] : [chord];
+    onUpdateMeasureChord(selectedMeasureIndex, formatMeasureChords(updated));
+    audioEngine.previewChord(chord);
+    showNotice(`已設定和弦：${formatMeasureChords(updated)}`);
+  }, [chordMode, currentMeasure, onUpdateMeasureChord, selectedMeasureIndex, showNotice, audioEngine]);
+
+  const handleReorderChord = React.useCallback((fromIdx: number, toIdx: number) => {
+    if (!onUpdateMeasureChord || selectedMeasureIndex === null || !currentMeasure) return;
+    const current = [...getMeasureChords(currentMeasure)];
+    if (fromIdx < 0 || fromIdx >= current.length || toIdx < 0 || toIdx >= current.length) return;
+    const [moved] = current.splice(fromIdx, 1);
+    current.splice(toIdx, 0, moved);
+    onUpdateMeasureChord(selectedMeasureIndex, formatMeasureChords(current));
+  }, [currentMeasure, onUpdateMeasureChord, selectedMeasureIndex]);
+
+  const handleRemoveChord = React.useCallback((removeIdx: number) => {
+    if (!onUpdateMeasureChord || selectedMeasureIndex === null || !currentMeasure) return;
+    const current = getMeasureChords(currentMeasure).filter((_, i) => i !== removeIdx);
+    onUpdateMeasureChord(selectedMeasureIndex, formatMeasureChords(current));
+  }, [currentMeasure, onUpdateMeasureChord, selectedMeasureIndex]);
+
+  const handleClearAllChords = React.useCallback(() => {
+    if (!onUpdateMeasureChord || selectedMeasureIndex === null) return;
+    onUpdateMeasureChord(selectedMeasureIndex, '');
+    showNotice(`已清除第 ${selectedMeasureIndex + 1} 小節所有和弦`);
+  }, [onUpdateMeasureChord, selectedMeasureIndex, showNotice]);
+
+  const handleAutoHarmonizeCurrentMeasure = React.useCallback(() => {
+    if (!currentMeasure || !onUpdateMeasureChord || selectedMeasureIndex === null) return;
+    const result = suggestChordsForMeasure(
+      currentMeasure,
+      keySignature,
+      timeSignature || '4/4',
+      { allowDualChords: true }
+    );
+    setLastHarmonization(result);
+    onUpdateMeasureChord(selectedMeasureIndex, result.formatted);
+    showNotice(`🪄 智慧配和弦：${result.formatted} (${result.rationale})`);
+    if (result.chords[0]) {
+      audioEngine.previewChord(result.chords[0]);
+    }
+  }, [currentMeasure, keySignature, onUpdateMeasureChord, selectedMeasureIndex, showNotice, timeSignature, audioEngine]);
 
   const durationInfo = getDurationChineseInfo(currentNote.duration);
 
@@ -999,6 +1085,25 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                 {((currentNote.preGraceNotes?.length || 0) + (currentNote.postGraceNotes?.length || 0) > 0) && (
                   <span className="ml-0.5 px-1.5 py-0.2 bg-purple-600 text-white rounded-full text-[10px] font-black">
                     {(currentNote.preGraceNotes?.length || 0) + (currentNote.postGraceNotes?.length || 0)}
+                  </span>
+                )}
+              </button>
+
+              <button
+                id="hud-tab-chords-btn"
+                type="button"
+                onClick={() => setActiveTab('chords')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all cursor-pointer touch-manipulation min-h-[38px] ${
+                  activeTab === 'chords'
+                    ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>和弦 (Chords)</span>
+                {currentMeasure && getMeasureChords(currentMeasure).length > 0 && (
+                  <span className="ml-0.5 px-1.5 py-0.2 bg-amber-600 text-white rounded-full text-[10px] font-black">
+                    {getMeasureChords(currentMeasure).length}
                   </span>
                 )}
               </button>
@@ -2025,6 +2130,249 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             </div>
             );
           })()}
+
+          {/* TAB: CHORDS & HARMONY */}
+          {activeTab === 'chords' && (
+            <div className="flex flex-col gap-3.5">
+              {/* Row 1: Measure Chord Status & Interactive Chips */}
+              <div className="p-3 bg-zinc-50 dark:bg-[#0c0e14] rounded-xl border border-zinc-200/90 dark:border-zinc-800 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-amber-500" />
+                      <span>小節和弦配置 (Measure #{selectedMeasureIndex + 1})</span>
+                    </span>
+                    {currentMeasure?.section && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 font-bold">
+                        {currentMeasure.section}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
+                      {timeSignature || '4/4'}
+                    </span>
+                  </div>
+
+                  {/* Right action: Auto-Harmonize Measure Button */}
+                  <button
+                    id="hud-auto-harmonize-measure-btn"
+                    type="button"
+                    onClick={handleAutoHarmonizeCurrentMeasure}
+                    disabled={!currentMeasure || !onUpdateMeasureChord}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-xs shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                    title="根據本小節旋律音高智慧分析並配上最佳和弦"
+                  >
+                    <Wand2 className="w-3.5 h-3.5" />
+                    <span>🪄 智慧配和弦</span>
+                  </button>
+                </div>
+
+                {/* Interactive Chord Chips List with Beat Allocation */}
+                {(() => {
+                  const chords = currentMeasure ? getMeasureChords(currentMeasure) : [];
+                  const [numStr] = (currentMeasure?.timeSignature || timeSignature || '4/4').split('/');
+                  const beats = parseInt(numStr, 10) || 4;
+
+                  if (chords.length === 0) {
+                    return (
+                      <div className="py-2.5 px-3 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 text-center text-xs text-zinc-400">
+                        此小節目前無和弦 · 可使用下方和弦墊加入，或點擊「🪄 智慧配和弦」
+                      </div>
+                    );
+                  }
+
+                  const beatsPerChord = beats / chords.length;
+
+                  return (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {chords.map((ch, idx) => {
+                          const startBeat = Math.round(idx * beatsPerChord * 10) / 10 + 1;
+                          const endBeat = Math.round((idx + 1) * beatsPerChord * 10) / 10;
+                          const beatLabel = chords.length === 1 ? '全小節' : `第 ${startBeat}–${endBeat} 拍`;
+
+                          return (
+                            <div
+                              key={`${ch}-${idx}`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-700/80 shadow-2xs group"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => audioEngine.previewChord(ch)}
+                                className="font-mono font-black text-sm text-amber-900 dark:text-amber-200 hover:text-amber-600 transition-colors cursor-pointer flex items-center gap-1"
+                                title="點擊試聽和弦聲音 (Preview Chord)"
+                              >
+                                <Volume2 className="w-3 h-3 text-amber-500" />
+                                <span>{ch}</span>
+                              </button>
+
+                              <span className="text-[10px] text-amber-700/80 dark:text-amber-300/80 font-mono bg-amber-200/50 dark:bg-amber-900/40 px-1.5 py-0.2 rounded-md">
+                                {beatLabel}
+                              </span>
+
+                              {/* Reorder Left */}
+                              {idx > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleReorderChord(idx, idx - 1)}
+                                  className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 text-xs px-0.5 cursor-pointer font-bold"
+                                  title="往前移動 (Move earlier)"
+                                >
+                                  ←
+                                </button>
+                              )}
+
+                              {/* Reorder Right */}
+                              {idx < chords.length - 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleReorderChord(idx, idx + 1)}
+                                  className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 text-xs px-0.5 cursor-pointer font-bold"
+                                  title="往後移動 (Move later)"
+                                >
+                                  →
+                                </button>
+                              )}
+
+                              {/* Delete Chord */}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveChord(idx)}
+                                className="text-zinc-400 hover:text-rose-500 ml-0.5 text-xs font-bold cursor-pointer"
+                                title="刪除此和弦"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+
+                        <button
+                          type="button"
+                          onClick={handleClearAllChords}
+                          className="px-2.5 py-1 text-[11px] font-semibold text-zinc-500 hover:text-rose-600 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer transition-colors shadow-2xs ml-auto"
+                          title="清空此小節全部和弦"
+                        >
+                          全部清除
+                        </button>
+                      </div>
+
+                      {/* Rationale feedback if auto-harmonized recently */}
+                      {lastHarmonization && (
+                        <div className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                          <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+                          <span>分析：{lastHarmonization.rationale} (置信度 {lastHarmonization.confidence}%)</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Row 2: Freeform Text Multi-Chord Entry */}
+              <div className="p-3 bg-zinc-50 dark:bg-[#0c0e14] rounded-xl border border-zinc-200/90 dark:border-zinc-800 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-extrabold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    文字輸入多和弦 (Multi-Chord Input):
+                  </span>
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <span className="text-zinc-400">模式：</span>
+                    <button
+                      type="button"
+                      onClick={() => setChordMode(m => m === 'append' ? 'replace' : 'append')}
+                      className={`px-2 py-0.5 rounded-md font-bold text-xs border transition-all cursor-pointer ${
+                        chordMode === 'append'
+                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-400/50'
+                          : 'bg-zinc-200/80 dark:bg-zinc-700/80 text-zinc-600 dark:text-zinc-300 border-zinc-300 dark:border-zinc-600'
+                      }`}
+                    >
+                      {chordMode === 'append' ? '+ 附加 (Append)' : '取代 (Replace)'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    id="hud-chord-freeform-input"
+                    type="text"
+                    value={chordInputText}
+                    onChange={e => setChordInputText(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleCommitFreeformChord();
+                      }
+                    }}
+                    placeholder="例如: C G 或 Bb F Gm C7 (以空格或逗號隔開多和弦)"
+                    className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm font-mono text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-amber-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCommitFreeformChord}
+                    disabled={!chordInputText.trim() || !onUpdateMeasureChord}
+                    className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-40"
+                  >
+                    {chordMode === 'append' ? '加入' : '設定'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 3: Key-Aware Diatonic Chord Palette (1-Tap Pads) */}
+              <div className="p-3 bg-zinc-50 dark:bg-[#0c0e14] rounded-xl border border-zinc-200/90 dark:border-zinc-800 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-extrabold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>{keySignature} 調 順階自然和弦 (Diatonic Chords):</span>
+                  </span>
+                  <span className="text-[11px] text-zinc-400">點擊直接加入並試聽</span>
+                </div>
+
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                  {getDiatonicCandidateChords(keySignature).map(c => {
+                    const currentChords = currentMeasure ? getMeasureChords(currentMeasure) : [];
+                    const isSelected = currentChords.includes(c.chord);
+
+                    return (
+                      <button
+                        key={c.chord}
+                        type="button"
+                        onClick={() => handleAddDiatonicChord(c.chord)}
+                        className={`h-13 rounded-xl transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-2xs ${
+                          isSelected
+                            ? 'bg-amber-500 text-zinc-950 border-amber-600 ring-2 ring-amber-400 font-black'
+                            : 'bg-white dark:bg-zinc-900 hover:bg-amber-50 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100'
+                        }`}
+                        title={`${c.label} (${c.degree}) - 點擊${chordMode === 'append' ? '附加' : '設定'}並試聽`}
+                      >
+                        <span className="font-mono font-black text-sm sm:text-base leading-tight">{c.chord}</span>
+                        <span className="text-[10px] font-sans font-medium opacity-75">{c.degree}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Row 4: Common Extended Qualities Bar */}
+              <div className="p-3 bg-zinc-50 dark:bg-[#0c0e14] rounded-xl border border-zinc-200/90 dark:border-zinc-800 flex items-center gap-2 flex-wrap text-xs">
+                <span className="font-extrabold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0 text-[11px]">
+                  常用變化和弦 (Extended):
+                </span>
+                {['7', 'maj7', 'm7', 'sus4', 'sus2', 'dim', 'aug', 'add9'].map(q => {
+                  const baseRoot = keySignature;
+                  const testChord = `${baseRoot}${q}`;
+                  return (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => handleAddDiatonicChord(testChord)}
+                      className="px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 hover:bg-amber-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 font-mono font-bold text-xs cursor-pointer shadow-2xs transition-all active:scale-95"
+                      title={`點擊加入 ${testChord}`}
+                    >
+                      +{q}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* TAB 4: LYRICS & ANNOTATIONS */}
           {activeTab === 'lyrics' && (

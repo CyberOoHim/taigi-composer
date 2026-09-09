@@ -60,6 +60,7 @@ export interface NoteModeViewProps {
   onDeleteMeasure: (mIdx: number) => void;
   onUpdateMeasureSection: (mIdx: number, section: string) => void;
   onUpdateMeasureChord: (mIdx: number, chord: string) => void;
+  onAutoHarmonizeVerse?: (vIdx: number) => void;
 
   onDistributeVerseLyrics: (verse: VerseItem, vIdx: number) => void;
   onDistributeMeasureLyrics: (mIdx: number) => void;
@@ -168,6 +169,7 @@ export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
   onDeleteMeasure,
   onUpdateMeasureSection,
   onUpdateMeasureChord,
+  onAutoHarmonizeVerse,
   onDistributeVerseLyrics,
   onDistributeMeasureLyrics,
   onInsertPunctuationToNote,
@@ -409,6 +411,8 @@ export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
           onInsertPunctuationToNote={onInsertPunctuationToNote}
           onUpdateLyric={onUpdateLyric}
           onUpdateAnnotation={onUpdateAnnotation}
+          onUpdateMeasureChord={onUpdateMeasureChord}
+          onAutoHarmonizeVerse={onAutoHarmonizeVerse}
           onGoToNextNote={onGoToNextNote}
           onGoToPrevNote={onGoToPrevNote}
           onUpdateSelectedNote={onUpdateSelectedNote}

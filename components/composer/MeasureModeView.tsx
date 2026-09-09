@@ -17,6 +17,7 @@ import {
 } from '@/lib/taigiUtils';
 import { NoteCell } from './NoteCell';
 import { NoteEditorHud } from './NoteEditorHud';
+import { suggestChordsForMeasure } from '@/lib/chordArranger';
 import {
   Play,
   Square,
@@ -654,27 +655,37 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     <span className="text-zinc-600 dark:text-zinc-400 font-medium shrink-0">Chord:</span>
                     
                     {/* Current Chords Badges */}
-                    {getMeasureChords(measure).map((ch, chIdx) => (
-                      <span
-                        key={`${ch}-${chIdx}`}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 font-mono font-bold text-xs shadow-2xs"
-                      >
-                        <span>{ch}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const current = getMeasureChords(measure);
-                            const updated = current.filter((_, i) => i !== chIdx);
-                            onUpdateMeasureChord(mIdx, formatMeasureChords(updated));
-                          }}
-                          className="text-zinc-400 hover:text-rose-500 ml-0.5 text-xs font-black cursor-pointer leading-none"
-                          title={`Remove ${ch}`}
+                    {(() => {
+                      const allChords = getMeasureChords(measure);
+                      return allChords.map((ch, chIdx) => (
+                        <span
+                          key={`${ch}-${chIdx}`}
+                          onClick={() => audioEngine.previewChord(ch)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 font-mono font-bold text-xs shadow-2xs cursor-pointer hover:bg-amber-500/30 transition-colors"
+                          title={`點擊試聽 ${ch} 和弦`}
                         >
-                          ×
-                        </button>
-                      </span>
-                    ))}
+                          <span>{ch}</span>
+                          {allChords.length > 1 && (
+                            <span className="text-[9px] opacity-75 font-normal">
+                              ({chIdx + 1}/{allChords.length})
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const current = getMeasureChords(measure);
+                              const updated = current.filter((_, i) => i !== chIdx);
+                              onUpdateMeasureChord(mIdx, formatMeasureChords(updated));
+                            }}
+                            className="text-zinc-400 hover:text-rose-500 ml-0.5 text-xs font-black cursor-pointer leading-none"
+                            title={`Remove ${ch}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ));
+                    })()}
 
                     {/* Quick Input to type or append multiple chords */}
                     <input
@@ -972,6 +983,20 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                       </button>
                     );
                   })}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const res = suggestChordsForMeasure(measure, keySignature, song.timeSignature, { allowDualChords: true });
+                      onUpdateMeasureChord(mIdx, res.formatted);
+                      showNotice(`🪄 第 ${mIdx + 1} 小節已智慧配和弦：${res.formatted} (${res.rationale})`);
+                      if (res.chords[0]) audioEngine.previewChord(res.chords[0]);
+                    }}
+                    className="px-2 py-1 rounded-lg text-[10px] text-amber-900 dark:text-amber-200 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-700 cursor-pointer transition-colors shadow-2xs font-bold flex items-center gap-1"
+                    title="根據此小節旋律智慧配和弦"
+                  >
+                    <Wand2 className="w-2.5 h-2.5 text-amber-600" />
+                    <span>Auto</span>
+                  </button>
                   {getMeasureChords(measure).length > 0 && (
                     <button
                       type="button"
@@ -1194,6 +1219,9 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     selectedNoteIndex={selectedNoteIndex}
                     keySignature={keySignature}
                     audioEngine={audioEngine}
+                    currentMeasure={measure}
+                    timeSignature={song.timeSignature}
+                    onUpdateMeasureChord={onUpdateMeasureChord}
                     onUpdateSelectedNote={onUpdateSelectedNote}
                     onSetPitch={onSetPitch}
                     onSetOctave={onSetOctave}

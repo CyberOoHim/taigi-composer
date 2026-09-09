@@ -35,13 +35,14 @@ export class AudioEngine {
   private masterGain: GainNode | null = null;
   private melodyGain: GainNode | null = null;
   private backingGain: GainNode | null = null;
+  private backingFilter: BiquadFilterNode | null = null;
   private metronomeGain: GainNode | null = null;
 
   private currentSong: Song | null = null;
   private options: Required<AudioEngineOptions> = {
     instrument: 'piano',
     melodyVolume: 0.85,
-    backingVolume: 0.45,
+    backingVolume: 0.35,
     metronomeVolume: 0.45,
     transpose: 0,
     tempoMultiplier: 1.0,
@@ -376,8 +377,14 @@ export class AudioEngine {
         this.melodyGain.gain.setValueAtTime(this.options.melodyVolume, this.ctx.currentTime);
         this.melodyGain.connect(this.masterGain);
 
+        this.backingFilter = this.ctx.createBiquadFilter();
+        this.backingFilter.type = 'lowpass';
+        this.backingFilter.frequency.setValueAtTime(1000, this.ctx.currentTime);
+        this.backingFilter.Q.setValueAtTime(0.7, this.ctx.currentTime);
+
         this.backingGain = this.ctx.createGain();
         this.backingGain.gain.setValueAtTime(this.options.backingVolume, this.ctx.currentTime);
+        this.backingFilter.connect(this.backingGain);
         this.backingGain.connect(this.masterGain);
 
         this.metronomeGain = this.ctx.createGain();
@@ -1101,7 +1108,8 @@ export class AudioEngine {
   }
 
   /**
-   * Play chord accompaniment pattern
+   * Play chord accompaniment pattern with low bass foundation and warm harmonic pad.
+   * Chords are routed through the backing low-pass filter to ensure clarity for the melody.
    */
   private playChordBeat(chordName: string, startTime: number, beatDuration: number, isDownbeat: boolean) {
     if (this.options.ecoMode) return;
@@ -1109,29 +1117,37 @@ export class AudioEngine {
     const chordFrequencies = getChordNotes(chordName, this.options.transpose);
     if (chordFrequencies.length === 0) return;
 
-    // Arpeggiate / strum chord notes
+    const targetDestination: AudioNode = this.backingFilter || this.backingGain;
+
     chordFrequencies.forEach((freq, idx) => {
-      const stagger = idx * 0.015;
+      const isBass = idx === 0;
+
+      // On non-downbeats, keep bass subtle to avoid metronomic thumping
+      if (!isDownbeat && isBass) return;
+
+      const stagger = isDownbeat && !isBass ? (idx - 1) * 0.016 : 0;
       const noteTime = startTime + stagger;
       const osc = this.ctx!.createOscillator();
       this.registerOscillator(osc);
       const gain = this.ctx!.createGain();
 
-      osc.type = isDownbeat && idx === 0 ? 'sawtooth' : 'triangle';
+      osc.type = 'triangle';
       osc.frequency.setValueAtTime(freq, noteTime);
 
-      const noteDuration = beatDuration * 0.9;
-      const vol = isDownbeat ? 0.35 : 0.22;
+      const noteDuration = isDownbeat ? beatDuration * 0.94 : beatDuration * 0.75;
+      const vol = isDownbeat
+        ? (isBass ? 0.28 : 0.16)
+        : 0.10;
 
       gain.gain.setValueAtTime(0.0001, noteTime);
-      gain.gain.linearRampToValueAtTime(vol, noteTime + 0.01);
+      gain.gain.linearRampToValueAtTime(vol, noteTime + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + noteDuration);
 
       osc.connect(gain);
-      gain.connect(this.backingGain!);
+      gain.connect(targetDestination);
 
       osc.start(noteTime);
-      osc.stop(noteTime + noteDuration + 0.05);
+      osc.stop(noteTime + noteDuration + 0.04);
     });
   }
 
@@ -1518,13 +1534,17 @@ export class AudioEngine {
     }
 
     let noteTime = 0;
-    let lastChord = '';
+    const measureStartTimeMap = new Map<number, number>();
 
     verseNotes.forEach((item, itemIdx) => {
       const { note, measureIdx, noteIdx } = item;
       const isNonNotation = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
       const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
       const scheduleAt = audioStart + noteTime;
+
+      if (!measureStartTimeMap.has(measureIdx)) {
+        measureStartTimeMap.set(measureIdx, noteTime);
+      }
 
       if (!isNonNotation && note.duration > 0) {
         if (!isTiedContinuation[itemIdx]) {
@@ -1543,22 +1563,6 @@ export class AudioEngine {
             { isLegato: isSlurred }
           );
         }
-
-        const m = song.measures[measureIdx];
-        const mChords = getMeasureChords(m);
-        if (mChords.length > 0) {
-          const beatsInMeasure = (m.timeSignature || song.timeSignature) ? parseInt(m.timeSignature || song.timeSignature) || 4 : 4;
-          const noteBeatInMeasure = (noteTime / secPerBeat) % beatsInMeasure;
-          const chordIdx = Math.min(
-            mChords.length - 1,
-            Math.floor((noteBeatInMeasure / beatsInMeasure) * mChords.length)
-          );
-          const currentChord = mChords[chordIdx];
-          if (currentChord && currentChord !== lastChord) {
-            this.playChordBeat(currentChord, scheduleAt, Math.min(secPerBeat, noteDurationSec), true);
-            lastChord = currentChord;
-          }
-        }
       }
 
       timelineEvents.push({
@@ -1574,14 +1578,30 @@ export class AudioEngine {
       }
     });
 
-    // Schedule metronome clicks for the verse
-    const tsParts = (song.timeSignature || '4/4').split('/');
-    const beatsPerBar = parseInt(tsParts[0], 10) || 4;
-    const totalVerseBeatsCount = Math.ceil(totalVerseBeats);
-    for (let b = 0; b < totalVerseBeatsCount; b++) {
-      const beatTime = audioStart + b * secPerBeat;
-      this.playMetronomeClick(beatTime, b % beatsPerBar === 0);
-    }
+    // Schedule chords and metronome clicks accurately per measure in the verse
+    measureStartTimeMap.forEach((mStartTimeSec, mIdx) => {
+      const targetMeasure = song.measures[mIdx];
+      if (!targetMeasure) return;
+
+      const tsParts = (targetMeasure.timeSignature || song.timeSignature || '4/4').split('/');
+      const beatsPerBar = parseInt(tsParts[0], 10) || 4;
+      const measureChords = getMeasureChords(targetMeasure);
+
+      for (let b = 0; b < beatsPerBar; b++) {
+        const beatTime = audioStart + mStartTimeSec + b * secPerBeat;
+        this.playMetronomeClick(beatTime, b === 0);
+
+        if (measureChords.length > 0) {
+          const chordIdx = Math.min(
+            measureChords.length - 1,
+            Math.floor((b / beatsPerBar) * measureChords.length)
+          );
+          const currentChord = measureChords[chordIdx];
+          const isChordChange = b === 0 || chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length);
+          this.playChordBeat(currentChord, beatTime, secPerBeat, isChordChange);
+        }
+      }
+    });
 
     // Start UI tracking loop
     this.startTrackingLoop(totalVerseDurationSec, timelineEvents);
@@ -2213,6 +2233,7 @@ export class AudioEngine {
     if (this.ctx && this.masterGain) {
       try {
         this.melodyGain?.disconnect();
+        this.backingFilter?.disconnect();
         this.backingGain?.disconnect();
         this.metronomeGain?.disconnect();
       } catch {}
@@ -2221,8 +2242,14 @@ export class AudioEngine {
       this.melodyGain.gain.setValueAtTime(this.options.melodyVolume, this.ctx.currentTime);
       this.melodyGain.connect(this.masterGain);
 
+      this.backingFilter = this.ctx.createBiquadFilter();
+      this.backingFilter.type = 'lowpass';
+      this.backingFilter.frequency.setValueAtTime(1000, this.ctx.currentTime);
+      this.backingFilter.Q.setValueAtTime(0.7, this.ctx.currentTime);
+
       this.backingGain = this.ctx.createGain();
       this.backingGain.gain.setValueAtTime(this.options.backingVolume, this.ctx.currentTime);
+      this.backingFilter.connect(this.backingGain);
       this.backingGain.connect(this.masterGain);
 
       this.metronomeGain = this.ctx.createGain();

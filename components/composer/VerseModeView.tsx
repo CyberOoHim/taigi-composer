@@ -28,6 +28,7 @@ import {
   Mic2,
   FileSpreadsheet,
   X,
+  Wand2,
 } from 'lucide-react';
 
 interface VerseModeViewProps {
@@ -54,6 +55,8 @@ interface VerseModeViewProps {
   onUpdateAnnotation?: (mIdx: number, nIdx: number, val: string) => void;
   onGoToNextNote: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo') => void;
   onGoToPrevNote: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo') => void;
+  onUpdateMeasureChord?: (mIdx: number, chord: string) => void;
+  onAutoHarmonizeVerse?: (vIdx: number) => void;
   onUpdateSelectedNote: (updater: (note: NumberedNotationNote) => NumberedNotationNote) => void;
   onSetPitch: (pitch: PitchNumber) => void;
   onSetOctave: (delta: number) => void;
@@ -142,6 +145,8 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   onUpdateAnnotation,
   onGoToNextNote,
   onGoToPrevNote,
+  onUpdateMeasureChord,
+  onAutoHarmonizeVerse,
   onUpdateSelectedNote,
   onSetPitch,
   onSetOctave,
@@ -539,6 +544,23 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   <span>Add Note</span>
                 </button>
 
+                {/* Auto Harmonize Verse */}
+                {onAutoHarmonizeVerse && (
+                  <button
+                    id={`verse-auto-harmonize-btn-${vIdx}`}
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      onAutoHarmonizeVerse(vIdx);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-amber-500/20 to-amber-400/20 hover:from-amber-500/30 hover:to-amber-400/30 text-amber-900 dark:text-amber-200 rounded-xl font-bold text-xs border border-amber-300 dark:border-amber-700/80 transition-colors cursor-pointer touch-manipulation min-h-[40px]"
+                    title="為此段歌詞所有小節智慧配置最佳和弦 (Auto-Harmonize Verse)"
+                  >
+                    <Wand2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>🪄 本段配和弦</span>
+                  </button>
+                )}
+
                 {/* Duplicate Verse */}
                 {onDuplicateVerse && (
                   <button
@@ -661,9 +683,18 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                               <span className="hidden xl:inline">Measure </span>#{mIdx + 1}
                             </span>
                             {measure.chord && (
-                              <span className="text-amber-600 dark:text-amber-400 text-[10px] sm:text-[11px] font-mono shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const firstChord = measure.chord?.split(/[\s,\-|]+/)[0];
+                                  if (firstChord) audioEngine.previewChord(firstChord);
+                                }}
+                                className="text-amber-600 hover:text-amber-500 dark:text-amber-400 text-[10px] sm:text-[11px] font-mono shrink-0 cursor-pointer hover:underline"
+                                title={`點擊試聽和弦 [${measure.chord}]`}
+                              >
                                 [{measure.chord}]
-                              </span>
+                              </button>
                             )}
                             {measure.section && (
                               <span className="text-[9px] sm:text-[10px] px-1 py-0.5 rounded-sm bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 font-semibold truncate hidden 2xl:inline">
@@ -1005,6 +1036,9 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   selectedNoteIndex={selectedNoteIndex}
                   keySignature={keySignature}
                   audioEngine={audioEngine}
+                  currentMeasure={song.measures[selectedMeasureIndex]}
+                  timeSignature={song.timeSignature}
+                  onUpdateMeasureChord={onUpdateMeasureChord}
                   onUpdateSelectedNote={onUpdateSelectedNote}
                   onSetPitch={onSetPitch}
                   onSetOctave={onSetOctave}

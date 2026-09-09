@@ -64,41 +64,78 @@ export function getPitchFrequency(
 }
 
 /**
- * Chord note frequencies for accompaniment synthesis
+ * Chord note frequencies for accompaniment synthesis.
+ * Voiced with a solid bass foundation in octave 2 (MIDI 36-47)
+ * and warm harmony voices in octave 3 (MIDI 48-63) to prevent colliding with the melody.
  */
 export function getChordNotes(chordName: string, transposeSemitones: number = 0): number[] {
   if (!chordName || chordName.trim() === '') return [];
 
-  const rootMatch = chordName.match(/^([A-G][#b]?)(.*)$/);
+  // Support slash chords e.g. "C/E", "G/B"
+  const [mainChord, slashBass] = chordName.trim().split('/');
+
+  const rootMatch = mainChord.match(/^([A-G][#b]?)(.*)$/);
   if (!rootMatch) return [];
 
   const rootStr = rootMatch[1] as KeySignature;
   const quality = rootMatch[2].toLowerCase();
 
   const rootSemitone = (KEY_SEMITONES[rootStr] ?? 0) + transposeSemitones;
-  const rootMidi = 48 + rootSemitone; // C3 octave range for accompaniment
+
+  // Calculate Bass note:
+  let bassSemitone = rootSemitone;
+  if (slashBass && KEY_SEMITONES[slashBass as KeySignature] !== undefined) {
+    bassSemitone = (KEY_SEMITONES[slashBass as KeySignature] ?? 0) + transposeSemitones;
+  }
+  // Bass in octave 2 (MIDI 36 to 47)
+  const bassMidi = 36 + (((bassSemitone % 12) + 12) % 12);
+
+  // Harmony Triad/Extensions in octave 3 (MIDI 48 to 60)
+  const harmonyRootMidi = 48 + (((rootSemitone % 12) + 12) % 12);
 
   let intervals = [0, 4, 7]; // Major triad
 
   if (quality.includes('m') && !quality.includes('maj')) {
-    intervals = [0, 3, 7]; // Minor triad
+    if (quality.includes('m7')) {
+      intervals = [0, 3, 7, 10];
+    } else if (quality.includes('m6')) {
+      intervals = [0, 3, 7, 9];
+    } else {
+      intervals = [0, 3, 7]; // Minor triad
+    }
   } else if (quality.includes('dim')) {
-    intervals = [0, 3, 6];
+    intervals = quality.includes('7') ? [0, 3, 6, 9] : [0, 3, 6];
   } else if (quality.includes('aug')) {
     intervals = [0, 4, 8];
   } else if (quality.includes('sus4')) {
     intervals = [0, 5, 7];
+  } else if (quality.includes('sus2')) {
+    intervals = [0, 2, 7];
+  } else if (quality.includes('add9')) {
+    intervals = [0, 4, 7, 14];
+  } else if (quality.includes('6')) {
+    intervals = [0, 4, 7, 9];
   } else if (quality.includes('7')) {
     if (quality.includes('maj7')) {
       intervals = [0, 4, 7, 11];
-    } else if (quality.includes('m7')) {
-      intervals = [0, 3, 7, 10];
     } else {
       intervals = [0, 4, 7, 10]; // Dominant 7th
     }
   }
 
-  return intervals.map(semitone => 440 * Math.pow(2, (rootMidi + semitone - 69) / 12));
+  // Voice harmony notes so they remain strictly below Middle C (C4 = MIDI 60) or at most E4 (MIDI 64)
+  const harmonyMidis = intervals.map(interval => {
+    let midi = harmonyRootMidi + interval;
+    while (midi > 63) {
+      midi -= 12; // Invert down an octave
+    }
+    return midi;
+  });
+
+  const sortedHarmony = Array.from(new Set(harmonyMidis)).sort((a, b) => a - b);
+  const allMidis = [bassMidi, ...sortedHarmony];
+
+  return allMidis.map(midiNote => 440 * Math.pow(2, (midiNote - 69) / 12));
 }
 
 // Special Taigi (POJ and Tâi-lô / TL) characters and tone diacritics
