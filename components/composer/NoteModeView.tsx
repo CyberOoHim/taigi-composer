@@ -136,6 +136,7 @@ export interface NoteModeViewProps {
   onReturnToSheet?: (destMeasureIndex?: number) => void;
   onDismissKaraokeReturn?: () => void;
   onDismissSheetReturn?: () => void;
+  onOpenHumToScore?: () => void;
 }
 
 export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
@@ -230,6 +231,7 @@ export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
   onReturnToSheet,
   onDismissKaraokeReturn,
   onDismissSheetReturn,
+  onOpenHumToScore,
 }) => {
   const handleSwitchSubMode = (targetSubMode: NoteEditSubMode) => {
     if (targetSubMode === noteSubMode) return;
@@ -338,6 +340,20 @@ export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
             </button>
           )}
 
+          {/* Quick open Hum-to-Score modal */}
+          {onOpenHumToScore && (
+            <button
+              id="note-mode-open-hum-btn"
+              type="button"
+              onClick={onOpenHumToScore}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+              title="開啟哼唱與實體樂器收音記譜 (Hum-to-Score)"
+            >
+              <Mic2 className="w-3.5 h-3.5" />
+              <span>哼唱記譜</span>
+            </button>
+          )}
+
           {noteSubMode === 'verse' ? (
             <span className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/60 font-medium text-xs">
               <span className="font-bold text-amber-600 dark:text-amber-400">Verse Edit:</span>
@@ -430,6 +446,7 @@ export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
           onReturnToSheet={onReturnToSheet}
           onDismissKaraokeReturn={onDismissKaraokeReturn}
           onDismissSheetReturn={onDismissSheetReturn}
+          onOpenHumToScore={onOpenHumToScore}
         />
       ) : (
         <MeasureModeView
@@ -511,6 +528,7 @@ export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
           onReturnToSheet={onReturnToSheet}
           onDismissKaraokeReturn={onDismissKaraokeReturn}
           onDismissSheetReturn={onDismissSheetReturn}
+          onOpenHumToScore={onOpenHumToScore}
         />
       )}
     </div>

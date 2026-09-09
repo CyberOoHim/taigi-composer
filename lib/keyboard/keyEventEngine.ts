@@ -1,0 +1,733 @@
+/**
+ * KeyEventEngine: Screen Piano, Musical Typing (QWERTY), and Web MIDI Input Engine
+ *
+ * Implements Stage 1 & 2 of the Keyboard-to-Score pipeline:
+ * 1. High-resolution performance timestamping (microsecond accuracy via performance.now())
+ * 2. Monophonic legato overlap resolution (instant note truncation upon next onset)
+ * 3. Rest gap detection (converts idle inter-note pauses >= 80ms into discrete rests)
+ * 4. QWERTY musical typing mapping for middle octave (A-K) and accidentals (W-U)
+ * 5. Hardware Web MIDI input adapter (0x90 NoteOn, 0x80 NoteOff)
+ * 6. Direct integration with ScoreQuantizer for beat-grid snapping and barline packing
+ */
+
+import type {
+  KeySignature,
+  Measure,
+  NumberedNotationNote,
+  PitchNumber,
+  TimeSignature,
+} from '../../types/song.ts';
+import type { RawNoteSegment } from '../pitch/onsetDetector.ts';
+import { midiToFrequency } from '../pitch/yinDetector.ts';
+import {
+  KEY_SEMITONES,
+  midiToNumberedPitch,
+  transcribeAudioSegmentsToMeasures,
+  type MeasureLayoutOptions,
+  type QuantizeGrid,
+  type QuantizeOptions,
+  type TranscriptionResult,
+} from '../pitch/scoreQuantizer.ts';
+
+export interface QwertyKeyDefinition {
+  code: string; // e.g. 'KeyA'
+  keyChar: string; // e.g. 'a'
+  midiOffset: number; // Semitones relative to C4 (MIDI 60)
+  pitch: PitchNumber; // 1-7 in Key of C
+  octaveOffset: number; // -1, 0, 1
+  accidental: '' | '#' | 'b';
+  solfege: string; // e.g. 'Do', 'Re', 'Di'
+  isBlack: boolean;
+  label: string; // Display label e.g. '1', '♯1', '2'
+}
+
+/**
+ * Standard DAW / GarageBand / Ableton-style QWERTY musical typing layout
+ * Diatonic (White Keys):
+ *   A -> 1 (Do, C4)
+ *   S -> 2 (Re, D4)
+ *   D -> 3 (Mi, E4)
+ *   F -> 4 (Fa, F4)
+ *   G -> 5 (Sol, G4)
+ *   H -> 6 (La, A4)
+ *   J -> 7 (Ti, B4)
+ *   K -> 1̇ (High Do, C5)
+ *   L -> 2̇ (High Re, D5)
+ *   Semicolon -> 3̇ (High Mi, E5)
+ *   Quote -> 4̇ (High Fa, F5)
+ *
+ * Chromatic (Black Keys):
+ *   W -> ♯1 / ♭2 (C#4/Db4)
+ *   E -> ♯2 / ♭3 (D#4/Eb4)
+ *   T -> ♯4 / ♭5 (F#4/Gb4)
+ *   Y -> ♯5 / ♭6 (G#4/Ab4)
+ *   U -> ♯6 / ♭7 (A#4/Bb4)
+ *   O -> ♯1̇ / ♭2̇ (C#5/Db5)
+ *   P -> ♯2̇ / ♭3̇ (D#5/Eb5)
+ */
+export const QWERTY_KEY_DEFINITIONS: QwertyKeyDefinition[] = [
+  // White keys - Middle Octave
+  { code: 'KeyA', keyChar: 'a', midiOffset: 0, pitch: 1, octaveOffset: 0, accidental: '', solfege: 'Do', isBlack: false, label: '1' },
+  { code: 'KeyS', keyChar: 's', midiOffset: 2, pitch: 2, octaveOffset: 0, accidental: '', solfege: 'Re', isBlack: false, label: '2' },
+  { code: 'KeyD', keyChar: 'd', midiOffset: 4, pitch: 3, octaveOffset: 0, accidental: '', solfege: 'Mi', isBlack: false, label: '3' },
+  { code: 'KeyF', keyChar: 'f', midiOffset: 5, pitch: 4, octaveOffset: 0, accidental: '', solfege: 'Fa', isBlack: false, label: '4' },
+  { code: 'KeyG', keyChar: 'g', midiOffset: 7, pitch: 5, octaveOffset: 0, accidental: '', solfege: 'Sol', isBlack: false, label: '5' },
+  { code: 'KeyH', keyChar: 'h', midiOffset: 9, pitch: 6, octaveOffset: 0, accidental: '', solfege: 'La', isBlack: false, label: '6' },
+  { code: 'KeyJ', keyChar: 'j', midiOffset: 11, pitch: 7, octaveOffset: 0, accidental: '', solfege: 'Ti', isBlack: false, label: '7' },
+  // White keys - High Octave
+  { code: 'KeyK', keyChar: 'k', midiOffset: 12, pitch: 1, octaveOffset: 1, accidental: '', solfege: 'Do', isBlack: false, label: '1̇' },
+  { code: 'KeyL', keyChar: 'l', midiOffset: 14, pitch: 2, octaveOffset: 1, accidental: '', solfege: 'Re', isBlack: false, label: '2̇' },
+  { code: 'Semicolon', keyChar: ';', midiOffset: 16, pitch: 3, octaveOffset: 1, accidental: '', solfege: 'Mi', isBlack: false, label: '3̇' },
+  { code: 'Quote', keyChar: "'", midiOffset: 17, pitch: 4, octaveOffset: 1, accidental: '', solfege: 'Fa', isBlack: false, label: '4̇' },
+
+  // Black keys - Middle Octave
+  { code: 'KeyW', keyChar: 'w', midiOffset: 1, pitch: 1, octaveOffset: 0, accidental: '#', solfege: 'Di', isBlack: true, label: '♯1' },
+  { code: 'KeyE', keyChar: 'e', midiOffset: 3, pitch: 2, octaveOffset: 0, accidental: '#', solfege: 'Ri', isBlack: true, label: '♯2' },
+  { code: 'KeyT', keyChar: 't', midiOffset: 6, pitch: 4, octaveOffset: 0, accidental: '#', solfege: 'Fi', isBlack: true, label: '♯4' },
+  { code: 'KeyY', keyChar: 'y', midiOffset: 8, pitch: 5, octaveOffset: 0, accidental: '#', solfege: 'Si', isBlack: true, label: '♯5' },
+  { code: 'KeyU', keyChar: 'u', midiOffset: 10, pitch: 6, octaveOffset: 0, accidental: '#', solfege: 'Li', isBlack: true, label: '♯6' },
+  // Black keys - High Octave
+  { code: 'KeyO', keyChar: 'o', midiOffset: 13, pitch: 1, octaveOffset: 1, accidental: '#', solfege: 'Di', isBlack: true, label: '♯1̇' },
+  { code: 'KeyP', keyChar: 'p', midiOffset: 15, pitch: 2, octaveOffset: 1, accidental: '#', solfege: 'Ri', isBlack: true, label: '♯2̇' },
+];
+
+// Lookup maps for fast O(1) event routing
+const QWERTY_BY_CODE = new Map<string, QwertyKeyDefinition>();
+const QWERTY_BY_KEY = new Map<string, QwertyKeyDefinition>();
+for (const def of QWERTY_KEY_DEFINITIONS) {
+  QWERTY_BY_CODE.set(def.code.toLowerCase(), def);
+  QWERTY_BY_KEY.set(def.keyChar.toLowerCase(), def);
+}
+
+/**
+ * Movable Solfege interval offsets from root 1 (semitones)
+ */
+const MOVABLE_DEGREE_OFFSETS: Record<string, number> = {
+  KeyA: 0, // 1
+  KeyW: 1, // #1 / b2
+  KeyS: 2, // 2
+  KeyE: 3, // #2 / b3
+  KeyD: 4, // 3
+  KeyF: 5, // 4
+  KeyT: 6, // #4 / b5
+  KeyG: 7, // 5
+  KeyY: 8, // #5 / b6
+  KeyH: 9, // 6
+  KeyU: 10, // #6 / b7
+  KeyJ: 11, // 7
+  KeyK: 12, // High 1
+  KeyO: 13, // High #1
+  KeyL: 14, // High 2
+  KeyP: 15, // High #2
+  Semicolon: 16, // High 3
+  Quote: 17, // High 4
+};
+
+export type QwertyMappingMode = 'chromatic_piano' | 'movable_solfege';
+
+export interface KeyEventEngineConfig {
+  keySignature: KeySignature;
+  timeSignature: TimeSignature;
+  bpm: number;
+  octaveShift: number; // -2 to +2
+  quantizeGrid: QuantizeGrid;
+  allowTriplets: boolean;
+  accidentalPreference: 'auto' | 'sharp' | 'flat';
+  restThresholdMs: number; // Minimum gap in ms to generate a discrete rest (default: 80ms)
+  extendLegatoGaps: boolean; // Auto-extend notes when gap < restThresholdMs (default: true)
+  qwertyMappingMode: QwertyMappingMode; // 'chromatic_piano' or 'movable_solfege'
+  minNoteDurationMs: number; // Minimum note duration to keep (default: 25ms)
+}
+
+export const DEFAULT_KEY_ENGINE_CONFIG: Readonly<KeyEventEngineConfig> = {
+  keySignature: 'C',
+  timeSignature: '4/4',
+  bpm: 80,
+  octaveShift: 0,
+  quantizeGrid: 'eighth',
+  allowTriplets: false,
+  accidentalPreference: 'auto',
+  restThresholdMs: 80,
+  extendLegatoGaps: true,
+  qwertyMappingMode: 'chromatic_piano',
+  minNoteDurationMs: 25,
+};
+
+export interface ActiveNoteState {
+  midi: number;
+  pitch: PitchNumber;
+  octave: number;
+  accidental: '' | '#' | 'b';
+  velocity: number;
+  sourceKeyId?: string;
+  startTimeMs: number;
+}
+
+export interface KeyEventEngineCallbacks {
+  onNoteOn?: (note: ActiveNoteState) => void;
+  onNoteOff?: (midi: number, sourceKeyId?: string) => void;
+  onSegmentCommitted?: (segment: RawNoteSegment) => void;
+  onOctaveShiftChange?: (octaveShift: number) => void;
+  onActiveKeysChange?: (activeMidiNotes: number[]) => void;
+  onRecordingStateChange?: (isRecording: boolean) => void;
+}
+
+/**
+ * Resolved key information for UI rendering & hints
+ */
+export interface ResolvedKeyInfo {
+  midi: number;
+  pitch: PitchNumber;
+  octave: number;
+  accidental: '' | '#' | 'b';
+  solfege: string;
+  isBlack: boolean;
+  label: string;
+  code: string;
+}
+
+/**
+ * Helper to resolve the pitch & MIDI note for a QWERTY key code or char.
+ */
+export function resolveQwertyKey(
+  codeOrKey: string,
+  keySignature: KeySignature = 'C',
+  octaveShift: number = 0,
+  mappingMode: QwertyMappingMode = 'chromatic_piano',
+  accidentalPreference: 'auto' | 'sharp' | 'flat' = 'auto'
+): ResolvedKeyInfo | null {
+  const norm = codeOrKey.trim();
+  const def = QWERTY_BY_CODE.get(norm.toLowerCase()) || QWERTY_BY_KEY.get(norm.toLowerCase());
+  if (!def) return null;
+
+  let baseMidi = 60; // Middle C4 = 60
+
+  if (mappingMode === 'movable_solfege') {
+    const tonicSemitone = KEY_SEMITONES[keySignature] ?? 0;
+    const interval = MOVABLE_DEGREE_OFFSETS[def.code] ?? def.midiOffset;
+    baseMidi = 60 + tonicSemitone + interval;
+  } else {
+    // Chromatic Piano: A is always C4 (60), S is D4 (62), etc.
+    baseMidi = 60 + def.midiOffset;
+  }
+
+  const targetMidi = Math.max(21, Math.min(108, baseMidi + octaveShift * 12));
+  const pitchInfo = midiToNumberedPitch(targetMidi, keySignature, {
+    accidentalPreference,
+  });
+
+  return {
+    midi: targetMidi,
+    pitch: pitchInfo.pitch,
+    octave: pitchInfo.octave,
+    accidental: pitchInfo.accidental,
+    solfege: def.solfege,
+    isBlack: def.isBlack,
+    label: def.label,
+    code: def.code,
+  };
+}
+
+/**
+ * KeyEventEngine
+ *
+ * Core engine tracking real-time keyboard performances, managing active notes,
+ * resolving monophonic legato overlaps, computing inter-note rest segments,
+ * and generating standardized RawNoteSegments ready for score quantization.
+ */
+export class KeyEventEngine {
+  private config: KeyEventEngineConfig;
+  private callbacks: KeyEventEngineCallbacks;
+
+  // Recording State
+  private isRecording = false;
+  private recordingStartTime = 0;
+  private lastNoteReleaseTime: number | null = null;
+  private activeNote: (ActiveNoteState & { resolved: boolean }) | null = null;
+  private segments: RawNoteSegment[] = [];
+
+  // Active key press tracking to suppress OS auto-repeats and handle multi-touch
+  private activeSourceKeys = new Set<string>();
+
+  // Custom high-resolution clock provider for testing/simulation
+  private nowProvider: () => number;
+
+  constructor(
+    config?: Partial<KeyEventEngineConfig>,
+    callbacks?: KeyEventEngineCallbacks,
+    nowProvider?: () => number
+  ) {
+    this.config = { ...DEFAULT_KEY_ENGINE_CONFIG, ...config };
+    this.callbacks = callbacks || {};
+    this.nowProvider =
+      nowProvider ||
+      (() => (typeof performance !== 'undefined' ? performance.now() : Date.now()));
+  }
+
+  /**
+   * Update configuration parameters (tempo, key signature, quantize grid, etc.)
+   */
+  public updateConfig(config: Partial<KeyEventEngineConfig>): void {
+    this.config = { ...this.config, ...config };
+  }
+
+  public getConfig(): Readonly<KeyEventEngineConfig> {
+    return this.config;
+  }
+
+  public setCallbacks(callbacks: Partial<KeyEventEngineCallbacks>): void {
+    this.callbacks = { ...this.callbacks, ...callbacks };
+  }
+
+  /**
+   * Start recording a new performance.
+   * If a startTimeMs is provided, uses it as the t=0 origin.
+   */
+  public startRecording(startTimeMs?: number): void {
+    const now = startTimeMs ?? this.nowProvider();
+    this.isRecording = true;
+    this.recordingStartTime = now;
+    this.lastNoteReleaseTime = null;
+    this.activeNote = null;
+    this.activeSourceKeys.clear();
+    this.segments = [];
+    this.callbacks.onRecordingStateChange?.(true);
+    this.notifyActiveKeys();
+  }
+
+  /**
+   * Stop recording and resolve any currently sustained note.
+   */
+  public stopRecording(stopTimeMs?: number): void {
+    if (!this.isRecording) return;
+    const now = stopTimeMs ?? this.nowProvider();
+
+    // Resolve any note still held at the moment of recording termination
+    if (this.activeNote && !this.activeNote.resolved) {
+      this.commitActiveNote(now);
+    }
+
+    this.isRecording = false;
+    this.callbacks.onRecordingStateChange?.(false);
+    this.notifyActiveKeys();
+  }
+
+  public isRecordingActive(): boolean {
+    return this.isRecording;
+  }
+
+  public getRecordingStartTime(): number {
+    return this.recordingStartTime;
+  }
+
+  public getSegments(): RawNoteSegment[] {
+    return [...this.segments];
+  }
+
+  public clearSegments(): void {
+    this.segments = [];
+    this.lastNoteReleaseTime = null;
+    if (this.activeNote) {
+      this.activeNote.resolved = true;
+      this.activeNote = null;
+    }
+    this.notifyActiveKeys();
+  }
+
+  /**
+   * Primary Note On trigger (from Touch Piano, QWERTY typing, or Web MIDI).
+   *
+   * Handles:
+   * 1. Monophonic Legato Overlap Resolution:
+   *    If note A is still held when note B starts, note A is immediately truncated
+   *    at timestamp(B) and committed without waiting for its late keyup.
+   * 2. Rest Gap Detection:
+   *    If gap since last note release >= restThresholdMs, generates an explicit rest segment.
+   *    If gap < restThresholdMs and extendLegatoGaps is enabled, extends previous note.
+   */
+  public noteOn(
+    midi: number,
+    velocity: number = 0.85,
+    timestampMs?: number,
+    sourceKeyId?: string
+  ): void {
+    const now = timestampMs ?? this.nowProvider();
+
+    if (sourceKeyId) {
+      this.activeSourceKeys.add(sourceKeyId);
+    }
+
+    // Auto-start recording on first key press if not explicitly started
+    if (!this.isRecording) {
+      this.startRecording(now);
+    }
+
+    // 1. Monophonic Legato Overlap Resolution:
+    // If a previous note is still sounding, instantly resolve and truncate it!
+    if (this.activeNote && !this.activeNote.resolved) {
+      this.commitActiveNote(now);
+    } else {
+      // 2. Inter-Note Rest Gap Detection:
+      // If there was a silence gap between previous note release and this note onset:
+      if (this.lastNoteReleaseTime !== null) {
+        const gapMs = now - this.lastNoteReleaseTime;
+
+        if (gapMs >= this.config.restThresholdMs) {
+          // Intentional rest: generate a discrete Rest Segment
+          const restSegment: RawNoteSegment = {
+            startTimeMs: Math.round(this.lastNoteReleaseTime - this.recordingStartTime),
+            endTimeMs: Math.round(now - this.recordingStartTime),
+            durationMs: Math.round(gapMs),
+            midi: null, // null indicates musical rest
+            frequencyHz: null,
+            avgRms: 0,
+            pitchSamples: [],
+          };
+          this.segments.push(restSegment);
+          this.callbacks.onSegmentCommitted?.(restSegment);
+        } else if (gapMs > 0 && this.config.extendLegatoGaps && this.segments.length > 0) {
+          // Articulation transient (< 80ms): extend previous note for continuous legato line
+          const lastSeg = this.segments[this.segments.length - 1];
+          if (lastSeg && lastSeg.midi !== null) {
+            lastSeg.endTimeMs = Math.round(now - this.recordingStartTime);
+            lastSeg.durationMs = Math.round(lastSeg.endTimeMs - lastSeg.startTimeMs);
+          }
+        }
+      }
+    }
+
+    // 3. Map MIDI pitch to Numbered Notation scale degree
+    const pitchInfo = midiToNumberedPitch(midi, this.config.keySignature, {
+      accidentalPreference: this.config.accidentalPreference,
+    });
+
+    // 4. Set active note state
+    this.activeNote = {
+      midi,
+      pitch: pitchInfo.pitch,
+      octave: pitchInfo.octave,
+      accidental: pitchInfo.accidental,
+      velocity: Math.max(0.1, Math.min(1.0, velocity)),
+      sourceKeyId,
+      startTimeMs: now,
+      resolved: false,
+    };
+
+    // Emit live audio and UI callbacks
+    this.callbacks.onNoteOn?.(this.activeNote);
+    this.notifyActiveKeys();
+  }
+
+  /**
+   * Primary Note Off trigger.
+   *
+   * Commits the active note segment if it hasn't already been resolved
+   * by a subsequent note's onset (legato overlap).
+   */
+  public noteOff(midi: number, timestampMs?: number, sourceKeyId?: string): void {
+    const now = timestampMs ?? this.nowProvider();
+
+    if (sourceKeyId) {
+      this.activeSourceKeys.delete(sourceKeyId);
+    }
+
+    // If there is an active, unresolved note matching this MIDI (or source)
+    if (this.activeNote && !this.activeNote.resolved) {
+      const isMatch =
+        this.activeNote.midi === midi ||
+        (sourceKeyId && this.activeNote.sourceKeyId === sourceKeyId);
+
+      if (isMatch) {
+        this.commitActiveNote(now);
+      }
+    }
+
+    this.callbacks.onNoteOff?.(midi, sourceKeyId);
+    this.notifyActiveKeys();
+  }
+
+  /**
+   * Commit the currently active note into the segment list.
+   */
+  private commitActiveNote(endTimestampMs: number): void {
+    if (!this.activeNote || this.activeNote.resolved) return;
+
+    const rawDuration = Math.max(10, endTimestampMs - this.activeNote.startTimeMs);
+    const relStart = Math.max(0, this.activeNote.startTimeMs - this.recordingStartTime);
+    const relEnd = Math.max(relStart + 10, endTimestampMs - this.recordingStartTime);
+
+    // Filter out micro-glitches below minNoteDurationMs
+    if (rawDuration >= this.config.minNoteDurationMs) {
+      const segment: RawNoteSegment = {
+        startTimeMs: Math.round(relStart),
+        endTimeMs: Math.round(relEnd),
+        durationMs: Math.round(rawDuration),
+        midi: this.activeNote.midi,
+        frequencyHz: midiToFrequency(this.activeNote.midi),
+        avgRms: this.activeNote.velocity,
+        pitchSamples: [this.activeNote.midi],
+      };
+      this.segments.push(segment);
+      this.callbacks.onSegmentCommitted?.(segment);
+    }
+
+    this.activeNote.resolved = true;
+    this.lastNoteReleaseTime = endTimestampMs;
+    this.callbacks.onNoteOff?.(this.activeNote.midi, this.activeNote.sourceKeyId);
+  }
+
+  /**
+   * Handle computer keyboard KeyDown event.
+   * Includes e.repeat guard, octave shifts (Z/X), rest trigger (Space), and Backspace undo.
+   *
+   * @returns true if the key was handled by the musical typing engine
+   */
+  public handleKeyDown(
+    e: { code?: string; key?: string; repeat?: boolean; preventDefault?: () => void },
+    timestampMs?: number
+  ): boolean {
+    // e.repeat Guard: Prevent OS auto-repeat from stuttering sustained notes
+    if (e.repeat) {
+      return true;
+    }
+
+    const code = e.code || '';
+    const key = (e.key || '').toLowerCase();
+
+    // 1. Auxiliary control: Octave Down (Z)
+    if (code === 'KeyZ' || key === 'z') {
+      e.preventDefault?.();
+      this.shiftOctave(-1);
+      return true;
+    }
+
+    // 2. Auxiliary control: Octave Up (X)
+    if (code === 'KeyX' || key === 'x') {
+      e.preventDefault?.();
+      this.shiftOctave(1);
+      return true;
+    }
+
+    // 3. Auxiliary control: Rest (Spacebar)
+    if (code === 'Space' || key === ' ') {
+      e.preventDefault?.();
+      this.triggerRestKey(timestampMs);
+      return true;
+    }
+
+    // 4. Auxiliary control: Undo last note (Backspace)
+    if (code === 'Backspace' || key === 'backspace') {
+      e.preventDefault?.();
+      this.undoLastNote();
+      return true;
+    }
+
+    // 5. Musical typing keys (White and Black keys)
+    const resolved = resolveQwertyKey(
+      code || key,
+      this.config.keySignature,
+      this.config.octaveShift,
+      this.config.qwertyMappingMode,
+      this.config.accidentalPreference
+    );
+
+    if (resolved) {
+      e.preventDefault?.();
+      this.noteOn(resolved.midi, 0.85, timestampMs, code || key);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Handle computer keyboard KeyUp event.
+   */
+  public handleKeyUp(
+    e: { code?: string; key?: string; preventDefault?: () => void },
+    timestampMs?: number
+  ): boolean {
+    const code = e.code || '';
+    const key = (e.key || '').toLowerCase();
+
+    const resolved = resolveQwertyKey(
+      code || key,
+      this.config.keySignature,
+      this.config.octaveShift,
+      this.config.qwertyMappingMode,
+      this.config.accidentalPreference
+    );
+
+    if (resolved) {
+      e.preventDefault?.();
+      this.noteOff(resolved.midi, timestampMs, code || key);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Handle standard Web MIDI API message event.
+   * Supports NoteOn (0x90) and NoteOff (0x80 / 0x90 with velocity 0).
+   *
+   * @returns true if the MIDI message was processed
+   */
+  public handleMidiMessage(
+    event: { data: Uint8Array | number[] },
+    timestampMs?: number
+  ): boolean {
+    const data = event.data;
+    if (!data || data.length < 2) return false;
+
+    const status = data[0];
+    const command = status & 0xf0;
+    const midi = data[1];
+    const velocity = data.length > 2 ? (data[2] ?? 0) / 127 : 0.8;
+    const sourceId = `midi-${midi}`;
+
+    // Note On (command 0x90 with velocity > 0)
+    if (command === 0x90 && data[2] > 0) {
+      this.noteOn(midi, velocity, timestampMs, sourceId);
+      return true;
+    }
+
+    // Note Off (command 0x80 or command 0x90 with velocity 0)
+    if (command === 0x80 || (command === 0x90 && data[2] === 0)) {
+      this.noteOff(midi, timestampMs, sourceId);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Spacebar rest handler: If a note is sounding, release it immediately.
+   */
+  private triggerRestKey(timestampMs?: number): void {
+    const now = timestampMs ?? this.nowProvider();
+    if (this.activeNote && !this.activeNote.resolved) {
+      this.commitActiveNote(now);
+      this.notifyActiveKeys();
+    }
+  }
+
+  /**
+   * Trigger an explicit musical rest interval.
+   */
+  public triggerRest(durationMs: number = 500, timestampMs?: number): void {
+    const now = timestampMs ?? this.nowProvider();
+    if (this.activeNote && !this.activeNote.resolved) {
+      this.commitActiveNote(now);
+    }
+
+    const start = this.lastNoteReleaseTime ?? now;
+    const restSeg: RawNoteSegment = {
+      startTimeMs: Math.round(start - this.recordingStartTime),
+      endTimeMs: Math.round(start + durationMs - this.recordingStartTime),
+      durationMs: Math.round(durationMs),
+      midi: null,
+      frequencyHz: null,
+      avgRms: 0,
+      pitchSamples: [],
+    };
+    this.segments.push(restSeg);
+    this.lastNoteReleaseTime = start + durationMs;
+    this.callbacks.onSegmentCommitted?.(restSeg);
+    this.notifyActiveKeys();
+  }
+
+  /**
+   * Undo / delete the last performed note or current active note.
+   */
+  public undoLastNote(): RawNoteSegment | null {
+    // If a note is currently held, cancel it without committing
+    if (this.activeNote && !this.activeNote.resolved) {
+      this.activeNote.resolved = true;
+      this.callbacks.onNoteOff?.(this.activeNote.midi, this.activeNote.sourceKeyId);
+      this.activeNote = null;
+      this.notifyActiveKeys();
+      return null;
+    }
+
+    // If we have committed segments, pop the last note
+    if (this.segments.length > 0) {
+      const popped = this.segments.pop() ?? null;
+
+      // If the preceding segment was a rest leading into this note, remove it too
+      if (this.segments.length > 0 && this.segments[this.segments.length - 1].midi === null) {
+        this.segments.pop();
+      }
+
+      if (this.segments.length > 0) {
+        this.lastNoteReleaseTime =
+          this.recordingStartTime + this.segments[this.segments.length - 1].endTimeMs;
+      } else {
+        this.lastNoteReleaseTime = null;
+      }
+
+      this.notifyActiveKeys();
+      return popped;
+    }
+
+    return null;
+  }
+
+  /**
+   * Shift octave transposition (-2 to +2).
+   */
+  public shiftOctave(delta: number): number {
+    const newShift = Math.max(-2, Math.min(2, this.config.octaveShift + delta));
+    this.config.octaveShift = newShift;
+    this.callbacks.onOctaveShiftChange?.(newShift);
+    return newShift;
+  }
+
+  public getOctaveShift(): number {
+    return this.config.octaveShift;
+  }
+
+  /**
+   * Finalize recording and return all committed raw note segments.
+   */
+  public finalize(timestampMs?: number): RawNoteSegment[] {
+    if (this.isRecording) {
+      this.stopRecording(timestampMs);
+    }
+    return [...this.segments];
+  }
+
+  /**
+   * Direct transcription pipeline:
+   * Finalizes the recorded segments and feeds them into the ScoreQuantizer
+   * to produce beat-quantized Measures and NumberedNotationNotes.
+   */
+  public transcribe(
+    options?: Partial<QuantizeOptions & MeasureLayoutOptions & { keyboardMode?: boolean }>
+  ): TranscriptionResult {
+    const segments = this.finalize();
+
+    return transcribeAudioSegmentsToMeasures(segments, {
+      key: options?.key ?? this.config.keySignature,
+      timeSignature: options?.timeSignature ?? this.config.timeSignature,
+      bpm: options?.bpm ?? this.config.bpm,
+      grid: options?.grid ?? this.config.quantizeGrid,
+      allowTriplets: options?.allowTriplets ?? this.config.allowTriplets,
+      octaveShift: options?.octaveShift ?? this.config.octaveShift,
+      accidentalPreference: options?.accidentalPreference ?? this.config.accidentalPreference,
+      autoFillTrailingRests: options?.autoFillTrailingRests ?? false,
+      startMeasureNumber: options?.startMeasureNumber ?? 1,
+      minDurationMs: options?.minDurationMs ?? this.config.minNoteDurationMs,
+      trimSilence: options?.trimSilence ?? true,
+      keyboardMode: true,
+    });
+  }
+
+  private notifyActiveKeys(): void {
+    const activeMidis: number[] = [];
+    if (this.activeNote && !this.activeNote.resolved) {
+      activeMidis.push(this.activeNote.midi);
+    }
+    this.callbacks.onActiveKeysChange?.(activeMidis);
+  }
+}

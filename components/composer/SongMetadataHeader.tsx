@@ -43,6 +43,7 @@ interface SongMetadataHeaderProps {
   setDisplayMode: (mode: LyricDisplayMode) => void;
   onOpenAligner: () => void;
   onOpenScanner?: () => void;
+  onOpenHumToScore?: () => void;
   onStartFreshSong?: () => void;
   onOpenOrganizer?: () => void;
   editMode?: string;
@@ -59,6 +60,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   setDisplayMode,
   onOpenAligner,
   onOpenScanner,
+  onOpenHumToScore,
   onStartFreshSong,
   onOpenOrganizer,
   editMode,
@@ -739,6 +741,23 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
             <AlignLeft className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
             <span className="hidden sm:inline">歌詞對齊 (羅馬字/漢羅)</span>
           </button>
+
+          {/* Hum-to-Score / Acoustic Audio Transcription Trigger */}
+          {onOpenHumToScore && (
+            <button
+              id="composer-open-hum-to-score-btn"
+              type="button"
+              onClick={onOpenHumToScore}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 font-bold text-xs rounded-xl shadow-2xs transition-all min-h-[40px] bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 active:scale-95 cursor-pointer touch-manipulation"
+              title="哼唱與實體樂器收音記譜 (Hum-to-Score: 支援人聲哼唱、竹笛、二胡、木吉他單音)"
+            >
+              <Mic2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span className="hidden sm:inline">哼唱入譜</span>
+              <span className="hidden md:inline text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold ml-0.5">
+                Hum
+              </span>
+            </button>
+          )}
 
           {/* Expand Settings Toggle */}
           <button

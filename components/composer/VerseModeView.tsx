@@ -113,6 +113,7 @@ interface VerseModeViewProps {
   onReturnToSheet?: (destMeasureIndex?: number) => void;
   onDismissKaraokeReturn?: () => void;
   onDismissSheetReturn?: () => void;
+  onOpenHumToScore?: () => void;
 }
 
 export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
@@ -191,6 +192,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
   onReturnToSheet,
   onDismissKaraokeReturn,
   onDismissSheetReturn,
+  onOpenHumToScore,
 }) => {
   const [hoveredSplitKey, setHoveredSplitKey] = useState<string | null>(null);
 
@@ -1015,6 +1017,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                   canMoveContainerForward={vIdx < verses.length - 1}
                   onTogglePlayMeasure={onTogglePlayMeasure}
                   isPlayingMeasure={playingMeasureIdx === selectedMeasureIndex}
+                  onOpenHumToScore={onOpenHumToScore}
                 />
               </div>
             )}

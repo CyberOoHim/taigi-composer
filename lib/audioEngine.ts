@@ -528,6 +528,16 @@ export class AudioEngine {
     this.scheduleAutoSuspend(2500);
   }
 
+  /**
+   * Play a metronome click instantly (for count-in lead-in or recording tempo grid)
+   */
+  public playMetronomeTick(isDownbeat = false) {
+    this.initContext();
+    if (!this.ctx || !this.metronomeGain) return;
+    this.playMetronomeClick(this.ctx.currentTime, isDownbeat);
+    this.scheduleAutoSuspend(2000);
+  }
+
   private registerOscillator(osc: OscillatorNode) {
     this.activeOscillators.push(osc);
     osc.onended = () => {

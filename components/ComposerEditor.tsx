@@ -50,6 +50,7 @@ import { VerseModeView } from './composer/VerseModeView';
 import { MeasureModeView } from './composer/MeasureModeView';
 import { SheetModeView } from './composer/SheetModeView';
 import { MeasureOrganizerModal } from './composer/MeasureOrganizerModal';
+import { HumToScoreModal, InsertionMode } from './composer/HumToScoreModal';
 import { UiZoomControl } from '@/components/UiZoomControl';
 import {
   Plus,
@@ -180,6 +181,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const [measureBatchTexts, setMeasureBatchTexts] = useState<{ [mIdx: number]: string }>({});
   const [verseBatchTexts, setVerseBatchTexts] = useState<{ [vIdx: number]: string }>({});
   const [isOrganizerOpen, setIsOrganizerOpen] = useState<boolean>(false);
+  const [isHumModalOpen, setIsHumModalOpen] = useState<boolean>(false);
 
   // Incomplete / Over-beat measures count for whole song
   const incompleteMeasuresCount = useMemo(() => {
@@ -1350,6 +1352,39 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     setSelectedCoord([song.measures.length, 0]);
   };
 
+  // Hum-to-Score commit handler
+  const handleCommitHumTranscription = useCallback(
+    (measures: Measure[], mode: InsertionMode) => {
+      if (!measures || measures.length === 0) return;
+
+      let nextMeasures: Measure[];
+      if (mode === 'append') {
+        nextMeasures = [...song.measures, ...measures];
+      } else if (mode === 'replace' && selectedMeasureIndex !== null && selectedMeasureIndex >= 0) {
+        const before = song.measures.slice(0, selectedMeasureIndex);
+        const after = song.measures.slice(selectedMeasureIndex + 1);
+        nextMeasures = [...before, ...measures, ...after];
+      } else {
+        const insertIdx =
+          selectedMeasureIndex !== null && selectedMeasureIndex >= 0
+            ? selectedMeasureIndex + 1
+            : song.measures.length;
+        const before = song.measures.slice(0, insertIdx);
+        const after = song.measures.slice(insertIdx);
+        nextMeasures = [...before, ...measures, ...after];
+      }
+
+      const renumbered = renumberMeasures(nextMeasures);
+      onUpdateSong({
+        ...song,
+        measures: renumbered,
+      });
+
+      showNotice(`成功辨識並插入 ${measures.length} 個小節！(Transcribed ${measures.length} measures into score)`);
+    },
+    [song, selectedMeasureIndex, onUpdateSong, showNotice]
+  );
+
   // Measure Management: Duplicate Measure
   const handleDuplicateMeasure = (mIdx: number) => {
     const targetM = song.measures[mIdx];
@@ -2442,6 +2477,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         setDisplayMode={setDisplayMode}
         onOpenAligner={onOpenAligner}
         onOpenScanner={onOpenScanner}
+        onOpenHumToScore={() => setIsHumModalOpen(true)}
         onStartFreshSong={onStartFreshSong}
         onOpenOrganizer={() => setEditMode(editMode === 'sheet' ? 'note' : 'sheet')}
         editMode={editMode}
@@ -2591,6 +2627,18 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
             {/* UI Text Zoom (- / +) in Score Bar */}
             <UiZoomControl idPrefix="composer-score-ui-zoom" />
+
+            {/* Hum-to-Score Button in Score Bar */}
+            <button
+              id="composer-score-hum-btn"
+              type="button"
+              onClick={() => setIsHumModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 rounded-xl font-bold shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+              title="哼唱與實體樂器收音記譜 (Hum-to-Score: 支援人聲哼唱、竹笛、二胡、吉他單音)"
+            >
+              <Mic2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>哼唱入譜</span>
+            </button>
 
             <button
               type="button"
@@ -2900,6 +2948,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
             onReturnToSheet={handleReturnToSheet}
             onDismissKaraokeReturn={onDismissKaraokeReturn}
             onDismissSheetReturn={() => setSheetReturnTarget(null)}
+            onOpenHumToScore={() => setIsHumModalOpen(true)}
           />
         ) : (
           <SheetModeView
@@ -2984,6 +3033,18 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         onDeleteVerse={handleDeleteVerse}
         onAddVerse={handleAddVerse}
       />
+
+      {/* Hum-to-Score Real-Time Audio & Pitch Transcription Modal */}
+      {isHumModalOpen && (
+        <HumToScoreModal
+          isOpen={isHumModalOpen}
+          onClose={() => setIsHumModalOpen(false)}
+          song={song}
+          selectedMeasureIndex={selectedMeasureIndex}
+          audioEngine={audioEngine}
+          onCommitTranscription={handleCommitHumTranscription}
+        />
+      )}
     </div>
   );
 };

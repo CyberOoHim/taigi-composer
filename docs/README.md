@@ -2,6 +2,14 @@
 
 歡迎查閱本專案之核心架構與工程指南文件：
 
+- **[Keyboard-to-Score Screen Piano & Musical Typing Plan](./KEYBOARD_TO_SCORE_PLAN.md)**
+  - Technical feasibility study and implementation plan for real-time on-screen piano keyboard, QWERTY typing, and Web MIDI transcription.
+  - 100% deterministic pitch fidelity, high-resolution performance timing (`performance.now()`), and monophonic legato overlap resolution.
+  - Direct reuse of `scoreQuantizer.ts` for beat quantization, barline splitting with ties, and 4-stage execution roadmap.
+- **[Hum-to-Score Voice & Acoustic Instrument Transcription Plan](./HUM_TO_SCORE_PLAN.md)**
+  - Technical feasibility study and implementation roadmap for humming-to-score and acoustic instruments (Bamboo Flute, Erhu, Guitar).
+  - Web Audio client-side YIN pitch tracking, onset detection, and beat quantization to numbered notation (簡譜).
+  - UX workflow, acoustic preset matrices, and 4-stage delivery plan.
 - **[Composer GUI & Workflow Enhancement Plan (作曲介面與流程改進計畫)](./COMPOSER_UX_ENHANCEMENT_PLAN.md)**
   - 現況摩擦診斷（chrome 堆疊、首進 Splits、Space 衝突、空白曲種子、節奏提示）。
   - 漸進式作曲流程：安靜 chrome、空白曲 30 秒路徑、end-of-bar 矩陣、compact HUD。

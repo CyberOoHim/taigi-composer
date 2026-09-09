@@ -47,6 +47,7 @@ import {
   Check,
   Bell,
   Wind,
+  Mic2,
 } from 'lucide-react';
 
 export type DeckTabMode = 'numpad' | 'piano' | 'ornaments' | 'lyrics';
@@ -109,6 +110,7 @@ export interface NoteEditorHudProps {
   canMoveContainerForward?: boolean;
   onTogglePlayMeasure?: (mIdx: number) => void;
   isPlayingMeasure?: boolean;
+  onOpenHumToScore?: () => void;
 }
 
 const PITCH_SOLFEGE: Record<number, string> = {
@@ -323,6 +325,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   canMoveContainerForward = false,
   onTogglePlayMeasure,
   isPlayingMeasure = false,
+  onOpenHumToScore,
 }) => {
   const [activeTab, setActiveTabState] = useState<DeckTabMode>(() => {
     if (typeof window !== 'undefined') return getStoredDeckTab();
@@ -802,6 +805,21 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                 </button>
               )}
             </div>
+          )}
+
+          {/* Hum-to-Score Audio Recording */}
+          {onOpenHumToScore && (
+            <button
+              id="hud-open-hum-to-score-btn"
+              type="button"
+              onClick={onOpenHumToScore}
+              className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
+              title="哼唱與實體樂器收音記譜 (Hum-to-Score)"
+            >
+              <Mic2 className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">哼唱收音</span>
+              <span className="sm:hidden">哼唱</span>
+            </button>
           )}
 
           {/* Split Measure before current note */}
