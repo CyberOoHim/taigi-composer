@@ -527,9 +527,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     ...prev,
                     instrument: val,
                   }));
-                  if (val) {
-                    audioEngine.previewNote(keySignature, { ...currentNote, instrument: val });
-                  }
+                  audioEngine.previewNote(keySignature, { ...currentNote, instrument: val });
                 }}
                 className="bg-transparent font-bold text-xs text-amber-600 dark:text-amber-400 focus:outline-hidden cursor-pointer"
                 title="音色覆蓋 (Sound Source Override - Overrides primary song tone)"
@@ -1614,6 +1612,7 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     type="button"
                     onClick={() => {
                       onUpdateSelectedNote(prev => ({ ...prev, instrument: undefined }));
+                      audioEngine.previewNote(keySignature, { ...currentNote, instrument: undefined });
                     }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
                       !currentNote.instrument

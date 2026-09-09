@@ -680,210 +680,364 @@ export class AudioEngine {
       osc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
     }
 
-    if (this.options.ecoMode) {
-      osc.type = instrument === 'synth' || instrument === 'guitar' ? 'triangle' : 'sine';
-      if (!options?.glideFromFreq) {
-        osc.frequency.setValueAtTime(freq, startTime);
-      }
-      gain.gain.setValueAtTime(0.0001, startTime);
-      gain.gain.linearRampToValueAtTime(0.7 * volMul, startTime + (isLegato ? 0.02 : 0.012));
-      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(effectiveDuration * 0.95, 0.12));
-      osc.connect(gain);
-      gain.connect(destination);
-      osc.start(startTime);
-      osc.stop(startTime + effectiveDuration + 0.05);
-      return;
-    }
-
     switch (instrument) {
       case 'piano': {
-        // Multi-harmonic acoustic piano-like simulation
+        // True acoustic piano synthesis with dual detuned string chorusing, hammer felt strike transient, and soundboard lowpass filter
+        const pianoFilter = this.ctx.createBiquadFilter();
+        pianoFilter.type = 'lowpass';
+        pianoFilter.frequency.setValueAtTime(Math.min(5000, Math.max(1400, freq * 3.8)), startTime);
+        pianoFilter.Q.setValueAtTime(1.2, startTime);
+        pianoFilter.frequency.exponentialRampToValueAtTime(
+          Math.max(250, freq * 1.4),
+          startTime + Math.min(0.2, effectiveDuration * 0.5)
+        );
+
+        // String 1 (center trichord string)
         osc.type = 'triangle';
         if (!options?.glideFromFreq) {
           osc.frequency.setValueAtTime(freq, startTime);
         }
+        osc.connect(pianoFilter);
 
-        // Sub oscillator for acoustic hammer resonance and body depth
-        const subOsc = this.ctx.createOscillator();
-        this.registerOscillator(subOsc);
-        const subGain = this.ctx.createGain();
-        subOsc.type = 'sine';
-        subOsc.frequency.setValueAtTime(freq * 2, startTime);
-        subGain.gain.setValueAtTime(0.3 * volMul, startTime);
-        subGain.gain.exponentialRampToValueAtTime(0.001, startTime + Math.max(effectiveDuration * 0.7, 0.1));
-        subOsc.connect(subGain);
-        subGain.connect(gain);
-        subOsc.start(startTime);
-        subOsc.stop(startTime + effectiveDuration + 0.1);
+        // String 2 (detuned by +2.5 cents for realistic grand piano multi-string chorus shimmer)
+        const str2 = this.ctx.createOscillator();
+        this.registerOscillator(str2);
+        str2.type = 'triangle';
+        str2.frequency.setValueAtTime(freq * 1.0015, startTime);
+        str2.connect(pianoFilter);
+        str2.start(startTime);
+        str2.stop(startTime + effectiveDuration + 0.08);
 
-        // Fast punch attack or softened legato attack with safe monotonic decay
-        const attackTime = isLegato ? Math.min(0.022, effectiveDuration * 0.2) : Math.min(0.012, effectiveDuration * 0.15);
+        // 2nd Harmonic (Octave string partial that decays faster than fundamental)
+        const harm2 = this.ctx.createOscillator();
+        this.registerOscillator(harm2);
+        const harm2Gain = this.ctx.createGain();
+        harm2.type = 'sine';
+        harm2.frequency.setValueAtTime(freq * 2, startTime);
+        harm2Gain.gain.setValueAtTime(0.35 * volMul, startTime);
+        harm2Gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(0.18, effectiveDuration * 0.45));
+        harm2.connect(harm2Gain);
+        harm2Gain.connect(gain);
+        harm2.start(startTime);
+        harm2.stop(startTime + effectiveDuration + 0.08);
+
+        // Hammer felt strike percussive knock (crisp initial hammer contact thunk)
+        const hammer = this.ctx.createOscillator();
+        this.registerOscillator(hammer);
+        const hammerGain = this.ctx.createGain();
+        hammer.type = 'sine';
+        hammer.frequency.setValueAtTime(180, startTime);
+        hammer.frequency.exponentialRampToValueAtTime(60, startTime + 0.025);
+        hammerGain.gain.setValueAtTime(0.4 * volMul, startTime);
+        hammerGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.028);
+        hammer.connect(hammerGain);
+        hammerGain.connect(gain);
+        hammer.start(startTime);
+        hammer.stop(startTime + 0.04);
+
+        // Main envelope: crisp hammer strike (3ms) dropping to singing sustain, then exponential piano string tail
+        outputNode = pianoFilter;
         gain.gain.setValueAtTime(0.0001, startTime);
-        gain.gain.linearRampToValueAtTime(0.8 * volMul, startTime + attackTime);
-        if (isLegato) {
-          gain.gain.setValueAtTime(0.55 * volMul, startTime + effectiveDuration * 0.85);
-          gain.gain.linearRampToValueAtTime(0.0001, startTime + effectiveDuration);
-        } else {
-          const midDecay = Math.min(0.14, effectiveDuration * 0.45);
-          gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.35 * volMul), startTime + midDecay);
-          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(effectiveDuration * 0.95, midDecay + 0.04));
-        }
+        const pianoAttack = isLegato ? 0.015 : 0.003;
+        gain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + pianoAttack);
+        const strikeDropTime = startTime + Math.min(0.14, effectiveDuration * 0.35);
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.42 * volMul), strikeDropTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(effectiveDuration * 0.96, strikeDropTime + 0.04));
         break;
       }
       case 'flute': {
-        // Traditional Taiwanese bamboo flute / Xiao / Dizi style
+        // Traditional Bamboo Flute (Dizi / 竹笛) with cylindrical tube odd harmonics, Di Mo (笛膜) reed buzzing membrane, and deep poetic vibrato
         osc.type = 'sine';
         if (!options?.glideFromFreq) {
           osc.frequency.setValueAtTime(freq, startTime);
         }
 
-        // Subtle vibrato LFO (starts gently and stops strictly within note duration)
+        // 1. Odd harmonics for hollow cylindrical bamboo tube body (fundamental + 3rd harmonic)
+        const oddHarm = this.ctx.createOscillator();
+        this.registerOscillator(oddHarm);
+        const oddGain = this.ctx.createGain();
+        oddHarm.type = 'sine';
+        oddHarm.frequency.setValueAtTime(freq * 3, startTime);
+        oddGain.gain.setValueAtTime(0.16 * volMul, startTime);
+        oddGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        oddHarm.connect(oddGain);
+        oddGain.connect(gain);
+        oddHarm.start(startTime);
+        oddHarm.stop(startTime + effectiveDuration + 0.05);
+
+        // 2. Di Mo (笛膜) Resonant Buzzing Membrane
+        // Chinese bamboo flutes have a thin reed membrane covering an extra hole between the embouchure and finger holes.
+        // It produces a distinctive bright, slightly nasal buzzy timbre modeled via 2nd & 4th harmonic passed through a 2.4kHz bandpass filter.
+        const membrane = this.ctx.createOscillator();
+        this.registerOscillator(membrane);
+        const membraneFilter = this.ctx.createBiquadFilter();
+        membraneFilter.type = 'bandpass';
+        membraneFilter.frequency.setValueAtTime(2400, startTime);
+        membraneFilter.Q.setValueAtTime(3.2, startTime);
+        const membraneGain = this.ctx.createGain();
+        membrane.type = 'sawtooth';
+        membrane.frequency.setValueAtTime(freq * 2, startTime);
+        membraneGain.gain.setValueAtTime(0.0001, startTime);
+        membraneGain.gain.linearRampToValueAtTime(0.14 * volMul, startTime + 0.04);
+        membraneGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        membrane.connect(membraneFilter);
+        membraneFilter.connect(membraneGain);
+        membraneGain.connect(gain);
+        membrane.start(startTime);
+        membrane.stop(startTime + effectiveDuration + 0.05);
+
+        // 3. Expressive Traditional Flute Vibrato (4.2 Hz with delayed swelling onset)
         const lfo = this.ctx.createOscillator();
         this.registerOscillator(lfo);
         const lfoGain = this.ctx.createGain();
-        lfo.frequency.setValueAtTime(5.5, startTime); // 5.5 Hz vibrato
-        lfoGain.gain.setValueAtTime(freq * 0.015, startTime);
+        lfo.frequency.setValueAtTime(4.2, startTime);
+        const fluteVibStart = startTime + Math.min(0.12, effectiveDuration * 0.3);
+        lfoGain.gain.setValueAtTime(0.0001, startTime);
+        lfoGain.gain.setValueAtTime(0.0001, fluteVibStart);
+        lfoGain.gain.linearRampToValueAtTime(freq * 0.022, fluteVibStart + Math.min(0.2, effectiveDuration * 0.3));
         lfo.connect(osc.frequency);
-        const lfoStart = startTime + Math.min(0.08, effectiveDuration * 0.25);
-        const lfoStop = startTime + effectiveDuration + 0.05;
-        lfo.start(lfoStart);
-        lfo.stop(lfoStop);
+        lfo.connect(membrane.frequency);
+        lfo.start(startTime);
+        lfo.stop(startTime + effectiveDuration + 0.05);
 
-        // Overtone harmonic for breathy timber
-        const overtone = this.ctx.createOscillator();
-        this.registerOscillator(overtone);
-        const overtoneGain = this.ctx.createGain();
-        overtone.type = 'triangle';
-        overtone.frequency.setValueAtTime(freq * 3, startTime);
-        overtoneGain.gain.setValueAtTime(0.08 * volMul, startTime);
-        overtoneGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
-        overtone.connect(overtoneGain);
-        overtoneGain.connect(gain);
-        overtone.start(startTime);
-        overtone.stop(startTime + effectiveDuration + 0.05);
-
-        // Soft breathy attack and smooth sustain
+        // 4. Soft breath swell attack and warm woody sustain
         gain.gain.setValueAtTime(0.0001, startTime);
-        const fluteAttack = isLegato ? Math.min(0.02, effectiveDuration * 0.2) : Math.min(0.05, effectiveDuration * 0.25);
+        const fluteAttack = isLegato ? 0.016 : 0.038;
         gain.gain.linearRampToValueAtTime(0.72 * volMul, startTime + fluteAttack);
-        gain.gain.setValueAtTime(0.65 * volMul, startTime + effectiveDuration * 0.85);
-        gain.gain.linearRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        gain.gain.setValueAtTime(0.66 * volMul, startTime + effectiveDuration * 0.85);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
         break;
       }
       case 'whistle': {
-        // Expressive Traditional Chinese Koudi / Whistle (口笛)
+        // High soprano folk mouth whistle / koudi: high, piercing, soaring, with pitch-scoop fipple chirp & fast flutter vibrato
+        // Whistle sounds in high soprano register (raised 1 octave for notes below 900Hz so it truly whistles)
+        const whistleFreq = freq < 900 ? freq * 2 : freq;
         osc.type = 'sine';
+
+        // 1. Characteristic pitch-scoop chirp attack (lip/fipple vortex stabilizes upward)
         if (!options?.glideFromFreq) {
-          osc.frequency.setValueAtTime(freq, startTime);
+          osc.frequency.setValueAtTime(whistleFreq * 0.94, startTime);
+          osc.frequency.exponentialRampToValueAtTime(whistleFreq, startTime + 0.022);
+        } else {
+          osc.frequency.setValueAtTime(options.glideFromFreq < 900 ? options.glideFromFreq * 2 : options.glideFromFreq, startTime);
+          osc.frequency.exponentialRampToValueAtTime(whistleFreq, startTime + Math.min(0.08, effectiveDuration * 0.5));
         }
 
-        // Gentle whistle vibrato LFO (5.8 Hz) with safe bounds
+        // 2. High breath/fipple air shimmer (overtone at 2x)
+        const airOsc = this.ctx.createOscillator();
+        this.registerOscillator(airOsc);
+        const airGain = this.ctx.createGain();
+        airOsc.type = 'sine';
+        airOsc.frequency.setValueAtTime(whistleFreq * 2, startTime);
+        airGain.gain.setValueAtTime(0.07 * volMul, startTime);
+        airGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        airOsc.connect(airGain);
+        airGain.connect(gain);
+        airOsc.start(startTime);
+        airOsc.stop(startTime + effectiveDuration + 0.05);
+
+        // 3. Fast folk flutter vibrato (6.8 Hz, energetic and bright)
         const lfo = this.ctx.createOscillator();
         this.registerOscillator(lfo);
         const lfoGain = this.ctx.createGain();
-        lfo.frequency.setValueAtTime(5.8, startTime);
-        lfoGain.gain.setValueAtTime(freq * 0.012, startTime);
+        lfo.frequency.setValueAtTime(6.8, startTime);
+        const whistleLfoStart = startTime + Math.min(0.05, effectiveDuration * 0.15);
+        lfoGain.gain.setValueAtTime(0.0001, startTime);
+        lfoGain.gain.setValueAtTime(0.0001, whistleLfoStart);
+        lfoGain.gain.linearRampToValueAtTime(whistleFreq * 0.016, whistleLfoStart + 0.08);
         lfo.connect(osc.frequency);
-        const whistleLfoStart = startTime + Math.min(0.06, effectiveDuration * 0.2);
-        const whistleLfoStop = startTime + effectiveDuration + 0.05;
-        lfo.start(whistleLfoStart);
-        lfo.stop(whistleLfoStop);
+        lfo.start(startTime);
+        lfo.stop(startTime + effectiveDuration + 0.05);
 
-        // Breath / air overtone for authentic whistle timbre
-        const breath = this.ctx.createOscillator();
-        this.registerOscillator(breath);
-        const breathGain = this.ctx.createGain();
-        breath.type = 'sine';
-        breath.frequency.setValueAtTime(freq * 2, startTime);
-        breathGain.gain.setValueAtTime(0.04 * volMul, startTime);
-        breathGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
-        breath.connect(breathGain);
-        breathGain.connect(gain);
-        breath.start(startTime);
-        breath.stop(startTime + effectiveDuration + 0.05);
-
+        // 4. Quick, responsive breath envelope
         gain.gain.setValueAtTime(0.0001, startTime);
-        const whistleAttack = isLegato ? Math.min(0.018, effectiveDuration * 0.2) : Math.min(0.035, effectiveDuration * 0.2);
+        const whistleAttack = isLegato ? 0.012 : 0.018;
         gain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + whistleAttack);
-        gain.gain.setValueAtTime(0.75 * volMul, startTime + effectiveDuration * 0.82);
-        gain.gain.linearRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        gain.gain.setValueAtTime(0.78 * volMul, startTime + effectiveDuration * 0.86);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
         break;
       }
       case 'guitar': {
-        // Nylon acoustic guitar pluck with warm resonant filter
+        // Plucked acoustic string synthesis: sharp fingernail/pick transient snap, steep dynamic lowpass filter decay (Karplus-Strong pluck curve), and wooden soundhole resonance
         osc.type = 'sawtooth';
         if (!options?.glideFromFreq) {
           osc.frequency.setValueAtTime(freq, startTime);
         }
 
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(Math.min(3200, freq * 4), startTime);
-        const filterDecay = Math.max(effectiveDuration * 0.6, 0.15);
-        filter.frequency.exponentialRampToValueAtTime(Math.max(100, freq * 1.2), startTime + filterDecay);
+        // 1. Dynamic Lowpass Filter (simulating string physics where high harmonics damp out rapidly)
+        const guitarFilter = this.ctx.createBiquadFilter();
+        guitarFilter.type = 'lowpass';
+        // At pluck start, filter is wide open for bright string twang
+        guitarFilter.frequency.setValueAtTime(Math.min(5200, Math.max(1800, freq * 5.5)), startTime);
+        guitarFilter.Q.setValueAtTime(2.2, startTime);
+        // Rapid exponential damping of high frequencies down to warm string fundamental
+        const pluckDampTime = Math.min(0.09, effectiveDuration * 0.35);
+        guitarFilter.frequency.exponentialRampToValueAtTime(Math.max(130, freq * 1.3), startTime + pluckDampTime);
 
-        osc.connect(filter);
-        outputNode = filter;
+        osc.connect(guitarFilter);
+        outputNode = guitarFilter;
 
+        // 2. Pick snap / fingernail transient click (highpass impulse)
+        const snap = this.ctx.createOscillator();
+        this.registerOscillator(snap);
+        const snapGain = this.ctx.createGain();
+        const snapFilter = this.ctx.createBiquadFilter();
+        snapFilter.type = 'highpass';
+        snapFilter.frequency.setValueAtTime(2800, startTime);
+        snap.type = 'sawtooth';
+        snap.frequency.setValueAtTime(freq * 3, startTime);
+        snapGain.gain.setValueAtTime(0.5 * volMul, startTime);
+        snapGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.012);
+        snap.connect(snapFilter);
+        snapFilter.connect(snapGain);
+        snapGain.connect(gain);
+        snap.start(startTime);
+        snap.stop(startTime + 0.02);
+
+        // 3. Wooden soundhole acoustic cavity body resonance (warm low thump)
+        const bodyOsc = this.ctx.createOscillator();
+        this.registerOscillator(bodyOsc);
+        const bodyGain = this.ctx.createGain();
+        bodyOsc.type = 'triangle';
+        bodyOsc.frequency.setValueAtTime(freq, startTime);
+        bodyGain.gain.setValueAtTime(0.35 * volMul, startTime);
+        bodyGain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(0.25, effectiveDuration * 0.6));
+        bodyOsc.connect(bodyGain);
+        bodyGain.connect(gain);
+        bodyOsc.start(startTime);
+        bodyOsc.stop(startTime + effectiveDuration + 0.05);
+
+        // 4. Pluck envelope: instantaneous attack (1ms), steep drop from initial twang to warm ringing string
         gain.gain.setValueAtTime(0.0001, startTime);
-        const guitarAttack = isLegato ? 0.018 : 0.008;
-        gain.gain.linearRampToValueAtTime(0.75 * volMul, startTime + guitarAttack);
-        gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.25 * volMul), startTime + 0.18);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration * (isLegato ? 0.98 : 0.9));
+        gain.gain.linearRampToValueAtTime(0.9 * volMul, startTime + (isLegato ? 0.012 : 0.002));
+        const midPluck = startTime + Math.min(0.06, effectiveDuration * 0.2);
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.3 * volMul), midPluck);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration * 0.95);
         break;
       }
       case 'synth': {
-        // Classic 80s/90s KTV Karaoke FM Brass / Synth Lead with warm filter sweep
+        // Bold 80s analog synthesizer: detuned dual super-saws + square sub-oscillator + juicy resonant 24dB VCF filter sweep (brass bite)
+        // Oscillator 1: Sawtooth (-5 cents detuned)
         osc.type = 'sawtooth';
-        if (!options?.glideFromFreq) {
-          osc.frequency.setValueAtTime(freq, startTime);
+        const synthFreq = options?.glideFromFreq || freq;
+        osc.frequency.setValueAtTime(synthFreq * 0.997, startTime);
+        if (options?.glideFromFreq) {
+          osc.frequency.exponentialRampToValueAtTime(freq * 0.997, startTime + Math.min(0.08, effectiveDuration * 0.5));
         }
 
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(Math.min(3200, Math.max(1400, freq * 3.2)), startTime);
-        filter.Q.setValueAtTime(2.8, startTime);
-        filter.frequency.exponentialRampToValueAtTime(
-          Math.min(1800, Math.max(650, freq * 1.6)),
-          startTime + Math.min(0.25, effectiveDuration * 0.55)
-        );
+        // Oscillator 2: Sawtooth (+5 cents detuned for rich analog chorus width)
+        const osc2 = this.ctx.createOscillator();
+        this.registerOscillator(osc2);
+        osc2.type = 'sawtooth';
+        osc2.frequency.setValueAtTime(synthFreq * 1.003, startTime);
+        if (options?.glideFromFreq) {
+          osc2.frequency.exponentialRampToValueAtTime(freq * 1.003, startTime + Math.min(0.08, effectiveDuration * 0.5));
+        }
 
-        osc.connect(filter);
-        outputNode = filter;
+        // Oscillator 3: Sub-Oscillator (Square wave 1 octave down for massive low-end punch)
+        const subOsc = this.ctx.createOscillator();
+        this.registerOscillator(subOsc);
+        const subGain = this.ctx.createGain();
+        subOsc.type = 'square';
+        subOsc.frequency.setValueAtTime(synthFreq * 0.5, startTime);
+        if (options?.glideFromFreq) {
+          subOsc.frequency.exponentialRampToValueAtTime(freq * 0.5, startTime + Math.min(0.08, effectiveDuration * 0.5));
+        }
+        subGain.gain.setValueAtTime(0.28, startTime);
+        subOsc.connect(subGain);
 
+        // Resonant VCF Lowpass Filter with classic analog brass "WAOW" sweep
+        const vcf = this.ctx.createBiquadFilter();
+        vcf.type = 'lowpass';
+        vcf.Q.setValueAtTime(4.2, startTime); // juicy analog resonance
+        const filterStart = Math.min(6500, Math.max(2200, freq * 4.8));
+        const filterEnd = Math.max(380, freq * 1.4);
+        vcf.frequency.setValueAtTime(filterStart, startTime);
+        vcf.frequency.exponentialRampToValueAtTime(filterEnd, startTime + Math.min(0.18, effectiveDuration * 0.45));
+
+        osc.connect(vcf);
+        osc2.connect(vcf);
+        subGain.connect(vcf);
+        outputNode = vcf;
+
+        osc2.start(startTime);
+        osc2.stop(startTime + effectiveDuration + 0.05);
+        subOsc.start(startTime);
+        subOsc.stop(startTime + effectiveDuration + 0.05);
+
+        // Analog drift vibrato LFO (5.0 Hz)
+        const lfo = this.ctx.createOscillator();
+        this.registerOscillator(lfo);
+        const lfoGain = this.ctx.createGain();
+        lfo.frequency.setValueAtTime(5.0, startTime);
+        lfoGain.gain.setValueAtTime(freq * 0.008, startTime);
+        lfo.connect(osc.frequency);
+        lfo.connect(osc2.frequency);
+        lfo.start(startTime + Math.min(0.1, effectiveDuration * 0.25));
+        lfo.stop(startTime + effectiveDuration + 0.05);
+
+        // Punchy synth envelope: 12ms punch, full sustaining power, snappy release
         gain.gain.setValueAtTime(0.0001, startTime);
-        const synthAttack = isLegato ? 0.015 : 0.025;
-        gain.gain.linearRampToValueAtTime(0.68 * volMul, startTime + synthAttack);
-        gain.gain.setValueAtTime(0.55 * volMul, startTime + effectiveDuration * 0.75);
+        const synthAttack = isLegato ? 0.01 : 0.02;
+        gain.gain.linearRampToValueAtTime(0.78 * volMul, startTime + synthAttack);
+        gain.gain.setValueAtTime(0.68 * volMul, startTime + effectiveDuration * 0.82);
         gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
         break;
       }
       case 'bell': {
-        // Glockenspiel / music box bell with sparkling bell overtone
+        // Glockenspiel / Celesta: Struck metallic tuned bars with true non-harmonic inharmonic vibration modes (f, 2.756f, 5.404f, 8.933f) and crystalline ringing decay
         osc.type = 'sine';
         if (!options?.glideFromFreq) {
           osc.frequency.setValueAtTime(freq, startTime);
         }
 
-        const bell2 = this.ctx.createOscillator();
-        this.registerOscillator(bell2);
-        const bell2Gain = this.ctx.createGain();
-        bell2.type = 'sine';
-        bell2.frequency.setValueAtTime(freq * 2.756, startTime);
-        bell2Gain.gain.setValueAtTime(0.4 * volMul, startTime);
-        bell2Gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(effectiveDuration * 0.5, 0.2));
-        bell2.connect(bell2Gain);
-        bell2Gain.connect(gain);
-        bell2.start(startTime);
-        bell2.stop(startTime + effectiveDuration + 0.05);
+        // Mode 2: Inharmonic chime overtone (2.756x)
+        const mode2 = this.ctx.createOscillator();
+        this.registerOscillator(mode2);
+        const mode2Gain = this.ctx.createGain();
+        mode2.type = 'sine';
+        mode2.frequency.setValueAtTime(freq * 2.756, startTime);
+        mode2Gain.gain.setValueAtTime(0.48 * volMul, startTime);
+        mode2Gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(effectiveDuration * 0.85, 0.9));
+        mode2.connect(mode2Gain);
+        mode2Gain.connect(gain);
+        mode2.start(startTime);
+        mode2.stop(startTime + effectiveDuration + 0.1);
 
+        // Mode 3: Sparkling high metallic shimmer (5.404x)
+        const mode3 = this.ctx.createOscillator();
+        this.registerOscillator(mode3);
+        const mode3Gain = this.ctx.createGain();
+        mode3.type = 'sine';
+        mode3.frequency.setValueAtTime(freq * 5.404, startTime);
+        mode3Gain.gain.setValueAtTime(0.26 * volMul, startTime);
+        mode3Gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(effectiveDuration * 0.45, 0.35));
+        mode3.connect(mode3Gain);
+        mode3Gain.connect(gain);
+        mode3.start(startTime);
+        mode3.stop(startTime + effectiveDuration + 0.1);
+
+        // Mode 4: Hard mallet ping strike transient (8.933x, ultra-fast 20ms metallic strike click)
+        const mode4 = this.ctx.createOscillator();
+        this.registerOscillator(mode4);
+        const mode4Gain = this.ctx.createGain();
+        mode4.type = 'sine';
+        mode4.frequency.setValueAtTime(freq * 8.933, startTime);
+        mode4Gain.gain.setValueAtTime(0.35 * volMul, startTime);
+        mode4Gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.035);
+        mode4.connect(mode4Gain);
+        mode4Gain.connect(gain);
+        mode4.start(startTime);
+        mode4.stop(startTime + 0.05);
+
+        // Crystalline pure ring: instant mallet attack (0.8ms), long sustaining metallic ring
         gain.gain.setValueAtTime(0.0001, startTime);
-        gain.gain.linearRampToValueAtTime(0.8 * volMul, startTime + 0.005);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(effectiveDuration, 1.8));
+        gain.gain.linearRampToValueAtTime(0.9 * volMul, startTime + 0.001);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(effectiveDuration * 0.98, 0.3));
         break;
       }
       default: {
-        // Fallback acoustic tone
+        // Baseline acoustic reference tone (pure warm triangle oscillator with smooth envelope)
         osc.type = 'triangle';
         if (!options?.glideFromFreq) {
           osc.frequency.setValueAtTime(freq, startTime);
