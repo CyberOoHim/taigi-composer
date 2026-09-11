@@ -34,10 +34,11 @@ import {
   setupWebMidiListener,
 } from '../lib/keyboard/webMidi.ts';
 import {
-  transcribeAudioSegmentsToMeasures,
   transcribeKeyboardSegmentsToMeasures,
   quantizeRawSegments,
   midiToNumberedPitch,
+  alignSegmentsToOnsetGrid,
+  computeGridAwareGapMs,
   KEY_SEMITONES,
 } from '../lib/pitch/scoreQuantizer.ts';
 import type { KeySignature, TimeSignature } from '../types/song.ts';
@@ -1031,6 +1032,24 @@ describe('Stage 5: 3-Beat Countdown & Key Press Duration to Beat Length Mapping'
     assert.equal(computeAdaptiveRestThreshold(40), 380);
   });
 
+  it('caps one-finger / staccato gap below one grid rest', () => {
+    // 80 BPM eighth rest = 375ms. Gap cap must stay below that.
+    const gap80 = computeGridAwareGapMs(80, 'eighth');
+    assert.equal(gap80, 244);
+    assert.ok(gap80 < 375, 'must not swallow an 8th rest at 80 BPM');
+    assert.ok(gap80 > 180, 'must still absorb finger-transit hops');
+
+    // 80 BPM sixteenth rest = 187.5ms
+    const gap16 = computeGridAwareGapMs(80, 'sixteenth');
+    assert.equal(gap16, 122);
+    assert.ok(gap16 < 187.5);
+
+    // 120 BPM eighth rest = 250ms
+    const gap120 = computeGridAwareGapMs(120, 'eighth');
+    assert.equal(gap120, 163);
+    assert.ok(gap120 < 250);
+  });
+
   it('tracks live active note held duration and estimated beat length in real time', () => {
     const clock = new VirtualClock();
     const engine = new KeyEventEngine({ keySignature: 'C', bpm: 80 }, undefined, clock.now);
@@ -1266,6 +1285,231 @@ describe('Stage 5: 3-Beat Countdown & Key Press Duration to Beat Length Mapping'
     assert.equal(pitched.length, 2);
     assert.equal(rests.length, 0, 'paused gap must not become a rest');
     assert.ok(pitched[1].startTimeMs < 700, 'second note should follow the first without the 4s pause');
+  });
+
+  it('places a late first key press on the metronome beat it was played, not beat 1', () => {
+    // 80 BPM, 1 beat = 750ms. Recording starts on beat 1; player waits until beat 3.
+    const rawSegments: RawNoteSegment[] = [
+      {
+        startTimeMs: 1500,
+        endTimeMs: 2250,
+        durationMs: 750,
+        midi: 60,
+        frequencyHz: 261.63,
+        avgRms: 0.8,
+        pitchSamples: [60],
+      },
+      {
+        startTimeMs: 2250,
+        endTimeMs: 3000,
+        durationMs: 750,
+        midi: 62,
+        frequencyHz: 293.66,
+        avgRms: 0.8,
+        pitchSamples: [62],
+      },
+    ];
+
+    const result = transcribeKeyboardSegmentsToMeasures(rawSegments, {
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 80,
+      grid: 'eighth',
+    });
+
+    assert.equal(result.measures.length, 1);
+    const notes = result.measures[0].notes;
+    assert.deepEqual(
+      notes.map(n => n.pitch),
+      [0, 1, 2],
+      'leading rest must occupy beats 1-2 so Do starts on beat 3'
+    );
+    assert.deepEqual(
+      notes.map(n => n.duration),
+      [2, 1, 1]
+    );
+  });
+
+  it('snaps staccato on-beat key presses to beats 1-4 instead of drifting from short holds', () => {
+    // Held only 200ms (0.267 beat) on each metronome click; 550ms gaps.
+    // Short holds are staccato articulation of the inter-onset interval, so
+    // on-beat taps write as quarters rather than eighth + rest.
+    const rawSegments: RawNoteSegment[] = [
+      { startTimeMs: 0, endTimeMs: 200, durationMs: 200, midi: 60, frequencyHz: 261.63, avgRms: 0.8, pitchSamples: [60] },
+      { startTimeMs: 200, endTimeMs: 750, durationMs: 550, midi: null, frequencyHz: null, avgRms: 0, pitchSamples: [] },
+      { startTimeMs: 750, endTimeMs: 950, durationMs: 200, midi: 62, frequencyHz: 293.66, avgRms: 0.8, pitchSamples: [62] },
+      { startTimeMs: 950, endTimeMs: 1500, durationMs: 550, midi: null, frequencyHz: null, avgRms: 0, pitchSamples: [] },
+      { startTimeMs: 1500, endTimeMs: 1700, durationMs: 200, midi: 64, frequencyHz: 329.63, avgRms: 0.8, pitchSamples: [64] },
+      { startTimeMs: 1700, endTimeMs: 2250, durationMs: 550, midi: null, frequencyHz: null, avgRms: 0, pitchSamples: [] },
+      { startTimeMs: 2250, endTimeMs: 2450, durationMs: 200, midi: 67, frequencyHz: 392.0, avgRms: 0.8, pitchSamples: [67] },
+    ];
+
+    const result = transcribeKeyboardSegmentsToMeasures(rawSegments, {
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 80,
+      grid: 'eighth',
+    });
+
+    assert.equal(result.measures.length, 1);
+    const pitched = result.measures[0].notes.filter(n => typeof n.pitch === 'number' && n.pitch > 0);
+    assert.deepEqual(
+      pitched.map(n => n.pitch),
+      [1, 2, 3, 5]
+    );
+    assert.deepEqual(
+      pitched.slice(0, 3).map(n => n.duration),
+      [1, 1, 1],
+      'staccato taps on beats 1-3 must write as quarters, not eighth + rest'
+    );
+
+    // Cumulative beats before each pitched note must be 0, 1, 2, 3
+    let cursor = 0;
+    const onsets: number[] = [];
+    for (const n of result.measures[0].notes) {
+      if (typeof n.pitch === 'number' && n.pitch > 0) onsets.push(cursor);
+      cursor += typeof n.duration === 'number' ? n.duration : 0;
+    }
+    assert.deepEqual(onsets, [0, 1, 2, 3], 'each key press must land on its metronome beat');
+  });
+
+  it('keeps an 8th rest at 80 BPM instead of stretching the previous note across it', () => {
+    // Hold an eighth, wait an eighth, hold an eighth.
+    const rawSegments: RawNoteSegment[] = [
+      { startTimeMs: 0, endTimeMs: 375, durationMs: 375, midi: 60, frequencyHz: 261.63, avgRms: 0.8, pitchSamples: [60] },
+      { startTimeMs: 375, endTimeMs: 750, durationMs: 375, midi: null, frequencyHz: null, avgRms: 0, pitchSamples: [] },
+      { startTimeMs: 750, endTimeMs: 1125, durationMs: 375, midi: 64, frequencyHz: 329.63, avgRms: 0.8, pitchSamples: [64] },
+    ];
+
+    const result = transcribeKeyboardSegmentsToMeasures(rawSegments, {
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 80,
+      grid: 'eighth',
+    });
+
+    const notes = result.measures[0].notes;
+    assert.deepEqual(
+      notes.slice(0, 3).map(n => n.pitch),
+      [1, 0, 3],
+      'intentional 8th rest must appear as 0'
+    );
+    assert.deepEqual(
+      notes.slice(0, 3).map(n => n.duration),
+      [0.5, 0.5, 0.5]
+    );
+  });
+
+  it('does not swallow an 8th rest at capture when one-finger fill is on', () => {
+    const clock = new VirtualClock();
+    const engine = new KeyEventEngine(
+      { keySignature: 'C', bpm: 80, quantizeGrid: 'eighth' },
+      undefined,
+      clock.now
+    );
+
+    engine.startRecording(clock.now());
+    engine.noteOn(60, 0.8, clock.now());
+    clock.advance(375);
+    engine.noteOff(60, clock.now());
+    clock.advance(375); // 8th rest at 80 BPM
+    engine.noteOn(64, 0.8, clock.now());
+    clock.advance(375);
+    engine.noteOff(64, clock.now());
+
+    const segs = engine.getSegments();
+    const rests = segs.filter(s => s.midi === null);
+    assert.equal(rests.length, 1, '375ms gap must remain a rest, not a one-finger fill');
+    assert.ok(Math.abs(rests[0].durationMs - 375) < 5);
+
+    const result = engine.transcribe({
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 80,
+      grid: 'eighth',
+    });
+    assert.deepEqual(
+      result.measures[0].notes.slice(0, 3).map(n => n.pitch),
+      [1, 0, 3]
+    );
+  });
+
+  it('still bridges a short one-finger hop that is smaller than a grid rest', () => {
+    const clock = new VirtualClock();
+    const engine = new KeyEventEngine(
+      { keySignature: 'C', bpm: 80, quantizeGrid: 'eighth' },
+      undefined,
+      clock.now
+    );
+
+    engine.startRecording(clock.now());
+    engine.noteOn(60, 0.8, clock.now());
+    clock.advance(400);
+    engine.noteOff(60, clock.now());
+    clock.advance(180); // finger transit, below 244ms cap
+    engine.noteOn(64, 0.8, clock.now());
+    clock.advance(400);
+    engine.noteOff(64, clock.now());
+
+    const segs = engine.getSegments();
+    assert.equal(segs.filter(s => s.midi === null).length, 0, 'short hop must not insert a 0');
+    assert.equal(segs[0].endTimeMs, segs[1].startTimeMs);
+  });
+
+  it('snaps human onset jitter of ±30ms back onto the metronome beat grid', () => {
+    const rawSegments: RawNoteSegment[] = [
+      { startTimeMs: 28, endTimeMs: 740, durationMs: 712, midi: 60, frequencyHz: 261.63, avgRms: 0.8, pitchSamples: [60] },
+      { startTimeMs: 768, endTimeMs: 1488, durationMs: 720, midi: 62, frequencyHz: 293.66, avgRms: 0.8, pitchSamples: [62] },
+      { startTimeMs: 1472, endTimeMs: 2260, durationMs: 788, midi: 64, frequencyHz: 329.63, avgRms: 0.8, pitchSamples: [64] },
+      { startTimeMs: 2275, endTimeMs: 2988, durationMs: 713, midi: 67, frequencyHz: 392.0, avgRms: 0.8, pitchSamples: [67] },
+    ];
+
+    const aligned = alignSegmentsToOnsetGrid(rawSegments, 80, 'eighth', 25);
+    assert.deepEqual(
+      aligned.map(s => s.startTimeMs),
+      [0, 750, 1500, 2250]
+    );
+
+    const result = transcribeKeyboardSegmentsToMeasures(rawSegments, {
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 80,
+      grid: 'eighth',
+    });
+
+    const notes = result.measures[0].notes;
+    assert.deepEqual(
+      notes.map(n => n.pitch),
+      [1, 2, 3, 5]
+    );
+    assert.deepEqual(
+      notes.map(n => n.duration),
+      [1, 1, 1, 1]
+    );
+  });
+
+  it('does not merge two repeated taps of the same pitch into one long note', () => {
+    const rawSegments: RawNoteSegment[] = [
+      { startTimeMs: 0, endTimeMs: 750, durationMs: 750, midi: 60, frequencyHz: 261.63, avgRms: 0.8, pitchSamples: [60] },
+      { startTimeMs: 750, endTimeMs: 1500, durationMs: 750, midi: 60, frequencyHz: 261.63, avgRms: 0.8, pitchSamples: [60] },
+    ];
+
+    const result = transcribeKeyboardSegmentsToMeasures(rawSegments, {
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 80,
+      grid: 'eighth',
+    });
+
+    assert.equal(result.measures[0].notes.length, 2);
+    assert.deepEqual(
+      result.measures[0].notes.map(n => n.pitch),
+      [1, 1]
+    );
+    assert.deepEqual(
+      result.measures[0].notes.map(n => n.duration),
+      [1, 1]
+    );
   });
 });
 

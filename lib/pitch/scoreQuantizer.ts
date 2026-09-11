@@ -96,7 +96,7 @@ export interface QuantizeOptions {
   absorbArticulationGaps?: boolean;         // Absorb short inter-note vocal release/breath gaps (default: true for voice, false for keyboard)
   maxArticulationGapMs?: number;            // Max articulation gap duration in ms to absorb (default: ~240ms or 0.38 beat)
   filterOneFingerGaps?: boolean;            // Auto-bridge single-finger keyboard transit gaps (default: false)
-  oneFingerMaxGapMs?: number;               // Max transit silence gap duration to bridge in ms (default: 450ms)
+  oneFingerMaxGapMs?: number;               // Max transit silence to bridge; defaults to a grid-aware cap below one rest
 }
 
 export interface MeasureLayoutOptions {
@@ -428,6 +428,169 @@ export function getGridBeatValue(grid: QuantizeGrid = 'eighth'): number {
     default:
       return 0.5;
   }
+}
+
+/**
+ * Snap a beat position to the nearest quantization grid line.
+ */
+export function snapBeatsToGrid(beats: number, grid: QuantizeGrid = 'eighth'): number {
+  const step = getGridBeatValue(grid);
+  if (step <= 0) return Math.max(0, beats);
+  return Math.round(Math.max(0, beats) / step) * step;
+}
+
+/**
+ * Max inter-note silence to treat as finger transit / staccato release rather
+ * than a written rest. Always strictly below one grid rest so an 8th rest at
+ * 80 BPM (375ms) is not swallowed by a fixed 450ms one-finger window.
+ */
+export function computeGridAwareGapMs(
+  bpm: number = 80,
+  grid: QuantizeGrid = 'eighth',
+  configuredMaxMs: number = 450
+): number {
+  const msPerBeat = 60000 / Math.max(20, Math.min(300, bpm));
+  const gridMs = msPerBeat * getGridBeatValue(grid);
+  return Math.round(Math.min(configuredMaxMs, Math.max(80, gridMs * 0.65)));
+}
+
+/**
+ * Rebuild keyboard segments so each event starts on the metronome grid beat
+ * that matches the real key-press time, not the independently quantized hold.
+ *
+ * Duration:
+ * - Onset always comes from key-down.
+ * - If the player held at least one grid unit and then waited at least one
+ *   grid unit, keep the rest (♪ 0).
+ * - If the hold or the gap is shorter than that (staccato tap, finger hop),
+ *   write the duration through to the next key-down so on-beat taps become
+ *   beat-length notes instead of a pile of eighths and rests.
+ */
+export function alignSegmentsToOnsetGrid(
+  segments: RawNoteSegment[],
+  bpm: number,
+  grid: QuantizeGrid = 'eighth',
+  minDurationMs: number = 25
+): RawNoteSegment[] {
+  if (segments.length === 0) return [];
+
+  const msPerBeat = 60000 / Math.max(20, Math.min(300, bpm));
+  const step = getGridBeatValue(grid);
+  const gapThresholdMs = computeGridAwareGapMs(bpm, grid);
+  const beatsToMs = (beats: number) => Math.round(beats * msPerBeat);
+  const snapBeat = (ms: number) => snapBeatsToGrid(Math.max(0, ms) / msPerBeat, grid);
+
+  const filtered = segments.filter(seg => seg.midi === null || seg.durationMs >= minDurationMs);
+  if (filtered.length === 0) return [];
+
+  const pitched = filtered.filter(seg => seg.midi !== null);
+  if (pitched.length === 0) {
+    return filtered.map(seg => {
+      const startBeat = snapBeat(seg.startTimeMs);
+      const endBeat = Math.max(snapBeat(seg.endTimeMs), startBeat + step);
+      const startTimeMs = beatsToMs(startBeat);
+      const endTimeMs = beatsToMs(endBeat);
+      return {
+        ...seg,
+        startTimeMs,
+        endTimeMs,
+        durationMs: Math.max(1, endTimeMs - startTimeMs),
+        pitchSamples: seg.pitchSamples ? [...seg.pitchSamples] : [],
+      };
+    });
+  }
+
+  type AlignedEvent = {
+    startBeat: number;
+    endBeat: number;
+    rawStartMs: number;
+    rawEndMs: number;
+    midi: number | null;
+    frequencyHz: number | null;
+    avgRms: number;
+    pitchSamples: number[];
+  };
+
+  const events: AlignedEvent[] = pitched.map(seg => ({
+    startBeat: snapBeat(seg.startTimeMs),
+    endBeat: snapBeat(seg.endTimeMs),
+    rawStartMs: seg.startTimeMs,
+    rawEndMs: seg.endTimeMs,
+    midi: seg.midi,
+    frequencyHz: seg.frequencyHz,
+    avgRms: seg.avgRms,
+    pitchSamples: seg.pitchSamples ? [...seg.pitchSamples] : [],
+  }));
+
+  for (let i = 1; i < events.length; i++) {
+    const minStart = Math.round((events[i - 1].startBeat + step) * 1000) / 1000;
+    if (events[i].startBeat < minStart - 0.001) {
+      const shift = minStart - events[i].startBeat;
+      events[i].startBeat = minStart;
+      events[i].endBeat = Math.round((events[i].endBeat + shift) * 1000) / 1000;
+    }
+  }
+
+  for (const ev of events) {
+    if (ev.endBeat <= ev.startBeat + 0.001) {
+      ev.endBeat = Math.round((ev.startBeat + step) * 1000) / 1000;
+    }
+  }
+
+  const aligned: RawNoteSegment[] = [];
+  const pushRange = (startBeat: number, endBeat: number, src: AlignedEvent | null) => {
+    const durBeats = Math.round((endBeat - startBeat) * 1000) / 1000;
+    if (durBeats <= 0.001) return;
+    const startTimeMs = beatsToMs(startBeat);
+    const endTimeMs = beatsToMs(endBeat);
+    aligned.push({
+      startTimeMs,
+      endTimeMs,
+      durationMs: Math.max(1, endTimeMs - startTimeMs),
+      midi: src?.midi ?? null,
+      frequencyHz: src?.midi != null ? src.frequencyHz : null,
+      avgRms: src?.midi != null ? src.avgRms : 0,
+      pitchSamples: src?.midi != null ? src.pitchSamples : [],
+    });
+  };
+
+  const firstStart = events[0].startBeat;
+  if (firstStart > 0.001) {
+    pushRange(0, firstStart, null);
+  }
+
+  let trailEndMs = 0;
+  for (const seg of filtered) {
+    trailEndMs = Math.max(trailEndMs, seg.endTimeMs);
+  }
+
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i];
+    const startBeat = ev.startBeat;
+    const holdEnd = Math.max(ev.endBeat, Math.round((startBeat + step) * 1000) / 1000);
+
+    if (i < events.length - 1) {
+      const nextStart = events[i + 1].startBeat;
+      const rawHoldMs = ev.rawEndMs - ev.rawStartMs;
+      const rawGapMs = events[i + 1].rawStartMs - ev.rawEndMs;
+      const keepRest = rawHoldMs >= gapThresholdMs && rawGapMs >= gapThresholdMs;
+      if (keepRest) {
+        const noteEnd = Math.min(nextStart, holdEnd);
+        pushRange(startBeat, noteEnd, ev);
+        pushRange(noteEnd, nextStart, null);
+      } else {
+        pushRange(startBeat, nextStart, ev);
+      }
+    } else {
+      pushRange(startBeat, holdEnd, ev);
+      const trailEndBeat = snapBeat(trailEndMs);
+      if (trailEndBeat > holdEnd + 0.001) {
+        pushRange(holdEnd, trailEndBeat, null);
+      }
+    }
+  }
+
+  return aligned;
 }
 
 /**
@@ -821,7 +984,7 @@ export function quantizeRawSegments(
   const absorbGaps = options.absorbArticulationGaps ?? (!options.keyboardMode);
   const scaleMode = options.scaleMode ?? (options.keyboardMode ? 'chromatic' : 'diatonic');
   const filterOneFingerGaps = Boolean(options.filterOneFingerGaps);
-  const oneFingerMaxGapMs = options.oneFingerMaxGapMs ?? 450;
+  const oneFingerMaxGapMs = options.oneFingerMaxGapMs ?? computeGridAwareGapMs(bpm, grid);
 
   const cleaned = cleanRawSegments(
     segments,
@@ -1161,12 +1324,21 @@ export function transcribeKeyboardSegmentsToMeasures(
     oneFingerMaxGapMs?: number;
   }
 ): TranscriptionResult {
-  return transcribeAudioSegmentsToMeasures(segments, {
+  const grid = config.grid || 'eighth';
+  const minDur = config.minDurationMs ?? 25;
+  const aligned = alignSegmentsToOnsetGrid(segments, config.bpm, grid, minDur);
+
+  return transcribeAudioSegmentsToMeasures(aligned, {
     ...config,
     keyboardMode: true,
-    minDurationMs: config.minDurationMs ?? 25,
-    filterOneFingerGaps: config.filterOneFingerGaps,
-    oneFingerMaxGapMs: config.oneFingerMaxGapMs,
+    minDurationMs: minDur,
+    // Keep the leading rest so a key pressed on beat 3 stays on beat 3.
+    trimSilence: false,
+    // Onsets already encode real press times; do not merge repeated pitches
+    // or absorb gaps (that would slide later notes off the metronome).
+    absorbArticulationGaps: false,
+    filterOneFingerGaps: false,
+    maxArticulationGapMs: -1,
   });
 }
 

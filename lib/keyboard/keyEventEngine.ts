@@ -21,8 +21,9 @@ import type { RawNoteSegment } from '../pitch/onsetDetector.ts';
 import { midiToFrequency } from '../pitch/scoreQuantizer.ts';
 import {
   KEY_SEMITONES,
+  computeGridAwareGapMs,
   midiToNumberedPitch,
-  transcribeAudioSegmentsToMeasures,
+  transcribeKeyboardSegmentsToMeasures,
   type MeasureLayoutOptions,
   type QuantizeGrid,
   type QuantizeOptions,
@@ -146,8 +147,8 @@ export interface KeyEventEngineConfig {
   accidentalPreference: 'auto' | 'sharp' | 'flat';
   restThresholdMs: number; // Minimum gap in ms to generate a discrete rest
   extendLegatoGaps: boolean; // Auto-extend notes when gap < restThresholdMs (default: true)
-  filterOneFingerGaps: boolean; // Auto-bridge single-finger transit movement gaps (default: false)
-  oneFingerMaxGapMs: number; // Max gap in ms to bridge for one-finger playing (default: 450ms)
+  filterOneFingerGaps: boolean; // Auto-bridge single-finger transit movement gaps (default: true)
+  oneFingerMaxGapMs: number; // Max gap in ms to bridge; tempo/grid-capped below one rest
   qwertyMappingMode: QwertyMappingMode; // 'chromatic_piano' or 'movable_solfege'
   minNoteDurationMs: number; // Minimum note duration to keep (default: 25ms)
 }
@@ -163,7 +164,7 @@ export const DEFAULT_KEY_ENGINE_CONFIG: Readonly<KeyEventEngineConfig> = {
   restThresholdMs: 260,
   extendLegatoGaps: true,
   filterOneFingerGaps: true,
-  oneFingerMaxGapMs: 450,
+  oneFingerMaxGapMs: computeGridAwareGapMs(80, 'eighth'),
   qwertyMappingMode: 'chromatic_piano',
   minNoteDurationMs: 25,
 };
@@ -284,15 +285,21 @@ export class KeyEventEngine {
     callbacks?: KeyEventEngineCallbacks,
     nowProvider?: () => number
   ) {
+    const bpm = config?.bpm ?? DEFAULT_KEY_ENGINE_CONFIG.bpm;
+    const grid = config?.quantizeGrid ?? DEFAULT_KEY_ENGINE_CONFIG.quantizeGrid;
     const effectiveRestThreshold =
       config?.restThresholdMs !== undefined
         ? config.restThresholdMs
-        : computeAdaptiveRestThreshold(config?.bpm ?? DEFAULT_KEY_ENGINE_CONFIG.bpm);
+        : computeAdaptiveRestThreshold(bpm);
 
     this.config = {
       ...DEFAULT_KEY_ENGINE_CONFIG,
       ...config,
       restThresholdMs: effectiveRestThreshold,
+      oneFingerMaxGapMs:
+        config?.oneFingerMaxGapMs !== undefined
+          ? config.oneFingerMaxGapMs
+          : computeGridAwareGapMs(bpm, grid),
     };
     this.callbacks = callbacks || {};
     this.nowProvider =
@@ -305,17 +312,25 @@ export class KeyEventEngine {
    */
   public updateConfig(config: Partial<KeyEventEngineConfig>): void {
     const newBpm = config.bpm ?? this.config.bpm;
+    const newGrid = config.quantizeGrid ?? this.config.quantizeGrid;
     const newRestThreshold =
       config.restThresholdMs !== undefined
         ? config.restThresholdMs
         : config.bpm !== undefined
         ? computeAdaptiveRestThreshold(newBpm)
         : this.config.restThresholdMs;
+    const newOneFingerMaxGapMs =
+      config.oneFingerMaxGapMs !== undefined
+        ? config.oneFingerMaxGapMs
+        : config.bpm !== undefined || config.quantizeGrid !== undefined
+          ? computeGridAwareGapMs(newBpm, newGrid)
+          : this.config.oneFingerMaxGapMs;
 
     this.config = {
       ...this.config,
       ...config,
       restThresholdMs: newRestThreshold,
+      oneFingerMaxGapMs: newOneFingerMaxGapMs,
     };
   }
 
@@ -1001,21 +1016,18 @@ export class KeyEventEngine {
   ): TranscriptionResult {
     const segments = this.finalize();
 
-    return transcribeAudioSegmentsToMeasures(segments, {
+    return transcribeKeyboardSegmentsToMeasures(segments, {
       key: options?.key ?? this.config.keySignature,
       timeSignature: options?.timeSignature ?? this.config.timeSignature,
       bpm: options?.bpm ?? this.config.bpm,
       grid: options?.grid ?? this.config.quantizeGrid,
       allowTriplets: options?.allowTriplets ?? this.config.allowTriplets,
-      octaveShift: options?.octaveShift ?? this.config.octaveShift,
+      octaveShift: options?.octaveShift ?? 0,
       accidentalPreference: options?.accidentalPreference ?? this.config.accidentalPreference,
       autoFillTrailingRests: options?.autoFillTrailingRests ?? false,
       startMeasureNumber: options?.startMeasureNumber ?? 1,
       minDurationMs: options?.minDurationMs ?? this.config.minNoteDurationMs,
-      trimSilence: options?.trimSilence ?? true,
-      keyboardMode: true,
-      filterOneFingerGaps: options?.filterOneFingerGaps ?? this.config.filterOneFingerGaps,
-      oneFingerMaxGapMs: options?.oneFingerMaxGapMs ?? this.config.oneFingerMaxGapMs,
+      trimSilence: false,
     });
   }
 

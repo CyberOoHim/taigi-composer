@@ -21,6 +21,7 @@ import { useWebMidi } from '@/lib/keyboard/webMidi';
 import type { RawNoteSegment } from '@/lib/pitch/onsetDetector';
 import {
   QuantizeGrid,
+  getExpectedMeasureBeats,
   midiToNumberedPitch,
   quantizeDurationToBeats,
   transcribeKeyboardSegmentsToMeasures,
@@ -405,7 +406,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
   // Visual metronome preview pulse in SETUP step (audio-clock lookahead, not setInterval-per-beat)
   useEffect(() => {
     if (step !== 'SETUP' || !isOpen || !isPageVisible) return;
-    const beatsPerBar = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
+    const beatsPerBar = Math.max(1, Math.round(getExpectedMeasureBeats(activeTimeSignature))) || 4;
     audioEngine.initContext();
     const usingAudio = audioEngine.getAudioContextState() === 'running';
     const wallOriginSec = performance.now() / 1000;
@@ -539,7 +540,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       metronomeStopRef.current = null;
     }
 
-    const beatsPerBar = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
+    const beatsPerBar = Math.max(1, Math.round(getExpectedMeasureBeats(activeTimeSignature))) || 4;
     metronomeStopRef.current = startAudioClockMetronome({
       getCurrentTime: () => audioEngine.getAudioContextTime(),
       startAt: originSec,
@@ -574,7 +575,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     setCountdownBeat(COUNT_IN_BEATS);
 
     let remaining = COUNT_IN_BEATS;
-    const beatsPerBar = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
+    const beatsPerBar = Math.max(1, Math.round(getExpectedMeasureBeats(activeTimeSignature))) || 4;
 
     metronomeStopRef.current = startAudioClockMetronome({
       getCurrentTime: () => audioEngine.getAudioContextTime(),
@@ -682,8 +683,13 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     isRecordingPausedRef.current = false;
     setIsRecordingPaused(false);
 
-    const beatsPerBar = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
-    const originSec = recordingAudioOriginRef.current ?? audioEngine.getAudioContextTime();
+    const beatsPerBar = Math.max(1, Math.round(getExpectedMeasureBeats(activeTimeSignature))) || 4;
+    // Use the (pause-shifted) recording origin so clicks resume on the same
+    // beat grid the transcriber uses for key-press times.
+    const originSec =
+      (keyEngineRef.current?.getRecordingStartTime() ?? 0) / 1000 ||
+      recordingAudioOriginRef.current ||
+      audioEngine.getAudioContextTime();
     metronomeStopRef.current = startAudioClockMetronome({
       getCurrentTime: () => audioEngine.getAudioContextTime(),
       startAt: originSec,
