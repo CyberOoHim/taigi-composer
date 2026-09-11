@@ -13,8 +13,7 @@ import {
 const isStaticExport =
   process.env.STATIC_EXPORT === 'true' || process.env.GITHUB_PAGES === 'true';
 
-// Static export (GitHub Pages) cannot read cookies; Cloud Run must see the live session.
-export const dynamic = isStaticExport ? 'force-static' : 'force-dynamic';
+export const dynamic = 'force-static';
 
 export async function GET(req: Request) {
   if (isStaticExport) {
