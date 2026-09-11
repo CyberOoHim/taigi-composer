@@ -564,6 +564,77 @@ export class AudioEngine {
     this.scheduleAutoSuspend(2000);
   }
 
+  public getAudioContextState(): AudioContextState | 'none' {
+    return this.ctx?.state ?? 'none';
+  }
+
+  public getAudioContextTime(): number {
+    return this.ctx?.currentTime ?? 0;
+  }
+
+  /**
+   * Schedule a metronome click at an AudioContext time. Does not auto-suspend;
+   * the caller owns the recording / count-in session lifetime.
+   */
+  public scheduleMetronomeTick(when: number, isDownbeat = false) {
+    this.initContext();
+    if (!this.ctx || !this.metronomeGain) return;
+    this.cancelAutoSuspend();
+    this.playMetronomeClick(when, isDownbeat);
+  }
+
+  /**
+   * Fire `cb` at (or immediately after) an AudioContext time using a silent oscillator.
+   * Falls back to setTimeout if the context cannot schedule.
+   */
+  public scheduleAudioCallback(when: number, cb: () => void): () => void {
+    this.initContext();
+    if (!this.ctx) {
+      const id = setTimeout(cb, 0);
+      return () => clearTimeout(id);
+    }
+
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    if (!Number.isFinite(when) || when <= now + 0.004) {
+      const id = setTimeout(cb, 0);
+      return () => clearTimeout(id);
+    }
+
+    let fired = false;
+    const fire = () => {
+      if (fired) return;
+      fired = true;
+      cb();
+    };
+
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.onended = () => fire();
+      osc.start(when);
+      osc.stop(when + 0.001);
+      return () => {
+        fired = true;
+        osc.onended = null;
+        try {
+          osc.stop();
+        } catch {
+          // already stopped
+        }
+      };
+    } catch {
+      const id = setTimeout(fire, Math.max(0, (when - now) * 1000));
+      return () => {
+        fired = true;
+        clearTimeout(id);
+      };
+    }
+  }
+
   private registerOscillator(osc: OscillatorNode) {
     this.activeOscillators.push(osc);
     osc.onended = () => {

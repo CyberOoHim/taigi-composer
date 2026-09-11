@@ -27,6 +27,7 @@ import {
   type TranscriptionResult,
 } from '@/lib/pitch/scoreQuantizer';
 import { wakeLockManager } from '@/lib/wakeLock';
+import { startAudioClockMetronome } from '@/lib/keyboard/audioClockMetronome';
 import { CHROMATIC_KEYS, STANDARD_TIME_SIGNATURES } from '@/lib/taigiUtils';
 import { NumberedNotationNoteComponent } from '@/components/NumberedNotationNoteComponent';
 import { PianoBed, OctaveBedView } from './PianoBed';
@@ -134,10 +135,9 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
 
   // Refs
   const keyEngineRef = useRef<KeyEventEngine | null>(null);
-  const countInIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
-  const metronomeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const metronomeStopRef = useRef<(() => void) | null>(null);
   const metronomePulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audibleClickRef = useRef<boolean>(audibleClickDuringRecording);
   const rawPlaybackTimersRef = useRef<number[]>([]);
@@ -331,6 +331,12 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
         onOctaveShiftChange: shift => {
           setOctaveShiftVal(shift);
         },
+      },
+      () => {
+        if (audioEngine.getAudioContextState() === 'running') {
+          return audioEngine.getAudioContextTime() * 1000;
+        }
+        return performance.now();
       }
     );
 
@@ -387,26 +393,35 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     };
   }, [step]);
 
-  // Visual metronome preview pulse in SETUP step
+  // Visual metronome preview pulse in SETUP step (audio-clock lookahead, not setInterval-per-beat)
   useEffect(() => {
     if (step !== 'SETUP' || !isOpen) return;
-    const beats = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
-    const intervalMs = (60 / activeBpm) * 1000;
-    let b = 1;
+    const beatsPerBar = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
+    audioEngine.initContext();
+    const usingAudio = audioEngine.getAudioContextState() === 'running';
+    const wallOriginSec = performance.now() / 1000;
+    const audioOrigin = audioEngine.getAudioContextTime();
     let pulseTimeout: ReturnType<typeof setTimeout> | null = null;
-    const timer = setInterval(() => {
-      b = (b % beats) + 1;
-      setSetupPreviewBeat(b);
-      setSetupPreviewPulse(true);
-      if (pulseTimeout) clearTimeout(pulseTimeout);
-      pulseTimeout = setTimeout(() => setSetupPreviewPulse(false), 140);
-    }, intervalMs);
+
+    const stop = startAudioClockMetronome({
+      getCurrentTime: () =>
+        usingAudio ? audioEngine.getAudioContextTime() : audioOrigin + (performance.now() / 1000 - wallOriginSec),
+      bpm: activeBpm,
+      beatsPerBar,
+      shouldClick: () => false,
+      onBeat: ({ beatInBar }) => {
+        setSetupPreviewBeat(beatInBar);
+        setSetupPreviewPulse(true);
+        if (pulseTimeout) clearTimeout(pulseTimeout);
+        pulseTimeout = setTimeout(() => setSetupPreviewPulse(false), 140);
+      },
+    });
 
     return () => {
-      clearInterval(timer);
+      stop();
       if (pulseTimeout) clearTimeout(pulseTimeout);
     };
-  }, [step, isOpen, activeTimeSignature, activeBpm]);
+  }, [step, isOpen, activeTimeSignature, activeBpm, audioEngine]);
 
   // Clean up all audio audition and tickers
   const stopAllPlayback = useCallback(() => {
@@ -421,17 +436,13 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     stopAllPlayback();
     void wakeLockManager.release();
 
-    if (countInIntervalRef.current) {
-      clearInterval(countInIntervalRef.current);
-      countInIntervalRef.current = null;
+    if (metronomeStopRef.current) {
+      metronomeStopRef.current();
+      metronomeStopRef.current = null;
     }
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
-    }
-    if (metronomeIntervalRef.current) {
-      clearInterval(metronomeIntervalRef.current);
-      metronomeIntervalRef.current = null;
     }
     if (metronomePulseTimeoutRef.current) {
       clearTimeout(metronomePulseTimeoutRef.current);
@@ -459,8 +470,20 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     };
   }, [stopAllPipelines]);
 
-  // Actual recording execution
-  const beginActiveRecording = useCallback(() => {
+  const flashMetronomeBeat = useCallback((beatInBar: number, isDownbeat: boolean) => {
+    setCurrentBeatInBar(beatInBar);
+    setIsBeatPulse(true);
+    setIsDownbeatFlash(isDownbeat);
+    if (metronomePulseTimeoutRef.current) clearTimeout(metronomePulseTimeoutRef.current);
+    metronomePulseTimeoutRef.current = setTimeout(() => {
+      setIsBeatPulse(false);
+      setIsDownbeatFlash(false);
+      metronomePulseTimeoutRef.current = null;
+    }, 140);
+  }, []);
+
+  // Actual recording execution. `startAudioTime` is beat-1 origin on the AudioContext clock.
+  const beginActiveRecording = useCallback((startAudioTime?: number) => {
     setStep('RECORDING');
     setRecordingSeconds(0);
     setActiveMidiSet(new Set());
@@ -469,62 +492,55 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     setLastPlayedNote(null);
     void wakeLockManager.request();
 
+    audioEngine.initContext();
+    audioEngine.cancelAutoSuspend();
+    const originSec = startAudioTime ?? audioEngine.getAudioContextTime();
+
     const engine = keyEngineRef.current;
     if (engine) {
-      engine.startRecording();
+      engine.startRecording(originSec * 1000);
     }
 
     recordingStartTimeRef.current = performance.now();
 
-    // Elapsed time ticker
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
     recordingTimerRef.current = setInterval(() => {
       const elapsed = (performance.now() - recordingStartTimeRef.current) / 1000;
       setRecordingSeconds(Math.round(elapsed * 10) / 10);
     }, 100);
 
-    // Metronome ticker during recording
-    const beatsPerBar = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
-    const intervalMs = (60 / activeBpm) * 1000;
-    let b = 1;
-
-    setCurrentBeatInBar(1);
-    setIsBeatPulse(true);
-    setIsDownbeatFlash(true);
-    if (audibleClickRef.current) {
-      audioEngine.playMetronomeTick(true);
+    if (metronomeStopRef.current) {
+      metronomeStopRef.current();
+      metronomeStopRef.current = null;
     }
-    if (metronomePulseTimeoutRef.current) clearTimeout(metronomePulseTimeoutRef.current);
-    metronomePulseTimeoutRef.current = setTimeout(() => {
-      setIsBeatPulse(false);
-      setIsDownbeatFlash(false);
-      metronomePulseTimeoutRef.current = null;
-    }, 140);
 
-    metronomeIntervalRef.current = setInterval(() => {
-      b = (b % beatsPerBar) + 1;
-      setCurrentBeatInBar(b);
-      setIsBeatPulse(true);
-      const isDown = b === 1;
-      setIsDownbeatFlash(isDown);
-
-      if (audibleClickRef.current) {
-        audioEngine.playMetronomeTick(isDown);
-      }
-
-      if (metronomePulseTimeoutRef.current) clearTimeout(metronomePulseTimeoutRef.current);
-      metronomePulseTimeoutRef.current = setTimeout(() => {
-        setIsBeatPulse(false);
-        setIsDownbeatFlash(false);
-        metronomePulseTimeoutRef.current = null;
-      }, 140);
-    }, intervalMs);
-  }, [activeTimeSignature, activeBpm, audioEngine]);
+    const beatsPerBar = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
+    metronomeStopRef.current = startAudioClockMetronome({
+      getCurrentTime: () => audioEngine.getAudioContextTime(),
+      startAt: originSec,
+      bpm: activeBpm,
+      beatsPerBar,
+      shouldClick: () => audibleClickRef.current,
+      scheduleClick: (when, isDownbeat) => {
+        audioEngine.scheduleMetronomeTick(when, isDownbeat);
+      },
+      scheduleCallback: (when, cb) => audioEngine.scheduleAudioCallback(when, cb),
+      onBeat: ({ beatInBar, isDownbeat }) => {
+        audioEngine.cancelAutoSuspend();
+        flashMetronomeBeat(beatInBar, isDownbeat);
+      },
+    });
+  }, [activeTimeSignature, activeBpm, audioEngine, flashMetronomeBeat]);
 
   // Handle Count-in and Start Recording (standardized 3-beat countdown: 3 -> 2 -> 1 -> Record)
   const startRecordingFlow = useCallback(() => {
     stopAllPipelines();
-
-    const secPerBeat = 60 / activeBpm;
+    audioEngine.initContext();
+    audioEngine.unlockOnUserGesture();
+    audioEngine.cancelAutoSuspend();
 
     if (!enableCountIn) {
       beginActiveRecording();
@@ -535,28 +551,40 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     setStep('COUNTING_IN');
     setCountdownBeat(COUNT_IN_BEATS);
 
-    let count = COUNT_IN_BEATS;
-    audioEngine.playMetronomeTick(true);
+    let remaining = COUNT_IN_BEATS;
+    const beatsPerBar = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
 
-    if (countInIntervalRef.current) {
-      clearInterval(countInIntervalRef.current);
-      countInIntervalRef.current = null;
-    }
-
-    countInIntervalRef.current = setInterval(() => {
-      count -= 1;
-      if (count > 0) {
-        setCountdownBeat(count);
-        audioEngine.playMetronomeTick(false);
-      } else {
-        if (countInIntervalRef.current) {
-          clearInterval(countInIntervalRef.current);
-          countInIntervalRef.current = null;
+    metronomeStopRef.current = startAudioClockMetronome({
+      getCurrentTime: () => audioEngine.getAudioContextTime(),
+      bpm: activeBpm,
+      beatsPerBar,
+      maxBeats: COUNT_IN_BEATS,
+      scheduleClick: (when, isDownbeat) => {
+        audioEngine.scheduleMetronomeTick(when, isDownbeat);
+      },
+      scheduleCallback: (when, cb) => audioEngine.scheduleAudioCallback(when, cb),
+      onBeat: ({ isDownbeat }) => {
+        audioEngine.cancelAutoSuspend();
+        setCountdownBeat(remaining);
+        if (isDownbeat) {
+          setIsDownbeatFlash(true);
+          setTimeout(() => setIsDownbeatFlash(false), 140);
         }
-        beginActiveRecording();
-      }
-    }, secPerBeat * 1000);
-  }, [activeBpm, enableCountIn, stopAllPipelines, audioEngine, beginActiveRecording]);
+        remaining -= 1;
+      },
+      onComplete: nextBeatTime => {
+        metronomeStopRef.current = null;
+        beginActiveRecording(nextBeatTime);
+      },
+    });
+  }, [
+    activeBpm,
+    activeTimeSignature,
+    enableCountIn,
+    stopAllPipelines,
+    audioEngine,
+    beginActiveRecording,
+  ]);
 
   // Finish recording and transcribe
   const handleFinishRecording = useCallback(() => {
