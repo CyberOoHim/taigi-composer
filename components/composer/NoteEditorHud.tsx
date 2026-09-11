@@ -133,7 +133,6 @@ export interface NoteEditorHudProps {
   canMoveContainerForward?: boolean;
   onTogglePlayMeasure?: (mIdx: number) => void;
   isPlayingMeasure?: boolean;
-  onOpenHumToScore?: () => void;
   onOpenKeyboardToScore?: () => void;
 }
 
@@ -353,7 +352,6 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
   canMoveContainerForward = false,
   onTogglePlayMeasure,
   isPlayingMeasure = false,
-  onOpenHumToScore,
   onOpenKeyboardToScore,
 }) => {
   const [activeTab, setActiveTabState] = useState<DeckTabMode>(() => {
@@ -903,33 +901,18 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             </div>
           )}
 
-          {/* Hum-to-Score Audio Recording */}
-          {onOpenHumToScore && (
-            <button
-              id="hud-open-hum-to-score-btn"
-              type="button"
-              onClick={onOpenHumToScore}
-              className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-              title="哼唱與實體樂器收音記譜 (Hum-to-Score)"
-            >
-              <Mic2 className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">哼唱收音</span>
-              <span className="sm:hidden">哼唱</span>
-            </button>
-          )}
-
-          {/* Keyboard-to-Score Audio Recording */}
+          {/* Keyboard-to-Score Studio Trigger */}
           {onOpenKeyboardToScore && (
             <button
               id="hud-open-keyboard-to-score-btn"
               type="button"
               onClick={onOpenKeyboardToScore}
               className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-              title="鍵盤彈奏入譜 (Keyboard-to-Score)"
+              title="鍵盤彈奏轉譜工作站 (Keyboard-to-Score Studio)"
             >
               <Keyboard className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">鍵盤彈奏</span>
-              <span className="sm:hidden">鍵盤</span>
+              <span className="hidden sm:inline">彈奏轉譜</span>
+              <span className="sm:hidden">轉譜</span>
             </button>
           )}
 

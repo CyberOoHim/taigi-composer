@@ -20,7 +20,9 @@ import type {
   TimeSignature,
 } from '../../types/song.ts';
 import type { RawNoteSegment } from './onsetDetector.ts';
-import { frequencyToMidi, midiToFrequency, frequencyToCents } from './yinDetector.ts';
+export function midiToFrequency(midi: number): number { return 440 * Math.pow(2, (midi - 69) / 12); }
+export function frequencyToMidi(frequencyHz: number): number { return 69 + 12 * Math.log2(frequencyHz / 440); }
+export function frequencyToCents(frequencyHz: number, referenceHz: number): number { return 1200 * Math.log2(frequencyHz / referenceHz); }
 
 // Semitones relative to C (MIDI note 60)
 export const KEY_SEMITONES: Record<string, number> = {
@@ -93,6 +95,8 @@ export interface QuantizeOptions {
   scaleMode?: ScaleMode;                    // Intelligent scale degree attraction (default: 'diatonic' for voice, 'chromatic' for keyboard)
   absorbArticulationGaps?: boolean;         // Absorb short inter-note vocal release/breath gaps (default: true for voice, false for keyboard)
   maxArticulationGapMs?: number;            // Max articulation gap duration in ms to absorb (default: ~240ms or 0.38 beat)
+  filterOneFingerGaps?: boolean;            // Auto-bridge single-finger keyboard transit gaps (default: false)
+  oneFingerMaxGapMs?: number;               // Max transit silence gap duration to bridge in ms (default: 450ms)
 }
 
 export interface MeasureLayoutOptions {
@@ -437,16 +441,16 @@ function getStandardDurationsForGrid(grid: QuantizeGrid, allowTriplets = false):
       list = [4, 3, 2, 1];
       break;
     case 'eighth':
-      list = [4, 3, 2, 1.5, 1, 0.75, 0.5];
+      list = [4, 3.5, 3, 2.5, 2, 1.5, 1, 0.75, 0.5];
       break;
     case 'sixteenth':
-      list = [4, 3.5, 3, 2, 1.75, 1.5, 1.25, 1, 0.75, 0.5, 0.375, 0.25];
+      list = [4, 3.75, 3.5, 3.25, 3, 2.75, 2.5, 2.25, 2, 1.75, 1.5, 1.25, 1, 0.75, 0.5, 0.375, 0.25];
       break;
     case 'thirtysecond':
-      list = [4, 3.5, 3, 2, 1.75, 1.5, 1.25, 1, 0.75, 0.5, 0.375, 0.25, 0.125];
+      list = [4, 3.75, 3.5, 3.25, 3, 2.75, 2.5, 2.25, 2, 1.75, 1.5, 1.25, 1, 0.75, 0.5, 0.375, 0.25, 0.125];
       break;
     default:
-      list = [4, 3, 2, 1.5, 1, 0.75, 0.5];
+      list = [4, 3.5, 3, 2.5, 2, 1.5, 1, 0.75, 0.5];
   }
 
   if (allowTriplets) {
@@ -476,7 +480,7 @@ export function quantizeDurationToBeats(
   const rawBeats = durationMs / msPerBeat;
 
   // In keyboardMode (live screen piano, QWERTY typing, Web MIDI), human key press duration
-  // should naturally map to standard musical beat lengths (0.25, 0.5, 1, 2, 3, 4 beats)
+  // should naturally map to standard musical beat lengths (0.25, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4 beats)
   // with human performance tolerance, preventing tenuto notes (e.g. 0.70-0.95 beat)
   // from erroneously fragmenting into dotted eighths and rests.
   if (keyboardMode && rawBeats <= 4.3) {
@@ -488,8 +492,10 @@ export function quantizeDurationToBeats(
       else kbDuration = 1;
     } else if (grid === 'eighth') {
       if (rawBeats >= 3.65) kbDuration = 4;
-      else if (rawBeats >= 2.65) kbDuration = 3;
-      else if (rawBeats >= 1.65) kbDuration = 2;
+      else if (rawBeats >= 3.25 && rawBeats < 3.65) kbDuration = 3.5;
+      else if (rawBeats >= 2.65 && rawBeats < 3.25) kbDuration = 3;
+      else if (rawBeats >= 2.25 && rawBeats < 2.65) kbDuration = 2.5;
+      else if (rawBeats >= 1.65 && rawBeats < 2.25) kbDuration = 2;
       else if (rawBeats >= 1.35 && rawBeats < 1.65) kbDuration = 1.5;
       else if (rawBeats >= 0.70) kbDuration = 1;
       else if (allowTriplets && rawBeats >= 0.58 && rawBeats < 0.75) kbDuration = 0.667;
@@ -498,10 +504,14 @@ export function quantizeDurationToBeats(
       else kbDuration = 0.5;
     } else if (grid === 'sixteenth' || grid === 'thirtysecond') {
       if (rawBeats >= 3.75) kbDuration = 4;
-      else if (rawBeats >= 2.75) kbDuration = 3;
-      else if (rawBeats >= 1.80) kbDuration = 2;
+      else if (rawBeats >= 3.35 && rawBeats < 3.75) kbDuration = 3.5;
+      else if (rawBeats >= 2.75 && rawBeats < 3.35) kbDuration = 3;
+      else if (rawBeats >= 2.35 && rawBeats < 2.75) kbDuration = 2.5;
+      else if (rawBeats >= 1.80 && rawBeats < 2.35) kbDuration = 2;
+      else if (rawBeats >= 1.65 && rawBeats < 1.80) kbDuration = 1.75;
       else if (rawBeats >= 1.35 && rawBeats < 1.65) kbDuration = 1.5;
-      else if (rawBeats >= 0.85 && rawBeats <= 1.20) kbDuration = 1;
+      else if (rawBeats >= 1.15 && rawBeats < 1.35) kbDuration = 1.25;
+      else if (rawBeats >= 0.85 && rawBeats <= 1.15) kbDuration = 1;
       else if (rawBeats >= 0.65 && rawBeats < 0.85) kbDuration = 0.75;
       else if (rawBeats >= 0.38 && rawBeats < 0.65) kbDuration = 0.5;
       else if (rawBeats >= 0.18 && rawBeats < 0.38) kbDuration = 0.25;
@@ -552,8 +562,10 @@ export function quantizeDurationToBeats(
 
     if (grid === 'eighth') {
       if (rawBeats >= 3.65) return formatRes(4);
-      if (rawBeats >= 2.65) return formatRes(3);
-      if (rawBeats >= 1.68) return formatRes(2);
+      if (rawBeats >= 3.25 && rawBeats < 3.65) return formatRes(3.5);
+      if (rawBeats >= 2.65 && rawBeats < 3.25) return formatRes(3);
+      if (rawBeats >= 2.25 && rawBeats < 2.65) return formatRes(2.5);
+      if (rawBeats >= 1.68 && rawBeats < 2.25) return formatRes(2);
       if (rawBeats >= 1.28 && rawBeats < 1.68) return formatRes(1.5);
       if (allowTriplets && rawBeats >= 0.58 && rawBeats < 0.72) return formatRes(0.667);
       if (allowTriplets && rawBeats >= 0.28 && rawBeats < 0.42) return formatRes(0.333);
@@ -567,8 +579,10 @@ export function quantizeDurationToBeats(
 
     if (grid === 'sixteenth' || grid === 'thirtysecond') {
       if (rawBeats >= 3.75) return formatRes(4);
-      if (rawBeats >= 2.75) return formatRes(3);
-      if (rawBeats >= 1.85) return formatRes(2);
+      if (rawBeats >= 3.35 && rawBeats < 3.75) return formatRes(3.5);
+      if (rawBeats >= 2.75 && rawBeats < 3.35) return formatRes(3);
+      if (rawBeats >= 2.35 && rawBeats < 2.75) return formatRes(2.5);
+      if (rawBeats >= 1.85 && rawBeats < 2.35) return formatRes(2);
       if (rawBeats >= 1.68 && rawBeats < 1.85) return formatRes(1.75);
       if (rawBeats >= 1.35 && rawBeats < 1.68) return formatRes(1.5);
       if (rawBeats >= 1.18 && rawBeats < 1.35) return formatRes(1.25);
@@ -598,34 +612,17 @@ export function quantizeDurationToBeats(
     };
   }
 
-  // If raw duration exceeds 4 beats, allow sustained notes across multiple measures
+  // If raw duration exceeds 4 beats, allow sustained continuous notes across multiple measures
   if (rawBeats > 4) {
-    const wholeBeats = Math.round(rawBeats);
-    const subFrac = rawBeats - Math.floor(rawBeats);
-    const fracCandidates = candidates.filter(c => c < 1);
-    let bestFrac = 0;
-    let minFracErr = Math.abs(subFrac);
-    for (const fc of fracCandidates) {
-      const err = Math.abs(subFrac - fc);
-      if (err < minFracErr) {
-        minFracErr = err;
-        bestFrac = fc;
-      }
-    }
-
-    const option1 = wholeBeats;
-    const option2 = Math.floor(rawBeats) + bestFrac;
-    const err1 = Math.abs(rawBeats - option1);
-    const err2 = Math.abs(rawBeats - option2);
-    const bestDuration = err1 <= err2 ? option1 : option2;
-
+    const step = getGridBeatValue(grid);
+    const quantizedBeats = Math.round(rawBeats / step) * step;
     return {
-      duration: bestDuration,
+      duration: quantizedBeats as NoteDuration,
       isDotted: false,
       isDoubleDotted: false,
       isTriplet: false,
       rawBeats: Math.round(rawBeats * 1000) / 1000,
-      quantizationErrorBeats: Math.round((bestDuration - rawBeats) * 1000) / 1000,
+      quantizationErrorBeats: Math.round((quantizedBeats - rawBeats) * 1000) / 1000,
     };
   }
 
@@ -661,8 +658,9 @@ export function quantizeDurationToBeats(
 }
 
 /**
- * Merge consecutive rests, filter out transient micro-glitches,
- * and optionally absorb short vocal articulation release/breath gaps.
+ * Merge consecutive rests, merge adjacent same-pitch continuous segments,
+ * filter out transient micro-glitches, absorb short vocal articulation release/breath gaps,
+ * and optionally filter out inter-note transition gaps from one-finger keyboard playing.
  */
 export function cleanRawSegments(
   segments: RawNoteSegment[],
@@ -670,7 +668,9 @@ export function cleanRawSegments(
   trimSilence: boolean = true,
   absorbGaps: boolean = false,
   bpm: number = 80,
-  maxGapMs?: number
+  maxGapMs?: number,
+  filterOneFingerGaps: boolean = false,
+  oneFingerMaxGapMs: number = 450
 ): RawNoteSegment[] {
   if (segments.length === 0) return [];
 
@@ -682,7 +682,7 @@ export function cleanRawSegments(
 
   if (filtered.length === 0) return [];
 
-  // Merge consecutive silence / rest segments
+  // Merge consecutive silence / rest segments OR consecutive voiced segments with the same pitch
   const merged: RawNoteSegment[] = [];
   for (const seg of filtered) {
     const prev = merged[merged.length - 1];
@@ -690,6 +690,23 @@ export function cleanRawSegments(
       prev.endTimeMs = seg.endTimeMs;
       prev.durationMs += seg.durationMs;
       prev.avgRms = Math.max(prev.avgRms, seg.avgRms);
+    } else if (
+      prev &&
+      prev.midi !== null &&
+      seg.midi !== null &&
+      Math.abs(prev.midi - seg.midi) <= 0.5 &&
+      seg.startTimeMs - prev.endTimeMs <= (maxGapMs ?? 180)
+    ) {
+      // Merge consecutive voiced segments of same pitch (prevents splitting continuous sound)
+      prev.endTimeMs = seg.endTimeMs;
+      prev.durationMs = seg.endTimeMs - prev.startTimeMs;
+      prev.avgRms = Math.max(prev.avgRms, seg.avgRms);
+      if (prev.pitchSamples && seg.pitchSamples) {
+        prev.pitchSamples = [...prev.pitchSamples, ...seg.pitchSamples];
+      }
+      if (prev.frequencyHz && seg.frequencyHz) {
+        prev.frequencyHz = (prev.frequencyHz + seg.frequencyHz) / 2;
+      }
     } else {
       merged.push({ ...seg });
     }
@@ -711,16 +728,18 @@ export function cleanRawSegments(
   if (startIndex > endIndex) return [];
   const trimmed = merged.slice(startIndex, endIndex + 1);
 
-  if (!absorbGaps || trimmed.length <= 1) {
+  if ((!absorbGaps && !filterOneFingerGaps) || trimmed.length <= 1) {
     return trimmed;
   }
 
-  // Articulation gap absorption:
-  // When humming or singing syllables like "da-da-da", human sound naturally releases
-  // 100-220ms before the next note. Short silence gaps between voiced notes are absorbed
-  // into the preceding note to prevent fragmented dotted eighth notes and sixteenth rests.
+  // Articulation gap absorption & One-finger transit gap filtering:
+  // 1. When filterOneFingerGaps is ON: transit silence between keys (<= oneFingerMaxGapMs)
+  //    is absorbed into the previous note to eliminate redundant '0' rests from lifting fingers.
+  // 2. When absorbGaps is ON (hum mode): vocal breath/syllable gaps are absorbed.
   const msPerBeat = 60000 / Math.max(20, Math.min(300, bpm));
-  const maxThresholdMs = maxGapMs ?? Math.min(260, Math.max(120, msPerBeat * 0.38));
+  const maxThresholdMs = filterOneFingerGaps
+    ? oneFingerMaxGapMs
+    : (maxGapMs ?? Math.min(260, Math.max(120, msPerBeat * 0.38)));
 
   const result: RawNoteSegment[] = [];
   for (let i = 0; i < trimmed.length; i++) {
@@ -735,14 +754,38 @@ export function cleanRawSegments(
       trimmed[i + 1].midi !== null
     ) {
       const prevVoiced = result[result.length - 1];
+      const nextVoiced = trimmed[i + 1];
+
+      // If next note has the same pitch and gap is small, merge them into one continuous note!
+      if (
+        prevVoiced.midi !== null &&
+        nextVoiced.midi !== null &&
+        Math.abs(prevVoiced.midi - nextVoiced.midi) <= 0.5 &&
+        current.durationMs <= maxThresholdMs
+      ) {
+        prevVoiced.endTimeMs = nextVoiced.endTimeMs;
+        prevVoiced.durationMs = nextVoiced.endTimeMs - prevVoiced.startTimeMs;
+        if (prevVoiced.pitchSamples && nextVoiced.pitchSamples) {
+          prevVoiced.pitchSamples = [...prevVoiced.pitchSamples, ...nextVoiced.pitchSamples];
+        }
+        i++; // Skip both current rest and nextVoiced note because it was merged
+        continue;
+      }
+
       if (current.durationMs <= maxThresholdMs) {
-        // Absorb gap entirely into previous note
+        // Absorb gap entirely into previous note (bridges one-finger move time)
         prevVoiced.endTimeMs = current.endTimeMs;
         prevVoiced.durationMs += current.durationMs;
         continue;
       } else {
         // Long gap represents an intentional musical rest.
-        // Absorb standard articulation release padding so previous note ends on beat boundary.
+        if (filterOneFingerGaps) {
+          // Keep explicit rest as-is when exceeding oneFingerMaxGapMs
+          result.push({ ...current });
+          continue;
+        }
+
+        // Vocal mode: absorb standard articulation release padding so previous note ends on beat boundary
         const releasePadding = Math.min(140, Math.max(0, current.durationMs - (msPerBeat * 0.5)));
         if (releasePadding > 40) {
           prevVoiced.endTimeMs += releasePadding;
@@ -777,6 +820,8 @@ export function quantizeRawSegments(
   const trimSilence = options.trimSilence ?? true;
   const absorbGaps = options.absorbArticulationGaps ?? (!options.keyboardMode);
   const scaleMode = options.scaleMode ?? (options.keyboardMode ? 'chromatic' : 'diatonic');
+  const filterOneFingerGaps = Boolean(options.filterOneFingerGaps);
+  const oneFingerMaxGapMs = options.oneFingerMaxGapMs ?? 450;
 
   const cleaned = cleanRawSegments(
     segments,
@@ -784,7 +829,9 @@ export function quantizeRawSegments(
     trimSilence,
     absorbGaps,
     bpm,
-    options.maxArticulationGapMs
+    options.maxArticulationGapMs,
+    filterOneFingerGaps,
+    oneFingerMaxGapMs
   );
   if (cleaned.length === 0) return [];
 
@@ -1027,6 +1074,8 @@ export function transcribeAudioSegmentsToMeasures(
     scaleMode?: ScaleMode;
     absorbArticulationGaps?: boolean;
     maxArticulationGapMs?: number;
+    filterOneFingerGaps?: boolean;
+    oneFingerMaxGapMs?: number;
   }
 ): TranscriptionResult {
   const minDur = config.minDurationMs ?? (config.keyboardMode ? 25 : 60);
@@ -1043,6 +1092,8 @@ export function transcribeAudioSegmentsToMeasures(
     scaleMode: config.scaleMode,
     absorbArticulationGaps: config.absorbArticulationGaps,
     maxArticulationGapMs: config.maxArticulationGapMs,
+    filterOneFingerGaps: config.filterOneFingerGaps,
+    oneFingerMaxGapMs: config.oneFingerMaxGapMs,
   });
 
   const measures = segmentNotesIntoMeasures(quantNotes, {
@@ -1106,12 +1157,16 @@ export function transcribeKeyboardSegmentsToMeasures(
     startMeasureNumber?: number;
     minDurationMs?: number;
     trimSilence?: boolean;
+    filterOneFingerGaps?: boolean;
+    oneFingerMaxGapMs?: number;
   }
 ): TranscriptionResult {
   return transcribeAudioSegmentsToMeasures(segments, {
     ...config,
     keyboardMode: true,
     minDurationMs: config.minDurationMs ?? 25,
+    filterOneFingerGaps: config.filterOneFingerGaps,
+    oneFingerMaxGapMs: config.oneFingerMaxGapMs,
   });
 }
 

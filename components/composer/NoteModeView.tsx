@@ -138,7 +138,6 @@ export interface NoteModeViewProps {
   onReturnToSheet?: (destMeasureIndex?: number) => void;
   onDismissKaraokeReturn?: () => void;
   onDismissSheetReturn?: () => void;
-  onOpenHumToScore?: () => void;
   onOpenKeyboardToScore?: () => void;
 }
 
@@ -235,7 +234,6 @@ export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
   onReturnToSheet,
   onDismissKaraokeReturn,
   onDismissSheetReturn,
-  onOpenHumToScore,
   onOpenKeyboardToScore,
 }) => {
   const handleSwitchSubMode = (targetSubMode: NoteEditSubMode) => {
@@ -345,31 +343,17 @@ export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
             </button>
           )}
 
-          {/* Quick open Hum-to-Score modal */}
-          {onOpenHumToScore && (
-            <button
-              id="note-mode-open-hum-btn"
-              type="button"
-              onClick={onOpenHumToScore}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-              title="開啟哼唱與實體樂器收音記譜 (Hum-to-Score)"
-            >
-              <Mic2 className="w-3.5 h-3.5" />
-              <span>哼唱記譜</span>
-            </button>
-          )}
-
-          {/* Quick open Keyboard-to-Score modal */}
+          {/* Quick open Keyboard-to-Score Studio */}
           {onOpenKeyboardToScore && (
             <button
               id="note-mode-open-keyboard-btn"
               type="button"
               onClick={onOpenKeyboardToScore}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-              title="開啟鍵盤彈奏記譜 (Keyboard-to-Score)"
+              title="開啟鍵盤彈奏轉譜工作站 (Keyboard-to-Score Studio)"
             >
               <Keyboard className="w-3.5 h-3.5" />
-              <span>鍵盤記譜</span>
+              <span>彈奏轉譜</span>
             </button>
           )}
 
@@ -468,7 +452,6 @@ export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
           onReturnToSheet={onReturnToSheet}
           onDismissKaraokeReturn={onDismissKaraokeReturn}
           onDismissSheetReturn={onDismissSheetReturn}
-          onOpenHumToScore={onOpenHumToScore}
           onOpenKeyboardToScore={onOpenKeyboardToScore}
         />
       ) : (
@@ -551,7 +534,6 @@ export const NoteModeView: React.FC<NoteModeViewProps> = React.memo(({
           onReturnToSheet={onReturnToSheet}
           onDismissKaraokeReturn={onDismissKaraokeReturn}
           onDismissSheetReturn={onDismissSheetReturn}
-          onOpenHumToScore={onOpenHumToScore}
           onOpenKeyboardToScore={onOpenKeyboardToScore}
         />
       )}

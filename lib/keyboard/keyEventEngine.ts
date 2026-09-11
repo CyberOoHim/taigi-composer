@@ -18,7 +18,7 @@ import type {
   TimeSignature,
 } from '../../types/song.ts';
 import type { RawNoteSegment } from '../pitch/onsetDetector.ts';
-import { midiToFrequency } from '../pitch/yinDetector.ts';
+import { midiToFrequency } from '../pitch/scoreQuantizer.ts';
 import {
   KEY_SEMITONES,
   midiToNumberedPitch,
@@ -146,6 +146,8 @@ export interface KeyEventEngineConfig {
   accidentalPreference: 'auto' | 'sharp' | 'flat';
   restThresholdMs: number; // Minimum gap in ms to generate a discrete rest
   extendLegatoGaps: boolean; // Auto-extend notes when gap < restThresholdMs (default: true)
+  filterOneFingerGaps: boolean; // Auto-bridge single-finger transit movement gaps (default: false)
+  oneFingerMaxGapMs: number; // Max gap in ms to bridge for one-finger playing (default: 450ms)
   qwertyMappingMode: QwertyMappingMode; // 'chromatic_piano' or 'movable_solfege'
   minNoteDurationMs: number; // Minimum note duration to keep (default: 25ms)
 }
@@ -160,6 +162,8 @@ export const DEFAULT_KEY_ENGINE_CONFIG: Readonly<KeyEventEngineConfig> = {
   accidentalPreference: 'auto',
   restThresholdMs: 260,
   extendLegatoGaps: true,
+  filterOneFingerGaps: true,
+  oneFingerMaxGapMs: 450,
   qwertyMappingMode: 'chromatic_piano',
   minNoteDurationMs: 25,
 };
@@ -239,6 +243,13 @@ export function resolveQwertyKey(
   };
 }
 
+interface PendingKeyRelease {
+  midi: number;
+  sourceKeyId: string;
+  timestampMs: number;
+  timerId?: ReturnType<typeof setTimeout> | null;
+}
+
 /**
  * KeyEventEngine
  *
@@ -259,6 +270,9 @@ export class KeyEventEngine {
 
   // Active key press tracking to suppress OS auto-repeats and handle multi-touch
   private activeSourceKeys = new Set<string>();
+
+  // Debounce window to swallow rapid OS auto-repeat release/press bounces (especially under Linux X11/IBus)
+  private pendingKeyReleases = new Map<string, PendingKeyRelease>();
 
   // Custom high-resolution clock provider for testing/simulation
   private nowProvider: () => number;
@@ -344,6 +358,7 @@ export class KeyEventEngine {
    */
   public startRecording(startTimeMs?: number): void {
     const now = startTimeMs ?? this.nowProvider();
+    this.flushPendingKeyReleases();
     this.isRecording = true;
     this.recordingStartTime = now;
     this.lastNoteReleaseTime = null;
@@ -358,6 +373,7 @@ export class KeyEventEngine {
    * Stop recording and resolve any currently sustained note.
    */
   public stopRecording(stopTimeMs?: number): void {
+    this.flushPendingKeyReleases();
     if (!this.isRecording) return;
     const now = stopTimeMs ?? this.nowProvider();
 
@@ -380,10 +396,16 @@ export class KeyEventEngine {
   }
 
   public getSegments(): RawNoteSegment[] {
+    this.flushPendingKeyReleases();
     return [...this.segments];
   }
 
   public clearSegments(): void {
+    for (const [, pending] of this.pendingKeyReleases) {
+      if (pending.timerId) clearTimeout(pending.timerId);
+    }
+    this.pendingKeyReleases.clear();
+    this.activeSourceKeys.clear();
     this.segments = [];
     this.lastNoteReleaseTime = null;
     if (this.activeNote) {
@@ -412,13 +434,28 @@ export class KeyEventEngine {
   ): void {
     const now = timestampMs ?? this.nowProvider();
 
-    if (sourceKeyId) {
-      this.activeSourceKeys.add(sourceKeyId);
-    }
-
     // Auto-start recording on first key press if not explicitly started
     if (!this.isRecording) {
       this.startRecording(now);
+    }
+
+    if (sourceKeyId) {
+      // Flush any pending release for OTHER keys immediately before starting new note
+      this.flushPendingKeyReleases(sourceKeyId);
+
+      // Guard against duplicate noteOn for an already active key (e.g. repeated KeyDown)
+      if (this.activeSourceKeys.has(sourceKeyId)) {
+        return;
+      }
+      this.activeSourceKeys.add(sourceKeyId);
+    } else if (
+      this.activeNote &&
+      !this.activeNote.resolved &&
+      this.activeNote.midi === midi &&
+      now - this.activeNote.startTimeMs < 45
+    ) {
+      // Guard against rapid duplicate noteOn without sourceKeyId within 45ms
+      return;
     }
 
     // 1. Monophonic Legato Overlap Resolution:
@@ -426,30 +463,54 @@ export class KeyEventEngine {
     if (this.activeNote && !this.activeNote.resolved) {
       this.commitActiveNote(now);
     } else {
-      // 2. Inter-Note Rest Gap Detection:
+      // 2. Inter-Note Rest Gap Detection & One-Finger Transit Gap Filtering:
       // If there was a silence gap between previous note release and this note onset:
       if (this.lastNoteReleaseTime !== null) {
         const gapMs = now - this.lastNoteReleaseTime;
 
-        if (gapMs >= this.config.restThresholdMs) {
-          // Intentional rest: generate a discrete Rest Segment
-          const restSegment: RawNoteSegment = {
-            startTimeMs: Math.round(this.lastNoteReleaseTime - this.recordingStartTime),
-            endTimeMs: Math.round(now - this.recordingStartTime),
-            durationMs: Math.round(gapMs),
-            midi: null, // null indicates musical rest
-            frequencyHz: null,
-            avgRms: 0,
-            pitchSamples: [],
-          };
-          this.segments.push(restSegment);
-          this.callbacks.onSegmentCommitted?.(restSegment);
-        } else if (gapMs > 0 && this.config.extendLegatoGaps && this.segments.length > 0) {
-          // Articulation transient (< 80ms): extend previous note for continuous legato line
-          const lastSeg = this.segments[this.segments.length - 1];
-          if (lastSeg && lastSeg.midi !== null) {
-            lastSeg.endTimeMs = Math.round(now - this.recordingStartTime);
-            lastSeg.durationMs = Math.round(lastSeg.endTimeMs - lastSeg.startTimeMs);
+        if (this.config.filterOneFingerGaps) {
+          if (gapMs > 0 && gapMs <= this.config.oneFingerMaxGapMs && this.segments.length > 0) {
+            // One-Finger transit movement: extend previous note across gap to eliminate accidental '0' rest
+            const lastSeg = this.segments[this.segments.length - 1];
+            if (lastSeg && lastSeg.midi !== null) {
+              lastSeg.endTimeMs = Math.round(now - this.recordingStartTime);
+              lastSeg.durationMs = Math.round(lastSeg.endTimeMs - lastSeg.startTimeMs);
+            }
+          } else if (gapMs > this.config.oneFingerMaxGapMs) {
+            // Intentional rest exceeding gap threshold: generate a discrete Rest Segment
+            const restSegment: RawNoteSegment = {
+              startTimeMs: Math.round(this.lastNoteReleaseTime - this.recordingStartTime),
+              endTimeMs: Math.round(now - this.recordingStartTime),
+              durationMs: Math.round(gapMs),
+              midi: null, // null indicates musical rest
+              frequencyHz: null,
+              avgRms: 0,
+              pitchSamples: [],
+            };
+            this.segments.push(restSegment);
+            this.callbacks.onSegmentCommitted?.(restSegment);
+          }
+        } else {
+          if (gapMs >= this.config.restThresholdMs) {
+            // Intentional rest: generate a discrete Rest Segment
+            const restSegment: RawNoteSegment = {
+              startTimeMs: Math.round(this.lastNoteReleaseTime - this.recordingStartTime),
+              endTimeMs: Math.round(now - this.recordingStartTime),
+              durationMs: Math.round(gapMs),
+              midi: null, // null indicates musical rest
+              frequencyHz: null,
+              avgRms: 0,
+              pitchSamples: [],
+            };
+            this.segments.push(restSegment);
+            this.callbacks.onSegmentCommitted?.(restSegment);
+          } else if (gapMs > 0 && this.config.extendLegatoGaps && this.segments.length > 0) {
+            // Articulation transient (< 80ms): extend previous note for continuous legato line
+            const lastSeg = this.segments[this.segments.length - 1];
+            if (lastSeg && lastSeg.midi !== null) {
+              lastSeg.endTimeMs = Math.round(now - this.recordingStartTime);
+              lastSeg.durationMs = Math.round(lastSeg.endTimeMs - lastSeg.startTimeMs);
+            }
           }
         }
       }
@@ -487,6 +548,11 @@ export class KeyEventEngine {
     const now = timestampMs ?? this.nowProvider();
 
     if (sourceKeyId) {
+      const pending = this.pendingKeyReleases.get(sourceKeyId);
+      if (pending?.timerId) {
+        clearTimeout(pending.timerId);
+      }
+      this.pendingKeyReleases.delete(sourceKeyId);
       this.activeSourceKeys.delete(sourceKeyId);
     }
 
@@ -503,6 +569,62 @@ export class KeyEventEngine {
 
     this.callbacks.onNoteOff?.(midi, sourceKeyId);
     this.notifyActiveKeys();
+  }
+
+  /**
+   * Immediately commit/execute any pending deferred key releases.
+   */
+  public flushPendingKeyReleases(exceptKeyId?: string): void {
+    if (this.pendingKeyReleases.size === 0) return;
+    const keysToFlush: string[] = [];
+    for (const [keyId] of this.pendingKeyReleases) {
+      if (!exceptKeyId || keyId !== exceptKeyId) {
+        keysToFlush.push(keyId);
+      }
+    }
+    for (const keyId of keysToFlush) {
+      this.executePendingKeyRelease(keyId);
+    }
+  }
+
+  /**
+   * Execute a single deferred key release with its recorded release timestamp.
+   */
+  private executePendingKeyRelease(sourceKeyId: string): void {
+    const pending = this.pendingKeyReleases.get(sourceKeyId);
+    if (!pending) return;
+
+    if (pending.timerId) {
+      clearTimeout(pending.timerId);
+    }
+    this.pendingKeyReleases.delete(sourceKeyId);
+
+    // Call noteOff using the exact timestamp captured when the key was released
+    this.noteOff(pending.midi, pending.timestampMs, sourceKeyId);
+  }
+
+  /**
+   * Release all currently active keys (e.g. on window blur or mode change).
+   */
+  public releaseAllActiveKeys(timestampMs?: number): void {
+    const now = timestampMs ?? this.nowProvider();
+    this.flushPendingKeyReleases();
+    if (this.activeNote && !this.activeNote.resolved) {
+      this.commitActiveNote(now);
+    }
+    this.activeSourceKeys.clear();
+    this.notifyActiveKeys();
+  }
+
+  /**
+   * Cleanup any active debounce timers on unmount.
+   */
+  public destroy(): void {
+    for (const [, pending] of this.pendingKeyReleases) {
+      if (pending.timerId) clearTimeout(pending.timerId);
+    }
+    this.pendingKeyReleases.clear();
+    this.activeSourceKeys.clear();
   }
 
   /**
@@ -537,7 +659,8 @@ export class KeyEventEngine {
 
   /**
    * Handle computer keyboard KeyDown event.
-   * Includes e.repeat guard, octave shifts (Z/X), rest trigger (Space), and Backspace undo.
+   * Includes e.repeat guard, activeSourceKeys deduplication, Linux X11 auto-repeat release
+   * bounce filtering, octave shifts (Z/X), rest trigger (Space), and Backspace undo.
    *
    * @returns true if the key was handled by the musical typing engine
    */
@@ -545,16 +668,12 @@ export class KeyEventEngine {
     e: { code?: string; key?: string; repeat?: boolean; preventDefault?: () => void },
     timestampMs?: number
   ): boolean {
-    // e.repeat Guard: Prevent OS auto-repeat from stuttering sustained notes
-    if (e.repeat) {
-      return true;
-    }
-
     const code = e.code || '';
     const key = (e.key || '').toLowerCase();
 
     // 1. Auxiliary control: Octave Down (Z)
     if (code === 'KeyZ' || key === 'z') {
+      if (e.repeat) return true;
       e.preventDefault?.();
       this.shiftOctave(-1);
       return true;
@@ -562,6 +681,7 @@ export class KeyEventEngine {
 
     // 2. Auxiliary control: Octave Up (X)
     if (code === 'KeyX' || key === 'x') {
+      if (e.repeat) return true;
       e.preventDefault?.();
       this.shiftOctave(1);
       return true;
@@ -569,6 +689,7 @@ export class KeyEventEngine {
 
     // 3. Auxiliary control: Rest (Spacebar)
     if (code === 'Space' || key === ' ') {
+      if (e.repeat) return true;
       e.preventDefault?.();
       this.triggerRestKey(timestampMs);
       return true;
@@ -576,6 +697,7 @@ export class KeyEventEngine {
 
     // 4. Auxiliary control: Undo last note (Backspace)
     if (code === 'Backspace' || key === 'backspace') {
+      if (e.repeat) return true;
       e.preventDefault?.();
       this.undoLastNote();
       return true;
@@ -591,8 +713,36 @@ export class KeyEventEngine {
     );
 
     if (resolved) {
+      const sourceKeyId = resolved.code;
+      const now = timestampMs ?? this.nowProvider();
+
+      // Check if there is a pending release for THIS key (OS auto-repeat release/press bounce)
+      const pending = this.pendingKeyReleases.get(sourceKeyId);
+      if (pending) {
+        const gap = now - pending.timestampMs;
+        if (gap <= 45) {
+          // OS auto-repeat bounce detected! Cancel deferred release and keep sustaining note
+          if (pending.timerId) clearTimeout(pending.timerId);
+          this.pendingKeyReleases.delete(sourceKeyId);
+          e.preventDefault?.();
+          return true;
+        } else {
+          // Real re-press after debounce interval: execute pending release first
+          this.executePendingKeyRelease(sourceKeyId);
+        }
+      }
+
+      // Check if key is already physically active (OS auto-repeat without keyup, or e.repeat)
+      if (e.repeat || this.activeSourceKeys.has(sourceKeyId)) {
+        e.preventDefault?.();
+        return true;
+      }
+
+      // Flush any pending releases for OTHER keys before starting this note
+      this.flushPendingKeyReleases(sourceKeyId);
+
       e.preventDefault?.();
-      this.noteOn(resolved.midi, 0.85, timestampMs, code || key);
+      this.noteOn(resolved.midi, 0.85, now, sourceKeyId);
       return true;
     }
 
@@ -601,6 +751,7 @@ export class KeyEventEngine {
 
   /**
    * Handle computer keyboard KeyUp event.
+   * Defers note release by 45ms to filter out rapid Linux X11 auto-repeat keyup bounces.
    */
   public handleKeyUp(
     e: { code?: string; key?: string; preventDefault?: () => void },
@@ -608,6 +759,19 @@ export class KeyEventEngine {
   ): boolean {
     const code = e.code || '';
     const key = (e.key || '').toLowerCase();
+
+    if (
+      code === 'KeyZ' ||
+      key === 'z' ||
+      code === 'KeyX' ||
+      key === 'x' ||
+      code === 'Space' ||
+      key === ' ' ||
+      code === 'Backspace' ||
+      key === 'backspace'
+    ) {
+      return true;
+    }
 
     const resolved = resolveQwertyKey(
       code || key,
@@ -619,7 +783,32 @@ export class KeyEventEngine {
 
     if (resolved) {
       e.preventDefault?.();
-      this.noteOff(resolved.midi, timestampMs, code || key);
+      const sourceKeyId = resolved.code;
+      const now = timestampMs ?? this.nowProvider();
+
+      // Only stage release if key is currently active
+      if (!this.activeSourceKeys.has(sourceKeyId) && !this.pendingKeyReleases.has(sourceKeyId)) {
+        return true;
+      }
+
+      // Cancel any existing timer for this key
+      const existing = this.pendingKeyReleases.get(sourceKeyId);
+      if (existing?.timerId) {
+        clearTimeout(existing.timerId);
+      }
+
+      // Stage deferred release with 45ms window to absorb Linux X11 auto-repeat release bounce
+      const timerId = typeof setTimeout !== 'undefined' ? setTimeout(() => {
+        this.executePendingKeyRelease(sourceKeyId);
+      }, 45) : null;
+
+      this.pendingKeyReleases.set(sourceKeyId, {
+        midi: resolved.midi,
+        sourceKeyId,
+        timestampMs: now,
+        timerId,
+      });
+
       return true;
     }
 
@@ -664,6 +853,7 @@ export class KeyEventEngine {
    * Spacebar rest handler: If a note is sounding, release it immediately.
    */
   private triggerRestKey(timestampMs?: number): void {
+    this.flushPendingKeyReleases();
     const now = timestampMs ?? this.nowProvider();
     if (this.activeNote && !this.activeNote.resolved) {
       this.commitActiveNote(now);
@@ -675,6 +865,7 @@ export class KeyEventEngine {
    * Trigger an explicit musical rest interval.
    */
   public triggerRest(durationMs: number = 500, timestampMs?: number): void {
+    this.flushPendingKeyReleases();
     const now = timestampMs ?? this.nowProvider();
     if (this.activeNote && !this.activeNote.resolved) {
       this.commitActiveNote(now);
@@ -700,6 +891,7 @@ export class KeyEventEngine {
    * Undo / delete the last performed note or current active note.
    */
   public undoLastNote(): RawNoteSegment | null {
+    this.flushPendingKeyReleases();
     // If a note is currently held, cancel it without committing
     if (this.activeNote && !this.activeNote.resolved) {
       this.activeNote.resolved = true;
@@ -779,6 +971,8 @@ export class KeyEventEngine {
       minDurationMs: options?.minDurationMs ?? this.config.minNoteDurationMs,
       trimSilence: options?.trimSilence ?? true,
       keyboardMode: true,
+      filterOneFingerGaps: options?.filterOneFingerGaps ?? this.config.filterOneFingerGaps,
+      oneFingerMaxGapMs: options?.oneFingerMaxGapMs ?? this.config.oneFingerMaxGapMs,
     });
   }
 

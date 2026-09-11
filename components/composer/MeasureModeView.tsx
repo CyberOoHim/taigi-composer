@@ -126,7 +126,6 @@ interface MeasureModeViewProps {
   onQuickToggleMeasureDuration?: (mIdx?: number) => void;
   onScaleMeasureDuration?: (factor: 0.5 | 2.0, mIdx?: number) => void;
   onSetUniformMeasureDuration?: (duration: NoteDuration, mIdx?: number) => void;
-  onOpenHumToScore?: () => void;
   onOpenKeyboardToScore?: () => void;
 }
 
@@ -209,7 +208,6 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
   onReturnToSheet,
   onDismissKaraokeReturn,
   onDismissSheetReturn,
-  onOpenHumToScore,
   onOpenKeyboardToScore,
 }) => {
   const [hoveredSplitIndex, setHoveredSplitIndex] = useState<string | null>(null);
@@ -1279,7 +1277,6 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     canMoveContainerForward={mIdx < song.measures.length - 1}
                     onTogglePlayMeasure={onTogglePlayMeasure}
                     isPlayingMeasure={playingMeasureIdx === selectedMeasureIndex}
-                    onOpenHumToScore={onOpenHumToScore}
                     onOpenKeyboardToScore={onOpenKeyboardToScore}
                   />
                 </div>
