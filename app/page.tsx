@@ -93,7 +93,8 @@ export default function Home() {
   } | null>(null);
 
   // Persistence State
-  const [isDirty, setIsDirty] = useState(false);
+  const [savedRevision, setSavedRevision] = useState(0);
+  const isDirty = contentRevision !== savedRevision;
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [autosaveInterval, setAutosaveIntervalState] = useState<number>(0);
@@ -158,15 +159,6 @@ export default function Home() {
     setStoredCurrentSong(song);
   }, [song]);
 
-  // Dirty only when history records an edit (SET_SONG / UNDO / REDO), not bootstrap or library load.
-  useEffect(() => {
-    if (!hasInitializedRef.current) return;
-    if (contentRevision === 0) {
-      setIsDirty(false);
-      return;
-    }
-    setIsDirty(true);
-  }, [contentRevision]);
 
   const setActiveTab = useCallback((tab: ActiveTabMode) => {
     if (tab === 'editor' && audioEngine) {
@@ -199,7 +191,7 @@ export default function Home() {
       setCustomSongs(customList);
       setModifiedPresetIds(modifiedIds);
 
-      setIsDirty(false);
+      setSavedRevision(contentRevision);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2200);
     } catch (err) {
@@ -207,7 +199,7 @@ export default function Home() {
     } finally {
       setIsSaving(false);
     }
-  }, [song, isSaving]);
+  }, [song, isSaving, contentRevision]);
 
   const handleSetAutosaveInterval = useCallback((intervalMs: number) => {
     setAutosaveIntervalState(intervalMs);
@@ -235,7 +227,7 @@ export default function Home() {
 
       if (pristine && song.id === presetId) {
         loadNewSong(pristine);
-        setIsDirty(false);
+        setSavedRevision(0);
         await saveActiveSongToDB(pristine);
       }
     } catch (err) {
@@ -265,7 +257,7 @@ export default function Home() {
     }
 
     loadNewSong(freshSong);
-    setIsDirty(false);
+    setSavedRevision(0);
     setKaraokeReturnTarget(null);
     if (activeTab === 'karaoke') {
       setActiveTab('editor');
@@ -434,7 +426,7 @@ export default function Home() {
       }
 
       loadNewSong(songToLoad);
-      setIsDirty(false);
+      setSavedRevision(0);
       void saveActiveSongToDB(songToLoad);
     },
     [isDirty, song, loadNewSong]
