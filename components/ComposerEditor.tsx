@@ -98,6 +98,8 @@ interface ComposerEditorProps {
   canRedo?: boolean;
   pastCount?: number;
   futureCount?: number;
+  /** Split-view karaoke: skip per-note editor highlights at tracker FPS. */
+  suspendNoteHighlights?: boolean;
 }
 
 let uniqueIdCounter = 0;
@@ -130,6 +132,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   canRedo = false,
   pastCount = 0,
   futureCount = 0,
+  suspendNoteHighlights = false,
 }) => {
   // Edit Mode: 'note' (unified deck) vs 'sheet' (full score overview)
   const [editMode, setEditModeState] = useState<EditorEditMode>(() => {
@@ -234,6 +237,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   useEffect(() => {
     const unsub = audioEngine.subscribeState(state => {
       setIsSongPlaying(state.isPlaying);
+      if (suspendNoteHighlights && state.isPlaying) {
+        return;
+      }
       setActivePlaybackNoteId(state.isPlaying ? state.currentNoteId : null);
       if (!state.isPlaying) {
         setPlayingMeasureIdx(null);
@@ -245,7 +251,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     return () => {
       unsub();
     };
-  }, [audioEngine]);
+  }, [audioEngine, suspendNoteHighlights]);
 
   // Handle jump-to-section / target measure index request
   useEffect(() => {

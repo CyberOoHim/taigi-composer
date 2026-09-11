@@ -161,7 +161,7 @@ export const PwaManager: React.FC = () => {
       {isOffline && (
         <div
           id="pwa-offline-indicator"
-          className="fixed bottom-4 left-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/90 text-amber-400 border border-amber-500/30 text-xs font-semibold shadow-lg backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed bottom-[max(5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] left-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/90 text-amber-400 border border-amber-500/30 text-xs font-semibold shadow-lg backdrop-blur-md animate-in fade-in duration-200"
         >
           <WifiOff className="w-3.5 h-3.5" />
           <span>Offline mode: Score editing and Karaoke playback work seamlessly offline</span>
@@ -173,7 +173,7 @@ export const PwaManager: React.FC = () => {
         <aside
           id="pwa-install-banner"
           aria-label="PWA Install Prompt"
-          className="fixed bottom-4 right-4 z-50 max-w-sm w-[calc(100vw-2rem)] p-4 rounded-2xl bg-zinc-900/95 text-white border border-amber-500/40 shadow-2xl backdrop-blur-lg animate-in slide-in-from-bottom-5 duration-300"
+          className="fixed bottom-[max(5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] right-4 z-40 max-w-sm w-[calc(100vw-2rem)] p-4 rounded-2xl bg-zinc-900/95 text-white border border-amber-500/40 shadow-2xl backdrop-blur-lg animate-in slide-in-from-bottom-5 duration-300"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">

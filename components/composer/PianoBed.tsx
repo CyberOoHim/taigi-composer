@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { KeySignature, PitchNumber } from '@/types/song';
 import { midiToNumberedPitch } from '@/lib/pitch/scoreQuantizer';
 import { Sparkles, Volume2 } from 'lucide-react';
@@ -52,6 +52,8 @@ export const PianoBed: React.FC<PianoBedProps> = ({
   octaveShiftVal = 0,
 }) => {
   const isPointerDownRef = useRef<boolean>(false);
+  const activePointerIdRef = useRef<number | null>(null);
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
 
   // Octave range mapping
   const pianoOctaves = useMemo(() => {
@@ -158,83 +160,79 @@ export const PianoBed: React.FC<PianoBedProps> = ({
   // Track the last MIDI note activated via touch-glide to emit proper note-off/note-on pairs
   const lastGlideMidiRef = useRef<number | null>(null);
 
-  // Touch / Pointer Event Handlers
+  const releaseSurfaceCapture = (pointerId: number) => {
+    const surface = surfaceRef.current;
+    if (!surface) return;
+    try {
+      if (surface.hasPointerCapture?.(pointerId)) {
+        surface.releasePointerCapture(pointerId);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const endPointerContact = (pointerId?: number) => {
+    if (pointerId !== undefined && activePointerIdRef.current !== null && pointerId !== activePointerIdRef.current) {
+      return;
+    }
+    const held = lastGlideMidiRef.current;
+    if (held !== null) {
+      onNoteUp?.(held, `touch-${held}`);
+    }
+    lastGlideMidiRef.current = null;
+    isPointerDownRef.current = false;
+    if (activePointerIdRef.current !== null) {
+      releaseSurfaceCapture(activePointerIdRef.current);
+    }
+    activePointerIdRef.current = null;
+  };
+
   const handleKeyPointerDown = (e: React.PointerEvent, midi: number) => {
     if (disabled) return;
+    e.preventDefault();
     isPointerDownRef.current = true;
+    activePointerIdRef.current = e.pointerId;
     lastGlideMidiRef.current = midi;
     try {
-      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    } catch {}
+      surfaceRef.current?.setPointerCapture?.(e.pointerId);
+    } catch {
+      // ignore
+    }
     onNoteDown?.(midi, `touch-${midi}`);
   };
 
-  const handleKeyPointerUp = (e: React.PointerEvent, midi: number) => {
-    if (disabled) return;
-    isPointerDownRef.current = false;
-    lastGlideMidiRef.current = null;
-    try {
-      if ((e.currentTarget as HTMLElement).hasPointerCapture?.(e.pointerId)) {
-        (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-      }
-    } catch {}
-    onNoteUp?.(midi, `touch-${midi}`);
-  };
-
-  const handleKeyPointerCancel = (e: React.PointerEvent, midi: number) => {
-    if (disabled) return;
-    isPointerDownRef.current = false;
-    lastGlideMidiRef.current = null;
-    try {
-      if ((e.currentTarget as HTMLElement).hasPointerCapture?.(e.pointerId)) {
-        (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-      }
-    } catch {}
-    onNoteUp?.(midi, `touch-${midi}`);
-  };
-
   const handleKeyPointerEnter = (e: React.PointerEvent, midi: number) => {
-    if (disabled) return;
-    if (isPointerDownRef.current && e.buttons > 0) {
-      onNoteDown?.(midi, `touch-${midi}`);
+    if (disabled || !isPointerDownRef.current) return;
+    if (lastGlideMidiRef.current === midi) return;
+    if (lastGlideMidiRef.current !== null) {
+      onNoteUp?.(lastGlideMidiRef.current, `touch-${lastGlideMidiRef.current}`);
     }
-  };
-
-  const handleKeyPointerLeave = (e: React.PointerEvent, midi: number) => {
-    if (disabled) return;
-    try {
-      if ((e.currentTarget as HTMLElement).hasPointerCapture?.(e.pointerId)) {
-        return;
-      }
-    } catch {}
-    onNoteUp?.(midi, `touch-${midi}`);
+    lastGlideMidiRef.current = midi;
+    onNoteDown?.(midi, `touch-${midi}`);
   };
 
   /**
-   * Touch glissando handler for the piano surface container.
-   * On iOS/Android, dragging across sibling elements does NOT fire pointerenter on them.
-   * We use elementFromPoint to resolve the actual key element under the touch and
-   * synthesize proper note-off / note-on transitions as the finger slides.
+   * Touch glissando: iPad Safari often reports buttons === 0 on pointermove,
+   * and recapturing every frame can emit pointercancel. Capture once on the
+   * surface and resolve keys with elementFromPoint.
    */
-  const handleSurfacePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled || !isPointerDownRef.current || e.buttons === 0) return;
-
-    const surface = e.currentTarget as HTMLElement;
-    const hadCapture = surface.hasPointerCapture?.(e.pointerId) ?? false;
-    if (hadCapture) {
-      try {
-        surface.releasePointerCapture(e.pointerId);
-      } catch {}
+  const handleSurfacePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    isPointerDownRef.current = true;
+    activePointerIdRef.current = e.pointerId;
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    } catch {
+      // ignore
     }
+  };
+
+  const handleSurfacePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (disabled || !isPointerDownRef.current) return;
+    if (activePointerIdRef.current !== null && e.pointerId !== activePointerIdRef.current) return;
 
     const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-
-    if (hadCapture) {
-      try {
-        surface.setPointerCapture(e.pointerId);
-      } catch {}
-    }
-
     if (!target) return;
     const midiStr = target.dataset.midi ?? target.closest('[data-midi]')?.getAttribute('data-midi');
     if (!midiStr) return;
@@ -247,6 +245,21 @@ export const PianoBed: React.FC<PianoBedProps> = ({
     lastGlideMidiRef.current = midi;
     onNoteDown?.(midi, `touch-${midi}`);
   };
+
+  const handleSurfacePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    endPointerContact(e.pointerId);
+  };
+
+  useEffect(() => {
+    const handleBlur = () => endPointerContact();
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      endPointerContact();
+    };
+    // endPointerContact reads latest refs; run once per mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
@@ -306,9 +319,13 @@ export const PianoBed: React.FC<PianoBedProps> = ({
       {/* On-screen Piano Bed */}
       <div
         id="piano-bed-surface"
+        ref={surfaceRef}
         className="relative select-none touch-none w-full bg-zinc-900/90 p-2.5 rounded-2xl border border-zinc-800 shadow-inner overflow-x-auto"
         style={{ minHeight: '170px' }}
+        onPointerDown={handleSurfacePointerDown}
         onPointerMove={handleSurfacePointerMove}
+        onPointerUp={handleSurfacePointerUp}
+        onPointerCancel={handleSurfacePointerUp}
       >
         {/* White Keys Row */}
         <div className="flex w-full h-40 sm:h-44 relative">
@@ -320,24 +337,10 @@ export const PianoBed: React.FC<PianoBedProps> = ({
                 key={`wk-${wk.midi}`}
                 data-midi={wk.midi}
                 onPointerDown={e => {
-                  e.preventDefault();
                   handleKeyPointerDown(e, wk.midi);
                 }}
-                onPointerUp={e => {
-                  e.preventDefault();
-                  handleKeyPointerUp(e, wk.midi);
-                }}
-                onPointerCancel={e => {
-                  e.preventDefault();
-                  handleKeyPointerCancel(e, wk.midi);
-                }}
                 onPointerEnter={e => {
-                  e.preventDefault();
                   handleKeyPointerEnter(e, wk.midi);
-                }}
-                onPointerLeave={e => {
-                  e.preventDefault();
-                  handleKeyPointerLeave(e, wk.midi);
                 }}
                 onContextMenu={e => e.preventDefault()}
                 className={`flex-1 flex flex-col justify-end items-center pb-2 border-r border-zinc-300 dark:border-zinc-800 rounded-b-lg cursor-pointer select-none touch-none transition-all duration-75 relative ${
@@ -384,27 +387,10 @@ export const PianoBed: React.FC<PianoBedProps> = ({
                   key={`bk-${bk.midi}`}
                   data-midi={bk.midi}
                   onPointerDown={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
                     handleKeyPointerDown(e, bk.midi);
                   }}
-                  onPointerUp={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleKeyPointerUp(e, bk.midi);
-                  }}
-                  onPointerCancel={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleKeyPointerCancel(e, bk.midi);
-                  }}
                   onPointerEnter={e => {
-                    e.preventDefault();
                     handleKeyPointerEnter(e, bk.midi);
-                  }}
-                  onPointerLeave={e => {
-                    e.preventDefault();
-                    handleKeyPointerLeave(e, bk.midi);
                   }}
                   onContextMenu={e => e.preventDefault()}
                   style={{

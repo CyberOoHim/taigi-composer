@@ -1242,5 +1242,30 @@ describe('Stage 5: 3-Beat Countdown & Key Press Duration to Beat Length Mapping'
     assert.equal(res5p0.measures[1].notes[0].duration, 1);
     assert.equal(res5p0.measures[1].notes[0].tieToNext, false);
   });
+
+  it('pauseRecording does not insert a rest for the paused interval', () => {
+    const clock = new VirtualClock();
+    const engine = new KeyEventEngine({ bpm: 120, restThresholdMs: 80 }, undefined, clock.now);
+
+    engine.startRecording(clock.now());
+    engine.noteOn(60, 0.85, clock.now());
+    clock.advance(500);
+    engine.noteOff(60, clock.now());
+
+    engine.pauseRecording(clock.now());
+    clock.advance(4000);
+    engine.resumeRecording(clock.now());
+
+    engine.noteOn(62, 0.85, clock.now());
+    clock.advance(500);
+    engine.noteOff(62, clock.now());
+
+    const segs = engine.getSegments();
+    const pitched = segs.filter(s => s.midi !== null);
+    const rests = segs.filter(s => s.midi === null);
+    assert.equal(pitched.length, 2);
+    assert.equal(rests.length, 0, 'paused gap must not become a rest');
+    assert.ok(pitched[1].startTimeMs < 700, 'second note should follow the first without the 4s pause');
+  });
 });
 

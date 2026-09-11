@@ -107,7 +107,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#10121a]/95 backdrop-blur-md border-b border-zinc-200/90 dark:border-zinc-800/80 shadow-xs transition-colors select-none pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
+    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#10121a]/95 backdrop-blur-md eco-flat-shadow border-b border-zinc-200/90 dark:border-zinc-800/80 shadow-xs transition-colors select-none pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
       <div className="w-full max-w-[1600px] mx-auto px-2 sm:px-4 lg:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
         {/* Left: Studio Brand & Active Song Status */}
         <div className="flex items-center gap-2 shrink-0">
@@ -280,7 +280,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               )}
             </button>
 
-            {/* Eco / Power Saving Mode (iPad Battery Monitor) */}
+            {/* Eco / Power Saving Mode. Battery % is Chromium-only (not iPad Safari). */}
             {onToggleEcoMode && (
               <button
                 id="header-toggle-eco-mode-btn"
@@ -293,12 +293,15 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 }`}
                 title={
                   isEcoMode
-                    ? `Eco Mode Active (lighter audio, no wake lock, reduced GPU)${typeof batteryLevel === 'number' ? ` · Battery ${Math.round(batteryLevel * 100)}%` : ''}`
-                    : `Enable Eco Mode (lighter audio, screen may sleep, reduced GPU)${typeof batteryLevel === 'number' ? ` · Battery ${Math.round(batteryLevel * 100)}%` : ''}`
+                    ? `Eco 已開啟：較輕音訊、螢幕可能休眠、降低 GPU${typeof batteryLevel === 'number' ? ` · 電量 ${Math.round(batteryLevel * 100)}%` : ''}`
+                    : `開啟 Eco：較輕音訊、螢幕可能休眠、降低 GPU${typeof batteryLevel === 'number' ? ` · 電量 ${Math.round(batteryLevel * 100)}%` : ''}`
                 }
               >
                 <Leaf className={`w-3.5 h-3.5 shrink-0 ${isEcoMode ? 'text-emerald-500 fill-emerald-500' : 'text-zinc-400'}`} />
                 <span className="whitespace-nowrap">{isEcoMode ? 'Eco ON' : 'Eco'}</span>
+                <span className="hidden md:inline text-[10px] font-medium opacity-80">
+                  {isEcoMode ? '螢幕可休眠' : '開啟後螢幕可休眠'}
+                </span>
                 {typeof batteryLevel === 'number' && (
                   <span className="text-[11px] font-mono inline-flex items-center gap-1 text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
                     {isCharging ? (

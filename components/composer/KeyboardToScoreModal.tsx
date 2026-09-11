@@ -137,10 +137,18 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
   const keyEngineRef = useRef<KeyEventEngine | null>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
+  const recordingAudioOriginRef = useRef<number | null>(null);
+  const recordingSecondsRef = useRef(0);
   const metronomeStopRef = useRef<(() => void) | null>(null);
   const metronomePulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audibleClickRef = useRef<boolean>(audibleClickDuringRecording);
   const rawPlaybackTimersRef = useRef<number[]>([]);
+  const pauseFinishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isRecordingPaused, setIsRecordingPaused] = useState(false);
+  const [isPageVisible, setIsPageVisible] = useState(
+    () => typeof document === 'undefined' || !document.hidden
+  );
+  const isRecordingPausedRef = useRef(false);
 
   // Closure-safe parameter refs for live callbacks
   const activeKeyRef = useRef(activeKey);
@@ -185,6 +193,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       if (!keyEngineRef.current) return;
 
       if (step === 'RECORDING') {
+        if (isRecordingPausedRef.current) return;
         keyEngineRef.current.handleMidiMessage(event);
       } else {
         // Audition note without modifying performance buffer
@@ -395,7 +404,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
 
   // Visual metronome preview pulse in SETUP step (audio-clock lookahead, not setInterval-per-beat)
   useEffect(() => {
-    if (step !== 'SETUP' || !isOpen) return;
+    if (step !== 'SETUP' || !isOpen || !isPageVisible) return;
     const beatsPerBar = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
     audioEngine.initContext();
     const usingAudio = audioEngine.getAudioContextState() === 'running';
@@ -421,7 +430,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       stop();
       if (pulseTimeout) clearTimeout(pulseTimeout);
     };
-  }, [step, isOpen, activeTimeSignature, activeBpm, audioEngine]);
+  }, [step, isOpen, isPageVisible, activeTimeSignature, activeBpm, audioEngine]);
 
   // Clean up all audio audition and tickers
   const stopAllPlayback = useCallback(() => {
@@ -444,6 +453,12 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
     }
+    if (pauseFinishTimerRef.current) {
+      clearTimeout(pauseFinishTimerRef.current);
+      pauseFinishTimerRef.current = null;
+    }
+    isRecordingPausedRef.current = false;
+    setIsRecordingPaused(false);
     if (metronomePulseTimeoutRef.current) {
       clearTimeout(metronomePulseTimeoutRef.current);
       metronomePulseTimeoutRef.current = null;
@@ -495,6 +510,9 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     audioEngine.initContext();
     audioEngine.cancelAutoSuspend();
     const originSec = startAudioTime ?? audioEngine.getAudioContextTime();
+    recordingAudioOriginRef.current = originSec;
+    setIsRecordingPaused(false);
+    isRecordingPausedRef.current = false;
 
     const engine = keyEngineRef.current;
     if (engine) {
@@ -502,14 +520,18 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     }
 
     recordingStartTimeRef.current = performance.now();
+    recordingSecondsRef.current = 0;
 
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
     }
     recordingTimerRef.current = setInterval(() => {
+      if (isRecordingPausedRef.current) return;
       const elapsed = (performance.now() - recordingStartTimeRef.current) / 1000;
-      setRecordingSeconds(Math.round(elapsed * 10) / 10);
+      const rounded = Math.round(elapsed * 10) / 10;
+      recordingSecondsRef.current = rounded;
+      setRecordingSeconds(rounded);
     }, 100);
 
     if (metronomeStopRef.current) {
@@ -586,6 +608,13 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     beginActiveRecording,
   ]);
 
+  const clearPauseFinishTimer = useCallback(() => {
+    if (pauseFinishTimerRef.current) {
+      clearTimeout(pauseFinishTimerRef.current);
+      pauseFinishTimerRef.current = null;
+    }
+  }, []);
+
   // Finish recording and transcribe
   const handleFinishRecording = useCallback(() => {
     stopAllPipelines();
@@ -609,6 +638,9 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
 
     setTranscriptionResult(result);
     setStep('REVIEW');
+    setIsRecordingPaused(false);
+    isRecordingPausedRef.current = false;
+    clearPauseFinishTimer();
   }, [
     stopAllPipelines,
     activeKey,
@@ -618,21 +650,76 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     allowTriplets,
     octaveShiftVal,
     accidentalPref,
+    clearPauseFinishTimer,
   ]);
 
-  // Page Visibility API handler: auto-finish recording if page goes to background
+  const pauseRecordingSession = useCallback(() => {
+    if (step !== 'RECORDING' || isRecordingPausedRef.current) return;
+    isRecordingPausedRef.current = true;
+    setIsRecordingPaused(true);
+    keyEngineRef.current?.pauseRecording();
+    if (metronomeStopRef.current) {
+      metronomeStopRef.current();
+      metronomeStopRef.current = null;
+    }
+    void wakeLockManager.release();
+    clearPauseFinishTimer();
+    pauseFinishTimerRef.current = setTimeout(() => {
+      pauseFinishTimerRef.current = null;
+      handleFinishRecording();
+    }, 3 * 60 * 1000);
+  }, [step, clearPauseFinishTimer, handleFinishRecording]);
+
+  const resumeRecordingSession = useCallback(() => {
+    if (!isRecordingPausedRef.current) return;
+    clearPauseFinishTimer();
+    audioEngine.unlockOnUserGesture();
+    audioEngine.cancelAutoSuspend();
+    void wakeLockManager.request();
+    keyEngineRef.current?.resumeRecording();
+
+    recordingStartTimeRef.current = performance.now() - recordingSecondsRef.current * 1000;
+    isRecordingPausedRef.current = false;
+    setIsRecordingPaused(false);
+
+    const beatsPerBar = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
+    const originSec = recordingAudioOriginRef.current ?? audioEngine.getAudioContextTime();
+    metronomeStopRef.current = startAudioClockMetronome({
+      getCurrentTime: () => audioEngine.getAudioContextTime(),
+      startAt: originSec,
+      bpm: activeBpm,
+      beatsPerBar,
+      shouldClick: () => audibleClickRef.current,
+      scheduleClick: (when, isDownbeat) => {
+        audioEngine.scheduleMetronomeTick(when, isDownbeat);
+      },
+      scheduleCallback: (when, cb) => audioEngine.scheduleAudioCallback(when, cb),
+      onBeat: ({ beatInBar, isDownbeat }) => {
+        audioEngine.cancelAutoSuspend();
+        flashMetronomeBeat(beatInBar, isDownbeat);
+      },
+    });
+  }, [audioEngine, activeTimeSignature, activeBpm, flashMetronomeBeat, clearPauseFinishTimer]);
+
+  // Pause (do not auto-finish) recording when the tab/app is hidden.
   useEffect(() => {
     if (!isOpen) return;
     const handleVisibilityChange = () => {
-      if (document.hidden && step === 'RECORDING') {
-        handleFinishRecording();
+      const hidden = document.hidden;
+      setIsPageVisible(!hidden);
+      if (!hidden) return;
+      if (step === 'RECORDING') {
+        pauseRecordingSession();
+      } else if (step === 'COUNTING_IN') {
+        stopAllPipelines();
+        setStep('SETUP');
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isOpen, step, handleFinishRecording]);
+  }, [isOpen, step, pauseRecordingSession, stopAllPipelines]);
 
   // Re-transcribe with new options during Review
   const retranscribeCurrent = useCallback(
@@ -718,6 +805,13 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       }
 
       if (step === 'RECORDING') {
+        if (isRecordingPausedRef.current) {
+          if (e.code === 'Space' || e.code === 'Enter') {
+            e.preventDefault();
+            resumeRecordingSession();
+          }
+          return;
+        }
         if (e.code === 'Enter') {
           e.preventDefault();
           handleFinishRecording();
@@ -765,6 +859,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     step,
     startRecordingFlow,
     handleFinishRecording,
+    resumeRecordingSession,
     stopAllPipelines,
     onClose,
     qwertyMappingMode,
@@ -888,6 +983,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
   const handlePianoNoteDown = useCallback(
     (midi: number, sourceId?: string) => {
       if (step === 'RECORDING') {
+        if (isRecordingPausedRef.current) return;
         if (keyEngineRef.current) {
           keyEngineRef.current.noteOn(midi, 0.9, undefined, sourceId);
         }
@@ -1336,7 +1432,18 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
           {/* STEP 2: COUNT-IN / RECORDING INTEGRATED STUDIO VIEW                        */}
           {/* ========================================================================= */}
           {(step === 'COUNTING_IN' || step === 'RECORDING') && (
-            <div className="flex flex-col gap-4 animate-in fade-in duration-150">
+            <div className="relative flex flex-col gap-4 animate-in fade-in duration-150">
+              {isRecordingPaused && step === 'RECORDING' && (
+                <button
+                  type="button"
+                  onClick={resumeRecordingSession}
+                  className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/80 text-white cursor-pointer touch-manipulation"
+                >
+                  <Pause className="w-10 h-10 text-amber-400" />
+                  <span className="text-base font-black">錄音已暫停</span>
+                  <span className="text-xs text-zinc-300">點擊繼續 · recording paused — tap to continue</span>
+                </button>
+              )}
               {/* Telemetry & Metronome Status Bar */}
               <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-zinc-900 text-white rounded-2xl border border-zinc-800 shadow-md">
                 {step === 'COUNTING_IN' ? (
@@ -1527,7 +1634,8 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                   activeMidiSet={activeMidiSet}
                   onNoteDown={handlePianoNoteDown}
                   onNoteUp={handlePianoNoteUp}
-                  isRecording={step === 'RECORDING'}
+                  isRecording={step === 'RECORDING' && !isRecordingPaused}
+                  disabled={isRecordingPaused}
                   octaveShiftVal={octaveShiftVal}
                 />
               </div>

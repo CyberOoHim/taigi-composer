@@ -28,7 +28,24 @@ export interface AudioEngineOptions {
   loopMeasure?: number | null; // index of measure to loop, or null
   loopRange?: LoopRange | null; // A-B loop range, or null
   targetFps?: number;       // Target frame rate for UI updates (e.g. 30 normal, 20 eco)
-  ecoMode?: boolean;        // Reduced oscillator graph, skip backing/metronome
+  ecoMode?: boolean;        // 1-osc melody, downbeat-only metronome, thinned chords, lookahead scheduler
+}
+
+export type PlaybackEndedReason = 'song' | 'preview';
+
+interface PendingMelodyEvent {
+  songTime: number;
+  note: NumberedNotationNote;
+  soundDuration: number;
+  isSlurred: boolean;
+}
+
+interface PendingBeatEvent {
+  songTime: number;
+  isDownbeat: boolean;
+  chord: string | null;
+  isChordChange: boolean;
+  beatDuration: number;
 }
 
 export class AudioEngine {
@@ -60,13 +77,23 @@ export class AudioEngine {
   private pausedSongTime = 0;
   private animationFrameId: number | null = null;
   private scheduledTimeoutIds: number[] = [];
+  private scheduledCancels: Array<() => void> = [];
   private activeOscillators: OscillatorNode[] = [];
   private idleSuspendTimer: ReturnType<typeof setTimeout> | null = null;
   private trackingTimerId: ReturnType<typeof setTimeout> | null = null;
+  private schedulerTimerId: ReturnType<typeof setTimeout> | null = null;
+  private pendingMelodyEvents: PendingMelodyEvent[] = [];
+  private pendingBeatEvents: PendingBeatEvent[] = [];
+  private melodyScheduleCursor = 0;
+  private beatScheduleCursor = 0;
+  private playbackEndedReason: PlaybackEndedReason = 'song';
+
+  private static readonly AUDIO_LOOKAHEAD_SEC = 0.32;
+  private static readonly SCHEDULER_INTERVAL_MS = 50;
 
   // Listeners
   private stateListeners: ((state: PlaybackState) => void)[] = [];
-  private endedListeners: (() => void)[] = [];
+  private endedListeners: ((info: { reason: PlaybackEndedReason }) => void)[] = [];
   private tabInterruptionListeners: ((info: { pausedAtTime: number }) => void)[] = [];
   public onNoteStart?: (measureIndex: number, noteIndex: number, note: NumberedNotationNote, durationSec: number) => void;
   public onMeasureStart?: (measureIndex: number) => void;
@@ -115,7 +142,7 @@ export class AudioEngine {
     };
   }
 
-  public subscribeEnded(listener: () => void): () => void {
+  public subscribeEnded(listener: (info: { reason: PlaybackEndedReason }) => void): () => void {
     this.endedListeners.push(listener);
     return () => {
       this.endedListeners = this.endedListeners.filter(l => l !== listener);
@@ -147,7 +174,8 @@ export class AudioEngine {
   }
 
   private notifyEnded() {
-    this.endedListeners.forEach(l => l());
+    const reason = this.playbackEndedReason;
+    this.endedListeners.forEach(l => l({ reason }));
   }
 
   /**
@@ -270,6 +298,7 @@ export class AudioEngine {
       this.isPaused = true;
       this.stopAudioNodes();
       this.cancelTrackingLoop();
+      this.clearPlaybackSchedule();
       this.scheduledTimeoutIds.forEach(id => clearTimeout(id));
       this.scheduledTimeoutIds = [];
 
@@ -785,6 +814,23 @@ export class AudioEngine {
     if (options?.glideFromFreq && options.glideFromFreq > 0) {
       osc.frequency.setValueAtTime(options.glideFromFreq, startTime);
       osc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
+    }
+
+    // Eco: one oscillator, no filter / extra partials / LFO. Cuts the iPad audio graph ~4x.
+    if (this.options.ecoMode) {
+      osc.type = instrument === 'flute' || instrument === 'whistle' ? 'sine' : 'triangle';
+      if (!options?.glideFromFreq) {
+        osc.frequency.setValueAtTime(freq, startTime);
+      }
+      gain.gain.setValueAtTime(0.0001, startTime);
+      const ecoAttack = isLegato ? 0.016 : 0.008;
+      gain.gain.linearRampToValueAtTime(0.78 * volMul, startTime + ecoAttack);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+      osc.connect(gain);
+      gain.connect(destination);
+      osc.start(startTime);
+      osc.stop(startTime + effectiveDuration + 0.05);
+      return;
     }
 
     switch (instrument) {
@@ -1372,6 +1418,7 @@ export class AudioEngine {
     this.isPlaying = true;
     this.isPaused = false;
     this.pausedSongTime = 0;
+    this.playbackEndedReason = 'preview';
 
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
     const secPerBeat = 60 / effectiveBpm;
@@ -1463,7 +1510,9 @@ export class AudioEngine {
     const measureChords = getEffectiveMeasureChords(song, measureIndex);
     for (let b = 0; b < beatsPerBar; b++) {
       const beatTime = audioStart + b * secPerBeat;
-      this.playMetronomeClick(beatTime, b === 0);
+      if (!this.options.ecoMode || b === 0) {
+        this.playMetronomeClick(beatTime, b === 0);
+      }
       if (measureChords.length > 0) {
         const chordIdx = Math.min(
           measureChords.length - 1,
@@ -1503,6 +1552,7 @@ export class AudioEngine {
     this.isPlaying = true;
     this.isPaused = false;
     this.pausedSongTime = 0;
+    this.playbackEndedReason = 'preview';
 
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
     const secPerBeat = 60 / effectiveBpm;
@@ -1621,7 +1671,9 @@ export class AudioEngine {
 
       for (let b = 0; b < beatsPerBar; b++) {
         const beatTime = audioStart + measureAccumTime + b * secPerBeat;
-        this.playMetronomeClick(beatTime, b === 0);
+        if (!this.options.ecoMode || b === 0) {
+          this.playMetronomeClick(beatTime, b === 0);
+        }
         if (measureChords.length > 0) {
           const chordIdx = Math.min(
             measureChords.length - 1,
@@ -1674,6 +1726,7 @@ export class AudioEngine {
     this.isPlaying = true;
     this.isPaused = false;
     this.pausedSongTime = 0;
+    this.playbackEndedReason = 'preview';
 
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
     const secPerBeat = 60 / effectiveBpm;
@@ -1774,7 +1827,9 @@ export class AudioEngine {
 
       for (let b = 0; b < beatsPerBar; b++) {
         const beatTime = audioStart + mStartTimeSec + b * secPerBeat;
-        this.playMetronomeClick(beatTime, b === 0);
+        if (!this.options.ecoMode || b === 0) {
+          this.playMetronomeClick(beatTime, b === 0);
+        }
 
         if (measureChords.length > 0) {
           const chordIdx = Math.min(
@@ -1883,20 +1938,19 @@ export class AudioEngine {
       osc.start(scheduleAt);
       osc.stop(scheduleAt + 0.07);
 
-      // Schedule UI callback for visual flashing dot
-      const delayMs = Math.max(0, (scheduleAt - this.ctx.currentTime) * 1000);
-      const timerId = setTimeout(() => {
-        onBeat(b + 1, beatsPerBar);
-      }, delayMs);
-      this.scheduledTimeoutIds.push(timerId as unknown as number);
+      // Schedule UI callback for visual flashing dot on the audio clock
+      this.scheduledCancels.push(
+        this.scheduleAudioCallback(scheduleAt, () => {
+          onBeat(b + 1, beatsPerBar);
+        })
+      );
     }
 
-    // Schedule finish callback right when count-in measure completes
+    // Schedule finish callback on the AudioContext clock (not wall-clock setTimeout)
     const totalLeadInSec = beatsPerBar * secPerBeat;
-    const finishTimer = setTimeout(() => {
-      onFinished();
-    }, totalLeadInSec * 1000);
-    this.scheduledTimeoutIds.push(finishTimer as unknown as number);
+    this.scheduledCancels.push(
+      this.scheduleAudioCallback(audioStart + totalLeadInSec, onFinished)
+    );
   }
 
   /**
@@ -1912,6 +1966,7 @@ export class AudioEngine {
     this.isPlaying = true;
     this.isPaused = false;
     this.pausedSongTime = startFromSec;
+    this.playbackEndedReason = 'song';
 
     const totalDuration = this.calculateSongDuration(song);
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
@@ -1994,6 +2049,11 @@ export class AudioEngine {
       combinedSoundDurations[i] = durSec;
     }
 
+    this.pendingMelodyEvents = [];
+    this.pendingBeatEvents = [];
+    this.melodyScheduleCursor = 0;
+    this.beatScheduleCursor = 0;
+
     let flatCursor = 0;
     song.measures.forEach((measure, mIdx) => {
       let measureTime = accumulatedSongTime;
@@ -2010,28 +2070,19 @@ export class AudioEngine {
         const noteDurationSec = fn.noteDurationSec;
         const noteStartTime = measureTime;
 
-        // Schedule melody note if it starts at or after our playback cursor
-        if (!isNonNotation && note.duration > 0) {
-          if (!isTiedContinuation[currentFlatIdx]) {
-            const soundDuration = combinedSoundDurations[currentFlatIdx] || noteDurationSec;
-            if (noteStartTime + soundDuration >= startFromSec) {
-              const scheduleAt = this.startAudioTime + noteStartTime;
-              if (scheduleAt >= this.ctx!.currentTime) {
-                const nextFn = flatSongNotes[currentFlatIdx + 1];
-                const prevFn = currentFlatIdx > 0 ? flatSongNotes[currentFlatIdx - 1] : null;
-                const isSlurred = isSlurActive(note, nextFn?.note) || (prevFn ? isSlurActive(prevFn.note, note) : false);
-
-                this.playMelodyNoteWithDetails(
-                  song.key,
-                  note,
-                  scheduleAt,
-                  soundDuration,
-                  this.melodyGain!,
-                  note.instrument || this.options.instrument,
-                  { isLegato: isSlurred }
-                );
-              }
-            }
+        // Queue melody notes; the lookahead scheduler creates Web Audio nodes in a 320ms window
+        if (!isNonNotation && note.duration > 0 && !isTiedContinuation[currentFlatIdx]) {
+          const soundDuration = combinedSoundDurations[currentFlatIdx] || noteDurationSec;
+          if (noteStartTime + soundDuration >= startFromSec) {
+            const nextFn = flatSongNotes[currentFlatIdx + 1];
+            const prevFn = currentFlatIdx > 0 ? flatSongNotes[currentFlatIdx - 1] : null;
+            const isSlurred = isSlurActive(note, nextFn?.note) || (prevFn ? isSlurActive(prevFn.note, note) : false);
+            this.pendingMelodyEvents.push({
+              songTime: noteStartTime,
+              note,
+              soundDuration,
+              isSlurred,
+            });
           }
         }
 
@@ -2049,34 +2100,114 @@ export class AudioEngine {
         }
       });
 
-      // Schedule chord backing and metronome per beat of this measure
       const measureChords = getEffectiveMeasureChords(song, mIdx);
       for (let b = 0; b < beatsPerBar; b++) {
         const beatTime = accumulatedSongTime + b * secPerBeat;
         if (beatTime >= startFromSec) {
-          const scheduleAt = this.startAudioTime + beatTime;
-          if (scheduleAt >= this.ctx!.currentTime) {
-            // Metronome
-            this.playMetronomeClick(scheduleAt, b === 0);
-            // Chord backing
-            if (measureChords.length > 0) {
-              const chordIdx = Math.min(
-                measureChords.length - 1,
-                Math.floor((b / beatsPerBar) * measureChords.length)
-              );
-              const currentChord = measureChords[chordIdx];
-              const isChordChange = b === 0 || chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length);
-              this.playChordBeat(currentChord, scheduleAt, secPerBeat, isChordChange);
-            }
-          }
+          const chordIdx =
+            measureChords.length > 0
+              ? Math.min(
+                  measureChords.length - 1,
+                  Math.floor((b / beatsPerBar) * measureChords.length)
+                )
+              : 0;
+          const currentChord = measureChords.length > 0 ? measureChords[chordIdx] : null;
+          const isChordChange =
+            b === 0 ||
+            (measureChords.length > 0 &&
+              chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length));
+          this.pendingBeatEvents.push({
+            songTime: beatTime,
+            isDownbeat: b === 0,
+            chord: currentChord,
+            isChordChange,
+            beatDuration: secPerBeat,
+          });
         }
       }
 
       accumulatedSongTime += measureBeatsCount * secPerBeat;
     });
 
-    // Start UI update animation loop
     this.startTrackingLoop(totalDuration, timelineEvents);
+    this.scheduleLookahead();
+    this.startSchedulerLoop();
+  }
+
+  private scheduleLookahead() {
+    if (!this.isPlaying || !this.ctx || !this.currentSong || !this.melodyGain) return;
+
+    const audioNow = this.ctx.currentTime;
+    const horizon = audioNow - this.startAudioTime + AudioEngine.AUDIO_LOOKAHEAD_SEC;
+    const isEco = Boolean(this.options.ecoMode);
+    const song = this.currentSong;
+
+    while (this.melodyScheduleCursor < this.pendingMelodyEvents.length) {
+      const ev = this.pendingMelodyEvents[this.melodyScheduleCursor];
+      if (ev.songTime > horizon) break;
+      const scheduleAt = this.startAudioTime + ev.songTime;
+      if (scheduleAt >= audioNow - 0.01) {
+        this.playMelodyNoteWithDetails(
+          song.key,
+          ev.note,
+          scheduleAt,
+          ev.soundDuration,
+          this.melodyGain,
+          ev.note.instrument || this.options.instrument,
+          { isLegato: ev.isSlurred }
+        );
+      }
+      this.melodyScheduleCursor += 1;
+    }
+
+    while (this.beatScheduleCursor < this.pendingBeatEvents.length) {
+      const ev = this.pendingBeatEvents[this.beatScheduleCursor];
+      if (ev.songTime > horizon) break;
+      const scheduleAt = this.startAudioTime + ev.songTime;
+      if (scheduleAt >= audioNow - 0.01) {
+        if (!isEco || ev.isDownbeat) {
+          this.playMetronomeClick(scheduleAt, ev.isDownbeat);
+        }
+        if (ev.chord) {
+          this.playChordBeat(ev.chord, scheduleAt, ev.beatDuration, ev.isChordChange);
+        }
+      }
+      this.beatScheduleCursor += 1;
+    }
+  }
+
+  private startSchedulerLoop() {
+    this.cancelSchedulerTimer();
+    const tick = () => {
+      this.schedulerTimerId = null;
+      if (!this.isPlaying) return;
+      this.scheduleLookahead();
+      this.schedulerTimerId = setTimeout(tick, AudioEngine.SCHEDULER_INTERVAL_MS);
+    };
+    this.schedulerTimerId = setTimeout(tick, AudioEngine.SCHEDULER_INTERVAL_MS);
+  }
+
+  private cancelSchedulerTimer() {
+    if (this.schedulerTimerId !== null) {
+      clearTimeout(this.schedulerTimerId);
+      this.schedulerTimerId = null;
+    }
+  }
+
+  private clearPlaybackSchedule() {
+    this.cancelSchedulerTimer();
+    this.pendingMelodyEvents = [];
+    this.pendingBeatEvents = [];
+    this.melodyScheduleCursor = 0;
+    this.beatScheduleCursor = 0;
+    for (const cancel of this.scheduledCancels) {
+      try {
+        cancel();
+      } catch {
+        // already cancelled
+      }
+    }
+    this.scheduledCancels = [];
   }
 
   private startTrackingLoop(
@@ -2198,6 +2329,7 @@ export class AudioEngine {
     this.wasInterruptedByTabSwitch = false;
     this.stopAudioNodes();
     this.cancelTrackingLoop();
+    this.clearPlaybackSchedule();
     this.scheduledTimeoutIds.forEach(id => clearTimeout(id));
     this.scheduledTimeoutIds = [];
 
@@ -2237,6 +2369,7 @@ export class AudioEngine {
     this.wasInterruptedByTabSwitch = false;
     this.stopAudioNodes();
     this.cancelTrackingLoop();
+    this.clearPlaybackSchedule();
     this.scheduledTimeoutIds.forEach(id => clearTimeout(id));
     this.scheduledTimeoutIds = [];
 
@@ -2376,6 +2509,7 @@ export class AudioEngine {
     const wasPlaying = this.isPlaying;
     this.stopAudioNodes();
     this.cancelTrackingLoop();
+    this.clearPlaybackSchedule();
     this.currentSong = song;
     this.pausedSongTime = targetTimeSec;
 

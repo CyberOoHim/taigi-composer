@@ -54,6 +54,10 @@ html, body {
   -webkit-backdrop-filter: none !important;
 }
 
+.eco-mode header {
+  box-shadow: none !important;
+}
+
 /* Hide GPU-heavy ambient background blur orbs */
 .eco-mode .eco-hide-ambient {
   display: none !important;
@@ -117,6 +121,13 @@ html, body {
 }
 
 /* Music Stand / Stage Mode Overlay helper */
+/* Hide install/offline chrome during karaoke stage so it is not in the hit target */
+.stage-mode-active #pwa-install-banner,
+.stage-mode-active #pwa-offline-indicator,
+.stage-mode-active #pwa-update-indicator {
+  display: none !important;
+}
+
 .stage-mode-active {
   overscroll-behavior: none;
   touch-action: pan-y;

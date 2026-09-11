@@ -1,5 +1,5 @@
 // Taigi Composer & Karaoke Studio Service Worker
-const CACHE_NAME = 'taigi-composer-cache-v1';
+const CACHE_NAME = 'taigi-composer-cache-v2';
 
 const PRECACHE_RESOURCES = [
   './',

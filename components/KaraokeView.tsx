@@ -9,6 +9,7 @@ import { KaraokeStage } from './karaoke/KaraokeStage';
 import { KaraokeControls } from './karaoke/KaraokeControls';
 import { AbLoopRehearsalBar, AbLoopState } from './karaoke/AbLoopRehearsalBar';
 import { wakeLockManager } from '@/lib/wakeLock';
+import { prefersReducedMotion, supportsBatteryApi, supportsNativeFullscreen } from '@/lib/device';
 import {
   getStoredInstrument,
   setStoredInstrument,
@@ -39,6 +40,9 @@ import {
   KaraokeStageTheme,
   KaraokeLayoutMode,
   KaraokeLyricAlign,
+  STORAGE_KEYS,
+  safeGetItem,
+  safeSetItem,
 } from '@/lib/storage';
 import { computeVersesTiming, getKaraokeStageSequenceState } from '@/lib/karaokeSequencer';
 import confetti from 'canvas-confetti';
@@ -58,6 +62,7 @@ import {
   Type,
   AlignCenter,
   AlignLeft,
+  Leaf,
 } from 'lucide-react';
 
 export type { KaraokeSection } from './karaoke/SectionJumpBar';
@@ -73,6 +78,7 @@ interface KaraokeViewProps {
   onEditSection?: (section: KaraokeSection) => void;
   onEditMeasure?: (measureIndex: number) => void;
   isEcoMode?: boolean;
+  onEnableEco?: () => void;
   targetKaraokeMeasureIndex?: number | null;
   onTargetKaraokeMeasureHandled?: () => void;
 }
@@ -86,6 +92,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   onEditSection,
   onEditMeasure,
   isEcoMode = false,
+  onEnableEco,
   targetKaraokeMeasureIndex = null,
   onTargetKaraokeMeasureHandled,
 }) => {
@@ -131,6 +138,9 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isStageMode, setIsStageMode] = useState<boolean>(false);
+  const [showEcoPrompt, setShowEcoPrompt] = useState(false);
+  const playAccumMsRef = useRef(0);
+  const playStartedAtRef = useRef<number | null>(null);
   const [stageZoom, setStageZoomState] = useState<number>(() => {
     if (typeof window !== 'undefined') return getStoredStageZoom(1.0);
     return 1.0;
@@ -283,16 +293,46 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Screen Wake Lock: keep in sync, but never hold the display on in eco mode
+  // Screen Wake Lock: request while playing (unless eco). Do not release in the
+  // effect cleanup — that races with resume and can drop the lock on iPad.
   useEffect(() => {
     if (playbackState.isPlaying && !isEcoMode) {
-      wakeLockManager.request();
+      void wakeLockManager.requestForPlayback(false);
     } else {
-      wakeLockManager.release();
+      void wakeLockManager.release();
     }
+  }, [playbackState.isPlaying, isEcoMode]);
+
+  useEffect(() => {
     return () => {
-      wakeLockManager.release();
+      void wakeLockManager.release();
     };
+  }, []);
+
+  // After a few minutes of karaoke on WebKit (no Battery API), offer Eco once.
+  useEffect(() => {
+    if (isEcoMode || supportsBatteryApi()) return;
+    if (safeGetItem(STORAGE_KEYS.ECO_PROMPT_DISMISSED) === 'true') return;
+
+    if (playbackState.isPlaying) {
+      if (playStartedAtRef.current === null) {
+        playStartedAtRef.current = performance.now();
+      }
+    } else if (playStartedAtRef.current !== null) {
+      playAccumMsRef.current += performance.now() - playStartedAtRef.current;
+      playStartedAtRef.current = null;
+    }
+
+    const tick = () => {
+      const live =
+        playStartedAtRef.current !== null ? performance.now() - playStartedAtRef.current : 0;
+      if (playAccumMsRef.current + live >= 3 * 60 * 1000) {
+        setShowEcoPrompt(true);
+      }
+    };
+    tick();
+    const id = window.setInterval(tick, 15000);
+    return () => window.clearInterval(id);
   }, [playbackState.isPlaying, isEcoMode]);
 
   // Background tab switch interruption recovery state
@@ -316,12 +356,13 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       }
     });
 
-    const unsubEnded = audioEngine.subscribeEnded(() => {
-      // Trigger confetti celebration on Karaoke finish (skip or lightweight in eco mode)
+    const unsubEnded = audioEngine.subscribeEnded(({ reason }) => {
+      if (reason !== 'song') return;
+      if (isEcoMode || prefersReducedMotion()) return;
       try {
         confetti({
-          particleCount: isEcoMode ? 15 : 75,
-          spread: isEcoMode ? 40 : 70,
+          particleCount: 75,
+          spread: 70,
           origin: { y: 0.6 },
         });
       } catch {
@@ -607,9 +648,11 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     if (playbackState.isPlaying) {
       audioEngine.pause();
     } else if (playbackState.isPaused) {
+      audioEngine.unlockOnUserGesture();
       requestPlaybackWakeLock();
       audioEngine.resume();
     } else {
+      audioEngine.unlockOnUserGesture();
       requestPlaybackWakeLock();
       audioEngine.play(song, 0);
     }
@@ -737,7 +780,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     setIsStageMode(prev => {
       const next = !prev;
       if (next) {
-        if (containerRef.current && typeof containerRef.current.requestFullscreen === 'function') {
+        if (supportsNativeFullscreen() && containerRef.current?.requestFullscreen) {
           containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
         }
       } else {
@@ -796,7 +839,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       }`}
     >
       {/* Karaoke Top Status Bar (DAW Stage Monitor) */}
-      <div className="flex flex-wrap items-center justify-between px-5 py-3.5 bg-[#10121a]/95 border-b border-zinc-800/80 backdrop-blur-md gap-3 select-none">
+      <div className="flex flex-wrap items-center justify-between px-5 py-3.5 bg-[#10121a]/95 border-b border-zinc-800/80 backdrop-blur-md eco-flat-shadow gap-3 select-none">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-md">
             <Radio className={`w-5 h-5 ${playbackState.isPlaying && !isEcoMode ? 'animate-spin' : ''}`} />
@@ -953,6 +996,43 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         </div>
       </div>
 
+      {showEcoPrompt && !isEcoMode && (
+        <div
+          id="ktv-eco-prompt-banner"
+          role="status"
+          className="flex items-center justify-between gap-3 px-4 py-2.5 bg-emerald-500/15 border border-emerald-500/40 rounded-2xl text-emerald-200 text-xs sm:text-sm shadow-lg"
+        >
+          <div className="flex items-center gap-2">
+            <Leaf className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="font-medium">播放已一段時間。開啟 Eco 可省電（螢幕可能休眠）。</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                onEnableEco?.();
+                setShowEcoPrompt(false);
+                safeSetItem(STORAGE_KEYS.ECO_PROMPT_DISMISSED, 'true');
+              }}
+              className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 font-bold rounded-xl text-xs transition-all cursor-pointer touch-manipulation"
+            >
+              開啟 Eco
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowEcoPrompt(false);
+                safeSetItem(STORAGE_KEYS.ECO_PROMPT_DISMISSED, 'true');
+              }}
+              className="p-1 hover:text-white text-zinc-400 rounded-lg transition-colors cursor-pointer"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Background Tab Interruption Recovery Pill / Banner */}
       {tabInterruptedPrompt && playbackState.isPaused && (
         <div
@@ -970,6 +1050,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
               type="button"
               onClick={() => {
                 setTabInterruptedPrompt(null);
+                audioEngine.unlockOnUserGesture();
+                requestPlaybackWakeLock();
                 audioEngine.resume();
               }}
               className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-zinc-950 font-bold rounded-xl text-xs transition-all shadow-xs cursor-pointer touch-manipulation flex items-center gap-1.5"

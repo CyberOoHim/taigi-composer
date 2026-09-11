@@ -16,7 +16,7 @@ import { NewSongModal } from '@/components/NewSongModal';
 import { useSongHistory } from '@/hooks/useSongHistory';
 import { usePowerSaveMode } from '@/hooks/usePowerSaveMode';
 import {
-  getStoredActiveTab,
+  getStoredActiveTabOrNull,
   setStoredActiveTab,
   getStoredDisplayMode,
   setStoredDisplayMode,
@@ -27,6 +27,7 @@ import {
   setStoredAutosaveInterval,
   STORAGE_KEYS,
 } from '@/lib/storage';
+import { prefersKaraokeDefaultLayout } from '@/lib/device';
 import {
   saveSongToDB,
   getSongFromDB,
@@ -63,6 +64,7 @@ export default function Home() {
   const {
     isEcoMode,
     toggleEcoMode,
+    setEcoMode,
     batteryLevel,
     isCharging,
   } = usePowerSaveMode();
@@ -74,7 +76,7 @@ export default function Home() {
     });
   }, [isEcoMode]);
 
-  // Default to 'split' (雙視窗) as requested
+  // SSR/desktop default is split; first-run iPad/standalone/coarse pointers switch to karaoke in bootstrap.
   const [activeTab, setActiveTabState] = useState<ActiveTabMode>('split');
   const [displayMode, setDisplayModeState] = useState<LyricDisplayMode>('all');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
@@ -118,8 +120,12 @@ export default function Home() {
 
         if (!isMounted) return;
 
-        const storedTab = getStoredActiveTab();
-        if (storedTab && storedTab !== 'split') setActiveTabState(storedTab);
+        const storedTab = getStoredActiveTabOrNull();
+        if (storedTab) {
+          setActiveTabState(storedTab);
+        } else if (prefersKaraokeDefaultLayout()) {
+          setActiveTabState('karaoke');
+        }
         const storedMode = getStoredDisplayMode();
         if (storedMode && storedMode !== 'all') setDisplayModeState(storedMode);
         const storedAutosave = getStoredAutosaveInterval(0);
@@ -211,6 +217,7 @@ export default function Home() {
     if (autosaveInterval <= 0) return;
 
     const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       if (isDirty && !isSaving) {
         void handleSaveSong();
       }
@@ -375,9 +382,11 @@ export default function Home() {
     if (isPlaying) {
       audioEngine.pause();
     } else if (audioEngine.getIsPaused()) {
+      audioEngine.unlockOnUserGesture();
       void wakeLockManager.requestForPlayback(isEcoMode);
       audioEngine.resume();
     } else {
+      audioEngine.unlockOnUserGesture();
       void wakeLockManager.requestForPlayback(isEcoMode);
       audioEngine.play(song, 0);
     }
@@ -549,6 +558,7 @@ export default function Home() {
               onEditMeasure={handleEditMeasure}
               onEditSection={handleEditSection}
               isEcoMode={isEcoMode}
+              onEnableEco={() => setEcoMode(true)}
               targetKaraokeMeasureIndex={targetKaraokeMeasureIndex}
               onTargetKaraokeMeasureHandled={() => setTargetKaraokeMeasureIndex(null)}
             />
@@ -657,6 +667,7 @@ export default function Home() {
                 onEditMeasure={handleEditMeasure}
                 onEditSection={handleEditSection}
                 isEcoMode={isEcoMode}
+                onEnableEco={() => setEcoMode(true)}
                 targetKaraokeMeasureIndex={targetKaraokeMeasureIndex}
                 onTargetKaraokeMeasureHandled={() => setTargetKaraokeMeasureIndex(null)}
               />
@@ -692,6 +703,7 @@ export default function Home() {
                 canRedo={canRedo}
                 pastCount={pastCount}
                 futureCount={futureCount}
+                suspendNoteHighlights={isPlaying}
               />
             </div>
           </div>

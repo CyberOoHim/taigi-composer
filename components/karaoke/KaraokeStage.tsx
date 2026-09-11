@@ -8,7 +8,7 @@ import { KaraokeSection } from './SectionJumpBar';
 import { KaraokeStageTheme, KaraokeLayoutMode, KaraokeLyricAlign } from '@/lib/storage';
 import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
 import { CheckCircle2, Wind, Pencil, AlignCenter, AlignLeft } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 
 export interface KaraokeStageProps {
   currentVerse: VerseItem | null;
@@ -120,6 +120,8 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
   secPerBeat = 0.75,
   effectiveTiming,
 }) => {
+  const reduceMotion = useReducedMotion();
+  const skipMotionFx = isEcoMode || Boolean(reduceMotion);
   const isIncomingCue = Boolean(incomingCueOverride);
   const note = item.note;
   const displayNote = incomingCueOverride?.note || note;
@@ -220,10 +222,15 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
     ? '#64748b'
     : '#64748b';
 
-  // Dynamic text style with continuous left-to-right gradient wipe
+  // Dynamic text style with continuous left-to-right gradient wipe.
+  // Eco / reduced-motion: solid sung vs unsung (Safari GPU hates clip-text wipes).
   const textFillStyle: React.CSSProperties = isIncomingCue
     ? {
         color: unsungColorHex,
+      }
+    : skipMotionFx
+    ? {
+        color: isNoteActive || isPassed ? sungColorHex : unsungColorHex,
       }
     : isNoteActive
     ? {
@@ -303,7 +310,7 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
       }`}
     >
       {/* Rhythmic Bouncing Ball Attack Cue (bounces on top of 1st incoming syllable during the last 1 beat) */}
-      {hasBouncingBall && (
+      {hasBouncingBall && !skipMotionFx && (
         <motion.div
           key="incoming-bouncing-ball"
           initial={{ y: -20, scale: 0.8, opacity: 0 }}
@@ -621,6 +628,8 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   onEditCurrentLyric,
 }) => {
   const isDark = stageTheme === 'dark';
+  const reduceMotion = useReducedMotion();
+  const skipMotionFx = isEcoMode || Boolean(reduceMotion);
 
   // Determine effective display mode for text routing
   const effectiveMode: 'roman' | 'hanlo' | 'roman_major_hanlo' | 'hanlo_major_roman' = useMemo(() => {
@@ -1306,9 +1315,9 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.div
                     key={`active-verse-${activeVerseIndex}-${currentVerse.verseIndex ?? 0}`}
-                    initial={isEcoMode ? false : { opacity: 0, y: 8 }}
+                    initial={skipMotionFx ? false : { opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={isEcoMode ? undefined : { opacity: 0, y: -8 }}
+                    exit={skipMotionFx ? undefined : { opacity: 0, y: -8 }}
                     transition={{ duration: 0.2, ease: 'easeOut' }}
                     className={`w-full flex flex-col overflow-visible ${
                       lyricAlign === 'left' ? 'items-start' : 'items-center'
@@ -1345,7 +1354,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
 
                               if (cuePhase >= 1 && globalIdx === currentFirstVocal && incomingCues.first) {
                                 incomingCueOverride = incomingCues.first;
-                                hasBouncingBall = cuePhase === 2;
+                                hasBouncingBall = cuePhase === 2 && !skipMotionFx;
                               } else if (cuePhase >= 2 && globalIdx === currentSecondVocal && incomingCues.second) {
                                 incomingCueOverride = incomingCues.second;
                                 hasBouncingBall = false;

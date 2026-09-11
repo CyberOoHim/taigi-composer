@@ -263,6 +263,8 @@ export class KeyEventEngine {
 
   // Recording State
   private isRecording = false;
+  private isPaused = false;
+  private pauseStartedAt = 0;
   private recordingStartTime = 0;
   private lastNoteReleaseTime: number | null = null;
   private activeNote: (ActiveNoteState & { resolved: boolean }) | null = null;
@@ -360,6 +362,8 @@ export class KeyEventEngine {
     const now = startTimeMs ?? this.nowProvider();
     this.flushPendingKeyReleases();
     this.isRecording = true;
+    this.isPaused = false;
+    this.pauseStartedAt = 0;
     this.recordingStartTime = now;
     this.lastNoteReleaseTime = null;
     this.activeNote = null;
@@ -367,6 +371,40 @@ export class KeyEventEngine {
     this.segments = [];
     this.callbacks.onRecordingStateChange?.(true);
     this.notifyActiveKeys();
+  }
+
+  /**
+   * Pause an in-progress take without quantizing. Hidden tabs / Control Center
+   * should call this instead of stopRecording so the buffer is not truncated.
+   */
+  public pauseRecording(timestampMs?: number): void {
+    if (!this.isRecording || this.isPaused) return;
+    this.flushPendingKeyReleases();
+    const now = timestampMs ?? this.nowProvider();
+    if (this.activeNote && !this.activeNote.resolved) {
+      this.commitActiveNote(now);
+    }
+    this.isPaused = true;
+    this.pauseStartedAt = now;
+    this.notifyActiveKeys();
+  }
+
+  /**
+   * Resume after pauseRecording. Shifts the recording origin so the paused
+   * interval is not transcribed as a rest.
+   */
+  public resumeRecording(timestampMs?: number): void {
+    if (!this.isRecording || !this.isPaused) return;
+    const now = timestampMs ?? this.nowProvider();
+    this.recordingStartTime += now - this.pauseStartedAt;
+    this.lastNoteReleaseTime = now;
+    this.isPaused = false;
+    this.pauseStartedAt = 0;
+    this.notifyActiveKeys();
+  }
+
+  public isRecordingPaused(): boolean {
+    return this.isPaused;
   }
 
   /**
@@ -383,6 +421,8 @@ export class KeyEventEngine {
     }
 
     this.isRecording = false;
+    this.isPaused = false;
+    this.pauseStartedAt = 0;
     this.callbacks.onRecordingStateChange?.(false);
     this.notifyActiveKeys();
   }
@@ -432,6 +472,7 @@ export class KeyEventEngine {
     timestampMs?: number,
     sourceKeyId?: string
   ): void {
+    if (this.isPaused) return;
     const now = timestampMs ?? this.nowProvider();
 
     // Auto-start recording on first key press if not explicitly started
@@ -545,6 +586,7 @@ export class KeyEventEngine {
    * by a subsequent note's onset (legato overlap).
    */
   public noteOff(midi: number, timestampMs?: number, sourceKeyId?: string): void {
+    if (this.isPaused) return;
     const now = timestampMs ?? this.nowProvider();
 
     if (sourceKeyId) {
@@ -668,6 +710,7 @@ export class KeyEventEngine {
     e: { code?: string; key?: string; repeat?: boolean; preventDefault?: () => void },
     timestampMs?: number
   ): boolean {
+    if (this.isPaused) return false;
     const code = e.code || '';
     const key = (e.key || '').toLowerCase();
 

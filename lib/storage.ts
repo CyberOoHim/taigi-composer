@@ -33,6 +33,7 @@ export const STORAGE_KEYS = {
   KARAOKE_SHOW_NOTATION: 'taigi_karaoke_show_notation',
   KARAOKE_LAYOUT_MODE: 'taigi_karaoke_layout_mode',
   KARAOKE_LYRIC_ALIGN: 'taigi_karaoke_lyric_align',
+  ECO_PROMPT_DISMISSED: 'taigi_composer_eco_prompt_dismissed',
 } as const;
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -77,6 +78,15 @@ export function getStoredActiveTab(): ActiveTabMode {
     return val;
   }
   return 'split'; // Default to split view
+}
+
+/** Distinguishes "user never chose a tab" from the split default. */
+export function getStoredActiveTabOrNull(): ActiveTabMode | null {
+  const val = safeGetItem(STORAGE_KEYS.ACTIVE_TAB);
+  if (val === 'split' || val === 'karaoke' || val === 'editor') {
+    return val;
+  }
+  return null;
 }
 
 export function setStoredActiveTab(tab: ActiveTabMode): void {

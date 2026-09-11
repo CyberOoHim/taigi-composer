@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { supportsBatteryApi } from '@/lib/device';
 
 interface BatteryManager extends EventTarget {
   charging: boolean;
@@ -25,9 +26,7 @@ function getEcoModeSnapshot(): boolean {
     if (saved !== null) {
       return saved === 'true';
     }
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      return true;
-    }
+    // Reduced motion only gates animations — it must not skip wake lock / enable eco.
     return false;
   } catch {
     return false;
@@ -41,13 +40,10 @@ function getEcoModeServerSnapshot(): boolean {
 function subscribeEcoMode(callback: () => void) {
   window.addEventListener('storage', callback);
   window.addEventListener(ECO_MODE_EVENT, callback);
-  const mediaQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-  mediaQuery?.addEventListener('change', callback);
 
   return () => {
     window.removeEventListener('storage', callback);
     window.removeEventListener(ECO_MODE_EVENT, callback);
-    mediaQuery?.removeEventListener('change', callback);
   };
 }
 
@@ -91,7 +87,8 @@ export function usePowerSaveMode() {
     if (typeof window === 'undefined') return;
 
     const nav = navigator as NavigatorWithBattery;
-    if (typeof nav.getBattery === 'function') {
+    // Battery Status API is Chromium-only; iPadOS Safari never exposes getBattery().
+    if (supportsBatteryApi() && typeof nav.getBattery === 'function') {
       let isMounted = true;
       let batteryRef: BatteryManager | null = null;
       let handleLevelChange: (() => void) | null = null;
@@ -148,5 +145,6 @@ export function usePowerSaveMode() {
     batteryLevel,
     isCharging,
     isLowBattery: batteryLevel !== null && batteryLevel <= 0.2 && !isCharging,
+    batterySupported: supportsBatteryApi(),
   };
 }
