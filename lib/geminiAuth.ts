@@ -6,6 +6,12 @@
 
 import type { GeminiModelChoice, GeminiThinkingEffort } from './geminiService';
 import { safeGetItem, safeSetItem } from './storage';
+import {
+  interpretGeminiAuthStatus,
+  type GeminiAuthStatusPayload,
+} from './geminiAuthStatus';
+
+export { interpretGeminiAuthStatus, type GeminiAuthStatusPayload };
 
 export const AUTH_STORAGE_KEY = 'taigi_gemini_auth_verified';
 export const PASSCODE_STORAGE_KEY = 'taigi_gemini_auth_passcode';
@@ -43,12 +49,13 @@ function probeServerAuthStatus(): void {
   if (typeof window === 'undefined' || serverCheckInitiated) return;
   serverCheckInitiated = true;
   fetch('/api/gemini/auth-status', { credentials: 'same-origin' })
-    .then((res) => (res.ok ? res.json() : { available: false, authenticated: false }))
-    .then((data) => {
+    .then((res) => (res.ok ? res.json() : { available: false, authenticated: false, live: false }))
+    .then((data: GeminiAuthStatusPayload) => {
       cachedServerAiAvailable = data?.available === true;
-      if (data?.authenticated === true) {
+      const status = interpretGeminiAuthStatus(data);
+      if (status === 'authenticated') {
         safeSetItem(AUTH_STORAGE_KEY, 'true');
-      } else {
+      } else if (status === 'unauthenticated') {
         clearLocalAuthCache();
       }
       notifyGeminiAuthChange();
