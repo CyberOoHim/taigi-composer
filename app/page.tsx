@@ -57,6 +57,7 @@ export default function Home() {
     canRedo,
     pastCount,
     futureCount,
+    contentRevision,
   } = useSongHistory(PRESET_SONGS[0]);
 
   const {
@@ -151,12 +152,21 @@ export default function Home() {
     };
   }, [loadNewSong]);
 
-  // Track unsaved modifications (after initial mount bootstrap)
+  // Persist the active song to localStorage after bootstrap. LOAD_SONG is not an edit.
   useEffect(() => {
     if (!hasInitializedRef.current) return;
-    setIsDirty(true);
     setStoredCurrentSong(song);
   }, [song]);
+
+  // Dirty only when history records an edit (SET_SONG / UNDO / REDO), not bootstrap or library load.
+  useEffect(() => {
+    if (!hasInitializedRef.current) return;
+    if (contentRevision === 0) {
+      setIsDirty(false);
+      return;
+    }
+    setIsDirty(true);
+  }, [contentRevision]);
 
   const setActiveTab = useCallback((tab: ActiveTabMode) => {
     if (tab === 'editor' && audioEngine) {
@@ -320,7 +330,7 @@ export default function Home() {
         audioEngine.stop();
       }
       if (action === 'new') {
-        loadNewSong(resultSong);
+        loadNewSong(resultSong, { unsaved: true });
       } else {
         setSong(resultSong);
       }
