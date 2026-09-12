@@ -28,10 +28,12 @@ interface LyricSearchModalProps {
   onClose: () => void;
   currentSong: Song;
   customSongs?: Song[];
+  initialScope?: SearchScope;
   onJumpToMeasure: (
     targetSong: Song,
     measureIndex: number,
-    destination: 'karaoke' | 'editor' | 'current'
+    destination?: 'karaoke' | 'editor' | 'current',
+    subMode?: 'verse' | 'measure'
   ) => void;
 }
 
@@ -50,10 +52,12 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
   onClose,
   currentSong,
   customSongs = [],
+  initialScope = 'all',
   onJumpToMeasure,
 }) => {
   const [query, setQuery] = useState('');
-  const [scope, setScope] = useState<SearchScope>('all');
+  const [scope, setScope] = useState<SearchScope>(initialScope);
+  const [matchFilter, setMatchFilter] = useState<'all' | 'measure' | 'verse'>('all');
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsContainerRef = useRef<HTMLDivElement>(null);
@@ -75,17 +79,34 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
     if (!query.trim()) return [];
     return searchLibraryLyrics(allSongs, query, currentSong?.id, {
       scope,
-      maxResults: 60,
+      maxResults: 80,
     });
   }, [allSongs, query, currentSong?.id, scope]);
 
-  // Adjust selectedIndex during rendering when query or scope changes
+  const filteredResults = useMemo<LyricSearchResult[]>(() => {
+    if (matchFilter === 'all') return results;
+    if (matchFilter === 'measure') return results.filter(r => r.matchType === 'measure' || !r.matchType);
+    if (matchFilter === 'verse') return results.filter(r => r.matchType === 'verse');
+    return results;
+  }, [results, matchFilter]);
+
+  const measureCount = useMemo(() => {
+    return results.filter(r => r.matchType === 'measure' || !r.matchType).length;
+  }, [results]);
+
+  const verseCount = useMemo(() => {
+    return results.filter(r => r.matchType === 'verse').length;
+  }, [results]);
+
+  // Adjust selectedIndex during rendering when query, scope or filter changes
   const [prevQuery, setPrevQuery] = useState(query);
   const [prevScope, setPrevScope] = useState(scope);
+  const [prevFilter, setPrevFilter] = useState(matchFilter);
 
-  if (query !== prevQuery || scope !== prevScope) {
+  if (query !== prevQuery || scope !== prevScope || matchFilter !== prevFilter) {
     setPrevQuery(query);
     setPrevScope(scope);
+    setPrevFilter(matchFilter);
     setSelectedIndex(0);
   }
 
@@ -102,7 +123,7 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
 
   // Scroll active item into view when navigating via keyboard
   useEffect(() => {
-    if (results.length === 0) return;
+    if (filteredResults.length === 0) return;
     const container = resultsContainerRef.current;
     if (!container) return;
 
@@ -110,12 +131,17 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
     if (activeItem) {
       activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
-  }, [selectedIndex, results.length]);
+  }, [selectedIndex, filteredResults.length]);
 
   const handleExecuteJump = useCallback(
-    (result: LyricSearchResult, destination: 'karaoke' | 'editor' | 'current' = 'current') => {
+    (
+      result: LyricSearchResult,
+      destination: 'karaoke' | 'editor' | 'current' = 'current',
+      subMode?: 'verse' | 'measure'
+    ) => {
       const target = allSongs.find(s => s.id === result.songId) || currentSong;
-      onJumpToMeasure(target, result.measureIndex, destination);
+      const effectiveSubMode = subMode || (result.matchType === 'verse' ? 'verse' : 'measure');
+      onJumpToMeasure(target, result.measureIndex, destination, effectiveSubMode);
       onClose();
     },
     [allSongs, currentSong, onJumpToMeasure, onClose]
@@ -129,18 +155,18 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
       return;
     }
 
-    if (results.length === 0) return;
+    if (filteredResults.length === 0) return;
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex(prev => (prev + 1) % results.length);
+      setSelectedIndex(prev => (prev + 1) % filteredResults.length);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex(prev => (prev - 1 + results.length) % results.length);
+      setSelectedIndex(prev => (prev - 1 + filteredResults.length) % filteredResults.length);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (results[selectedIndex]) {
-        handleExecuteJump(results[selectedIndex], 'current');
+      if (filteredResults[selectedIndex]) {
+        handleExecuteJump(filteredResults[selectedIndex], 'current');
       }
     }
   };
@@ -209,38 +235,79 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
 
           {/* Scope Filters & Status Bar */}
           <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
-            <div className="flex items-center gap-1.5 bg-zinc-200/60 dark:bg-zinc-850 p-1 rounded-xl border border-zinc-200/60 dark:border-zinc-750 shrink-0">
-              <button
-                type="button"
-                onClick={() => setScope('all')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                  scope === 'all'
-                    ? 'bg-amber-500 text-zinc-950 shadow-xs'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>全部樂曲 ({allSongs.length})</span>
-              </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 bg-zinc-200/60 dark:bg-zinc-850 p-1 rounded-xl border border-zinc-200/60 dark:border-zinc-750 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setScope('all')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    scope === 'all'
+                      ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>全部樂曲 ({allSongs.length})</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setScope('current')}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold transition-all cursor-pointer truncate max-w-[200px] sm:max-w-[240px] ${
-                  scope === 'current'
-                    ? 'bg-amber-500 text-zinc-950 shadow-xs'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                }`}
-                title={`目前曲目: ${currentSong.title}`}
-              >
-                <ListMusic className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">目前曲目: {currentSong.title}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setScope('current')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold transition-all cursor-pointer truncate max-w-[190px] sm:max-w-[220px] ${
+                    scope === 'current'
+                      ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                  }`}
+                  title={`目前曲目: ${currentSong.title}`}
+                >
+                  <ListMusic className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">目前曲目: {currentSong.title}</span>
+                </button>
+              </div>
+
+              {/* Perspective Filter Tabs: All vs Measures vs Verses */}
+              {query.trim() && results.length > 0 && (
+                <div className="flex items-center gap-1 bg-zinc-200/60 dark:bg-zinc-850 p-1 rounded-xl border border-zinc-200/60 dark:border-zinc-750 shrink-0 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setMatchFilter('all')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                      matchFilter === 'all'
+                        ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    全部 ({results.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMatchFilter('measure')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                      matchFilter === 'measure'
+                        ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    小節 ({measureCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMatchFilter('verse')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                      matchFilter === 'verse'
+                        ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    樂句 ({verseCount})
+                  </button>
+                </div>
+              )}
             </div>
 
             {query.trim() && (
-              <span className="text-zinc-500 dark:text-zinc-400 font-medium">
-                找到 <strong className="text-amber-600 dark:text-amber-400 font-bold">{results.length}</strong> 處歌詞符合
+              <span className="text-zinc-500 dark:text-zinc-400 font-medium whitespace-nowrap">
+                找到 <strong className="text-amber-600 dark:text-amber-400 font-bold">{filteredResults.length}</strong> 處符合
               </span>
             )}
           </div>
@@ -289,7 +356,7 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
           )}
 
           {/* Query Typed, No Results */}
-          {query.trim() && results.length === 0 && (
+          {query.trim() && filteredResults.length === 0 && (
             <div className="py-12 px-4 flex flex-col items-center text-center gap-3 animate-in fade-in duration-150">
               <Sparkles className="w-10 h-10 text-zinc-400/80" />
               <h4 className="font-bold text-sm text-zinc-800 dark:text-zinc-200">
@@ -302,9 +369,9 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
           )}
 
           {/* Results List */}
-          {query.trim() && results.length > 0 && (
+          {query.trim() && filteredResults.length > 0 && (
             <div className="flex flex-col gap-2">
-              {results.map((result, idx) => {
+              {filteredResults.map((result, idx) => {
                 const isSelected = idx === selectedIndex;
                 const hanloSegments = highlightMatch(result.previewHanlo || result.matchedSnippet, query);
                 const pojSegments = highlightMatch(result.previewPoj || '', query);
@@ -345,9 +412,15 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                             {result.section}
                           </span>
                         )}
-                        <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold border border-zinc-200/80 dark:border-zinc-700/80">
-                          第 {result.measureNumber} 小節 (M{result.measureNumber})
-                        </span>
+                        {result.matchType === 'verse' ? (
+                          <span className="px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-400/40">
+                            樂句 {result.verseNumber ?? (result.verseIndex !== undefined ? result.verseIndex + 1 : 1)} (M{result.startMeasureNumber ?? result.measureNumber}-M{result.endMeasureNumber ?? result.measureNumber})
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold border border-zinc-200/80 dark:border-zinc-700/80">
+                            第 {result.measureNumber} 小節 (M{result.measureNumber})
+                          </span>
+                        )}
                         {result.chord && (
                           <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-amber-600 dark:text-amber-400 font-bold border border-zinc-200/80 dark:border-zinc-700/80">
                             {result.chord}
@@ -415,18 +488,33 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                           <span>Karaoke 練唱</span>
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleExecuteJump(result, 'editor');
-                          }}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-800 dark:text-zinc-200 font-bold text-[11px] transition-colors cursor-pointer border border-zinc-200/80 dark:border-zinc-700"
-                          title="前往 Score Editor 編輯該小節音符與歌詞"
-                        >
-                          <Music className="w-3.5 h-3.5 text-emerald-500" />
-                          <span>樂譜編輯</span>
-                        </button>
+                        {result.matchType === 'verse' ? (
+                          <button
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation();
+                              handleExecuteJump(result, 'editor', 'verse');
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-900 dark:text-indigo-200 font-bold text-[11px] transition-colors cursor-pointer border border-indigo-400/40"
+                            title="前往樂句檢視 (Verse Edit)"
+                          >
+                            <Music className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                            <span>前往樂句</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation();
+                              handleExecuteJump(result, 'editor', 'measure');
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-800 dark:text-zinc-200 font-bold text-[11px] transition-colors cursor-pointer border border-zinc-200/80 dark:border-zinc-700"
+                            title="前往小節檢視 (Measure Edit)"
+                          >
+                            <Music className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>前往小節</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

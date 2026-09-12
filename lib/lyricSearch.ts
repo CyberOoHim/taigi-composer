@@ -2,6 +2,39 @@ import type { Song } from '../types/song.ts';
 import { groupSongIntoVerses } from './taigiUtils.ts';
 
 export type SearchScope = 'all' | 'current';
+export type InSongFilter = 'all' | 'measure' | 'verse';
+
+export interface InSongMatchLocation {
+  id: string;
+  type: 'measure' | 'verse';
+  measureIndex: number;
+  measureNumber: number;
+  verseIndex?: number;
+  verseNumber?: number;
+  startMeasureNumber?: number;
+  endMeasureNumber?: number;
+  section?: string;
+  chords: string[];
+  matchedField: 'hanlo' | 'poj' | 'annotation' | 'title';
+  matchedQuery: string;
+  matchedSnippet: string;
+  previewHanlo: string;
+  previewPoj: string;
+  noteIndices?: number[];
+  matchCount: number;
+}
+
+export interface InSongSearchResult {
+  query: string;
+  songId: string;
+  songTitle: string;
+  totalMeasureMatches: number;
+  totalVerseMatches: number;
+  totalMatches: number;
+  measureMatches: InSongMatchLocation[];
+  verseMatches: InSongMatchLocation[];
+  allMatches: InSongMatchLocation[];
+}
 
 export interface LyricSearchResult {
   id: string;
@@ -13,6 +46,11 @@ export interface LyricSearchResult {
   isCurrentSong: boolean;
   measureIndex: number;
   measureNumber: number;
+  verseIndex?: number;
+  verseNumber?: number;
+  startMeasureNumber?: number;
+  endMeasureNumber?: number;
+  matchType?: 'measure' | 'verse';
   section?: string;
   chord?: string;
   matchedField: 'hanlo' | 'poj' | 'title' | 'metadata';
@@ -289,6 +327,11 @@ export function searchSongLyrics(
         isCurrentSong,
         measureIndex: targetMeasureIdx,
         measureNumber: targetMeasureNum,
+        verseIndex: vIdx,
+        verseNumber: vIdx + 1,
+        startMeasureNumber: verse.startMeasureNumber,
+        endMeasureNumber: verse.endMeasureNumber,
+        matchType: 'verse',
         section: verse.section || targetMeasure?.section,
         chord: targetMeasure?.chord || verse.chords[0],
         matchedField,
@@ -301,8 +344,7 @@ export function searchSongLyrics(
     }
   });
 
-  // 3. Per-Measure Fallback & Annotation Search
-  // (Catches individual measure lyrics or performance annotations like '過門', '漸慢')
+  // 3. Per-Measure Lyrics & Annotation Search
   song.measures.forEach((measure, mIdx) => {
     let mHanlo = '';
     let mPoj = '';
@@ -316,10 +358,20 @@ export function searchSongLyrics(
       if (n.annotation) mAnnotation += (mAnnotation ? ' ' : '') + n.annotation;
     });
 
+    const normHanlo = normalizeForSearch(mHanlo);
+    const denseHanlo = normalizeDense(mHanlo);
+    const normPoj = normalizeForSearch(mPoj);
+    const densePoj = normalizeDense(mPoj);
     const normAnnotation = normalizeForSearch(mAnnotation);
-    if (mAnnotation && (mAnnotation.toLowerCase().includes(query.toLowerCase()) || normAnnotation.includes(normQuery))) {
+
+    const hanloMatch = mHanlo && (mHanlo.toLowerCase().includes(query.toLowerCase()) || normHanlo.includes(normQuery) || denseHanlo.includes(denseQuery));
+    const pojMatch = mPoj && (mPoj.toLowerCase().includes(query.toLowerCase()) || normPoj.includes(normQuery) || densePoj.includes(denseQuery));
+    const annotMatch = mAnnotation && (mAnnotation.toLowerCase().includes(query.toLowerCase()) || normAnnotation.includes(normQuery));
+
+    if (hanloMatch || pojMatch || annotMatch) {
+      const matchedField: 'hanlo' | 'poj' | 'metadata' = hanloMatch ? 'hanlo' : (pojMatch ? 'poj' : 'metadata');
       addResult({
-        id: `${song.id}-m${mIdx}-ann`,
+        id: `${song.id}-m${mIdx}-${matchedField}`,
         songId: song.id,
         songTitle: song.title,
         songSubtitle: song.subtitle,
@@ -330,16 +382,209 @@ export function searchSongLyrics(
         measureNumber: measure.measureNumber || mIdx + 1,
         section: measure.section,
         chord: measure.chord,
-        matchedField: 'metadata',
+        matchedField,
         matchedQuery: query,
-        matchedSnippet: mAnnotation,
+        matchedSnippet: matchedField === 'hanlo' ? mHanlo : (matchedField === 'poj' ? mPoj : mAnnotation),
         previewHanlo: mHanlo || mAnnotation,
         previewPoj: mPoj,
+        matchType: 'measure',
       });
     }
   });
 
   return results;
+}
+
+/**
+ * Searches strictly within a single song and groups matches into
+ * all matching measures, all matching verses, and chronological combined matches.
+ */
+export function searchWithinSong(
+  song: Song,
+  rawQuery: string,
+  filter: InSongFilter = 'all'
+): InSongSearchResult {
+  const emptyResult: InSongSearchResult = {
+    query: rawQuery || '',
+    songId: song?.id || '',
+    songTitle: song?.title || '',
+    totalMeasureMatches: 0,
+    totalVerseMatches: 0,
+    totalMatches: 0,
+    measureMatches: [],
+    verseMatches: [],
+    allMatches: [],
+  };
+
+  if (!song || !song.measures || song.measures.length === 0 || !rawQuery || !rawQuery.trim()) {
+    return emptyResult;
+  }
+
+  const query = rawQuery.trim();
+  const lowerQuery = query.toLowerCase();
+  const normQuery = normalizeForSearch(query);
+  const denseQuery = normalizeDense(query);
+
+  const checkMatch = (text: string | undefined): boolean => {
+    if (!text) return false;
+    if (text.toLowerCase().includes(lowerQuery)) return true;
+    if (normQuery && normalizeForSearch(text).includes(normQuery)) return true;
+    if (denseQuery && normalizeDense(text).includes(denseQuery)) return true;
+    return false;
+  };
+
+  const measureMatches: InSongMatchLocation[] = [];
+  const verseMatches: InSongMatchLocation[] = [];
+
+  // 1. Collect all matching measures
+  song.measures.forEach((measure, mIdx) => {
+    let mHanlo = '';
+    let mPoj = '';
+    let mAnnotation = '';
+    const matchedNoteIndices: number[] = [];
+
+    measure.notes.forEach((n, nIdx) => {
+      const h = n.lyric?.hanlo || n.lyric?.custom || n.lyric?.hanji || '';
+      const p = n.lyric?.poj || n.lyric?.tl || '';
+      const a = n.annotation || '';
+
+      if (h && !/[\r\n]/.test(h)) mHanlo += h;
+      if (p && !/[\r\n]/.test(p)) mPoj += (mPoj ? ' ' : '') + p;
+      if (a) mAnnotation += (mAnnotation ? ' ' : '') + a;
+
+      if (checkMatch(h) || checkMatch(p) || checkMatch(a)) {
+        matchedNoteIndices.push(nIdx);
+      }
+    });
+
+    const hanloMatched = checkMatch(mHanlo);
+    const pojMatched = checkMatch(mPoj);
+    const annotMatched = checkMatch(mAnnotation);
+
+    if (hanloMatched || pojMatched || annotMatched || matchedNoteIndices.length > 0) {
+      const matchedField: 'hanlo' | 'poj' | 'annotation' = hanloMatched
+        ? 'hanlo'
+        : pojMatched
+        ? 'poj'
+        : 'annotation';
+
+      const matchedSnippet =
+        matchedField === 'hanlo'
+          ? mHanlo
+          : matchedField === 'poj'
+          ? mPoj
+          : (mAnnotation || mHanlo);
+
+      measureMatches.push({
+        id: `${song.id}-measure-${mIdx}`,
+        type: 'measure',
+        measureIndex: mIdx,
+        measureNumber: measure.measureNumber || (mIdx + 1),
+        section: measure.section,
+        chords: measure.chord ? [measure.chord] : [],
+        matchedField,
+        matchedQuery: query,
+        matchedSnippet,
+        previewHanlo: mHanlo,
+        previewPoj: mPoj,
+        noteIndices: matchedNoteIndices,
+        matchCount: Math.max(1, matchedNoteIndices.length),
+      });
+    }
+  });
+
+  // 2. Collect all matching verses
+  const verses = groupSongIntoVerses(song);
+  verses.forEach((verse, vIdx) => {
+    const vHanlo = verse.lyricSummary.hanlo || verse.lyricSummary.hanji || '';
+    const vPoj = verse.lyricSummary.poj || verse.lyricSummary.tl || '';
+    let vAnnotation = '';
+    const matchedNoteIndices: number[] = [];
+
+    verse.notes.forEach((nRef, nIdx) => {
+      const h = nRef.note.lyric?.hanlo || nRef.note.lyric?.custom || nRef.note.lyric?.hanji || '';
+      const p = nRef.note.lyric?.poj || nRef.note.lyric?.tl || '';
+      const a = nRef.note.annotation || '';
+      if (a) vAnnotation += (vAnnotation ? ' ' : '') + a;
+
+      if (checkMatch(h) || checkMatch(p) || checkMatch(a)) {
+        matchedNoteIndices.push(nIdx);
+      }
+    });
+
+    const hanloMatched = checkMatch(vHanlo);
+    const pojMatched = checkMatch(vPoj);
+    const annotMatched = checkMatch(vAnnotation);
+
+    if (hanloMatched || pojMatched || annotMatched || matchedNoteIndices.length > 0) {
+      const matchedField: 'hanlo' | 'poj' | 'annotation' = hanloMatched
+        ? 'hanlo'
+        : pojMatched
+        ? 'poj'
+        : 'annotation';
+
+      const matchedSnippet =
+        matchedField === 'hanlo'
+          ? vHanlo
+          : matchedField === 'poj'
+          ? vPoj
+          : (vAnnotation || vHanlo);
+
+      const targetMeasureIdx = verse.notes[0]?.measureIndex ?? Math.max(0, verse.startMeasureNumber - 1);
+
+      verseMatches.push({
+        id: `${song.id}-verse-${vIdx}`,
+        type: 'verse',
+        measureIndex: targetMeasureIdx,
+        measureNumber: verse.startMeasureNumber,
+        verseIndex: vIdx,
+        verseNumber: vIdx + 1,
+        startMeasureNumber: verse.startMeasureNumber,
+        endMeasureNumber: verse.endMeasureNumber,
+        section: verse.section,
+        chords: verse.chords,
+        matchedField,
+        matchedQuery: query,
+        matchedSnippet,
+        previewHanlo: vHanlo,
+        previewPoj: vPoj,
+        noteIndices: matchedNoteIndices,
+        matchCount: Math.max(1, matchedNoteIndices.length),
+      });
+    }
+  });
+
+  // 3. Assemble allMatches ordered by measure timeline
+  const combined: InSongMatchLocation[] = [];
+  if (filter === 'measure') {
+    combined.push(...measureMatches);
+  } else if (filter === 'verse') {
+    combined.push(...verseMatches);
+  } else {
+    // Interleave/sort by measureIndex. If same measure, verse comes first to establish context
+    const sorted = [...verseMatches, ...measureMatches].sort((a, b) => {
+      if (a.measureIndex !== b.measureIndex) {
+        return a.measureIndex - b.measureIndex;
+      }
+      if (a.type !== b.type) {
+        return a.type === 'verse' ? -1 : 1;
+      }
+      return 0;
+    });
+    combined.push(...sorted);
+  }
+
+  return {
+    query,
+    songId: song.id,
+    songTitle: song.title,
+    totalMeasureMatches: measureMatches.length,
+    totalVerseMatches: verseMatches.length,
+    totalMatches: combined.length,
+    measureMatches,
+    verseMatches,
+    allMatches: combined,
+  };
 }
 
 /**

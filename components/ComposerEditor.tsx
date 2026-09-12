@@ -52,6 +52,8 @@ import { MeasureModeView } from './composer/MeasureModeView';
 import { SheetModeView } from './composer/SheetModeView';
 import { MeasureOrganizerModal } from './composer/MeasureOrganizerModal';
 import { KeyboardToScoreModal, InsertionMode } from './composer/KeyboardToScoreModal';
+import { InSongSearchBar } from './composer/InSongSearchBar';
+import { InSongMatchLocation } from '@/lib/lyricSearch';
 import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
 import { UiZoomControl } from '@/components/UiZoomControl';
 import {
@@ -72,6 +74,7 @@ import {
   CornerUpLeft,
   Keyboard,
   Trash2,
+  Search,
 } from 'lucide-react';
 
 interface ComposerEditorProps {
@@ -189,6 +192,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const [verseBatchTexts, setVerseBatchTexts] = useState<{ [vIdx: number]: string }>({});
   const [isOrganizerOpen, setIsOrganizerOpen] = useState<boolean>(false);
   const [isKeyboardModalOpen, setIsKeyboardModalOpen] = useState<boolean>(false);
+  const [isInSongSearchOpen, setIsInSongSearchOpen] = useState<boolean>(false);
+  const [inSongActiveMatch, setInSongActiveMatch] = useState<InSongMatchLocation | null>(null);
 
   // Incomplete / Over-beat measures count for whole song
   const incompleteMeasuresCount = useMemo(() => {
@@ -222,6 +227,98 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
   // Compute segmented verses based on punctuation or whitespace/rest pause
   const verses = useMemo(() => groupSongIntoVerses(song), [song]);
+
+  const handleSearchJumpToMeasure = useCallback(
+    (mIdx: number) => {
+      const validMeasureIdx = Math.min(song.measures.length - 1, Math.max(0, mIdx));
+      setSelectedCoord([validMeasureIdx, 0]);
+
+      const note = song.measures[validMeasureIdx]?.notes[0];
+      if (note) {
+        audioEngine.previewNote(song.key, note);
+      }
+
+      if (editMode === 'sheet') {
+        scrollToCardElement(`sheet-measure-row-${validMeasureIdx}`, { align: 'top', headerOffset: 0 });
+        const el =
+          document.getElementById(`sheet-measure-row-${validMeasureIdx}`) ||
+          document.getElementById(`sheet-measure-flat-row-${validMeasureIdx}`);
+        if (el) {
+          el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          setTimeout(() => {
+            el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          }, 2000);
+        }
+      } else if (noteSubMode === 'measure') {
+        scrollToCardElement(`measure-card-${validMeasureIdx}`, { align: 'top', headerOffset: 0 });
+        const el = document.getElementById(`measure-card-${validMeasureIdx}`);
+        if (el) {
+          el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          setTimeout(() => {
+            el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          }, 2000);
+        }
+      } else {
+        // Verse mode
+        const vIdx = verses.findIndex(v => v.notes.some(n => n.measureIndex === validMeasureIdx));
+        const targetVIdx = vIdx !== -1 ? vIdx : 0;
+        scrollToCardElement(`verse-card-${targetVIdx}`, { align: 'top', headerOffset: 0 });
+        const el = document.getElementById(`verse-card-${targetVIdx}`);
+        if (el) {
+          el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          setTimeout(() => {
+            el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          }, 2000);
+        }
+      }
+    },
+    [song.measures, song.key, audioEngine, editMode, noteSubMode, verses]
+  );
+
+  const handleSearchJumpToVerse = useCallback(
+    (vIdx: number, startMeasureIdx: number) => {
+      const validMeasureIdx = Math.min(song.measures.length - 1, Math.max(0, startMeasureIdx));
+      setSelectedCoord([validMeasureIdx, 0]);
+
+      const note = song.measures[validMeasureIdx]?.notes[0];
+      if (note) {
+        audioEngine.previewNote(song.key, note);
+      }
+
+      if (editMode === 'sheet') {
+        scrollToCardElement(`sheet-measure-row-${validMeasureIdx}`, { align: 'top', headerOffset: 0 });
+        const el =
+          document.getElementById(`sheet-measure-row-${validMeasureIdx}`) ||
+          document.getElementById(`sheet-measure-flat-row-${validMeasureIdx}`);
+        if (el) {
+          el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          setTimeout(() => {
+            el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          }, 2000);
+        }
+      } else if (noteSubMode === 'verse') {
+        scrollToCardElement(`verse-card-${vIdx}`, { align: 'top', headerOffset: 0 });
+        const el = document.getElementById(`verse-card-${vIdx}`);
+        if (el) {
+          el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          setTimeout(() => {
+            el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          }, 2000);
+        }
+      } else {
+        // Measure mode
+        scrollToCardElement(`measure-card-${validMeasureIdx}`, { align: 'top', headerOffset: 0 });
+        const el = document.getElementById(`measure-card-${validMeasureIdx}`);
+        if (el) {
+          el.classList.add('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          setTimeout(() => {
+            el.classList.remove('ring-4', 'ring-amber-500', 'bg-amber-100/30', 'dark:bg-amber-950/50');
+          }, 2000);
+        }
+      }
+    },
+    [song.measures, song.key, audioEngine, editMode, noteSubMode]
+  );
 
   const [isSongPlaying, setIsSongPlaying] = useState<boolean>(() => (audioEngine ? audioEngine.getIsPlaying() : false));
 
@@ -2166,7 +2263,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     const renumbered = renumberMeasures([...song.measures, ...newMeasures]);
     onUpdateSong({ ...song, measures: renumbered });
     showNotice(`Added new Verse #${nextVerseNum} (4 measures)`);
-  }, [verses.length, song, onUpdateSong, showNotice]);
+  }, [verses, song, onUpdateSong, showNotice]);
 
   // Undo / Redo triggers with user feedback
   const handleUndo = useCallback(() => {
@@ -2343,6 +2440,14 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         activeEl?.getAttribute('contenteditable') === 'true';
 
       if (isTyping) return;
+
+      // Check for In-Song Search (Ctrl+F or Cmd+F)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsInSongSearchOpen(prev => !prev);
+        return;
+      }
 
       // In Sheet Mode: Play key (Space, P/p) toggles playing the sheet from current note
       if (editMode === 'sheet') {
@@ -2532,6 +2637,19 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         playingMeasureIdx={playingMeasureIdx}
       />
 
+      {/* In-Song Measure & Verse Search Bar */}
+      <InSongSearchBar
+        song={song}
+        isOpen={isInSongSearchOpen}
+        onClose={() => {
+          setIsInSongSearchOpen(false);
+          setInSongActiveMatch(null);
+        }}
+        onJumpToMeasure={handleSearchJumpToMeasure}
+        onJumpToVerse={handleSearchJumpToVerse}
+        onActiveMatchChange={setInSongActiveMatch}
+      />
+
       {/* WYSIWYG NUMBERED NOTATION SCORE SHEET CONTAINER */}
       <div id="wysiwyg-numbered-notation-score-container" className="flex flex-col gap-4">
         {/* Score Sheet Header */}
@@ -2542,6 +2660,23 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           </h2>
 
           <div className="flex items-center gap-2 text-xs flex-wrap">
+            {/* In-Song Search Toggle Button */}
+            <button
+              id="composer-score-search-btn"
+              type="button"
+              onClick={() => setIsInSongSearchOpen(prev => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
+                isInSongSearchOpen
+                  ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-2 ring-amber-400'
+                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700 font-bold shadow-2xs'
+              }`}
+              title="搜尋曲內小節與樂句 [Ctrl+F / ⌘F]"
+            >
+              <Search className="w-3.5 h-3.5 text-amber-500" />
+              <span>搜尋曲內</span>
+              <kbd className="hidden md:inline text-[10px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 font-mono">⌘F</kbd>
+            </button>
+
             {/* Karaoke Play / Stop Playback in Score Header */}
             {isSongPlaying ? (
               <button

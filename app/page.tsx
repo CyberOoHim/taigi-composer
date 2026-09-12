@@ -28,6 +28,7 @@ import {
   setStoredAutosaveInterval,
   getStoredEnableChords,
   setStoredEnableChords,
+  setStoredNoteSubMode,
   STORAGE_KEYS,
 } from '@/lib/storage';
 import { prefersKaraokeDefaultLayout } from '@/lib/device';
@@ -460,8 +461,14 @@ export default function Home() {
     [isDirty, song, loadNewSong]
   );
 
+  // Handle jump request from Lyric Search palette
   const handleJumpFromSearch = useCallback(
-    async (targetSong: Song, measureIndex: number, destination: 'karaoke' | 'editor' | 'current') => {
+    async (
+      targetSong: Song,
+      measureIndex: number,
+      destination: 'karaoke' | 'editor' | 'current' = 'current',
+      subMode?: 'verse' | 'measure'
+    ) => {
       if (audioEngine) {
         audioEngine.stop();
       }
@@ -469,6 +476,10 @@ export default function Home() {
       // Switch song if different from current active song
       if (targetSong.id !== song.id) {
         await handleSelectSong(targetSong);
+      }
+
+      if (subMode && typeof window !== 'undefined') {
+        setStoredNoteSubMode(subMode);
       }
 
       const targetTab =
@@ -520,9 +531,12 @@ export default function Home() {
 
       // Check for Lyric Search (Ctrl+F or Cmd+F) when not typing in an input
       if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
-        e.preventDefault();
-        setIsLyricSearchOpen(true);
-        return;
+        if (activeTab === 'karaoke') {
+          e.preventDefault();
+          setIsLyricSearchOpen(true);
+          return;
+        }
+        // In editor/split mode, ComposerEditor's in-editor search handles Ctrl+F
       }
 
       // Check for Save (Ctrl+S or Cmd+S)
@@ -556,7 +570,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, handleTogglePlay, handleSaveSong]);
+  }, [undo, redo, handleTogglePlay, handleSaveSong, activeTab]);
 
   const handleOpenLibrary = useCallback(() => {
     setImportExportTab('presets');
@@ -825,6 +839,7 @@ export default function Home() {
         onClose={() => setIsLyricSearchOpen(false)}
         currentSong={song}
         customSongs={customSongs}
+        initialScope={activeTab === 'karaoke' ? 'current' : 'all'}
         onJumpToMeasure={handleJumpFromSearch}
       />
 

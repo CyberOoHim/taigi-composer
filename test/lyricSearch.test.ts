@@ -8,6 +8,7 @@ import {
   highlightMatch,
   searchSongLyrics,
   searchLibraryLyrics,
+  searchWithinSong,
 } from '../lib/lyricSearch.ts';
 import type { Song } from '../types/song.ts';
 
@@ -166,3 +167,71 @@ describe('Lyric Search - Library Search Across Songs', () => {
     assert.ok(currentResults.every(r => r.songId === currentId));
   });
 });
+
+describe('Lyric Search - In-Song Search (searchWithinSong)', () => {
+  it('locates all measures and verses matching a keyword occurring multiple times', () => {
+    // "花" appears in Measure 1 (Verse 1) and Measure 3 (Verse 2)
+    const res = searchWithinSong(SAMPLE_UIAHOE, '花');
+    assert.equal(res.songId, SAMPLE_UIAHOE.id);
+    assert.ok(res.totalMeasureMatches >= 2, 'Should match at least 2 measures containing 花');
+    assert.ok(res.totalVerseMatches >= 2, 'Should match at least 2 verses containing 花');
+
+    const matchedMeasureNums = res.measureMatches.map(m => m.measureNumber);
+    assert.ok(matchedMeasureNums.includes(1), 'Measure 1 should be matched');
+    assert.ok(matchedMeasureNums.includes(3), 'Measure 3 should be matched');
+
+    const matchedVerseIndices = res.verseMatches.map(v => v.verseIndex);
+    assert.ok(matchedVerseIndices.includes(0), 'Verse 1 should be matched');
+    assert.ok(matchedVerseIndices.includes(1), 'Verse 2 should be matched');
+  });
+
+  it('correctly filters by measure only and verse only', () => {
+    const measureOnly = searchWithinSong(SAMPLE_UIAHOE, '花', 'measure');
+    assert.ok(measureOnly.allMatches.every(m => m.type === 'measure'));
+    assert.equal(measureOnly.allMatches.length, measureOnly.totalMeasureMatches);
+
+    const verseOnly = searchWithinSong(SAMPLE_UIAHOE, '花', 'verse');
+    assert.ok(verseOnly.allMatches.every(m => m.type === 'verse'));
+    assert.equal(verseOnly.allMatches.length, verseOnly.totalVerseMatches);
+  });
+
+  it('locates measures with unaccented POJ tone marks (e.g. "siu hong ho")', () => {
+    // Measure 2 has "siū hong hō͘"
+    const res = searchWithinSong(SAMPLE_UIAHOE, 'siu hong ho');
+    assert.ok(res.totalMeasureMatches > 0, 'Should find measure match for unaccented query');
+    const m2Match = res.measureMatches.find(m => m.measureNumber === 2);
+    assert.ok(m2Match, 'Should match Measure 2');
+    assert.equal(m2Match.matchedField, 'poj');
+  });
+
+  it('locates measures by performance annotation', () => {
+    const songWithAnnot: Song = {
+      ...SAMPLE_UIAHOE,
+      measures: [
+        ...SAMPLE_UIAHOE.measures,
+        {
+          id: 'm4',
+          measureNumber: 4,
+          chord: 'Bb',
+          notes: [
+            { id: 'n13', pitch: 1, octave: 0, duration: 2.0, annotation: '過門 Solo', lyric: { poj: '', hanlo: '' } },
+          ],
+        },
+      ],
+    };
+
+    const res = searchWithinSong(songWithAnnot, '過門');
+    assert.ok(res.totalMeasureMatches > 0, 'Should find measure with annotation 過門');
+    const annotMeasure = res.measureMatches.find(m => m.measureNumber === 4);
+    assert.ok(annotMeasure, 'Measure 4 should be found by annotation');
+    assert.equal(annotMeasure.matchedField, 'annotation');
+  });
+
+  it('handles empty or whitespace queries gracefully', () => {
+    const res = searchWithinSong(SAMPLE_UIAHOE, '   ');
+    assert.equal(res.totalMatches, 0);
+    assert.equal(res.measureMatches.length, 0);
+    assert.equal(res.verseMatches.length, 0);
+  });
+});
+
