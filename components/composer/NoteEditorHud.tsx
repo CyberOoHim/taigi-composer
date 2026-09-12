@@ -20,7 +20,6 @@ import {
   formatGraceNotes,
   INSTRUMENT_OPTIONS,
   INSTRUMENT_LABELS,
-  extractTaigiTone,
   isPunctuationZeroNote,
   isStandaloneAnnotationNote,
   getPunctuationDisplayChar,
@@ -2280,18 +2279,6 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     <MessageSquareQuote className="w-4 h-4 text-amber-500" />
                     <span>本音歌詞設定 (羅馬字 / 漢羅)</span>
                   </span>
-                  {(() => {
-                    const tone = extractTaigiTone(currentNote.lyric?.poj || currentNote.lyric?.tl || '');
-                    if (!tone) return null;
-                    return (
-                      <span
-                        className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono font-black border border-emerald-500/30"
-                        title={`${tone.name} (調值 ${tone.contour})`}
-                      >
-                        第 {tone.toneNumber} 調 ({tone.contour})
-                      </span>
-                    );
-                  })()}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

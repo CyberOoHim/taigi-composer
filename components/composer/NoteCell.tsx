@@ -8,7 +8,6 @@ import {
   isPunctuationZeroNote,
   isStandaloneAnnotationNote,
   getPunctuationDisplayChar,
-  extractTaigiTone,
   isMelismaContinuation,
   INSTRUMENT_LABELS,
 } from '@/lib/taigiUtils';
@@ -28,7 +27,6 @@ interface NoteCellProps {
   onGoToNextNote: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo') => void;
   onGoToPrevNote: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo') => void;
   keyPrefix?: string;
-  showToneOverlay?: boolean;
 }
 
 export const NoteCell: React.FC<NoteCellProps> = React.memo(({
@@ -45,7 +43,6 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
   onGoToNextNote,
   onGoToPrevNote,
   keyPrefix = '',
-  showToneOverlay = true,
 }) => {
   const [focusedField, setFocusedField] = useState<'roman' | 'hanlo' | null>(null);
 
@@ -53,8 +50,6 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
   const isPitched = !isNonNotation && typeof note.pitch === 'number' && note.pitch > 0;
   const octaveTopDots = isPitched && note.octave > 0 ? note.octave : 0;
   const octaveBottomDots = isPitched && note.octave < 0 ? Math.abs(note.octave) : 0;
-
-  const romanTone = extractTaigiTone(note.lyric?.poj || note.lyric?.tl || '');
 
   const isThirtySecond = !isNonNotation && typeof note.duration === 'number' && note.duration > 0 && note.duration <= 0.125;
   const isSixteenth = !isNonNotation && typeof note.duration === 'number' && ((note.duration <= 0.25 && note.duration > 0.125) || note.duration === 0.375);
@@ -475,7 +470,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
       {/* LOWER ZONE: DIRECT IN-SCORE EDITABLE LYRIC INPUTS (ALWAYS ONLY 羅馬字 AND 漢羅) */}
       <div className="w-full flex flex-col gap-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-800/80 shrink-0">
         {/* 羅馬字 Lyric Input */}
-        <div className="w-full flex flex-col gap-1 shrink-0">
+        <div className="w-full flex flex-col shrink-0">
           <input
             id={`lyric-input-${mIdx}-${nIdx}-roman`}
             type="text"
@@ -504,38 +499,6 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
             className="w-full text-center font-serif italic text-[22px] leading-tight font-semibold px-1 py-1 rounded-lg bg-emerald-50/60 dark:bg-[#0c1410] border border-emerald-200/90 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800 h-[42px] min-h-[42px] placeholder:text-[13px] placeholder:font-normal placeholder:not-italic placeholder:text-emerald-700/50 dark:placeholder:text-emerald-400/40 touch-manipulation"
             title="羅馬字 (POJ) - Space, hyphen, or Tab moves to next note"
           />
-          {showToneOverlay && (
-            romanTone ? (
-              <div
-                id={`numbered-tone-${mIdx}-${nIdx}`}
-                className="flex items-center justify-center gap-1 text-[16px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/60 px-2 py-0.5 rounded-xs select-none border border-emerald-300/40 h-[28px] min-h-[28px] cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectNote(mIdx, nIdx);
-                  const el = document.getElementById(`lyric-input-${mIdx}-${nIdx}-roman`);
-                  if (el) el.focus();
-                }}
-                title={`${romanTone.name} (Pitch contour ${romanTone.contour}) - 點擊編輯羅馬字`}
-              >
-                <span className="leading-none">{romanTone.superscript}</span>
-                <span className="text-[15px] tracking-tight opacity-90 leading-none">{romanTone.contour}</span>
-              </div>
-            ) : (
-              <div
-                id={`numbered-tone-${mIdx}-${nIdx}`}
-                className="flex items-center justify-center gap-1 text-[16px] font-mono font-bold text-emerald-600/35 dark:text-emerald-400/30 bg-emerald-50/25 dark:bg-emerald-950/20 px-2 py-0.5 rounded-xs select-none border border-dashed border-emerald-300/30 dark:border-emerald-800/30 h-[28px] min-h-[28px] cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectNote(mIdx, nIdx);
-                  const el = document.getElementById(`lyric-input-${mIdx}-${nIdx}-roman`);
-                  if (el) el.focus();
-                }}
-                title="聲調 (Tone number / contour - 待輸入或無標音) - 點擊輸入羅馬字"
-              >
-                <span className="text-[16px] opacity-40 leading-none">—</span>
-              </div>
-            )
-          )}
         </div>
 
         {/* 漢羅 Lyric Input */}
