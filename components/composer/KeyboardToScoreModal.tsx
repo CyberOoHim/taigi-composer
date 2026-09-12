@@ -50,6 +50,7 @@ import {
 
 export type KeyboardModalStep = 'SETUP' | 'COUNTING_IN' | 'RECORDING' | 'REVIEW';
 export type InsertionMode = 'cursor' | 'append' | 'replace';
+export type CountdownBeatsOption = 2 | 3 | 4 | 'auto';
 
 export interface KeyboardToScoreModalProps {
   isOpen: boolean;
@@ -89,8 +90,19 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
   // Octave display view for persistent piano bed: 'low_mid' (-1, 0), 'mid_high' (0, 1), 'all' (-1, 0, 1)
   const [octaveBedView, setOctaveBedView] = useState<OctaveBedView>('mid_high');
 
-  // Standardized 3-beat countdown: 3 -> 2 -> 1 -> Record
-  const [countdownBeat, setCountdownBeat] = useState<number>(3);
+  // Countdown options (2, 3, 4, auto). Default: 4 beats
+  const [countdownBeatsOption, setCountdownBeatsOption] = useState<CountdownBeatsOption>(4);
+  const [countdownBeat, setCountdownBeat] = useState<number>(4);
+
+  // Helper to resolve effective countdown beats
+  const getEffectiveCountdownBeats = useCallback((): number => {
+    if (countdownBeatsOption === 'auto') {
+      const tsParts = activeTimeSignature.split('/');
+      const num = parseInt(tsParts[0], 10);
+      return !isNaN(num) && num > 0 ? num : 4;
+    }
+    return countdownBeatsOption;
+  }, [countdownBeatsOption, activeTimeSignature]);
 
   // Metronome Pulse & Recording State
   const [currentBeatInBar, setCurrentBeatInBar] = useState<number>(1);
@@ -534,7 +546,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     }, intervalMs);
   }, [activeTimeSignature, activeBpm, audioEngine]);
 
-  // Handle Count-in and Start Recording (standardized 3-beat countdown: 3 -> 2 -> 1 -> Record)
+  // Handle Count-in and Start Recording with configurable countdown beats and distinct audio cues
   const startRecordingFlow = useCallback(() => {
     stopAllPipelines();
 
@@ -545,12 +557,13 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       return;
     }
 
-    const COUNT_IN_BEATS = 3;
+    const totalBeats = getEffectiveCountdownBeats();
     setStep('COUNTING_IN');
-    setCountdownBeat(COUNT_IN_BEATS);
+    setCountdownBeat(totalBeats);
 
-    let count = COUNT_IN_BEATS;
-    audioEngine.playMetronomeTick(true);
+    let count = totalBeats;
+    // Play distinct countdown cue sound (isFinalBeat is true when count === 1)
+    audioEngine.playCountdownTick(count === 1);
 
     if (countInIntervalRef.current) {
       clearInterval(countInIntervalRef.current);
@@ -561,7 +574,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       count -= 1;
       if (count > 0) {
         setCountdownBeat(count);
-        audioEngine.playMetronomeTick(false);
+        audioEngine.playCountdownTick(count === 1);
       } else {
         if (countInIntervalRef.current) {
           clearInterval(countInIntervalRef.current);
@@ -570,7 +583,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
         beginActiveRecording();
       }
     }, secPerBeat * 1000);
-  }, [activeBpm, enableCountIn, stopAllPipelines, audioEngine, beginActiveRecording]);
+  }, [activeBpm, enableCountIn, getEffectiveCountdownBeats, stopAllPipelines, audioEngine, beginActiveRecording]);
 
   // Finish recording and transcribe
   const handleFinishRecording = useCallback(() => {
@@ -1197,26 +1210,57 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                     ))}
                   </div>
 
-                  <div className="flex items-center justify-between pt-1">
-                    <label className="flex items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={enableCountIn}
-                        onChange={e => setEnableCountIn(e.target.checked)}
-                        className="rounded-md accent-amber-500 cursor-pointer"
-                      />
-                      <span>預備拍倒數 (3 拍)</span>
-                    </label>
+                  <div className="flex flex-col gap-1.5 pt-1 border-t border-zinc-200 dark:border-zinc-800/80">
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-2 text-[11px] text-zinc-700 dark:text-zinc-300 font-bold cursor-pointer">
+                        <input
+                          id="keyboard-enable-countin-checkbox"
+                          type="checkbox"
+                          checked={enableCountIn}
+                          onChange={e => setEnableCountIn(e.target.checked)}
+                          className="rounded-md accent-amber-500 cursor-pointer"
+                        />
+                        <span>預備拍倒數 (Count-in)</span>
+                      </label>
 
-                    <label className="flex items-center gap-1.5 text-[11px] text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={allowTriplets}
-                        onChange={e => setAllowTriplets(e.target.checked)}
-                        className="rounded-md accent-amber-500 cursor-pointer"
-                      />
-                      <span>三連音 (Triplets)</span>
-                    </label>
+                      <label className="flex items-center gap-1.5 text-[11px] text-zinc-600 dark:text-zinc-400 cursor-pointer">
+                        <input
+                          id="keyboard-allow-triplets-checkbox"
+                          type="checkbox"
+                          checked={allowTriplets}
+                          onChange={e => setAllowTriplets(e.target.checked)}
+                          className="rounded-md accent-amber-500 cursor-pointer"
+                        />
+                        <span>三連音 (Triplets)</span>
+                      </label>
+                    </div>
+
+                    {enableCountIn && (
+                      <div className="flex items-center justify-between gap-1.5 bg-zinc-100/90 dark:bg-zinc-800/80 p-1 rounded-xl">
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400 pl-1 font-semibold shrink-0">
+                          倒數拍數：
+                        </span>
+                        <div className="flex items-center gap-1 flex-1">
+                          {([2, 3, 4, 'auto'] as const).map(opt => (
+                            <button
+                              key={String(opt)}
+                              id={`keyboard-countin-opt-${opt}`}
+                              type="button"
+                              onClick={() => setCountdownBeatsOption(opt)}
+                              className={`flex-1 py-1 text-[10px] rounded-lg font-bold transition-all cursor-pointer ${
+                                countdownBeatsOption === opt
+                                  ? 'bg-amber-500 text-zinc-950 font-extrabold shadow-2xs'
+                                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60'
+                              }`}
+                            >
+                              {opt === 'auto'
+                                ? `自動 (${activeTimeSignature.split('/')[0]}拍)`
+                                : `${opt} 拍`}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1308,7 +1352,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-3 h-3 rounded-full bg-amber-400 animate-ping shrink-0" />
                       <span className="text-xs sm:text-sm font-black text-amber-300 tracking-wide truncate">
-                        預備拍倒數中（{countdownBeat}）•••請準備在第 1 拍開始彈奏！
+                        預備拍倒數中（{countdownBeat} / {getEffectiveCountdownBeats()} 拍）•••請準備在第 1 拍開始彈奏！
                       </span>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
@@ -1316,6 +1360,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                         1 = {activeKey} · {activeTimeSignature} · {activeBpm} BPM
                       </span>
                       <button
+                        id="keyboard-cancel-countin-btn"
                         type="button"
                         onClick={() => {
                           stopAllPipelines();

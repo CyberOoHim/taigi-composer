@@ -827,12 +827,23 @@ export class AudioEngine {
   }
 
   /**
-   * Play a metronome click instantly (for count-in lead-in or recording tempo grid)
+   * Play a metronome click instantly (for recording tempo grid)
    */
   public playMetronomeTick(isDownbeat = false) {
     this.initContext();
     if (!this.ctx || !this.metronomeGain) return;
     this.playMetronomeClick(this.ctx.currentTime, isDownbeat);
+    this.scheduleAutoSuspend(2000);
+  }
+
+  /**
+   * Play a countdown cue tick instantly (distinct electronic cue sound, different from woodblock metronome)
+   * isFinalBeat indicates the last countdown beat before recording starts (higher pitch alert).
+   */
+  public playCountdownTick(isFinalBeat = false) {
+    this.initContext();
+    if (!this.ctx || !this.metronomeGain) return;
+    this.playCountdownClick(this.ctx.currentTime, isFinalBeat);
     this.scheduleAutoSuspend(2000);
   }
 
@@ -853,6 +864,16 @@ export class AudioEngine {
     if (!this.ctx || !this.metronomeGain) return;
     this.cancelAutoSuspend();
     this.playMetronomeClick(when, isDownbeat);
+  }
+
+  /**
+   * Schedule a distinct countdown cue click at an AudioContext time.
+   */
+  public scheduleCountdownTick(when: number, isFinalBeat = false) {
+    this.initContext();
+    if (!this.ctx || !this.metronomeGain) return;
+    this.cancelAutoSuspend();
+    this.playCountdownClick(when, isFinalBeat);
   }
 
   /**
@@ -1563,6 +1584,41 @@ export class AudioEngine {
       osc.stop(startTime + 0.05);
     } catch (err) {
       console.warn('[AudioEngine] playMetronomeClick error:', err);
+    }
+  }
+
+  /**
+   * Play a distinct studio countdown cue ping (electronic cue beep, distinct from woodblock).
+   * Normal beats: 1760Hz (A6) pure electronic cue chirp.
+   * Final preparatory beat (1 before recording): 2640Hz (E7) high-pitch ready alert.
+   */
+  private playCountdownClick(startTime: number, isFinalBeat: boolean) {
+    if (!this.ctx || !this.metronomeGain || this.options.metronomeVolume <= 0.01) return;
+
+    try {
+      const osc = this.ctx.createOscillator();
+      this.registerOscillator(osc);
+      const gain = this.ctx.createGain();
+
+      // Clear electronic studio cue beep with crisp attack and short metallic resonance
+      osc.type = 'sine';
+      const cueFreq = isFinalBeat ? 2640 : 1760;
+      osc.frequency.setValueAtTime(cueFreq, startTime);
+      // Subtle 4ms micro pitch-glide for punchy transient definition
+      osc.frequency.exponentialRampToValueAtTime(cueFreq * 0.96, startTime + 0.006);
+
+      const peakGain = isFinalBeat ? 0.95 : 0.8;
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.002);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + (isFinalBeat ? 0.065 : 0.045));
+
+      osc.connect(gain);
+      gain.connect(this.metronomeGain);
+
+      osc.start(startTime);
+      osc.stop(startTime + 0.07);
+    } catch (err) {
+      console.warn('[AudioEngine] playCountdownClick error:', err);
     }
   }
 
