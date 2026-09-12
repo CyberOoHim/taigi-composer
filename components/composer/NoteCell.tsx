@@ -507,10 +507,10 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
           {showToneOverlay && romanTone && (
             <div
               className="flex items-center justify-center gap-0.5 text-[9px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-xs select-none border border-emerald-300/40"
-              title={`${romanTone.name} (Pitch contour ${romanTone.contour} ${romanTone.symbol})`}
+              title={`${romanTone.name} (Pitch contour ${romanTone.contour})`}
             >
               <span>{romanTone.superscript}</span>
-              <span className="text-[8px] opacity-75">{romanTone.symbol}</span>
+              <span className="text-[8.5px] tracking-tight opacity-90">{romanTone.contour}</span>
             </div>
           )}
         </div>

@@ -2286,9 +2286,9 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
                     return (
                       <span
                         className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono font-black border border-emerald-500/30"
-                        title={`${tone.name} (聲調符號 ${tone.symbol})`}
+                        title={`${tone.name} (調值 ${tone.contour})`}
                       >
-                        第 {tone.toneNumber} 調 {tone.symbol}
+                        第 {tone.toneNumber} 調 ({tone.contour})
                       </span>
                     );
                   })()}
