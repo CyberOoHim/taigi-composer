@@ -693,33 +693,6 @@ export default function Home() {
               pastCount={pastCount}
               futureCount={futureCount}
             />
-
-            {/* Quick Switch to Karaoke Stage CTA Rack */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-5 bg-white dark:bg-[#141720] border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl shadow-xs gap-4">
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shrink-0 border border-amber-500/20">
-                  <Mic2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    Ready to sing or rehearse this song?
-                  </h4>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
-                    Jump directly to Karaoke Stage to rehearse with real-time Romanization, lyrics countdown, and multi-instrument accompaniment.
-                  </p>
-                </div>
-              </div>
-              <button
-                id="composer-cta-karaoke-play-btn"
-                type="button"
-                onClick={() => handlePlayKaraoke()}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] shrink-0 w-full sm:w-auto"
-              >
-                <Mic2 className="w-4 h-4" />
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Karaoke Play</span>
-              </button>
-            </div>
           </div>
         )}
 
@@ -783,39 +756,6 @@ export default function Home() {
             </div>
           </div>
         )}
-
-        {/* Studio Hardware Specs & Explanatory Rack Strip */}
-        <div className="mt-2 p-5 bg-white/90 dark:bg-[#141720]/90 border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl text-xs text-zinc-600 dark:text-zinc-400 grid grid-cols-1 md:grid-cols-3 gap-6 shadow-xs">
-          <div className="flex flex-col gap-2">
-            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 text-xs uppercase tracking-wider">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <span>Multi-format Lyrics Support (Hanji / POJ / TL)</span>
-            </h4>
-            <p className="leading-relaxed text-zinc-500 dark:text-zinc-400">
-              Supports Hanji (漢字), Pe̍h-ōe-jī (POJ), Tâi-lô (TL), and Han-lô mixed orthography. Each note precisely aligns with corresponding syllables and vocal annotations.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 text-xs uppercase tracking-wider">
-              <Mic2 className="w-4 h-4 text-amber-500" />
-              <span>Karaoke Engine</span>
-            </h4>
-            <p className="leading-relaxed text-zinc-500 dark:text-zinc-400">
-              Built-in Web Audio API multi-instrument soundfonts (Grand Piano, Bamboo Flute, Classical Guitar, 80s Synth, Glockenspiel), real-time transpose (±12 semitones), custom BPM, chord accompaniment, and metronome.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 text-xs uppercase tracking-wider">
-              <Layers className="w-4 h-4 text-amber-500" />
-              <span>Import, Export & Share</span>
-            </h4>
-            <p className="leading-relaxed text-zinc-500 dark:text-zinc-400">
-              Supports standard JSON score files (.taigi.json) and human-readable plain text Numbered Notation formats (.txt) for one-click copying or downloading. Includes presets for classical compositions.
-            </p>
-          </div>
-        </div>
       </main>
 
       {/* Modals */}

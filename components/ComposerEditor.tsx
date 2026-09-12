@@ -193,6 +193,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const [isOrganizerOpen, setIsOrganizerOpen] = useState<boolean>(false);
   const [isKeyboardModalOpen, setIsKeyboardModalOpen] = useState<boolean>(false);
   const [isInSongSearchOpen, setIsInSongSearchOpen] = useState<boolean>(false);
+  const [showRhythmTools, setShowRhythmTools] = useState<boolean>(false);
   const [inSongActiveMatch, setInSongActiveMatch] = useState<InSongMatchLocation | null>(null);
 
   // Incomplete / Over-beat measures count for whole song
@@ -2829,73 +2830,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                 <span>彈奏轉譜</span>
               </button>
 
-              {/* Chord Playback Control (Toggle & Volume Slider) */}
-              <ChordPlaybackControl variant="toolbar" previewKeyChord={song.key} idPrefix="composer-score-chord" />
-
-              {/* Undo / Redo in Score Header */}
-              {onUndo && onRedo && (
-                <div
-                  id="composer-undo-redo-score-bar"
-                  className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs"
-                >
-                  <button
-                    id="composer-score-undo-btn"
-                    type="button"
-                    onClick={handleUndo}
-                    disabled={!canUndo}
-                    title={canUndo ? `復原 [Ctrl+Z] · 還原 ${pastCount} 步` : '無可復原步驟'}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
-                  >
-                    <Undo2 className="w-3.5 h-3.5" />
-                    <span>復原</span>
-                    {canUndo && pastCount > 0 && (
-                      <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
-                        {pastCount}
-                      </span>
-                    )}
-                  </button>
-
-                  <div className="w-[1px] h-4 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
-
-                  <button
-                    id="composer-score-redo-btn"
-                    type="button"
-                    onClick={handleRedo}
-                    disabled={!canRedo}
-                    title={canRedo ? `重做 [Ctrl+Y] · 前進 ${futureCount} 步` : '無可重做步驟'}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
-                  >
-                    <Redo2 className="w-3.5 h-3.5" />
-                    <span>重做</span>
-                    {canRedo && futureCount > 0 && (
-                      <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
-                        {futureCount}
-                      </span>
-                    )}
-                  </button>
-                </div>
-              )}
-
-              {/* In-Song Search Toggle */}
-              <button
-                id="composer-score-search-btn"
-                type="button"
-                onClick={() => setIsInSongSearchOpen(prev => !prev)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
-                  isInSongSearchOpen
-                    ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-2 ring-amber-400'
-                    : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700 font-bold shadow-2xs'
-                }`}
-                title="搜尋曲內小節與樂句 [Ctrl+F / ⌘F]"
-              >
-                <Search className="w-3.5 h-3.5 text-amber-500" />
-                <span>搜尋</span>
-                <kbd className="hidden md:inline text-[10px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 font-mono">⌘F</kbd>
-              </button>
-
-              {/* Single Centralized Zoom Control */}
-              <UiZoomControl idPrefix="composer-score-ui-zoom" />
-
               {/* Measure Insert / Delete */}
               <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900/90 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
                 <button
@@ -2945,11 +2879,51 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                 <Wand2 className="w-3.5 h-3.5 text-amber-300 stroke-[2.5]" />
                 <span className="text-white font-bold">全曲和弦</span>
               </button>
+
+              {/* Rhythm Tools Toggle Button (Expands Duration adjustments on demand) */}
+              {editMode !== 'sheet' && (
+                <button
+                  id="composer-score-rhythm-tools-btn"
+                  type="button"
+                  onClick={() => setShowRhythmTools(prev => !prev)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
+                    showRhythmTools || selectedMeasureIndices.size > 0
+                      ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-400/80 font-black shadow-xs ring-1 ring-amber-400/50'
+                      : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-700 font-bold shadow-2xs'
+                  }`}
+                  title="批次時值調整與節奏工具"
+                >
+                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                  <span>時值工具</span>
+                  {selectedMeasureIndices.size > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.2 bg-amber-500 text-zinc-950 rounded-full font-mono font-black">
+                      {selectedMeasureIndices.size}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* In-Song Search Toggle */}
+              <button
+                id="composer-score-search-btn"
+                type="button"
+                onClick={() => setIsInSongSearchOpen(prev => !prev)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
+                  isInSongSearchOpen
+                    ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-2 ring-amber-400'
+                    : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700 font-bold shadow-2xs'
+                }`}
+                title="搜尋曲內小節與樂句 [Ctrl+F / ⌘F]"
+              >
+                <Search className="w-3.5 h-3.5 text-amber-500" />
+                <span>搜尋</span>
+                <kbd className="hidden md:inline text-[10px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 font-mono">⌘F</kbd>
+              </button>
             </div>
           </div>
 
-          {/* TIER 2: Measure Duration & Batch Rhythm Operations (Visible in Note Modes) */}
-          {editMode !== 'sheet' && (
+          {/* TIER 2: Measure Duration & Batch Rhythm Operations (Expands on Demand or when Measures Selected) */}
+          {editMode !== 'sheet' && (showRhythmTools || selectedMeasureIndices.size > 0) && (
             <div
               id="composer-quick-duration-bar"
               className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-zinc-200/70 dark:border-zinc-800"

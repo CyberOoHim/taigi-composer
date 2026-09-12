@@ -5,27 +5,19 @@ import { KeySignature, LyricDisplayMode, Song, TimeSignature } from '@/types/son
 import {
   AlignLeft,
   ChevronDown,
-  ChevronUp,
-  SlidersHorizontal,
-  FileSpreadsheet,
   Music,
-  Music2,
   ScanLine,
   FilePlus2,
   FileEdit,
-  Mic2,
-  Play,
-  Square,
   Check,
   ArrowDown,
   ArrowUp,
   Plus,
   Minus,
-  RefreshCw,
-  Wand2,
   Activity,
   X,
-  Keyboard,
+  SlidersHorizontal,
+  Info,
 } from 'lucide-react';
 import { useGeminiAuth } from '@/hooks/useGeminiAuth';
 import {
@@ -57,10 +49,10 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   onStartFreshSong,
 }) => {
   const { hasApiKey } = useGeminiAuth();
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
 
-  // Active inline popover for the 3 circled DAW LCD items: 'key' | 'timeSignature' | 'bpm' | null
-  const [activePopover, setActivePopover] = useState<'key' | 'timeSignature' | 'bpm' | null>(null);
+  // Active inline popover for DAW LCD items: 'key' | 'timeSignature' | 'bpm' | 'displayMode' | null
+  const [activePopover, setActivePopover] = useState<'key' | 'timeSignature' | 'bpm' | 'displayMode' | null>(null);
 
   // Key Signature Settings
   const [autoTransposeChords, setAutoTransposeChords] = useState<boolean>(true);
@@ -77,13 +69,12 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setActivePopover(null);
+        setIsSettingsModalOpen(false);
       }
     };
-    if (activePopover) {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [activePopover]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Handle Key Change
   const handleSelectKey = (targetKey: KeySignature) => {
@@ -172,528 +163,569 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
     }
   };
 
+  // Display mode label helper
+  const getDisplayModeSummary = () => {
+    switch (displayMode) {
+      case 'roman':
+        return '羅馬字';
+      case 'hanlo':
+      case 'hanji_only':
+      case 'custom_only':
+        return '漢羅';
+      case 'roman_major_hanlo':
+      case 'all':
+        return '雙語(羅主)';
+      case 'hanlo_major_roman':
+      case 'hanji_poj':
+        return '雙語(漢主)';
+      default:
+        return '歌詞模式';
+    }
+  };
+
   return (
-    <div
-      id="song-metadata-card"
-      className="p-3.5 sm:p-4 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl shadow-xs flex flex-col gap-3 transition-all select-none relative"
-    >
-      {/* Click-away Backdrop for Active Popover */}
+    <>
+      {/* Click-away Backdrop for Active Popovers */}
       {activePopover && (
         <div
           id="popover-backdrop"
-          className="fixed inset-0 z-30 bg-black/10 dark:bg-black/20"
+          className="fixed inset-0 z-30 bg-black/10 dark:bg-black/30"
           onClick={() => setActivePopover(null)}
         />
       )}
 
-      {/* COMPACT VIEW BAR (DAW Project Inspector Strip) */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Left: Song Title, LCD Telemetry, Credits & Description */}
-        <div className="flex items-start gap-3 flex-1 min-w-[240px]">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shrink-0 mt-0.5 border border-amber-500/20">
-            <Music className="w-4.5 h-4.5" />
+      {/* COMPACT DAW PROJECT STRIP (High-Density, Maximize Viewport for Notation) */}
+      <div
+        id="song-metadata-card"
+        className="px-3.5 py-2 sm:py-2.5 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md border border-zinc-200/90 dark:border-zinc-800/80 rounded-2xl shadow-xs flex items-center justify-between gap-2.5 flex-wrap select-none relative"
+      >
+        {/* Left: Song Title & Quick Musical LCD Badges */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shrink-0 border border-amber-500/20">
+              <Music className="w-4 h-4" />
+            </div>
+
+            <button
+              id="compact-song-title-btn"
+              type="button"
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="flex items-center gap-1.5 text-left font-extrabold text-sm text-zinc-900 dark:text-zinc-100 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer group max-w-[180px] sm:max-w-[260px] truncate"
+              title="點擊編輯歌曲資訊與排版設定"
+            >
+              <span className="truncate">{song.title || 'Untitled Song'}</span>
+              <FileEdit className="w-3.5 h-3.5 text-zinc-400 group-hover:text-amber-500 shrink-0 opacity-70" />
+            </button>
           </div>
 
-          <div className="flex flex-col min-w-0 flex-1">
-            {/* Title & Musical Hardware LCD Badges */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3
-                id="compact-song-title"
-                className="font-extrabold text-sm sm:text-base text-zinc-900 dark:text-zinc-100 tracking-tight cursor-pointer hover:text-amber-600 dark:hover:text-amber-400 transition-colors flex items-center gap-1.5 touch-manipulation"
-                onClick={() => setIsExpanded(prev => !prev)}
-                title="Click to expand song information and settings"
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Key Signature Popover Trigger */}
+            <div className="relative inline-block">
+              <button
+                id="header-key-badge-btn"
+                type="button"
+                onClick={() => setActivePopover(activePopover === 'key' ? null : 'key')}
+                className={`daw-lcd text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-xs cursor-pointer touch-manipulation transition-all flex items-center gap-1 border ${
+                  activePopover === 'key'
+                    ? 'ring-2 ring-amber-400 border-amber-500 brightness-110 text-amber-300'
+                    : 'border-amber-500/20 hover:border-amber-400/60 hover:brightness-105 active:scale-95'
+                }`}
+                title="調號 (Key Signature: 1 = ?)"
               >
-                <span>{song.title || 'Untitled Song'}</span>
-                <FileEdit className="w-3.5 h-3.5 text-zinc-400 opacity-60 hover:opacity-100" />
-              </h3>
+                <span>1 = {song.key}</span>
+                <ChevronDown className="w-3 h-3 text-amber-500/70" />
+              </button>
 
-              {/* ITEM 1: Key Signature (Clickable & Directly Editable) */}
-              <div className="relative inline-block">
-                <button
-                  id="header-key-badge-btn"
-                  type="button"
-                  onClick={() => setActivePopover(activePopover === 'key' ? null : 'key')}
-                  className={`daw-lcd text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-xs cursor-pointer touch-manipulation transition-all flex items-center gap-1 border ${
-                    activePopover === 'key'
-                      ? 'ring-2 ring-amber-400 border-amber-500 brightness-110 text-amber-300'
-                      : 'border-amber-500/20 hover:border-amber-400/60 hover:brightness-105 active:scale-95'
-                  }`}
-                  title="Click to edit Key Signature (1 = ?)"
+              {activePopover === 'key' && (
+                <div
+                  id="popover-key-editor"
+                  className="absolute left-0 top-full mt-2 z-40 w-72 sm:w-80 p-3.5 bg-white dark:bg-[#161922] border border-zinc-200 dark:border-zinc-700/80 rounded-2xl shadow-xl animate-in fade-in zoom-in-95 duration-150"
                 >
-                  <span>1 = {song.key}</span>
-                  <ChevronDown className="w-3 h-3 text-amber-500/70" />
-                </button>
-
-                {/* Key Signature Popover */}
-                {activePopover === 'key' && (
-                  <div
-                    id="popover-key-editor"
-                    className="absolute left-0 top-full mt-2 z-40 w-72 sm:w-80 p-3.5 bg-white dark:bg-[#161922] border border-zinc-200 dark:border-zinc-700/80 rounded-2xl shadow-xl animate-in fade-in zoom-in-95 duration-150"
-                  >
-                    <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                        <Music className="w-3.5 h-3.5 text-amber-500" />
-                        <span>調號設定 (Key: 1 = ?)</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActivePopover(null)}
-                        className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-zinc-200 dark:border-zinc-800">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                      <Music className="w-3.5 h-3.5 text-amber-500" />
+                      <span>調號設定 (Key: 1 = ?)</span>
                     </div>
-
-                    {/* Quick Half-step Semitone Steppers */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <button
-                        id="key-step-down-btn"
-                        type="button"
-                        onClick={() => handleStepKey(-1)}
-                        className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                        title="Down 1 semitone"
-                      >
-                        <ArrowDown className="w-3.5 h-3.5 text-amber-500" />
-                        <span>-1 半音</span>
-                      </button>
-
-                      <div className="daw-lcd px-2.5 py-1 text-xs font-mono font-bold rounded-lg shrink-0">
-                        1 = {song.key}
-                      </div>
-
-                      <button
-                        id="key-step-up-btn"
-                        type="button"
-                        onClick={() => handleStepKey(1)}
-                        className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                        title="Up 1 semitone"
-                      >
-                        <ArrowUp className="w-3.5 h-3.5 text-amber-500" />
-                        <span>+1 半音</span>
-                      </button>
-                    </div>
-
-                    {/* Chromatic 12 Keys Grid */}
-                    <div className="grid grid-cols-4 gap-1.5 mb-3">
-                      {CHROMATIC_KEYS.map(k => {
-                        const isCurrent = song.key === k;
-                        return (
-                          <button
-                            key={k}
-                            id={`key-opt-${k}`}
-                            type="button"
-                            onClick={() => handleSelectKey(k)}
-                            className={`py-1.5 px-2 text-xs font-mono font-bold rounded-xl border transition-all cursor-pointer touch-manipulation flex items-center justify-center gap-1 ${
-                              isCurrent
-                                ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black shadow-xs'
-                                : 'bg-zinc-50 dark:bg-zinc-800/60 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700/60 hover:bg-amber-500/10 hover:border-amber-500/40'
-                            }`}
-                          >
-                            <span>1={k}</span>
-                            {isCurrent && <Check className="w-3 h-3 text-zinc-950 stroke-[3]" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Auto Transpose Chords Toggle */}
-                    <label className="flex items-center gap-2 p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-700/60 cursor-pointer">
-                      <input
-                        id="auto-transpose-chords-checkbox"
-                        type="checkbox"
-                        checked={autoTransposeChords}
-                        onChange={e => setAutoTransposeChords(e.target.checked)}
-                        className="w-4 h-4 rounded-sm text-amber-500 focus:ring-amber-400 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800"
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                          自動移調小節和弦
-                        </span>
-                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                          換調時同步變更樂譜和弦（如 Gm → Am）
-                        </span>
-                      </div>
-                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setActivePopover(null)}
+                      className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                )}
-              </div>
 
-              {/* ITEM 2: Time Signature (Clickable & Directly Editable) */}
-              <div className="relative inline-block">
-                <button
-                  id="header-timesig-badge-btn"
-                  type="button"
-                  onClick={() => setActivePopover(activePopover === 'timeSignature' ? null : 'timeSignature')}
-                  className={`daw-lcd text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-xs cursor-pointer touch-manipulation transition-all flex items-center gap-1 border ${
-                    activePopover === 'timeSignature'
-                      ? 'ring-2 ring-amber-400 border-amber-500 brightness-110 text-amber-300'
-                      : 'border-amber-500/20 hover:border-amber-400/60 hover:brightness-105 active:scale-95'
-                  }`}
-                  title="Click to edit Time Signature (Meter)"
+                  <div className="flex items-center gap-2 mb-3">
+                    <button
+                      id="key-step-down-btn"
+                      type="button"
+                      onClick={() => handleStepKey(-1)}
+                      className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      title="Down 1 semitone"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5 text-amber-500" />
+                      <span>-1 半音</span>
+                    </button>
+
+                    <div className="daw-lcd px-2.5 py-1 text-xs font-mono font-bold rounded-lg shrink-0">
+                      1 = {song.key}
+                    </div>
+
+                    <button
+                      id="key-step-up-btn"
+                      type="button"
+                      onClick={() => handleStepKey(1)}
+                      className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      title="Up 1 semitone"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5 text-amber-500" />
+                      <span>+1 半音</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-1.5 mb-3">
+                    {CHROMATIC_KEYS.map(k => {
+                      const isCurrent = song.key === k;
+                      return (
+                        <button
+                          key={k}
+                          id={`key-opt-${k}`}
+                          type="button"
+                          onClick={() => handleSelectKey(k)}
+                          className={`py-1.5 px-2 text-xs font-mono font-bold rounded-xl border transition-all cursor-pointer touch-manipulation flex items-center justify-center gap-1 ${
+                            isCurrent
+                              ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black shadow-xs'
+                              : 'bg-zinc-50 dark:bg-zinc-800/60 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700/60 hover:bg-amber-500/10 hover:border-amber-500/40'
+                          }`}
+                        >
+                          <span>1={k}</span>
+                          {isCurrent && <Check className="w-3 h-3 text-zinc-950 stroke-[3]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <label className="flex items-center gap-2 p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-700/60 cursor-pointer">
+                    <input
+                      id="auto-transpose-chords-checkbox"
+                      type="checkbox"
+                      checked={autoTransposeChords}
+                      onChange={e => setAutoTransposeChords(e.target.checked)}
+                      className="w-4 h-4 rounded-sm text-amber-500 focus:ring-amber-400 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                        自動移調小節和弦
+                      </span>
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                        換調時同步變更樂譜和弦（如 Gm → Am）
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Time Signature Popover Trigger */}
+            <div className="relative inline-block">
+              <button
+                id="header-timesig-badge-btn"
+                type="button"
+                onClick={() => setActivePopover(activePopover === 'timeSignature' ? null : 'timeSignature')}
+                className={`daw-lcd text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-xs cursor-pointer touch-manipulation transition-all flex items-center gap-1 border ${
+                  activePopover === 'timeSignature'
+                    ? 'ring-2 ring-amber-400 border-amber-500 brightness-110 text-amber-300'
+                    : 'border-amber-500/20 hover:border-amber-400/60 hover:brightness-105 active:scale-95'
+                }`}
+                title="拍號 (Time Signature / Meter)"
+              >
+                <span>{song.timeSignature}</span>
+                <ChevronDown className="w-3 h-3 text-amber-500/70" />
+              </button>
+
+              {activePopover === 'timeSignature' && (
+                <div
+                  id="popover-timesig-editor"
+                  className="absolute left-0 top-full mt-2 z-40 w-72 sm:w-80 p-3.5 bg-white dark:bg-[#161922] border border-zinc-200 dark:border-zinc-700/80 rounded-2xl shadow-xl animate-in fade-in zoom-in-95 duration-150"
                 >
-                  <span>{song.timeSignature}</span>
-                  <ChevronDown className="w-3 h-3 text-amber-500/70" />
-                </button>
-
-                {/* Time Signature Popover */}
-                {activePopover === 'timeSignature' && (
-                  <div
-                    id="popover-timesig-editor"
-                    className="absolute left-0 top-full mt-2 z-40 w-72 sm:w-80 p-3.5 bg-white dark:bg-[#161922] border border-zinc-200 dark:border-zinc-700/80 rounded-2xl shadow-xl animate-in fade-in zoom-in-95 duration-150"
-                  >
-                    <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                        <Activity className="w-3.5 h-3.5 text-amber-500" />
-                        <span>拍號設定 (Time Signature)</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActivePopover(null)}
-                        className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-zinc-200 dark:border-zinc-800">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                      <Activity className="w-3.5 h-3.5 text-amber-500" />
+                      <span>拍號設定 (Time Signature)</span>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setActivePopover(null)}
+                      className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
 
-                    {/* Standard Meter Options */}
-                    <div className="flex flex-col gap-1.5 mb-3">
-                      {STANDARD_TIME_SIGNATURES.map(ts => {
-                        const isCurrent = song.timeSignature === ts.value;
-                        return (
-                          <button
-                            key={ts.value}
-                            id={`timesig-opt-${ts.value.replace('/', '-')}`}
-                            type="button"
-                            onClick={() => handleSelectTimeSignature(ts.value)}
-                            className={`p-2 rounded-xl border text-left transition-all cursor-pointer touch-manipulation flex items-center justify-between ${
-                              isCurrent
-                                ? 'bg-amber-500 text-zinc-950 border-amber-400 font-bold shadow-xs'
-                                : 'bg-zinc-50 dark:bg-zinc-800/60 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700/60 hover:bg-amber-500/10 hover:border-amber-500/40'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-black text-sm w-8">{ts.label}</span>
-                              <span className="text-[11px] opacity-90">{ts.sublabel}</span>
-                            </div>
-                            {isCurrent && <Check className="w-4 h-4 text-zinc-950 stroke-[3]" />}
-                          </button>
-                        );
-                      })}
-                    </div>
+                  <div className="flex flex-col gap-1.5 mb-3">
+                    {STANDARD_TIME_SIGNATURES.map(ts => {
+                      const isCurrent = song.timeSignature === ts.value;
+                      return (
+                        <button
+                          key={ts.value}
+                          id={`timesig-opt-${ts.value.replace('/', '-')}`}
+                          type="button"
+                          onClick={() => handleSelectTimeSignature(ts.value)}
+                          className={`p-2 rounded-xl border text-left transition-all cursor-pointer touch-manipulation flex items-center justify-between ${
+                            isCurrent
+                              ? 'bg-amber-500 text-zinc-950 border-amber-400 font-bold shadow-xs'
+                              : 'bg-zinc-50 dark:bg-zinc-800/60 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700/60 hover:bg-amber-500/10 hover:border-amber-500/40'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-sm w-8">{ts.label}</span>
+                            <span className="text-[11px] opacity-90">{ts.sublabel}</span>
+                          </div>
+                          {isCurrent && <Check className="w-4 h-4 text-zinc-950 stroke-[3]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                    {/* Sync to all measures option */}
-                    <label className="flex items-center gap-2 p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-700/60 cursor-pointer mb-2.5">
+                  <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSmartRebar(song.timeSignature)}
+                      className="w-full py-1.5 px-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-colors cursor-pointer text-left"
+                    >
+                      智慧依新拍號重整小節 (Smart Re-bar)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleAutoFillRests}
+                      className="w-full py-1.5 px-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-colors cursor-pointer text-left"
+                    >
+                      自動補足不足拍小節休止符 (Auto Fill Rests)
+                    </button>
+
+                    <label className="flex items-center gap-2 px-1 cursor-pointer">
                       <input
-                        id="sync-all-measures-checkbox"
                         type="checkbox"
                         checked={syncAllMeasures}
                         onChange={e => setSyncAllMeasures(e.target.checked)}
-                        className="w-4 h-4 rounded-sm text-amber-500 focus:ring-amber-400 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800"
+                        className="w-3.5 h-3.5 rounded text-amber-500"
                       />
-                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                        同步更新所有小節之拍號規格
+                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        套用至所有未自訂拍號之小節
                       </span>
                     </label>
-
-                    {/* Actions: Auto Fill Rests & Smart Rebar */}
-                    <div className="flex flex-col gap-1.5 pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                      <button
-                        id="autofill-rests-btn"
-                        type="button"
-                        onClick={handleAutoFillRests}
-                        className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                        title="Automatically add rests to complete under-beat measures"
-                      >
-                        <Wand2 className="w-3.5 h-3.5 text-amber-500" />
-                        <span>補齊不足拍數休止符 (Auto-fill Rests)</span>
-                      </button>
-
-                      <button
-                        id="smart-rebar-btn"
-                        type="button"
-                        onClick={() => handleSmartRebar(song.timeSignature)}
-                        className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-400/40 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                        title="Smartly redistribute notes into measures according to time signature"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5 text-amber-500" />
-                        <span>依 {song.timeSignature} 重新整頓小節 (Smart Re-bar)</span>
-                      </button>
-                    </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+            </div>
 
-              {/* ITEM 3: BPM / Tempo (Clickable & Directly Editable) */}
-              <div className="relative inline-block">
-                <button
-                  id="header-bpm-badge-btn"
-                  type="button"
-                  onClick={() => setActivePopover(activePopover === 'bpm' ? null : 'bpm')}
-                  className={`daw-lcd text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-xs cursor-pointer touch-manipulation transition-all flex items-center gap-1 border ${
-                    activePopover === 'bpm'
-                      ? 'ring-2 ring-amber-400 border-amber-500 brightness-110 text-amber-300'
-                      : 'border-amber-500/20 hover:border-amber-400/60 hover:brightness-105 active:scale-95'
-                  }`}
-                  title="Click to edit Tempo (BPM)"
+            {/* BPM Popover Trigger */}
+            <div className="relative inline-block">
+              <button
+                id="header-bpm-badge-btn"
+                type="button"
+                onClick={() => setActivePopover(activePopover === 'bpm' ? null : 'bpm')}
+                className={`daw-lcd text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-xs cursor-pointer touch-manipulation transition-all flex items-center gap-1 border ${
+                  activePopover === 'bpm'
+                    ? 'ring-2 ring-amber-400 border-amber-500 brightness-110 text-amber-300'
+                    : 'border-amber-500/20 hover:border-amber-400/60 hover:brightness-105 active:scale-95'
+                }`}
+                title="速度 (Tempo: BPM)"
+              >
+                <span>♩ = {song.bpm}</span>
+                <ChevronDown className="w-3 h-3 text-amber-500/70" />
+              </button>
+
+              {activePopover === 'bpm' && (
+                <div
+                  id="popover-bpm-editor"
+                  className="absolute left-0 top-full mt-2 z-40 w-72 sm:w-80 p-3.5 bg-white dark:bg-[#161922] border border-zinc-200 dark:border-zinc-700/80 rounded-2xl shadow-xl animate-in fade-in zoom-in-95 duration-150"
                 >
-                  <span>{song.bpm} BPM</span>
-                  <ChevronDown className="w-3 h-3 text-amber-500/70" />
-                </button>
-
-                {/* BPM Popover */}
-                {activePopover === 'bpm' && (
-                  <div
-                    id="popover-bpm-editor"
-                    className="absolute left-0 top-full mt-2 z-40 w-72 sm:w-80 p-3.5 bg-white dark:bg-[#161922] border border-zinc-200 dark:border-zinc-700/80 rounded-2xl shadow-xl animate-in fade-in zoom-in-95 duration-150"
-                  >
-                    <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                        <Activity className="w-3.5 h-3.5 text-amber-500" />
-                        <span>速度設定 (Tempo · BPM)</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActivePopover(null)}
-                        className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-zinc-200 dark:border-zinc-800">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                      <Activity className="w-3.5 h-3.5 text-amber-500" />
+                      <span>速度設定 (Tempo · BPM)</span>
                     </div>
-
-                    {/* Numeric Input & Steppers */}
-                    <div className="flex items-center gap-1.5 mb-3">
-                      <button
-                        id="bpm-minus-10-btn"
-                        type="button"
-                        onClick={() => handleStepBpm(-10)}
-                        className="py-1.5 px-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-mono font-bold transition-colors cursor-pointer"
-                        title="-10 BPM"
-                      >
-                        -10
-                      </button>
-                      <button
-                        id="bpm-minus-1-btn"
-                        type="button"
-                        onClick={() => handleStepBpm(-1)}
-                        className="p-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                        title="-1 BPM"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-
-                      <div className="flex-1 flex items-center justify-center bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2 py-1">
-                        <input
-                          id="bpm-direct-input"
-                          type="number"
-                          min="30"
-                          max="260"
-                          value={song.bpm}
-                          onChange={e => handleSetBpm(parseInt(e.target.value, 10) || 80)}
-                          className="w-16 text-center text-base font-mono font-black text-amber-600 dark:text-amber-400 bg-transparent focus:outline-hidden"
-                        />
-                        <span className="text-[11px] font-mono font-bold text-zinc-500 dark:text-zinc-400">
-                          BPM
-                        </span>
-                      </div>
-
-                      <button
-                        id="bpm-plus-1-btn"
-                        type="button"
-                        onClick={() => handleStepBpm(1)}
-                        className="p-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                        title="+1 BPM"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        id="bpm-plus-10-btn"
-                        type="button"
-                        onClick={() => handleStepBpm(10)}
-                        className="py-1.5 px-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-mono font-bold transition-colors cursor-pointer"
-                        title="+10 BPM"
-                      >
-                        +10
-                      </button>
-                    </div>
-
-                    {/* Common Classical / Modern Tempo Presets */}
-                    <div className="grid grid-cols-3 gap-1.5 mb-3">
-                      {TEMPO_PRESETS.map(preset => {
-                        const isCurrent = song.bpm === preset.bpm;
-                        return (
-                          <button
-                            key={preset.bpm}
-                            id={`bpm-preset-${preset.bpm}`}
-                            type="button"
-                            onClick={() => handleSetBpm(preset.bpm)}
-                            className={`py-1 px-1.5 text-[11px] font-medium rounded-lg border transition-all cursor-pointer text-center truncate ${
-                              isCurrent
-                                ? 'bg-amber-500 text-zinc-950 border-amber-400 font-bold shadow-xs'
-                                : 'bg-zinc-50 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700/60 hover:bg-amber-500/10'
-                            }`}
-                            title={preset.label}
-                          >
-                            {preset.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Tap Tempo Interactive Pad */}
-                    <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-1.5">
-                      <button
-                        id="bpm-tap-tempo-btn"
-                        type="button"
-                        onClick={handleTapTempo}
-                        className="w-full py-2 px-3 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center gap-1.5"
-                      >
-                        <Activity className="w-4 h-4 text-zinc-950" />
-                        <span>Tap Tempo (連續點擊測速)</span>
-                      </button>
-
-                      {tapTempoFeedback && (
-                        <p className="text-[11px] text-center font-mono text-amber-600 dark:text-amber-400 font-bold animate-in fade-in">
-                          {tapTempoFeedback}
-                        </p>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActivePopover(null)}
+                      className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                )}
-              </div>
+
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <button
+                      id="bpm-minus-10-btn"
+                      type="button"
+                      onClick={() => handleStepBpm(-10)}
+                      className="py-1.5 px-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-mono font-bold transition-colors cursor-pointer"
+                      title="-10 BPM"
+                    >
+                      -10
+                    </button>
+                    <button
+                      id="bpm-minus-1-btn"
+                      type="button"
+                      onClick={() => handleStepBpm(-1)}
+                      className="p-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      title="-1 BPM"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="flex-1 flex items-center justify-center bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2 py-1">
+                      <input
+                        id="bpm-direct-input"
+                        type="number"
+                        min="30"
+                        max="260"
+                        value={song.bpm}
+                        onChange={e => handleSetBpm(parseInt(e.target.value, 10) || 80)}
+                        className="w-16 text-center text-base font-mono font-black text-amber-600 dark:text-amber-400 bg-transparent focus:outline-hidden"
+                      />
+                      <span className="text-[11px] font-mono font-bold text-zinc-500 dark:text-zinc-400">
+                        BPM
+                      </span>
+                    </div>
+
+                    <button
+                      id="bpm-plus-1-btn"
+                      type="button"
+                      onClick={() => handleStepBpm(1)}
+                      className="p-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      title="+1 BPM"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      id="bpm-plus-10-btn"
+                      type="button"
+                      onClick={() => handleStepBpm(10)}
+                      className="py-1.5 px-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-mono font-bold transition-colors cursor-pointer"
+                      title="+10 BPM"
+                    >
+                      +10
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5 mb-3">
+                    {TEMPO_PRESETS.map(preset => {
+                      const isCurrent = song.bpm === preset.bpm;
+                      return (
+                        <button
+                          key={preset.bpm}
+                          id={`bpm-preset-${preset.bpm}`}
+                          type="button"
+                          onClick={() => handleSetBpm(preset.bpm)}
+                          className={`py-1 px-1.5 text-[11px] font-medium rounded-lg border transition-all cursor-pointer text-center truncate ${
+                            isCurrent
+                              ? 'bg-amber-500 text-zinc-950 border-amber-400 font-bold shadow-xs'
+                              : 'bg-zinc-50 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700/60 hover:bg-amber-500/10'
+                          }`}
+                          title={preset.label}
+                        >
+                          {preset.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-1.5">
+                    <button
+                      id="bpm-tap-tempo-btn"
+                      type="button"
+                      onClick={handleTapTempo}
+                      className="w-full py-2 px-3 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center gap-1.5"
+                    >
+                      <Activity className="w-4 h-4 text-zinc-950" />
+                      <span>Tap Tempo (連續點擊測速)</span>
+                    </button>
+
+                    {tapTempoFeedback && (
+                      <p className="text-[11px] text-center font-mono text-amber-600 dark:text-amber-400 font-bold animate-in fade-in">
+                        {tapTempoFeedback}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Necessary Metadata: Measure Count & Composer/Lyricist Credits */}
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 flex items-center gap-1.5 flex-wrap">
-              <span className="font-mono font-semibold">{song.measures.length} Measures</span>
-              <span>·</span>
-              <span>{song.composer ? `Music: ${song.composer}` : 'Taigi Traditional'}</span>
-              {song.lyricist && (
-                <>
-                  <span>·</span>
-                  <span>Lyrics: {song.lyricist}</span>
-                </>
-              )}
-              {song.subtitle && (
-                <>
-                  <span>·</span>
-                  <span className="italic text-zinc-400 max-w-[200px] truncate">{song.subtitle}</span>
-                </>
-              )}
-            </div>
-
-            {/* Limited-length Description */}
-            {song.description ? (
-              <p
-                id="compact-song-description"
-                className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-1 max-w-2xl truncate mt-1 cursor-pointer hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
-                title={song.description}
-                onClick={() => setIsExpanded(prev => !prev)}
-              >
-                <span className="font-semibold text-zinc-500 mr-1">About:</span>
-                {song.description}
-              </p>
-            ) : (
-              <p
-                id="compact-song-description-empty"
-                className="text-[11px] text-zinc-400 dark:text-zinc-500 italic mt-0.5 cursor-pointer hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-                onClick={() => setIsExpanded(true)}
-              >
-                (No description yet. Click &ldquo;Song Settings&rdquo; to add background notes and credits)
-              </p>
-            )}
+            {/* Measures Count Pill */}
+            <span className="text-[11px] font-mono font-bold text-zinc-500 dark:text-zinc-400 px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-750 shrink-0">
+              {song.measures.length} M
+            </span>
           </div>
         </div>
 
-        {/* Right: Quick Actions & Settings Toggle (Touch Targets >= 40px) */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Start Fresh Song Trigger */}
-          {onStartFreshSong && (
-            <button
-              id="composer-new-song-btn"
-              type="button"
-              onClick={onStartFreshSong}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700/80 font-bold text-xs rounded-xl shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-              title="建立全新空白歌曲 (New Blank Song)"
+        {/* Right: Lyric Mode Selector & Studio Utilities */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          {/* Quick Lyric Display Mode Switcher */}
+          <div className="relative">
+            <div
+              id="header-lyric-mode-group"
+              className="flex items-center bg-zinc-100 dark:bg-zinc-900/90 p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-750 text-xs font-bold shadow-2xs"
             >
-              <FilePlus2 className="w-4 h-4 text-amber-500" />
-              <span>新歌</span>
-            </button>
-          )}
+              <button
+                type="button"
+                onClick={() => setDisplayMode('roman')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer touch-manipulation ${
+                  displayMode === 'roman'
+                    ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                }`}
+                title="僅顯示羅馬字 (POJ/TL)"
+              >
+                羅馬字
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayMode('hanlo')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer touch-manipulation ${
+                  displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
+                    ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                }`}
+                title="僅顯示漢羅 (Hanlo)"
+              >
+                漢羅
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePopover(activePopover === 'displayMode' ? null : 'displayMode')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer touch-manipulation ${
+                  displayMode.includes('major') || displayMode === 'all'
+                    ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                }`}
+                title="雙語對照模式"
+              >
+                <span>雙語</span>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </div>
+
+            {/* Display Mode Sub-Menu Popover */}
+            {activePopover === 'displayMode' && (
+              <div
+                id="popover-display-mode-menu"
+                className="absolute right-0 top-full mt-2 z-40 w-56 p-2 bg-white dark:bg-[#161922] border border-zinc-200 dark:border-zinc-700/80 rounded-2xl shadow-xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-1 text-xs"
+              >
+                <div className="px-2 py-1 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                  雙語對齊顯示
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDisplayMode('roman_major_hanlo');
+                    setActivePopover(null);
+                  }}
+                  className={`flex items-center justify-between p-2 rounded-xl text-left font-bold transition-colors cursor-pointer ${
+                    displayMode === 'roman_major_hanlo' || displayMode === 'all'
+                      ? 'bg-amber-500/15 text-amber-900 dark:text-amber-200'
+                      : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                  }`}
+                >
+                  <span>羅馬字 (主) + 漢羅</span>
+                  {(displayMode === 'roman_major_hanlo' || displayMode === 'all') && (
+                    <Check className="w-3.5 h-3.5 text-amber-600" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDisplayMode('hanlo_major_roman');
+                    setActivePopover(null);
+                  }}
+                  className={`flex items-center justify-between p-2 rounded-xl text-left font-bold transition-colors cursor-pointer ${
+                    displayMode === 'hanlo_major_roman' || displayMode === 'hanji_poj'
+                      ? 'bg-amber-500/15 text-amber-900 dark:text-amber-200'
+                      : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                  }`}
+                >
+                  <span>漢羅 (主) + 羅馬字</span>
+                  {(displayMode === 'hanlo_major_roman' || displayMode === 'hanji_poj') && (
+                    <Check className="w-3.5 h-3.5 text-amber-600" />
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Quick Lyric Aligner Modal Trigger */}
           <button
             id="composer-open-aligner-btn"
             type="button"
             onClick={onOpenAligner}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-xs rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-xs rounded-xl border border-zinc-200/90 dark:border-zinc-750 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
             title="歌詞對齊台 (支援 羅馬字 與 漢羅)"
           >
-            <AlignLeft className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
-            <span>歌詞對齊</span>
+            <AlignLeft className="w-3.5 h-3.5 text-amber-500" />
+            <span className="hidden sm:inline">歌詞對齊</span>
           </button>
 
-          {/* AI Score Scanner Modal Trigger */}
-          {onOpenScanner && (
-            <button
-              id="composer-open-scanner-btn"
-              type="button"
-              onClick={hasApiKey ? onOpenScanner : undefined}
-              disabled={!hasApiKey}
-              aria-disabled={!hasApiKey}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 font-bold text-xs rounded-xl shadow-2xs transition-all min-h-[40px] ${
-                hasApiKey
-                  ? 'bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 active:scale-95 cursor-pointer touch-manipulation'
-                  : 'bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-400 dark:text-zinc-500 border border-zinc-200/80 dark:border-zinc-800/80 opacity-50 cursor-not-allowed select-none'
-              }`}
-              title={
-                hasApiKey
-                  ? 'AI 簡譜辨識掃描 (支援最多 3 頁樂譜辨識)'
-                  : 'AI 辨識靜音 (未設定 Gemini API 金鑰)'
-              }
-            >
-              <ScanLine className={`w-4 h-4 ${hasApiKey ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400 dark:text-zinc-500'}`} />
-              <span>{hasApiKey ? 'AI 辨識掃描' : 'AI 辨識 (靜音)'}</span>
-            </button>
-          )}
-
-          {/* Expand Settings Toggle */}
+          {/* Song Settings / Metadata Dialog Trigger */}
           <button
             id="composer-expand-settings-btn"
             type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 font-bold text-xs rounded-xl border transition-all cursor-pointer min-h-[40px] touch-manipulation ${
-              isExpanded
-                ? 'bg-amber-500/15 border-amber-400/80 dark:border-amber-600/80 text-amber-900 dark:text-amber-200'
-                : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border-zinc-200/90 dark:border-zinc-700/80'
-            }`}
-            title={isExpanded ? '收合歌曲設定' : '展開歌曲詳細設定 (曲名、作詞作曲、調號、速度等)'}
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 font-bold text-xs rounded-xl border transition-all cursor-pointer min-h-[34px] touch-manipulation bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750 shadow-2xs"
+            title="歌曲詳細設定 (曲名、作詞作曲、每行小節數、背景故事等)"
           >
-            <SlidersHorizontal className="w-4 h-4 text-amber-500" />
-            <span>{isExpanded ? '收合設定' : '歌曲設定'}</span>
-            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            <SlidersHorizontal className="w-3.5 h-3.5 text-amber-500" />
+            <span className="hidden sm:inline">曲目設定</span>
           </button>
         </div>
       </div>
 
-      {/* EXPANDED SETTINGS & METADATA PANEL (Default closed) */}
-      {isExpanded && (
+      {/* SONG SETTINGS MODAL DIALOG (Non-intrusive, Does not shift notation scroll position) */}
+      {isSettingsModalOpen && (
         <div
-          id="composer-expanded-metadata-panel"
-          className="pt-4 border-t border-zinc-200/80 dark:border-zinc-800 flex flex-col gap-4 animate-in fade-in duration-150"
+          id="song-settings-modal-backdrop"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setIsSettingsModalOpen(false)}
         >
-          {/* Section 1: Basic Song Information */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-              Song Information
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <div
+            id="song-settings-modal-card"
+            className="bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-5 sm:p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-150"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                  <SlidersHorizontal className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100">
+                    曲目設定與背景資料 (Song Settings)
+                  </h3>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    編輯樂譜標題、作詞作曲者資訊、每行排版與歷史故事
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Section 1: Basic Song Information */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Song Title */}
               <div>
                 <label
                   htmlFor="composer-song-title-input"
                   className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1"
                 >
-                  Title *
+                  曲名 (Title) *
                 </label>
                 <input
                   id="composer-song-title-input"
@@ -701,7 +733,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   value={song.title}
                   onChange={e => onUpdateSong({ ...song, title: e.target.value })}
                   className="w-full text-sm font-bold text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all"
-                  placeholder="e.g. Bang Chhun-hong..."
+                  placeholder="如：望春風..."
                 />
               </div>
 
@@ -711,7 +743,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   htmlFor="composer-song-subtitle-input"
                   className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1"
                 >
-                  Subtitle / English
+                  副標題 / 英文 (Subtitle)
                 </label>
                 <input
                   id="composer-song-subtitle-input"
@@ -719,7 +751,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   value={song.subtitle || ''}
                   onChange={e => onUpdateSong({ ...song, subtitle: e.target.value })}
                   className="w-full text-sm font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all"
-                  placeholder="e.g. Taiwanese Folk Song..."
+                  placeholder="如：Bang Chhun-hong · Taiwanese Folk..."
                 />
               </div>
 
@@ -729,7 +761,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   htmlFor="composer-song-composer-input"
                   className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1"
                 >
-                  Composer
+                  作曲 (Composer)
                 </label>
                 <input
                   id="composer-song-composer-input"
@@ -737,7 +769,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   value={song.composer || ''}
                   onChange={e => onUpdateSong({ ...song, composer: e.target.value })}
                   className="w-full text-sm font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all"
-                  placeholder="e.g. Teng Yu-hsien..."
+                  placeholder="如：鄧雨賢..."
                 />
               </div>
 
@@ -747,7 +779,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   htmlFor="composer-song-lyricist-input"
                   className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1"
                 >
-                  Lyricist
+                  作詞 (Lyricist)
                 </label>
                 <input
                   id="composer-song-lyricist-input"
@@ -755,105 +787,19 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   value={song.lyricist || ''}
                   onChange={e => onUpdateSong({ ...song, lyricist: e.target.value })}
                   className="w-full text-sm font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all"
-                  placeholder="e.g. Li Lin-chiu..."
+                  placeholder="如：李臨秋..."
                 />
               </div>
             </div>
-          </div>
 
-          {/* Section 2: Lengthy Description Multi-line Input */}
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="composer-song-description-textarea"
-              className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider"
-            >
-              Description & Historical Background
-            </label>
-            <textarea
-              id="composer-song-description-textarea"
-              rows={3}
-              value={song.description || ''}
-              onChange={e => onUpdateSong({ ...song, description: e.target.value })}
-              className="w-full text-xs font-normal leading-relaxed text-zinc-800 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all resize-y"
-              placeholder="Enter song background notes, history, cultural context, singing tips, or accompaniment notes..."
-            />
-          </div>
-
-          {/* Section 3: Musical Parameters & Layout */}
-          <div className="flex flex-col gap-1.5 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
-            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-              Musical Parameters & Layout
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-              {/* Key Signature */}
-              <div>
-                <label
-                  htmlFor="composer-key-select"
-                  className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1"
-                >
-                  Key (1=?)
-                </label>
-                <select
-                  id="composer-key-select"
-                  value={song.key}
-                  onChange={e => handleSelectKey(e.target.value as KeySignature)}
-                  className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-colors cursor-pointer"
-                >
-                  {CHROMATIC_KEYS.map(k => (
-                    <option key={k} value={k}>
-                      1 = {k}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Time Signature */}
-              <div>
-                <label
-                  htmlFor="composer-time-signature-select"
-                  className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1"
-                >
-                  Time Signature
-                </label>
-                <select
-                  id="composer-time-signature-select"
-                  value={song.timeSignature}
-                  onChange={e => handleSelectTimeSignature(e.target.value as TimeSignature)}
-                  className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-colors cursor-pointer"
-                >
-                  <option value="4/4">4/4</option>
-                  <option value="3/4">3/4</option>
-                  <option value="2/4">2/4</option>
-                  <option value="6/8">6/8</option>
-                </select>
-              </div>
-
-              {/* BPM */}
-              <div>
-                <label
-                  htmlFor="composer-bpm-input"
-                  className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1"
-                >
-                  Tempo (BPM 40-240)
-                </label>
-                <input
-                  id="composer-bpm-input"
-                  type="number"
-                  min="40"
-                  max="240"
-                  value={song.bpm}
-                  onChange={e => handleSetBpm(parseInt(e.target.value, 10) || 80)}
-                  className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-mono font-bold rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-colors text-center"
-                />
-              </div>
-
-              {/* Notes / Measures Per Line */}
+            {/* Section 2: Layout & Measures Per Line */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
               <div>
                 <label
                   htmlFor="composer-notes-per-line-select"
                   className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1"
                 >
-                  Measures Per Line
+                  總譜每行小節數 (Measures Per Line)
                 </label>
                 <select
                   id="composer-notes-per-line-select"
@@ -863,90 +809,79 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   }
                   className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-colors cursor-pointer"
                 >
-                  <option value="2">2 Measures / Line</option>
-                  <option value="3">3 Measures / Line</option>
-                  <option value="4">4 Measures / Line (Default)</option>
-                  <option value="5">5 Measures / Line</option>
-                  <option value="6">6 Measures / Line</option>
+                  <option value="2">2 小節 / 行 (寬鬆大字)</option>
+                  <option value="3">3 小節 / 行</option>
+                  <option value="4">4 小節 / 行 (標準 4/4 推薦)</option>
+                  <option value="5">5 小節 / 行</option>
+                  <option value="6">6 小節 / 行 (高密度)</option>
                 </select>
               </div>
-            </div>
-          </div>
 
-          {/* Section 4: Lyric Display Mode Selector & Collapse Button */}
-          <div className="flex flex-wrap items-center justify-between pt-2 border-t border-zinc-200/80 dark:border-zinc-800 text-xs gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-            {/* Lyrics Display Mode Options */}
-            <div className="flex flex-col gap-1.5 text-xs">
-              <span className="font-bold text-zinc-600 dark:text-zinc-400">Karaoke & Score Display:</span>
-              <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl border border-zinc-200/60 dark:border-zinc-700/60 flex-wrap gap-1">
-                <button
-                  id="composer-mode-roman"
-                  type="button"
-                  onClick={() => setDisplayMode('roman')}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    displayMode === 'roman'
-                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
-                >
-                  1. 羅馬字
-                </button>
-                <button
-                  id="composer-mode-hanlo"
-                  type="button"
-                  onClick={() => setDisplayMode('hanlo')}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
-                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
-                >
-                  2. 漢羅
-                </button>
-                <button
-                  id="composer-mode-roman-major-hanlo"
-                  type="button"
-                  onClick={() => setDisplayMode('roman_major_hanlo')}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    displayMode === 'roman_major_hanlo' || displayMode === 'all'
-                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
-                >
-                  3. 羅馬字（主）+ 漢羅
-                </button>
-                <button
-                  id="composer-mode-hanlo-major-roman"
-                  type="button"
-                  onClick={() => setDisplayMode('hanlo_major_roman')}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    displayMode === 'hanlo_major_roman' || displayMode === 'hanji_poj'
-                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs font-bold'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
-                >
-                  4. 漢羅（主）+ 羅馬字
-                </button>
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
+                  樂曲結構總計
+                </label>
+                <div className="flex items-center gap-2 p-2 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-mono font-bold text-zinc-700 dark:text-zinc-300">
+                  <span>共 {song.measures.length} 個小節</span>
+                  <span>·</span>
+                  <span>調號 1 = {song.key}</span>
+                  <span>·</span>
+                  <span>{song.timeSignature} 拍</span>
+                  <span>·</span>
+                  <span>{song.bpm} BPM</span>
+                </div>
               </div>
             </div>
+
+            {/* Section 3: Description Multi-line Input */}
+            <div className="flex flex-col gap-1.5 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
+              <label
+                htmlFor="composer-song-description-textarea"
+                className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider"
+              >
+                樂曲解說、歷史背景與演唱筆記
+              </label>
+              <textarea
+                id="composer-song-description-textarea"
+                rows={3}
+                value={song.description || ''}
+                onChange={e => onUpdateSong({ ...song, description: e.target.value })}
+                className="w-full text-xs font-normal leading-relaxed text-zinc-800 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all resize-y"
+                placeholder="輸入樂曲歷史創作背景、台語歌詞意境、文化註釋或演唱提示..."
+              />
             </div>
 
-            {/* Done & Collapse Button */}
-            <button
-              id="composer-collapse-settings-footer-btn"
-              type="button"
-              onClick={() => setIsExpanded(false)}
-              className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
-            >
-              Done
-            </button>
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                {onStartFreshSong && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSettingsModalOpen(false);
+                      onStartFreshSong();
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <FilePlus2 className="w-3.5 h-3.5 text-amber-500" />
+                    <span>開新空白曲</span>
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                完成 (Done)
+              </button>
+            </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 });
 
 SongMetadataHeader.displayName = 'SongMetadataHeader';
-
