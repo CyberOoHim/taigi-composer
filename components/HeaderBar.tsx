@@ -416,9 +416,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </span>
 
             {/* Chord Playback Control */}
-            <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-850/80 border border-zinc-200/80 dark:border-zinc-750">
+            <div className="p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
                   和弦伴奏 (Chords)
                 </span>
               </div>
@@ -434,11 +434,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   isEcoMode
                     ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40 shadow-xs'
-                    : 'bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-850/80 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/80 dark:border-zinc-750'
+                    : 'bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border-zinc-200 dark:border-zinc-750'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <Leaf className={`w-4 h-4 shrink-0 ${isEcoMode ? 'text-emerald-500 fill-emerald-500' : 'text-zinc-400'}`} />
+                  <Leaf className={`w-4 h-4 shrink-0 ${isEcoMode ? 'text-emerald-500 fill-emerald-500' : 'text-zinc-400 dark:text-zinc-400'}`} />
                   <div className="flex flex-col text-left">
                     <span className="font-bold">{isEcoMode ? '節能模式已開啟 (Eco ON)' : '節能省電模式 (Eco Mode)'}</span>
                     <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
@@ -470,8 +470,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               </span>
             </div>
 
-            <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-50 dark:bg-zinc-850/80 border border-zinc-200/80 dark:border-zinc-750">
-              <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750">
+              <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
                 介面字級縮放
               </span>
               <UiZoomControl idPrefix="header-menu-ui-zoom" />
@@ -479,15 +479,15 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
             {/* Autosave Interval */}
             {onSetAutosaveInterval && (
-              <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-50 dark:bg-zinc-850/80 border border-zinc-200/80 dark:border-zinc-750">
-                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750">
+                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
                   自動儲存頻率
                 </span>
                 <select
                   id="header-menu-autosave-select"
                   value={autosaveInterval}
                   onChange={e => onSetAutosaveInterval(Number(e.target.value))}
-                  className="text-xs font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 px-2 py-1 rounded-lg cursor-pointer focus:outline-hidden"
+                  className="text-xs font-bold bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 px-2.5 py-1 rounded-lg cursor-pointer focus:outline-hidden"
                 >
                   <option value={0}>手動儲存 (預設)</option>
                   <option value={60000}>每 1 分鐘</option>
@@ -513,7 +513,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   setIsStudioMenuOpen(false);
                   onOpenImportExport();
                 }}
-                className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-850/80 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer"
+                className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer"
               >
                 <Library className="w-4 h-4 text-amber-500 shrink-0" />
                 <span>曲庫與匯入</span>
@@ -527,7 +527,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     setIsStudioMenuOpen(false);
                     onOpenMidiExport();
                   }}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-850/80 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer"
+                  className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer"
                 >
                   <Download className="w-4 h-4 text-amber-500 shrink-0" />
                   <span>匯出 MIDI</span>
@@ -548,7 +548,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all ${
                     hasApiKey
                       ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border-amber-400/40 cursor-pointer'
-                      : 'bg-zinc-100/60 dark:bg-zinc-900/40 text-zinc-400 border-zinc-200/60 cursor-not-allowed opacity-50'
+                      : 'bg-zinc-100/60 dark:bg-zinc-900/60 text-zinc-400 dark:text-zinc-500 border-zinc-200/60 dark:border-zinc-800 cursor-not-allowed opacity-50'
                   }`}
                 >
                   <ScanLine className={`w-4 h-4 shrink-0 ${hasApiKey ? 'text-amber-500' : 'text-zinc-400'}`} />
@@ -566,7 +566,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   }}
                   className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                     !hasApiKey
-                      ? 'bg-zinc-50 dark:bg-zinc-850/80 text-zinc-400 border-zinc-200/80 dark:border-zinc-750'
+                      ? 'bg-zinc-100/80 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-750'
                       : isAuthenticated
                       ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40'
                       : 'bg-amber-500/15 text-amber-900 dark:text-amber-200 border-amber-400/40'

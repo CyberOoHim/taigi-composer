@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@theme {
+  --color-zinc-750: #2b303d;
+  --color-zinc-850: #1a1e28;
+}
+
 /* =========================================================================
    UI TEXT ZOOM ACCESSIBILITY ENGINE
    ========================================================================= */
