@@ -875,7 +875,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
 
             {/* WYSIWYG NUMBERED NOTATION SCORE ROW WITH MEASURE DIVIDERS & INTERACTIVE SPLITTERS */}
             <div
-              className="flex items-center overflow-x-auto pb-3 pt-1 gap-1.5 sm:gap-2 select-none"
+              className="flex items-stretch overflow-x-auto pb-3 pt-1 gap-1.5 sm:gap-2 select-none"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {verse.notes.map((item, itemIdx) => {
@@ -933,7 +933,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                     {/* Interactive In-Between Note Splitter (Scissors) */}
                     {!isFirstNoteInThisMeasure && item.noteIndex > 0 && onSplitMeasureAtNote && (
                       <div
-                        className="relative flex items-center justify-center group h-24 sm:h-28 px-0.5 cursor-pointer shrink-0"
+                        className="relative flex items-center justify-center group self-stretch px-0.5 cursor-pointer shrink-0"
                         onMouseEnter={() => setHoveredSplitKey(splitHoverKey)}
                         onMouseLeave={() => setHoveredSplitKey(null)}
                         onClick={e => {
@@ -942,7 +942,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                         }}
                         title={`Split Measure at note #${item.noteIndex + 1}`}
                       >
-                        <div className="w-[1.5px] h-16 bg-zinc-200 dark:bg-zinc-700 group-hover:bg-amber-500 transition-colors rounded-full" />
+                        <div className="w-[1.5px] h-20 bg-zinc-200 dark:bg-zinc-700 group-hover:bg-amber-500 transition-colors rounded-full" />
                         <button
                           type="button"
                           className={`absolute z-10 p-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-full shadow-md transition-all active:scale-95 ${

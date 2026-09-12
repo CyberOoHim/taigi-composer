@@ -992,7 +992,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
 
               {/* THE WYSIWYG NUMBERED NOTATION SCORE ROW WITH INTERACTIVE BARLINES */}
               <div
-                className="flex items-center overflow-x-auto pb-3 pt-1 gap-1.5 sm:gap-2 select-none"
+                className="flex items-stretch overflow-x-auto pb-3 pt-1 gap-1.5 sm:gap-2 select-none"
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
                 {/* Opening Barline */}
@@ -1019,7 +1019,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                       {/* Interactive In-between Split Barline (only between notes) */}
                       {nIdx > 0 && onSplitMeasureAtNote && (
                         <div
-                          className="relative flex items-center justify-center group h-24 sm:h-28 px-0.5 cursor-pointer"
+                          className="relative flex items-center justify-center group self-stretch px-0.5 cursor-pointer shrink-0"
                           onMouseEnter={() => setHoveredSplitIndex(splitHoverKey)}
                           onMouseLeave={() => setHoveredSplitIndex(null)}
                           onClick={e => {
@@ -1028,7 +1028,7 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                           }}
                           title={`Split measure at note #${nIdx + 1}`}
                         >
-                          <div className="w-[1.5px] h-16 bg-zinc-200 dark:bg-zinc-700 group-hover:bg-amber-500 transition-colors rounded-full" />
+                          <div className="w-[1.5px] h-20 bg-zinc-200 dark:bg-zinc-700 group-hover:bg-amber-500 transition-colors rounded-full" />
                           <button
                             type="button"
                             className={`absolute z-10 p-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-full shadow-md transition-all active:scale-95 ${
