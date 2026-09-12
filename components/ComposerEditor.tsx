@@ -2619,14 +2619,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         setDisplayMode={setDisplayMode}
         onOpenAligner={onOpenAligner}
         onOpenScanner={onOpenScanner}
-        onOpenKeyboardToScore={() => setIsKeyboardModalOpen(true)}
         onStartFreshSong={onStartFreshSong}
-        onOpenOrganizer={() => setEditMode(editMode === 'sheet' ? 'note' : 'sheet')}
-        editMode={editMode}
-        onPlayKaraoke={onPlayKaraoke}
-        isPlaying={isSongPlaying}
-        onStopPlayback={handleStopAudio}
-        incompleteMeasuresCount={incompleteMeasuresCount}
       />
 
       {/* Persistent Section Navigation Rail (Quick Section Jump) */}
@@ -2652,421 +2645,418 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       {/* WYSIWYG NUMBERED NOTATION SCORE SHEET CONTAINER */}
       <div id="wysiwyg-numbered-notation-score-container" className="flex flex-col gap-4">
-        {/* Score Sheet Header */}
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <h2 className="text-base font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-            <Music2 className="w-5 h-5 text-amber-500" />
-            <span>Numbered Notation Score Editor</span>
-          </h2>
-
-          <div className="flex items-center gap-2 text-xs flex-wrap">
-            {/* In-Song Search Toggle Button */}
-            <button
-              id="composer-score-search-btn"
-              type="button"
-              onClick={() => setIsInSongSearchOpen(prev => !prev)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
-                isInSongSearchOpen
-                  ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-2 ring-amber-400'
-                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700 font-bold shadow-2xs'
-              }`}
-              title="搜尋曲內小節與樂句 [Ctrl+F / ⌘F]"
-            >
-              <Search className="w-3.5 h-3.5 text-amber-500" />
-              <span>搜尋曲內</span>
-              <kbd className="hidden md:inline text-[10px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 font-mono">⌘F</kbd>
-            </button>
-
-            {/* Karaoke Play / Stop Playback in Score Header */}
-            {isSongPlaying ? (
-              <button
-                id="composer-score-stop-btn"
-                type="button"
-                onClick={handleStopAudio}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] animate-pulse"
-                title="Stop current audio playback"
-              >
-                <Square className="w-3.5 h-3.5 fill-current text-white" />
-                <span>Stop Playback</span>
-              </button>
-            ) : onPlayKaraoke ? (
-              <div
-                id="composer-score-karaoke-play-group"
-                className="flex items-center bg-amber-500/15 dark:bg-amber-500/20 p-0.5 rounded-xl border border-amber-400/80 dark:border-amber-600/80 shadow-2xs"
-              >
-                <button
-                  id="composer-score-karaoke-play-btn"
-                  type="button"
-                  onClick={() => onPlayKaraoke()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-                  title="Directly jump to Karaoke deck and play from beginning"
-                >
-                  <Mic2 className="w-3.5 h-3.5 text-zinc-950" />
-                  <Play className="w-3 h-3 fill-current text-zinc-950" />
-                  <span>Karaoke Play</span>
-                </button>
-                {selectedMeasureIndex !== null && selectedMeasureIndex > 0 && (
-                  <button
-                    id="composer-score-karaoke-play-from-measure-btn"
-                    type="button"
-                    onClick={() => onPlayKaraoke(selectedMeasureIndex)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-900 dark:text-amber-200 hover:bg-amber-500/20 transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-                    title={`Jump to Karaoke deck and play starting from Measure ${selectedMeasureIndex + 1}`}
-                  >
-                    <span>From M.{selectedMeasureIndex + 1}</span>
-                  </button>
-                )}
-              </div>
-            ) : null}
-
-            {/* Mode Switcher (Note Mode vs Sheet Mode) - immediately following Karaoke Play */}
-            <button
-              id="composer-open-organizer-btn"
-              type="button"
-              onClick={() => setEditMode(editMode === 'sheet' ? 'note' : 'sheet')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
-                editMode === 'sheet'
-                  ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 font-black shadow-xs'
-                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700 font-bold shadow-2xs'
-              }`}
-              title={
-                editMode === 'sheet'
-                  ? 'Currently in Sheet Mode · Click to switch to Note Mode'
-                  : 'Currently in Note Mode · Click to switch to Sheet Mode'
-              }
-            >
-              {editMode === 'sheet' ? (
-                <>
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-zinc-950" />
-                  <span>Sheet Mode</span>
-                </>
-              ) : (
-                <>
-                  <Music2 className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Note Mode</span>
-                </>
-              )}
-              {incompleteMeasuresCount > 0 && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono font-black" title={`${incompleteMeasuresCount} measure(s) under or over beat limit`}>
-                  {incompleteMeasuresCount}
-                </span>
-              )}
-            </button>
-
-            {/* Chord Playback Control (Toggle & Volume Slider) */}
-            <ChordPlaybackControl variant="toolbar" previewKeyChord={song.key} idPrefix="composer-score-chord" />
-
-            {/* Undo / Redo in Score Header */}
-            {onUndo && onRedo && (
-              <div
-                id="composer-undo-redo-score-bar"
-                className="flex items-center bg-white dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs"
-              >
-                <button
-                  id="composer-score-undo-btn"
-                  type="button"
-                  onClick={handleUndo}
-                  disabled={!canUndo}
-                  title={canUndo ? `Undo [Ctrl+Z] · ${pastCount} step(s)` : 'No steps to undo'}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-                >
-                  <Undo2 className="w-3.5 h-3.5" />
-                  <span>Undo</span>
-                  {canUndo && pastCount > 0 && (
-                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
-                      {pastCount}
-                    </span>
-                  )}
-                </button>
-
-                <div className="w-[1px] h-4 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
-
-                <button
-                  id="composer-score-redo-btn"
-                  type="button"
-                  onClick={handleRedo}
-                  disabled={!canRedo}
-                  title={canRedo ? `Redo [Ctrl+Y] · ${futureCount} step(s)` : 'No steps to redo'}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-                >
-                  <Redo2 className="w-3.5 h-3.5" />
-                  <span>Redo</span>
-                  {canRedo && futureCount > 0 && (
-                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
-                      {futureCount}
-                    </span>
-                  )}
-                </button>
-              </div>
-            )}
-
-            {/* UI Text Zoom (- / +) in Score Bar */}
-            <UiZoomControl idPrefix="composer-score-ui-zoom" />
-
-            {/* Keyboard-to-Score Studio Button in Score Bar */}
-            <button
-              id="composer-score-keyboard-btn"
-              type="button"
-              onClick={() => setIsKeyboardModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500/20 to-amber-400/20 hover:from-amber-500/30 hover:to-amber-400/30 text-amber-900 dark:text-amber-200 border border-amber-400/60 dark:border-amber-600/60 rounded-xl font-bold shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-              title="鍵盤彈奏即時轉譜工作站 (Keyboard-to-Score Studio: 支援觸控鋼琴、QWERTY 打字、Web MIDI)"
-            >
-              <Keyboard className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>彈奏轉譜工作站</span>
-            </button>
-
-            {/* Auto-Harmonize Entire Song Button */}
-            <button
-              id="composer-score-auto-chords-btn"
-              type="button"
-              onClick={handleAutoHarmonizeSong}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:via-indigo-400 hover:to-purple-500 text-white border border-indigo-400/80 rounded-xl font-bold shadow-xs hover:shadow-sm transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-              title="智慧分析旋律音高與節奏，為全曲所有小節自動配和弦 (可隨時復原)"
-            >
-              <Wand2 className="w-3.5 h-3.5 text-amber-300 stroke-[2.5]" />
-              <span className="text-white font-bold">全曲配和弦</span>
-            </button>
-
-            <button
-              id="composer-score-add-measure-btn"
-              type="button"
-              onClick={handleAddMeasure}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl font-bold shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-              title="Add a new measure at the end of the song"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Measure</span>
-            </button>
-
-            {/* Delete Measure Button */}
-            <button
-              id="composer-score-delete-measure-btn"
-              type="button"
-              onClick={() => {
-                const targetIdx = selectedMeasureIndex !== null ? selectedMeasureIndex : song.measures.length - 1;
-                handleDeleteMeasure(targetIdx);
-              }}
-              disabled={song.measures.length <= 1}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 rounded-xl font-bold shadow-2xs transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer touch-manipulation min-h-[36px]"
-              title={
-                song.measures.length <= 1
-                  ? 'Song must retain at least one measure'
-                  : `Delete Measure #${(selectedMeasureIndex !== null ? selectedMeasureIndex : song.measures.length - 1) + 1}`
-              }
-            >
-              <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-              <span>Delete Measure</span>
-              {song.measures.length > 1 && (
-                <span className="text-[10px] font-mono opacity-80">
-                  (M.{(selectedMeasureIndex !== null ? selectedMeasureIndex : song.measures.length - 1) + 1})
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* EDIT MODE TOGGLE SWITCHER (Note Mode vs Sheet Mode) */}
+        {/* UNIFIED SCORE STUDIO DECK (Consolidated Tier 1 & Tier 2 Toolbar) */}
         <div
-          id="editor-mode-toggle-container"
-          className="flex flex-wrap items-center justify-between gap-3 p-3 bg-zinc-100/90 dark:bg-zinc-800/80 rounded-2xl border border-zinc-200 dark:border-zinc-700/80 shadow-xs"
+          id="score-studio-unified-deck"
+          className="flex flex-col gap-2.5 p-3.5 bg-white dark:bg-[#141720] rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-xs"
         >
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Editor Mode:</span>
-            </span>
-            <div className="flex bg-white dark:bg-zinc-900 p-1 rounded-xl shadow-xs border border-zinc-200 dark:border-zinc-700">
-              <button
-                id="editor-mode-note-btn"
-                type="button"
-                onClick={() => setEditMode('note')}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[36px] ${
-                  editMode !== 'sheet'
-                    ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-                }`}
-              >
-                <Music2 className="w-3.5 h-3.5" />
-                <span>Note Mode</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-600/30 text-zinc-950 dark:text-zinc-900 font-extrabold ml-1">
-                  Verse &amp; Measure
-                </span>
-              </button>
-
-              <button
-                id="editor-mode-sheet-btn"
-                type="button"
-                onClick={() => setEditMode('sheet')}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[36px] ${
-                  editMode === 'sheet'
-                    ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-                }`}
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Sheet Mode</span>
-                {incompleteMeasuresCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono font-black ml-0.5">
-                    {incompleteMeasuresCount}
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Quick jump return back to Karaoke mode */}
-            {karaokeReturnTarget && onReturnToKaraoke && (
-              <button
-                id="editor-bar-back-to-karaoke-btn"
-                type="button"
-                onClick={() => onReturnToKaraoke(karaokeReturnTarget.originalMeasureIndex)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-                title={`Jump back to Karaoke mode at Measure #${karaokeReturnTarget.originalMeasureIndex + 1}`}
-              >
-                <CornerUpLeft className="w-3.5 h-3.5" />
-                <Mic2 className="w-3.5 h-3.5" />
-                <span>Back to Karaoke (#{karaokeReturnTarget.originalMeasureIndex + 1})</span>
-              </button>
-            )}
-
-            {/* Quick jump return back to Sheet mode */}
-            {sheetReturnTarget && (
-              <button
-                id="editor-bar-back-to-sheet-btn"
-                type="button"
-                onClick={() => handleReturnToSheet(sheetReturnTarget.originalMeasureIndex)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
-                title={`Jump back to Sheet mode at Measure #${sheetReturnTarget.originalMeasureIndex + 1}`}
-              >
-                <CornerUpLeft className="w-3.5 h-3.5" />
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Back to Sheet (#{sheetReturnTarget.originalMeasureIndex + 1})</span>
-              </button>
-            )}
-
-            {editMode !== 'sheet' ? (
-              <span className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/60 font-medium text-xs">
-                <span className="font-bold text-amber-600 dark:text-amber-400">Note Mode:</span>
-                Unified deck with Verse &amp; Measure switch · {song.measures.length} measures, {verses.length} verses
+          {/* TIER 1: Primary Controls & Mode Switchers */}
+          <div className="flex items-center justify-between flex-wrap gap-2.5">
+            {/* Left: View Perspectives (Note Mode: 樂句 / 小節 + Sheet Mode: 總譜) */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 shrink-0 mr-0.5">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span>檢視模式:</span>
               </span>
-            ) : (
-              <span className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/60 font-medium text-xs">
-                <span className="font-bold text-amber-600 dark:text-amber-400">Sheet Mode:</span>
-                System layout, barlines, phrasing &amp; rhythm health · {song.measures.length} measures, {verses.length} verses
-              </span>
-            )}
-          </div>
-        </div>
 
-        {/* QUICK MEASURE DURATION BAR (Visible in Verse and Measure modes) */}
-        {editMode !== 'sheet' && (
-          <div
-            id="composer-quick-duration-bar"
-            className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2.5 bg-white dark:bg-[#141720] rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xs"
-          >
-          {/* Left: Scope indicator & Multi-selection controls */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 shrink-0">
-              <Clock className="w-3.5 h-3.5 text-amber-500" />
-              <span>Measure Duration:</span>
-            </span>
-
-            {/* Target Scope Pill */}
-            <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 rounded-xl text-xs font-bold">
-              <span>Target:</span>
-              {selectedMeasureIndices.size > 0 ? (
-                <span className="font-mono font-black">
-                  {selectedMeasureIndices.size} selected (M.{Array.from(selectedMeasureIndices).map(i => i + 1).join(', ')})
-                </span>
-              ) : (
-                <span className="font-mono font-black">
-                  Active M.{(selectedMeasureIndex !== null ? selectedMeasureIndex : 0) + 1}
-                </span>
-              )}
-            </div>
-
-            {/* Selection Quick Buttons */}
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handleSelectAllMeasures}
-                className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
-                title="Select all measures for batch duration change"
+              <div
+                id="score-deck-view-switch-group"
+                className="flex items-center bg-zinc-100 dark:bg-zinc-900/90 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700/80 shadow-2xs"
               >
-                Select All
-              </button>
-              {selectedMeasureIndices.size > 0 && (
+                {/* 樂句檢視 (Verse Edit) */}
                 <button
+                  id="score-deck-mode-verse-btn"
                   type="button"
-                  onClick={handleClearMeasureSelection}
-                  className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
-                  title="Clear measure selection"
+                  onClick={() => {
+                    if (editMode === 'sheet' || noteSubMode !== 'verse') {
+                      setEditMode('verse');
+                      setTimeout(() => {
+                        const mIdx = selectedMeasureIndex ?? 0;
+                        const matchingVerseIdx = verses.findIndex(v =>
+                          v.notes.some(n => n.measureIndex === mIdx)
+                        );
+                        const targetVIdx = matchingVerseIdx >= 0 ? matchingVerseIdx : 0;
+                        scrollToCardElement(`verse-card-${targetVIdx}`, { align: 'top', headerOffset: 0 });
+                      }, 50);
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[34px] ${
+                    editMode !== 'sheet' && noteSubMode === 'verse'
+                      ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                      : 'text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white'
+                  }`}
+                  title="樂句檢視 (Verse Edit): 依標點與語氣流暢分組編輯"
                 >
-                  Clear ({selectedMeasureIndices.size})
+                  <AlignLeft className="w-3.5 h-3.5" />
+                  <span>樂句檢視</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-200/80 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-mono font-bold">
+                    {verses.length}
+                  </span>
+                </button>
+
+                {/* 小節檢視 (Measure Edit) */}
+                <button
+                  id="score-deck-mode-measure-btn"
+                  type="button"
+                  onClick={() => {
+                    if (editMode === 'sheet' || noteSubMode !== 'measure') {
+                      setEditMode('measure');
+                      setTimeout(() => {
+                        const targetMIdx = selectedMeasureIndex ?? 0;
+                        scrollToCardElement(`measure-card-${targetMIdx}`, { align: 'top', headerOffset: 0 });
+                      }, 50);
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[34px] ${
+                    editMode !== 'sheet' && noteSubMode === 'measure'
+                      ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                      : 'text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white'
+                  }`}
+                  title="小節檢視 (Measure Edit): 依拍號與小節線結構編輯"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>小節檢視</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-200/80 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-mono font-bold">
+                    {song.measures.length}
+                  </span>
+                </button>
+
+                {/* 總譜檢視 (Sheet Mode) */}
+                <button
+                  id="score-deck-mode-sheet-btn"
+                  type="button"
+                  onClick={() => setEditMode('sheet')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[34px] ${
+                    editMode === 'sheet'
+                      ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
+                      : 'text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white'
+                  }`}
+                  title="總譜檢視 (Sheet Mode): 整頁排版、系統行分段與節奏健康檢視"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>總譜檢視</span>
+                  {incompleteMeasuresCount > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono font-black" title={`${incompleteMeasuresCount} 小節拍數不符`}>
+                      {incompleteMeasuresCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Quick Jump Return Back to Karaoke or Sheet Mode if triggered */}
+              {karaokeReturnTarget && onReturnToKaraoke && (
+                <button
+                  id="editor-bar-back-to-karaoke-btn"
+                  type="button"
+                  onClick={() => onReturnToKaraoke(karaokeReturnTarget.originalMeasureIndex)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+                  title={`返回卡拉OK播放 (第 ${karaokeReturnTarget.originalMeasureIndex + 1} 小節)`}
+                >
+                  <CornerUpLeft className="w-3.5 h-3.5" />
+                  <Mic2 className="w-3.5 h-3.5" />
+                  <span>返回卡拉OK (第{karaokeReturnTarget.originalMeasureIndex + 1}節)</span>
+                </button>
+              )}
+
+              {sheetReturnTarget && (
+                <button
+                  id="editor-bar-back-to-sheet-btn"
+                  type="button"
+                  onClick={() => handleReturnToSheet(sheetReturnTarget.originalMeasureIndex)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+                  title={`返回總譜檢視 (第 ${sheetReturnTarget.originalMeasureIndex + 1} 小節)`}
+                >
+                  <CornerUpLeft className="w-3.5 h-3.5" />
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>返回總譜 (第{sheetReturnTarget.originalMeasureIndex + 1}節)</span>
                 </button>
               )}
             </div>
-          </div>
 
-          {/* Right: The Duration Actions */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Proportional Scaling: Halve & Double */}
-            <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/90 p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-700 shadow-2xs">
+            {/* Right: Audio Playback, Studio Launch & Score Utility Actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Karaoke / Stop Audio Playback */}
+              {isSongPlaying ? (
+                <button
+                  id="composer-score-stop-btn"
+                  type="button"
+                  onClick={handleStopAudio}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] animate-pulse"
+                  title="停止當前播放"
+                >
+                  <Square className="w-3.5 h-3.5 fill-current text-white" />
+                  <span>停止播放</span>
+                </button>
+              ) : onPlayKaraoke ? (
+                <div
+                  id="composer-score-karaoke-play-group"
+                  className="flex items-center bg-amber-500/15 dark:bg-amber-500/20 p-0.5 rounded-xl border border-amber-400/80 dark:border-amber-600/80 shadow-2xs"
+                >
+                  <button
+                    id="composer-score-karaoke-play-btn"
+                    type="button"
+                    onClick={() => onPlayKaraoke()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
+                    title="跳轉至卡拉OK舞台從頭播放"
+                  >
+                    <Mic2 className="w-3.5 h-3.5 text-zinc-950" />
+                    <Play className="w-3 h-3 fill-current text-zinc-950" />
+                    <span>卡拉OK演唱</span>
+                  </button>
+                  {selectedMeasureIndex !== null && selectedMeasureIndex > 0 && (
+                    <button
+                      id="composer-score-karaoke-play-from-measure-btn"
+                      type="button"
+                      onClick={() => onPlayKaraoke(selectedMeasureIndex)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-900 dark:text-amber-200 hover:bg-amber-500/20 transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
+                      title={`從第 ${selectedMeasureIndex + 1} 小節開始卡拉OK播放`}
+                    >
+                      <span>從第{selectedMeasureIndex + 1}節</span>
+                    </button>
+                  )}
+                </div>
+              ) : null}
+
+              {/* Single Centralized Keyboard-to-Score Studio Launch Button */}
               <button
-                id="quick-halve-duration-btn"
+                id="composer-score-keyboard-btn"
                 type="button"
-                onClick={() => handleScaleMeasureDuration(0.5)}
-                className="flex items-center gap-1 px-2.5 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer min-h-[32px]"
-                title="Proportionally halve (÷2) all note durations in targeted measure(s) (e.g. 1 → 0.5, 0.5 → 0.25)"
+                onClick={() => setIsKeyboardModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500/20 to-amber-400/20 hover:from-amber-500/30 hover:to-amber-400/30 text-amber-900 dark:text-amber-200 border border-amber-400/70 dark:border-amber-600/70 rounded-xl font-bold shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+                title="鍵盤彈奏即時轉譜工作站 (支援觸控鋼琴、QWERTY 打字、Web MIDI)"
               >
-                <span className="font-mono font-black text-amber-600 dark:text-amber-400">÷2</span>
-                <span>Halve</span>
+                <Keyboard className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>彈奏轉譜</span>
               </button>
 
+              {/* Chord Playback Control (Toggle & Volume Slider) */}
+              <ChordPlaybackControl variant="toolbar" previewKeyChord={song.key} idPrefix="composer-score-chord" />
+
+              {/* Undo / Redo in Score Header */}
+              {onUndo && onRedo && (
+                <div
+                  id="composer-undo-redo-score-bar"
+                  className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-2xs"
+                >
+                  <button
+                    id="composer-score-undo-btn"
+                    type="button"
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                    title={canUndo ? `復原 [Ctrl+Z] · 還原 ${pastCount} 步` : '無可復原步驟'}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    <span>復原</span>
+                    {canUndo && pastCount > 0 && (
+                      <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
+                        {pastCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <div className="w-[1px] h-4 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
+
+                  <button
+                    id="composer-score-redo-btn"
+                    type="button"
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                    title={canRedo ? `重做 [Ctrl+Y] · 前進 ${futureCount} 步` : '無可重做步驟'}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-35 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
+                  >
+                    <Redo2 className="w-3.5 h-3.5" />
+                    <span>重做</span>
+                    {canRedo && futureCount > 0 && (
+                      <span className="text-[10px] px-1 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full font-mono font-bold">
+                        {futureCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* In-Song Search Toggle */}
               <button
-                id="quick-double-duration-btn"
+                id="composer-score-search-btn"
                 type="button"
-                onClick={() => handleScaleMeasureDuration(2.0)}
-                className="flex items-center gap-1 px-2.5 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer min-h-[32px]"
-                title="Proportionally double (×2) all note durations in targeted measure(s) (e.g. 0.5 → 1, 1 → 2)"
+                onClick={() => setIsInSongSearchOpen(prev => !prev)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
+                  isInSongSearchOpen
+                    ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-2 ring-amber-400'
+                    : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700 font-bold shadow-2xs'
+                }`}
+                title="搜尋曲內小節與樂句 [Ctrl+F / ⌘F]"
               >
-                <span className="font-mono font-black text-amber-600 dark:text-amber-400">×2</span>
-                <span>Double</span>
+                <Search className="w-3.5 h-3.5 text-amber-500" />
+                <span>搜尋</span>
+                <kbd className="hidden md:inline text-[10px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 font-mono">⌘F</kbd>
+              </button>
+
+              {/* Single Centralized Zoom Control */}
+              <UiZoomControl idPrefix="composer-score-ui-zoom" />
+
+              {/* Measure Insert / Delete */}
+              <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900/90 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
+                <button
+                  id="composer-score-add-measure-btn"
+                  type="button"
+                  onClick={handleAddMeasure}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-lg font-bold shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
+                  title="在樂曲末端新增小節"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>加小節</span>
+                </button>
+
+                <button
+                  id="composer-score-delete-measure-btn"
+                  type="button"
+                  onClick={() => {
+                    const targetIdx = selectedMeasureIndex !== null ? selectedMeasureIndex : song.measures.length - 1;
+                    handleDeleteMeasure(targetIdx);
+                  }}
+                  disabled={song.measures.length <= 1}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-950/50 rounded-lg font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer touch-manipulation min-h-[34px]"
+                  title={
+                    song.measures.length <= 1
+                      ? '樂曲必須保留至少一個小節'
+                      : `刪除第 ${(selectedMeasureIndex !== null ? selectedMeasureIndex : song.measures.length - 1) + 1} 小節`
+                  }
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                  <span>刪除</span>
+                  {song.measures.length > 1 && (
+                    <span className="text-[10px] font-mono opacity-80">
+                      (M.{(selectedMeasureIndex !== null ? selectedMeasureIndex : song.measures.length - 1) + 1})
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Auto-Harmonize Entire Song Button */}
+              <button
+                id="composer-score-auto-chords-btn"
+                type="button"
+                onClick={handleAutoHarmonizeSong}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:via-indigo-400 hover:to-purple-500 text-white border border-indigo-400/80 rounded-xl font-bold shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+                title="智慧分析旋律音高與節奏，為全曲所有小節自動配和弦 (可隨時復原)"
+              >
+                <Wand2 className="w-3.5 h-3.5 text-amber-300 stroke-[2.5]" />
+                <span className="text-white font-bold">全曲和弦</span>
               </button>
             </div>
-
-            {/* Direct Uniform Duration Presets */}
-            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/90 p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-700 shadow-2xs">
-              <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 px-1.5">All to:</span>
-              <button
-                type="button"
-                onClick={() => handleSetUniformMeasureDuration(0.5)}
-                className="px-2 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
-                title="Set all notes in targeted measure(s) to 8th note (0.5 beats)"
-              >
-                ♪ 0.5
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetUniformMeasureDuration(1.0)}
-                className="px-2 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
-                title="Set all notes in targeted measure(s) to Quarter note (1.0 beat)"
-              >
-                ♩ 1.0
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetUniformMeasureDuration(2.0)}
-                className="px-2 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
-                title="Set all notes in targeted measure(s) to Half note (2.0 beats)"
-              >
-                𝅗𝅥 2.0
-              </button>
-            </div>
           </div>
+
+          {/* TIER 2: Measure Duration & Batch Rhythm Operations (Visible in Note Modes) */}
+          {editMode !== 'sheet' && (
+            <div
+              id="composer-quick-duration-bar"
+              className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-zinc-200/70 dark:border-zinc-800"
+            >
+              {/* Left: Target Scope & Selection */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 shrink-0">
+                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                  <span>時值拍長:</span>
+                </span>
+
+                {/* Target Scope Pill */}
+                <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 rounded-xl text-xs font-bold">
+                  <span>目標:</span>
+                  {selectedMeasureIndices.size > 0 ? (
+                    <span className="font-mono font-black">
+                      已選 {selectedMeasureIndices.size} 節 (M.{Array.from(selectedMeasureIndices).map(i => i + 1).join(', ')})
+                    </span>
+                  ) : (
+                    <span className="font-mono font-black">
+                      目前 M.{(selectedMeasureIndex !== null ? selectedMeasureIndex : 0) + 1}
+                    </span>
+                  )}
+                </div>
+
+                {/* Selection Quick Buttons */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllMeasures}
+                    className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                    title="全選所有小節進行批次時值調整"
+                  >
+                    全選小節
+                  </button>
+                  {selectedMeasureIndices.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearMeasureSelection}
+                      className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                      title="清除小節多選"
+                    >
+                      清除 ({selectedMeasureIndices.size})
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Right: Duration Actions (Scaling & Presets) */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Proportional Scaling: Halve & Double */}
+                <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/90 p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-700 shadow-2xs">
+                  <button
+                    id="quick-halve-duration-btn"
+                    type="button"
+                    onClick={() => handleScaleMeasureDuration(0.5)}
+                    className="flex items-center gap-1 px-2.5 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer min-h-[30px]"
+                    title="將目標小節音符時值依比例減半 (÷2) (如 1 → 0.5, 0.5 → 0.25)"
+                  >
+                    <span className="font-mono font-black text-amber-600 dark:text-amber-400">÷2</span>
+                    <span>減半</span>
+                  </button>
+
+                  <button
+                    id="quick-double-duration-btn"
+                    type="button"
+                    onClick={() => handleScaleMeasureDuration(2.0)}
+                    className="flex items-center gap-1 px-2.5 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer min-h-[30px]"
+                    title="將目標小節音符時值依比例加倍 (×2) (如 0.5 → 1, 1 → 2)"
+                  >
+                    <span className="font-mono font-black text-amber-600 dark:text-amber-400">×2</span>
+                    <span>加倍</span>
+                  </button>
+                </div>
+
+                {/* Direct Uniform Duration Presets */}
+                <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/90 p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-700 shadow-2xs">
+                  <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 px-1.5">設為:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleSetUniformMeasureDuration(0.5)}
+                    className="px-2 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                    title="將目標小節所有音符設為八分音符 (0.5 拍)"
+                  >
+                    ♪ 0.5
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetUniformMeasureDuration(1.0)}
+                    className="px-2 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                    title="將目標小節所有音符設為四分音符 (1.0 拍)"
+                  >
+                    ♩ 1.0
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetUniformMeasureDuration(2.0)}
+                    className="px-2 py-1 text-zinc-800 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[30px]"
+                    title="將目標小節所有音符設為二分音符 (2.0 拍)"
+                  >
+                    𝅗𝅥 2.0
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      )}
 
         {/* Score Grid: Note Mode (Consolidated Deck with Verse & Measure switch) vs Sheet Mode */}
         {editMode !== 'sheet' ? (

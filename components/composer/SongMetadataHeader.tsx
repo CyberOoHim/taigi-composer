@@ -44,14 +44,7 @@ interface SongMetadataHeaderProps {
   setDisplayMode: (mode: LyricDisplayMode) => void;
   onOpenAligner: () => void;
   onOpenScanner?: () => void;
-  onOpenKeyboardToScore?: () => void;
   onStartFreshSong?: () => void;
-  onOpenOrganizer?: () => void;
-  editMode?: string;
-  onPlayKaraoke?: (startMeasureIndex?: number) => void;
-  isPlaying?: boolean;
-  onStopPlayback?: () => void;
-  incompleteMeasuresCount?: number;
 }
 
 export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(({
@@ -61,14 +54,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   setDisplayMode,
   onOpenAligner,
   onOpenScanner,
-  onOpenKeyboardToScore,
   onStartFreshSong,
-  onOpenOrganizer,
-  editMode,
-  onPlayKaraoke,
-  isPlaying = false,
-  onStopPlayback,
-  incompleteMeasuresCount = 0,
 }) => {
   const { hasApiKey } = useGeminiAuth();
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -620,77 +606,6 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
 
         {/* Right: Quick Actions & Settings Toggle (Touch Targets >= 40px) */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Karaoke Play / Stop Playback Trigger */}
-          {isPlaying && onStopPlayback ? (
-            <button
-              id="composer-meta-stop-btn"
-              type="button"
-              onClick={onStopPlayback}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px] animate-pulse"
-              title="Stop audio playback"
-            >
-              <Square className="w-3.5 h-3.5 fill-current text-white" />
-              <span>Stop Playback</span>
-            </button>
-          ) : onPlayKaraoke ? (
-            <button
-              id="composer-meta-karaoke-play-btn"
-              type="button"
-              onClick={() => onPlayKaraoke()}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-              title="Directly jump to Karaoke Stage and play"
-            >
-              <Mic2 className="w-4 h-4 text-zinc-950" />
-              <Play className="w-3.5 h-3.5 fill-current text-zinc-950" />
-              <span>Karaoke Play</span>
-            </button>
-          ) : null}
-
-          {/* Mode Switcher: Note Mode vs Sheet Mode (immediately following Karaoke Play) */}
-          {onOpenOrganizer && (
-            <button
-              id="composer-meta-organizer-btn"
-              type="button"
-              onClick={onOpenOrganizer}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px] ${
-                editMode === 'sheet'
-                  ? 'bg-amber-500 hover:bg-amber-400 text-zinc-950 ring-2 ring-amber-400 dark:ring-amber-300 font-black shadow-xs'
-                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700/80 hover:border-amber-400/60 dark:hover:border-amber-500/60 font-bold shadow-2xs'
-              }`}
-              title={
-                editMode === 'sheet'
-                  ? 'Currently in Sheet Mode · Click to toggle to Note Mode (Verse & Measure)'
-                  : 'Currently in Note Mode · Click to toggle to Sheet Mode (System Layout & Phrasing)'
-              }
-            >
-              {editMode === 'sheet' ? (
-                <>
-                  <FileSpreadsheet className="w-4 h-4 text-zinc-950" />
-                  <span className="hidden sm:inline">Sheet Mode</span>
-                  <span className="hidden md:inline text-[10px] px-1.5 py-0.5 rounded-md bg-amber-600/30 text-zinc-950 font-extrabold ml-0.5">
-                    Sheet
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Music2 className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-                  <span className="hidden sm:inline">Note Mode</span>
-                  <span className="hidden md:inline text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold ml-0.5">
-                    Notes
-                  </span>
-                </>
-              )}
-              {incompleteMeasuresCount !== undefined && incompleteMeasuresCount > 0 && (
-                <span
-                  className="text-[10px] px-1.5 py-0.2 bg-rose-600 text-white rounded-full font-mono font-black shadow-xs ml-0.5"
-                  title={`${incompleteMeasuresCount} measure(s) under or over beat limit`}
-                >
-                  {incompleteMeasuresCount}
-                </span>
-              )}
-            </button>
-          )}
-
           {/* Start Fresh Song Trigger */}
           {onStartFreshSong && (
             <button
@@ -698,12 +613,24 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               type="button"
               onClick={onStartFreshSong}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/90 dark:border-zinc-700/80 font-bold text-xs rounded-xl shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-              title="Create New Blank Song"
+              title="建立全新空白歌曲 (New Blank Song)"
             >
               <FilePlus2 className="w-4 h-4 text-amber-500" />
-              <span className="hidden sm:inline">New Song</span>
+              <span>新歌</span>
             </button>
           )}
+
+          {/* Quick Lyric Aligner Modal Trigger */}
+          <button
+            id="composer-open-aligner-btn"
+            type="button"
+            onClick={onOpenAligner}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-xs rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
+            title="歌詞對齊台 (支援 羅馬字 與 漢羅)"
+          >
+            <AlignLeft className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
+            <span>歌詞對齊</span>
+          </button>
 
           {/* AI Score Scanner Modal Trigger */}
           {onOpenScanner && (
@@ -713,50 +640,19 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               onClick={hasApiKey ? onOpenScanner : undefined}
               disabled={!hasApiKey}
               aria-disabled={!hasApiKey}
-              className={`flex items-center gap-1.5 px-3 py-1.5 font-bold text-xs rounded-xl shadow-2xs transition-all min-h-[40px] ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 font-bold text-xs rounded-xl shadow-2xs transition-all min-h-[40px] ${
                 hasApiKey
                   ? 'bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 active:scale-95 cursor-pointer touch-manipulation'
                   : 'bg-zinc-100/80 dark:bg-zinc-900/60 text-zinc-400 dark:text-zinc-500 border border-zinc-200/80 dark:border-zinc-800/80 opacity-50 cursor-not-allowed select-none'
               }`}
               title={
                 hasApiKey
-                  ? 'AI Score OCR Import (Up to 3 pages)'
-                  : 'AI Score Scanner muted (Gemini API Key not available)'
+                  ? 'AI 簡譜辨識掃描 (支援最多 3 頁樂譜辨識)'
+                  : 'AI 辨識靜音 (未設定 Gemini API 金鑰)'
               }
             >
               <ScanLine className={`w-4 h-4 ${hasApiKey ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400 dark:text-zinc-500'}`} />
-              <span className="hidden sm:inline">
-                {hasApiKey ? 'AI Scanner' : 'AI Scanner (Muted)'}
-              </span>
-            </button>
-          )}
-
-          {/* Quick Lyric Aligner Modal Trigger */}
-          <button
-            id="composer-open-aligner-btn"
-            type="button"
-            onClick={onOpenAligner}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-xs rounded-xl border border-zinc-200/90 dark:border-zinc-700/80 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-            title="歌詞對齊台 (支援 羅馬字 與 漢羅)"
-          >
-            <AlignLeft className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
-            <span className="hidden sm:inline">歌詞對齊 (羅馬字/漢羅)</span>
-          </button>
-
-          {/* Keyboard-to-Score Studio Trigger */}
-          {onOpenKeyboardToScore && (
-            <button
-              id="composer-open-keyboard-to-score-btn"
-              type="button"
-              onClick={onOpenKeyboardToScore}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 font-black text-xs rounded-xl shadow-xs transition-all min-h-[40px] bg-gradient-to-r from-amber-500/20 to-amber-400/20 hover:from-amber-500/30 hover:to-amber-400/30 text-amber-900 dark:text-amber-200 border border-amber-400/70 dark:border-amber-600/70 active:scale-95 cursor-pointer touch-manipulation"
-              title="鍵盤彈奏即時轉譜工作站 (Keyboard-to-Score Studio: 支援觸控鋼琴、QWERTY 打字、Web MIDI)"
-            >
-              <Keyboard className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              <span className="hidden sm:inline">彈奏轉譜</span>
-              <span className="hidden md:inline text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/25 text-amber-800 dark:text-amber-300 font-black ml-0.5">
-                Studio
-              </span>
+              <span>{hasApiKey ? 'AI 辨識掃描' : 'AI 辨識 (靜音)'}</span>
             </button>
           )}
 
@@ -770,10 +666,10 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                 ? 'bg-amber-500/15 border-amber-400/80 dark:border-amber-600/80 text-amber-900 dark:text-amber-200'
                 : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#0a0c10] dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border-zinc-200/90 dark:border-zinc-700/80'
             }`}
-            title={isExpanded ? 'Collapse Settings' : 'Expand Song Settings (Title, Composer, Key, BPM, etc.)'}
+            title={isExpanded ? '收合歌曲設定' : '展開歌曲詳細設定 (曲名、作詞作曲、調號、速度等)'}
           >
             <SlidersHorizontal className="w-4 h-4 text-amber-500" />
-            <span>{isExpanded ? 'Collapse' : 'Song Settings'}</span>
+            <span>{isExpanded ? '收合設定' : '歌曲設定'}</span>
             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
         </div>
