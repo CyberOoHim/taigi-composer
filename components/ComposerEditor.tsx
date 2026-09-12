@@ -2820,11 +2820,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
               id="composer-score-auto-chords-btn"
               type="button"
               onClick={handleAutoHarmonizeSong}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 border border-indigo-300/80 dark:border-indigo-700/80 rounded-xl font-bold shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:via-indigo-400 hover:to-purple-500 text-white border border-indigo-400/80 rounded-xl font-bold shadow-xs hover:shadow-sm transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
               title="智慧分析旋律音高與節奏，為全曲所有小節自動配和弦 (可隨時復原)"
             >
-              <Wand2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span>全曲配和弦</span>
+              <Wand2 className="w-3.5 h-3.5 text-amber-300 stroke-[2.5]" />
+              <span className="text-white font-bold">全曲配和弦</span>
             </button>
 
             <button
