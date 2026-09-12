@@ -10,6 +10,7 @@ import { KaraokeView, KaraokeSection } from '@/components/KaraokeView';
 import { ComposerEditor } from '@/components/ComposerEditor';
 import { ImportExportModal } from '@/components/ImportExportModal';
 import { QuickLyricAlignerModal } from '@/components/QuickLyricAlignerModal';
+import { LyricSearchModal } from '@/components/LyricSearchModal';
 import { GeminiAuthModal } from '@/components/GeminiAuthModal';
 import { AiScoreScannerModal } from '@/components/AiScoreScannerModal';
 import { NewSongModal } from '@/components/NewSongModal';
@@ -99,6 +100,7 @@ export default function Home() {
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [importExportTab, setImportExportTab] = useState<'presets' | 'custom' | 'export' | 'import' | 'ai_scan'>('presets');
   const [importExportFormat, setImportExportFormat] = useState<'json' | 'text' | 'midi'>('json');
+  const [isLyricSearchOpen, setIsLyricSearchOpen] = useState(false);
   const [isAlignerOpen, setIsAlignerOpen] = useState(false);
   const [isGeminiAuthOpen, setIsGeminiAuthOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -458,6 +460,33 @@ export default function Home() {
     [isDirty, song, loadNewSong]
   );
 
+  const handleJumpFromSearch = useCallback(
+    async (targetSong: Song, measureIndex: number, destination: 'karaoke' | 'editor' | 'current') => {
+      if (audioEngine) {
+        audioEngine.stop();
+      }
+
+      // Switch song if different from current active song
+      if (targetSong.id !== song.id) {
+        await handleSelectSong(targetSong);
+      }
+
+      const targetTab =
+        destination === 'current'
+          ? (activeTab === 'split' ? 'editor' : activeTab)
+          : destination;
+
+      if (targetTab === 'karaoke') {
+        setActiveTab('karaoke');
+        setTargetKaraokeMeasureIndex(measureIndex);
+      } else {
+        setActiveTab('editor');
+        setTargetMeasureIndex(measureIndex);
+      }
+    },
+    [song.id, activeTab, handleSelectSong, setActiveTab]
+  );
+
   // Subscribe to audio engine playback state
   useEffect(() => {
     if (!audioEngine) return;
@@ -479,8 +508,22 @@ export default function Home() {
         activeEl instanceof HTMLSelectElement ||
         activeEl?.getAttribute('contenteditable') === 'true';
 
+      // Check for Lyric Search palette (Ctrl+K or Cmd+K)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setIsLyricSearchOpen(prev => !prev);
+        return;
+      }
+
       if (isTyping) return;
       if (e.defaultPrevented) return;
+
+      // Check for Lyric Search (Ctrl+F or Cmd+F) when not typing in an input
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        setIsLyricSearchOpen(true);
+        return;
+      }
 
       // Check for Save (Ctrl+S or Cmd+S)
       if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
@@ -535,6 +578,7 @@ export default function Home() {
         onStartFreshSong={handleStartFreshSong}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        onOpenLyricSearch={() => setIsLyricSearchOpen(true)}
         onOpenImportExport={handleOpenLibrary}
         onOpenMidiExport={handleOpenMidiExport}
         onOpenGeminiAuth={() => setIsGeminiAuthOpen(true)}
@@ -773,6 +817,15 @@ export default function Home() {
         onResetPreset={handleResetPreset}
         initialTab={importExportTab}
         initialExportFormat={importExportFormat}
+      />
+
+      <LyricSearchModal
+        key={isLyricSearchOpen ? 'open' : 'closed'}
+        isOpen={isLyricSearchOpen}
+        onClose={() => setIsLyricSearchOpen(false)}
+        currentSong={song}
+        customSongs={customSongs}
+        onJumpToMeasure={handleJumpFromSearch}
       />
 
       <QuickLyricAlignerModal

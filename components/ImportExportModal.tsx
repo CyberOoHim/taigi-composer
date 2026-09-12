@@ -39,7 +39,9 @@ import {
   FilePlus2,
   RotateCcw,
   Music,
+  Search,
 } from 'lucide-react';
+import { searchSongLyrics } from '@/lib/lyricSearch';
 import {
   getCustomSongsFromDB,
   saveSongToDB,
@@ -93,6 +95,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     return [];
   });
 
+  const [librarySearchQuery, setLibrarySearchQuery] = useState('');
+
   React.useEffect(() => {
     if (isOpen) {
       void getCustomSongsFromDB()
@@ -104,6 +108,20 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
         });
     }
   }, [isOpen]);
+
+  const filteredPresets = React.useMemo(() => {
+    if (!librarySearchQuery.trim()) return PRESET_SONGS;
+    return PRESET_SONGS.filter(preset => {
+      return searchSongLyrics(preset, librarySearchQuery).length > 0;
+    });
+  }, [librarySearchQuery]);
+
+  const filteredCustom = React.useMemo(() => {
+    if (!librarySearchQuery.trim()) return customSongs;
+    return customSongs.filter(cSong => {
+      return searchSongLyrics(cSong, librarySearchQuery).length > 0;
+    });
+  }, [customSongs, librarySearchQuery]);
 
   const handleSaveToCustomLibrary = async () => {
     try {
@@ -384,8 +402,36 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                   </button>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {PRESET_SONGS.map(preset => {
+
+              {/* Presets Search Filter Bar */}
+              <div className="relative flex items-center">
+                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 pointer-events-none" />
+                <input
+                  type="text"
+                  value={librarySearchQuery}
+                  onChange={e => setLibrarySearchQuery(e.target.value)}
+                  placeholder="搜尋預設曲目歌名、歌詞、白話字..."
+                  className="w-full bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 pl-8.5 pr-8 py-1.5 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500/80 placeholder:text-zinc-400"
+                />
+                {librarySearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setLibrarySearchQuery('')}
+                    className="absolute right-2.5 p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {filteredPresets.length === 0 ? (
+                <div className="p-8 text-center border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col items-center gap-2">
+                  <Search className="w-8 h-8 text-zinc-400" />
+                  <p className="text-xs text-zinc-500">找不到與「{librarySearchQuery}」相符的預設曲目或歌詞</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {filteredPresets.map(preset => {
                   const isModified = modifiedPresetIds.has(preset.id);
                   return (
                     <div
@@ -449,7 +495,8 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                     </div>
                   );
                 })}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -515,54 +562,84 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {customSongs.map(cSong => (
-                    <div
-                      id={`custom-card-${cSong.id}`}
-                      key={cSong.id}
-                      onClick={() => {
-                        onLoadSong(cSong);
-                        onClose();
-                      }}
-                      className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between group ${
-                        cSong.id === currentSong.id
-                          ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 ring-1 ring-amber-500'
-                          : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 hover:border-amber-400 hover:shadow-md'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2">
-                          <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors truncate">
-                            {cSong.title}
-                          </h4>
-                          <div className="flex items-center gap-1.5">
-                            <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
-                              1={cSong.key} {cSong.timeSignature}
+                <>
+                  {/* Custom Library Search Filter Bar */}
+                  <div className="relative flex items-center">
+                    <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={librarySearchQuery}
+                      onChange={e => setLibrarySearchQuery(e.target.value)}
+                      placeholder="搜尋自訂庫存歌名、歌詞、白話字..."
+                      className="w-full bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 pl-8.5 pr-8 py-1.5 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500/80 placeholder:text-zinc-400"
+                    />
+                    {librarySearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setLibrarySearchQuery('')}
+                        className="absolute right-2.5 p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {filteredCustom.length === 0 ? (
+                    <div className="p-8 text-center border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col items-center gap-2">
+                      <Search className="w-8 h-8 text-zinc-400" />
+                      <p className="text-xs text-zinc-500">找不到與「{librarySearchQuery}」相符的自訂樂曲或歌詞</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {filteredCustom.map(cSong => (
+                        <div
+                          id={`custom-card-${cSong.id}`}
+                          key={cSong.id}
+                          onClick={() => {
+                            onLoadSong(cSong);
+                            onClose();
+                          }}
+                          className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between group ${
+                            cSong.id === currentSong.id
+                              ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 ring-1 ring-amber-500'
+                              : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 hover:border-amber-400 hover:shadow-md'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors truncate">
+                                {cSong.title}
+                              </h4>
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                                  1={cSong.key} {cSong.timeSignature}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleDeleteFromCustomLibrary(e, cSong.id)}
+                                  className="p-1 text-zinc-400 hover:text-rose-500 rounded transition-colors"
+                                  title="Delete from custom library"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
+                              {cSong.description || cSong.subtitle || 'Custom Numbered Notation score'}
+                            </p>
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                            <span>{cSong.measures.length} Measures</span>
+                            <span className="font-medium text-amber-600 dark:text-amber-400 group-hover:underline">
+                              Load →
                             </span>
-                            <button
-                              type="button"
-                              onClick={(e) => handleDeleteFromCustomLibrary(e, cSong.id)}
-                              className="p-1 text-zinc-400 hover:text-rose-500 rounded transition-colors"
-                              title="Delete from custom library"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
                           </div>
                         </div>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
-                          {cSong.description || cSong.subtitle || 'Custom Numbered Notation score'}
-                        </p>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                        <span>{cSong.measures.length} Measures</span>
-                        <span className="font-medium text-amber-600 dark:text-amber-400 group-hover:underline">
-                          Load →
-                        </span>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
           )}

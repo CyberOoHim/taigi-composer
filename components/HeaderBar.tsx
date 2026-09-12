@@ -27,6 +27,7 @@ import {
   ChevronDown,
   SlidersHorizontal,
   Download,
+  Search,
 } from 'lucide-react';
 import { useGeminiAuth } from '@/hooks/useGeminiAuth';
 import { UiZoomControl } from '@/components/UiZoomControl';
@@ -41,6 +42,7 @@ interface HeaderBarProps {
   onStartFreshSong?: () => void;
   activeTab: ActiveTabMode;
   setActiveTab: (tab: ActiveTabMode) => void;
+  onOpenLyricSearch?: () => void;
   onOpenImportExport: () => void;
   onOpenMidiExport?: () => void;
   onOpenGeminiAuth?: () => void;
@@ -73,6 +75,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onStartFreshSong,
   activeTab,
   setActiveTab,
+  onOpenLyricSearch,
   onOpenImportExport,
   onOpenMidiExport,
   onOpenGeminiAuth,
@@ -214,6 +217,21 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     <span className="hidden sm:inline whitespace-nowrap">Play</span>
                   </>
                 )}
+              </button>
+            )}
+
+            {/* Quick Lyric Search Trigger */}
+            {onOpenLyricSearch && (
+              <button
+                id="header-top-search-btn"
+                type="button"
+                onClick={onOpenLyricSearch}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] bg-zinc-100 hover:bg-zinc-200 dark:bg-[#141720] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750 shrink-0"
+                title="搜尋歌詞與樂譜 [Ctrl+K / ⌘K]"
+              >
+                <Search className="w-4 h-4 text-amber-500 shrink-0" />
+                <span className="hidden md:inline whitespace-nowrap">搜尋歌詞</span>
+                <kbd className="hidden sm:inline text-[10px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700/80 font-mono font-bold text-zinc-600 dark:text-zinc-400">⌘K</kbd>
               </button>
             )}
 
@@ -510,6 +528,23 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <span className="whitespace-nowrap">Library</span>
             </button>
 
+            {/* Lyric Search Trigger */}
+            {onOpenLyricSearch && (
+              <button
+                id="header-open-search-btn"
+                type="button"
+                onClick={onOpenLyricSearch}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 rounded-xl border border-amber-500/30 text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] sm:min-h-[40px] whitespace-nowrap shrink-0"
+                title="搜尋歌詞與樂譜 (Ctrl+K / ⌘K)"
+              >
+                <Search className="w-4 h-4 text-amber-500 shrink-0" />
+                <span className="whitespace-nowrap">搜尋歌詞</span>
+                <kbd className="hidden lg:inline text-[10px] px-1 py-0.2 bg-amber-500/20 rounded font-mono font-bold text-amber-700 dark:text-amber-300 ml-0.5">
+                  ⌘K
+                </kbd>
+              </button>
+            )}
+
             {/* Direct Export MIDI Trigger */}
             {onOpenMidiExport && (
               <button
@@ -644,6 +679,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200">
                 <span className="font-bold">Save Score (IndexedDB)</span>
                 <kbd className="px-2 py-0.5 rounded bg-amber-500/20 dark:bg-amber-500/30 font-mono font-bold text-amber-800 dark:text-amber-200">Ctrl + S / ⌘S</kbd>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+                <span className="font-bold">Lyric Search / Spotlight</span>
+                <kbd className="px-2 py-0.5 rounded bg-amber-500/20 dark:bg-amber-500/30 font-mono font-bold text-amber-800 dark:text-amber-200">Ctrl + K / ⌘K</kbd>
               </div>
 
               <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60">
