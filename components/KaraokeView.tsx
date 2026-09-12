@@ -236,6 +236,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   const setInstrument = useCallback((inst: InstrumentType) => {
     setInstrumentState(inst);
     setStoredInstrument(inst);
+    audioEngine.setOptions({ instrument: inst });
     if (!audioEngine.getIsPlaying()) {
       audioEngine.previewInstrumentTone(song.key, inst);
     }

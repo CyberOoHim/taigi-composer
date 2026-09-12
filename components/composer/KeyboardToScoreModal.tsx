@@ -161,10 +161,15 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
   const accidentalPrefRef = useRef(accidentalPref);
   const quantizeGridRef = useRef(quantizeGrid);
   const allowTripletsRef = useRef(allowTriplets);
+  const synthInstrumentRef = useRef<InstrumentType>(synthInstrument);
 
   useEffect(() => {
     audibleClickRef.current = audibleClickDuringRecording;
   }, [audibleClickDuringRecording]);
+
+  useEffect(() => {
+    synthInstrumentRef.current = synthInstrument;
+  }, [synthInstrument]);
 
   useEffect(() => {
     activeKeyRef.current = activeKey;
@@ -217,7 +222,8 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
               duration: 1,
               lyric: {},
             },
-            `voice-${midi}`
+            `voice-${midi}`,
+            synthInstrumentRef.current
           );
           setActiveMidiSet(prev => new Set(prev).add(midi));
         } else if (
@@ -293,7 +299,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
             duration: 1,
             lyric: {},
           };
-          audioEngine.startSustainedNote(activeKeyRef.current, tempNote, `voice-${note.midi}`);
+          audioEngine.startSustainedNote(activeKeyRef.current, tempNote, `voice-${note.midi}`, synthInstrumentRef.current);
         },
         onNoteOff: (midi: number, sourceKeyId?: string) => {
           audioEngine.stopSustainedNote(`voice-${midi}`);
@@ -717,7 +723,8 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
               duration: 1,
               lyric: {},
             },
-            `voice-${resolved.midi}`
+            `voice-${resolved.midi}`,
+            synthInstrumentRef.current
           );
           setActiveMidiSet(prev => new Set(prev).add(resolved.midi));
         }
@@ -929,7 +936,8 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
             duration: 1,
             lyric: {},
           },
-          sourceId || `voice-${midi}`
+          sourceId || `voice-${midi}`,
+          synthInstrumentRef.current
         );
         setActiveMidiSet(prev => new Set(prev).add(midi));
       }
