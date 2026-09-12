@@ -53,18 +53,33 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
 
   const isTriplet = !isNonNotation && (note.isTriplet || note.duration === 0.333 || note.duration === 0.667);
   const showDoubleDot = !isNonNotation && (note.isDoubleDotted || note.duration === 1.75 || note.duration === 3.5);
-  const showDot = !isNonNotation && !showDoubleDot && (note.isDotted || note.duration === 1.5 || note.duration === 0.75 || note.duration === 3 || note.duration === 0.375);
+  // In standard Jianpu (簡譜):
+  // 1 beat: 1
+  // 1.5 beats: 1· (dotted quarter)
+  // 2 beats: 1 - (half note: note + 1 dash)
+  // 2.5 beats: 1 - · (half note + dot)
+  // 3 beats: 1 - - (three beats: note + 2 dashes, NOT 1· - -)
+  // 3.5 beats: 1 - - · (double dotted / three-and-half beats)
+  // 4 beats: 1 - - - (whole note: note + 3 dashes)
+  const isFractionalDotted =
+    typeof note.duration === 'number' &&
+    (note.duration === 1.5 ||
+      note.duration === 0.75 ||
+      note.duration === 0.375 ||
+      note.duration === 2.5);
 
-  // Extension dashes for 2, 3, 4 beats
-  const dashesCount = !isNonNotation
-    ? note.duration === 2
-      ? 1
-      : note.duration === 3
-      ? 2
-      : note.duration === 4
-      ? 3
-      : 0
-    : 0;
+  const showDot =
+    !isNonNotation &&
+    !showDoubleDot &&
+    (note.isDotted || isFractionalDotted) &&
+    // Ensure exact integer beats (like 3 or 4) use dashes only, unless explicitly dotted
+    (note.duration !== 3 || note.isDotted);
+
+  // Extension dashes: for any duration >= 2 beats, number of dashes is floor(duration) - 1
+  const dashesCount =
+    !isNonNotation && typeof note.duration === 'number' && note.duration >= 2
+      ? Math.floor(note.duration) - 1
+      : 0;
 
   // Lyric texts
   const hanlo = note.lyric.hanlo || note.lyric.custom || note.lyric.hanji || '';

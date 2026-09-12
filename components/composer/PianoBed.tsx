@@ -1,23 +1,32 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useCallback } from 'react';
 import { KeySignature, PitchNumber } from '@/types/song';
 import { midiToNumberedPitch } from '@/lib/pitch/scoreQuantizer';
-import { Sparkles, Volume2 } from 'lucide-react';
+import { Sparkles, Volume2, ChevronLeft, ChevronRight, Compass } from 'lucide-react';
 
-export type OctaveBedView = 'low_mid' | 'mid_high' | 'all';
+export type OctaveBedView =
+  | '88keys'
+  | '61keys'
+  | '49keys'
+  | 'all'
+  | 'mid_high'
+  | 'low_mid';
 
 export interface KeyDefinition {
   isBlack: boolean;
   midi: number;
   pitch: PitchNumber;
   accidental: '' | '#' | 'b';
-  octave: number;
+  octave: number; // Scale degree octave relative to active key
   numberedNotationLabel: string;
   solfege: string;
   noteName: string;
+  isMiddleC: boolean;
+  isC: boolean;
   qwertyKey?: string;
   leftPercent?: number;
+  widthPercent?: number;
 }
 
 export interface PianoBedProps {
@@ -33,9 +42,34 @@ export interface PianoBedProps {
   disabled?: boolean;
   className?: string;
   octaveShiftVal?: number;
+  statusTitle?: string;
+  statusSubtitle?: string;
 }
 
 const CHROMATIC_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+const SOLFEGE_MAP: Record<string, string> = {
+  '1': 'Do',
+  '#1': 'Di',
+  'b1': 'Ti',
+  'b2': 'Ra',
+  '2': 'Re',
+  '#2': 'Ri',
+  'b3': 'Me',
+  '3': 'Mi',
+  '#3': 'Fa',
+  'b4': 'Mi',
+  '4': 'Fa',
+  '#4': 'Fi',
+  'b5': 'Se',
+  '5': 'Sol',
+  '#5': 'Si',
+  'b6': 'Le',
+  '6': 'La',
+  '#6': 'Li',
+  'b7': 'Te',
+  '7': 'Ti',
+};
 
 export const PianoBed: React.FC<PianoBedProps> = ({
   activeKey,
@@ -50,322 +84,499 @@ export const PianoBed: React.FC<PianoBedProps> = ({
   disabled = false,
   className = '',
   octaveShiftVal = 0,
+  statusTitle,
+  statusSubtitle,
 }) => {
-  const isPointerDownRef = useRef<boolean>(false);
-  const activePointerIdRef = useRef<number | null>(null);
-  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const middleCElementRef = useRef<HTMLDivElement>(null);
 
-  // Octave range mapping
-  const pianoOctaves = useMemo(() => {
+  // Active glide note tracking for glissando / slide
+  const isPointerDownRef = useRef<boolean>(false);
+  const activeGlideMidiRef = useRef<number | null>(null);
+
+  // Closure-safe callbacks
+  const onNoteDownRef = useRef(onNoteDown);
+  const onNoteUpRef = useRef(onNoteUp);
+  useEffect(() => {
+    onNoteDownRef.current = onNoteDown;
+    onNoteUpRef.current = onNoteUp;
+  }, [onNoteDown, onNoteUp]);
+
+  // Determine MIDI range based on selected octave/range view
+  const { startMidi, endMidi, isScrollableMode, defaultKeyWidthPx } = useMemo(() => {
     switch (octaveBedView) {
-      case 'low_mid':
-        return [-1, 0];
+      case '88keys':
+        // Full 88 keys: A0 (MIDI 21) to C8 (MIDI 108)
+        return { startMidi: 21, endMidi: 108, isScrollableMode: true, defaultKeyWidthPx: 32 };
+      case '61keys':
+        // Standard 61-key keyboard: C2 (MIDI 36) to C7 (MIDI 96)
+        return { startMidi: 36, endMidi: 96, isScrollableMode: true, defaultKeyWidthPx: 34 };
+      case '49keys':
+        // 49-key keyboard: C2 (MIDI 36) to C6 (MIDI 84)
+        return { startMidi: 36, endMidi: 84, isScrollableMode: true, defaultKeyWidthPx: 36 };
       case 'all':
-        return [-1, 0, 1];
+        // 3 octaves: C3 (MIDI 48) to C6 (MIDI 84)
+        return { startMidi: 48, endMidi: 84, isScrollableMode: false, defaultKeyWidthPx: 0 };
+      case 'low_mid':
+        // 2 octaves: C3 (MIDI 48) to C5 (MIDI 72)
+        return { startMidi: 48, endMidi: 72, isScrollableMode: false, defaultKeyWidthPx: 0 };
       case 'mid_high':
       default:
-        return [0, 1];
+        // 2 octaves: C4 (MIDI 60) to C6 (MIDI 84)
+        return { startMidi: 60, endMidi: 84, isScrollableMode: false, defaultKeyWidthPx: 0 };
     }
   }, [octaveBedView]);
 
-  // Generate piano keys definitions
-  const pianoKeys = useMemo(() => {
-    const keys: { whiteKeys: KeyDefinition[]; blackKeys: KeyDefinition[] } = {
-      whiteKeys: [],
-      blackKeys: [],
+  // Generate piano keys (white keys and black keys)
+  const { whiteKeys, blackKeys, totalWhiteKeys } = useMemo(() => {
+    const wKeys: KeyDefinition[] = [];
+    const bKeys: KeyDefinition[] = [];
+
+    // Helper to check if MIDI note is a black key
+    const isMidiBlack = (m: number) => {
+      const semitone = m % 12;
+      return semitone === 1 || semitone === 3 || semitone === 6 || semitone === 8 || semitone === 10;
     };
 
-    pianoOctaves.forEach(oct => {
-      // 7 White keys per octave
-      const whiteDegreeOffsets = [0, 2, 4, 5, 7, 9, 11];
-      const whitePitches: PitchNumber[] = [1, 2, 3, 4, 5, 6, 7];
-      const solfegeNames = ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Ti'];
+    // First pass: collect all white keys
+    for (let m = startMidi; m <= endMidi; m++) {
+      if (!isMidiBlack(m)) {
+        const noteIndex = m % 12;
+        const noteOctave = Math.floor(m / 12) - 1;
+        const noteName = `${CHROMATIC_NOTE_NAMES[noteIndex]}${noteOctave}`;
+        const isMiddleC = m === 60;
+        const isC = noteIndex === 0;
 
-      whiteDegreeOffsets.forEach((semi, idx) => {
-        const midi = 60 + oct * 12 + semi;
-        const noteName = `${CHROMATIC_NOTE_NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`;
-        const pitch = whitePitches[idx];
+        const numbered = midiToNumberedPitch(m, activeKey, { accidentalPreference });
+        const accPrefix = numbered.accidental === '#' ? '#' : numbered.accidental === 'b' ? 'b' : '';
+        const accDisplay = numbered.accidental === '#' ? '♯' : numbered.accidental === 'b' ? '♭' : '';
+        const solfegeKey = `${accPrefix}${numbered.pitch}`;
+        const solfege = SOLFEGE_MAP[solfegeKey] || SOLFEGE_MAP[`${numbered.pitch}`] || 'Do';
+        const label = `${accDisplay}${numbered.pitch}`;
 
-        let qwertyLabel = '';
-        if (oct === 0) {
-          const qwertyChars = ['A', 'S', 'D', 'F', 'G', 'H', 'J'];
-          qwertyLabel = qwertyChars[idx] || '';
-        } else if (oct === 1) {
-          const qwertyChars = ['K', 'L', ';', "'", '', '', ''];
-          qwertyLabel = qwertyChars[idx] || '';
+        // QWERTY label for C4-B4 and C5-F5
+        let qwertyKey = '';
+        if (m >= 60 && m <= 71) {
+          const qwertyMap: Record<number, string> = {
+            60: 'A',
+            62: 'S',
+            64: 'D',
+            65: 'F',
+            67: 'G',
+            69: 'H',
+            71: 'J',
+          };
+          qwertyKey = qwertyMap[m] || '';
+        } else if (m >= 72 && m <= 77) {
+          const qwertyMap: Record<number, string> = {
+            72: 'K',
+            74: 'L',
+            76: ';',
+            77: "'",
+          };
+          qwertyKey = qwertyMap[m] || '';
         }
 
-        const numbered = midiToNumberedPitch(midi, activeKey, {
-          accidentalPreference,
-        });
-
-        keys.whiteKeys.push({
+        wKeys.push({
           isBlack: false,
-          midi,
-          pitch,
-          accidental: '',
-          octave: oct,
-          numberedNotationLabel: `${numbered.pitch}`,
-          solfege: solfegeNames[idx],
+          midi: m,
+          pitch: numbered.pitch,
+          accidental: numbered.accidental,
+          octave: numbered.octave,
+          numberedNotationLabel: label,
+          solfege,
           noteName,
-          qwertyKey: qwertyLabel,
+          isMiddleC,
+          isC,
+          qwertyKey,
         });
-      });
-
-      // 5 Black keys per octave
-      const blackDefs = [
-        { semi: 1, leftPercent: 9.7, pitch: 1 as PitchNumber, qwerty0: 'W', qwerty1: 'O' },
-        { semi: 3, leftPercent: 24.0, pitch: 2 as PitchNumber, qwerty0: 'E', qwerty1: 'P' },
-        { semi: 6, leftPercent: 52.5, pitch: 4 as PitchNumber, qwerty0: 'T', qwerty1: '' },
-        { semi: 8, leftPercent: 66.8, pitch: 5 as PitchNumber, qwerty0: 'Y', qwerty1: '' },
-        { semi: 10, leftPercent: 81.1, pitch: 6 as PitchNumber, qwerty0: 'U', qwerty1: '' },
-      ];
-
-      blackDefs.forEach(bk => {
-        const midi = 60 + oct * 12 + bk.semi;
-        const noteName = `${CHROMATIC_NOTE_NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`;
-        const qwertyLabel = oct === 0 ? bk.qwerty0 : oct === 1 ? bk.qwerty1 : '';
-
-        const numbered = midiToNumberedPitch(midi, activeKey, {
-          accidentalPreference,
-        });
-
-        keys.blackKeys.push({
-          isBlack: true,
-          midi,
-          pitch: bk.pitch,
-          accidental: '#',
-          octave: oct,
-          numberedNotationLabel: `${numbered.accidental === '#' ? '♯' : '♭'}${numbered.pitch}`,
-          solfege:
-            bk.pitch === 1
-              ? 'Di'
-              : bk.pitch === 2
-                ? 'Ri'
-                : bk.pitch === 4
-                  ? 'Fi'
-                  : bk.pitch === 5
-                    ? 'Si'
-                    : 'Li',
-          noteName,
-          qwertyKey: qwertyLabel,
-          leftPercent: bk.leftPercent,
-        });
-      });
-    });
-
-    return keys;
-  }, [pianoOctaves, activeKey, accidentalPreference]);
-
-  // Track the last MIDI note activated via touch-glide to emit proper note-off/note-on pairs
-  const lastGlideMidiRef = useRef<number | null>(null);
-
-  const releaseSurfaceCapture = (pointerId: number) => {
-    const surface = surfaceRef.current;
-    if (!surface) return;
-    try {
-      if (surface.hasPointerCapture?.(pointerId)) {
-        surface.releasePointerCapture(pointerId);
       }
-    } catch {
-      // ignore
     }
-  };
 
-  const endPointerContact = (pointerId?: number) => {
-    if (pointerId !== undefined && activePointerIdRef.current !== null && pointerId !== activePointerIdRef.current) {
-      return;
-    }
-    const held = lastGlideMidiRef.current;
-    if (held !== null) {
-      onNoteUp?.(held, `touch-${held}`);
-    }
-    lastGlideMidiRef.current = null;
-    isPointerDownRef.current = false;
-    if (activePointerIdRef.current !== null) {
-      releaseSurfaceCapture(activePointerIdRef.current);
-    }
-    activePointerIdRef.current = null;
-  };
+    const totalWhite = wKeys.length;
 
-  const handleKeyPointerDown = (e: React.PointerEvent, midi: number) => {
-    if (disabled) return;
-    e.preventDefault();
-    isPointerDownRef.current = true;
-    activePointerIdRef.current = e.pointerId;
-    lastGlideMidiRef.current = midi;
-    try {
-      surfaceRef.current?.setPointerCapture?.(e.pointerId);
-    } catch {
-      // ignore
-    }
-    onNoteDown?.(midi, `touch-${midi}`);
-  };
+    // Second pass: position black keys between white keys
+    for (let m = startMidi; m <= endMidi; m++) {
+      if (isMidiBlack(m)) {
+        const noteIndex = m % 12;
+        const noteOctave = Math.floor(m / 12) - 1;
+        const noteName = `${CHROMATIC_NOTE_NAMES[noteIndex]}${noteOctave}`;
 
-  const handleKeyPointerEnter = (e: React.PointerEvent, midi: number) => {
-    if (disabled || !isPointerDownRef.current) return;
-    if (lastGlideMidiRef.current === midi) return;
-    if (lastGlideMidiRef.current !== null) {
-      onNoteUp?.(lastGlideMidiRef.current, `touch-${lastGlideMidiRef.current}`);
-    }
-    lastGlideMidiRef.current = midi;
-    onNoteDown?.(midi, `touch-${midi}`);
-  };
+        const numbered = midiToNumberedPitch(m, activeKey, { accidentalPreference });
+        const accPrefix = numbered.accidental === '#' ? '#' : numbered.accidental === 'b' ? 'b' : '';
+        const accDisplay = numbered.accidental === '#' ? '♯' : numbered.accidental === 'b' ? '♭' : '';
+        const solfegeKey = `${accPrefix}${numbered.pitch}`;
+        const solfege = SOLFEGE_MAP[solfegeKey] || SOLFEGE_MAP[`${numbered.pitch}`] || 'Di';
+        const label = `${accDisplay}${numbered.pitch}`;
 
-  /**
-   * Touch glissando: iPad Safari often reports buttons === 0 on pointermove,
-   * and recapturing every frame can emit pointercancel. Capture once on the
-   * surface and resolve keys with elementFromPoint.
-   */
+        // Find white key immediately to the left
+        const prevWhiteMidi = m - 1;
+        const prevWhiteIndex = wKeys.findIndex(wk => wk.midi === prevWhiteMidi);
+
+        if (prevWhiteIndex >= 0) {
+          // Standard acoustic piano key offsets
+          let offsetRatio = 0.62;
+          if (noteIndex === 1) offsetRatio = 0.6; // C#
+          else if (noteIndex === 3) offsetRatio = 0.68; // D#
+          else if (noteIndex === 6) offsetRatio = 0.58; // F#
+          else if (noteIndex === 8) offsetRatio = 0.65; // G#
+          else if (noteIndex === 10) offsetRatio = 0.72; // A#
+
+          const leftFraction = prevWhiteIndex + offsetRatio;
+          const leftPercent = (leftFraction / totalWhite) * 100;
+          const widthPercent = (0.64 / totalWhite) * 100;
+
+          // QWERTY hints for black keys
+          let qwertyKey = '';
+          if (m === 61) qwertyKey = 'W';
+          else if (m === 63) qwertyKey = 'E';
+          else if (m === 66) qwertyKey = 'T';
+          else if (m === 68) qwertyKey = 'Y';
+          else if (m === 70) qwertyKey = 'U';
+          else if (m === 73) qwertyKey = 'O';
+          else if (m === 75) qwertyKey = 'P';
+
+          bKeys.push({
+            isBlack: true,
+            midi: m,
+            pitch: numbered.pitch,
+            accidental: numbered.accidental,
+            octave: numbered.octave,
+            numberedNotationLabel: label,
+            solfege,
+            noteName,
+            isMiddleC: false,
+            isC: false,
+            qwertyKey,
+            leftPercent,
+            widthPercent,
+          });
+        }
+      }
+    }
+
+    return { whiteKeys: wKeys, blackKeys: bKeys, totalWhiteKeys: totalWhite };
+  }, [startMidi, endMidi, activeKey, accidentalPreference]);
+
+  // Center on Middle C (C4 / MIDI 60) smoothly
+  const scrollToMiddleC = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    if (!scrollContainerRef.current) return;
+    const container = scrollContainerRef.current;
+    const middleCEl = container.querySelector('[data-middle-c="true"]') as HTMLElement | null;
+
+    if (middleCEl) {
+      const containerWidth = container.clientWidth;
+      const keyLeft = middleCEl.offsetLeft;
+      const keyWidth = middleCEl.offsetWidth;
+      const targetScroll = keyLeft - containerWidth / 2 + keyWidth / 2;
+      container.scrollTo({ left: Math.max(0, targetScroll), behavior });
+    }
+  }, []);
+
+  // Step scroll by octave (7 white keys)
+  const scrollOctave = useCallback((direction: 'left' | 'right') => {
+    if (!scrollContainerRef.current) return;
+    const container = scrollContainerRef.current;
+    const scrollAmount = (container.clientWidth * 0.45) * (direction === 'left' ? -1 : 1);
+    container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+  }, []);
+
+  // Auto-scroll to Middle C when switching to scrollable 88-key or 61-key mode
+  useEffect(() => {
+    if (isScrollableMode) {
+      const timer = setTimeout(() => {
+        scrollToMiddleC('auto');
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isScrollableMode, octaveBedView, scrollToMiddleC]);
+
+  // Helper to release the active glide note cleanly
+  const releaseActiveGlideNote = useCallback(() => {
+    if (activeGlideMidiRef.current !== null) {
+      const prevMidi = activeGlideMidiRef.current;
+      activeGlideMidiRef.current = null;
+      onNoteUpRef.current?.(prevMidi, `touch-${prevMidi}`);
+    }
+  }, []);
+
+  // Helper to trigger note on during glide
+  const playGlideNote = useCallback(
+    (midi: number) => {
+      if (disabled) return;
+      if (activeGlideMidiRef.current === midi) return;
+
+      if (activeGlideMidiRef.current !== null) {
+        const prevMidi = activeGlideMidiRef.current;
+        onNoteUpRef.current?.(prevMidi, `touch-${prevMidi}`);
+      }
+
+      activeGlideMidiRef.current = midi;
+      onNoteDownRef.current?.(midi, `touch-${midi}`);
+    },
+    [disabled]
+  );
+
+  // Global safety handlers: release notes when pointer lifts or leaves anywhere in browser
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      if (isPointerDownRef.current || activeGlideMidiRef.current !== null) {
+        releaseActiveGlideNote();
+        isPointerDownRef.current = false;
+      }
+    };
+
+    const handleGlobalPointerMove = (e: PointerEvent) => {
+      if (!isPointerDownRef.current) return;
+
+      // Find element under pointer
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      if (!el) {
+        releaseActiveGlideNote();
+        return;
+      }
+
+      const keyEl = el.closest('[data-midi]') as HTMLElement | null;
+      if (keyEl) {
+        const midiStr = keyEl.getAttribute('data-midi');
+        if (midiStr) {
+          const midi = parseInt(midiStr, 10);
+          if (!isNaN(midi)) {
+            playGlideNote(midi);
+            return;
+          }
+        }
+      }
+
+      // Pointer moved off the piano keys
+      releaseActiveGlideNote();
+    };
+
+    const handleBlurOrVisibility = () => {
+      releaseActiveGlideNote();
+      isPointerDownRef.current = false;
+    };
+
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    window.addEventListener('pointermove', handleGlobalPointerMove);
+    window.addEventListener('touchend', handleGlobalPointerUp);
+    window.addEventListener('touchcancel', handleGlobalPointerUp);
+    window.addEventListener('mouseup', handleGlobalPointerUp);
+    window.addEventListener('blur', handleBlurOrVisibility);
+    document.addEventListener('visibilitychange', handleBlurOrVisibility);
+
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+      window.removeEventListener('pointermove', handleGlobalPointerMove);
+      window.removeEventListener('touchend', handleGlobalPointerUp);
+      window.removeEventListener('touchcancel', handleGlobalPointerUp);
+      window.removeEventListener('mouseup', handleGlobalPointerUp);
+      window.removeEventListener('blur', handleBlurOrVisibility);
+      document.removeEventListener('visibilitychange', handleBlurOrVisibility);
+    };
+  }, [playGlideNote, releaseActiveGlideNote]);
+
+  // Pointer Down on piano surface or key
   const handleSurfacePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (disabled) return;
     isPointerDownRef.current = true;
-    activePointerIdRef.current = e.pointerId;
-    try {
-      e.currentTarget.setPointerCapture?.(e.pointerId);
-    } catch {
-      // ignore
+
+    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    const keyEl = el?.closest('[data-midi]') as HTMLElement | null;
+    if (keyEl) {
+      const midiStr = keyEl.getAttribute('data-midi');
+      if (midiStr) {
+        const midi = parseInt(midiStr, 10);
+        if (!isNaN(midi)) {
+          playGlideNote(midi);
+        }
+      }
     }
   };
-
-  const handleSurfacePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled || !isPointerDownRef.current) return;
-    if (activePointerIdRef.current !== null && e.pointerId !== activePointerIdRef.current) return;
-
-    const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-    if (!target) return;
-    const midiStr = target.dataset.midi ?? target.closest('[data-midi]')?.getAttribute('data-midi');
-    if (!midiStr) return;
-    const midi = parseInt(midiStr, 10);
-    if (isNaN(midi) || midi === lastGlideMidiRef.current) return;
-
-    if (lastGlideMidiRef.current !== null) {
-      onNoteUp?.(lastGlideMidiRef.current, `touch-${lastGlideMidiRef.current}`);
-    }
-    lastGlideMidiRef.current = midi;
-    onNoteDown?.(midi, `touch-${midi}`);
-  };
-
-  const handleSurfacePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    endPointerContact(e.pointerId);
-  };
-
-  useEffect(() => {
-    const handleBlur = () => endPointerContact();
-    window.addEventListener('blur', handleBlur);
-    return () => {
-      window.removeEventListener('blur', handleBlur);
-      endPointerContact();
-    };
-    // endPointerContact reads latest refs; run once per mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
       {/* Mode Status & Octave Controls Bar */}
-      <div className="flex items-center justify-between px-1 flex-wrap gap-2 text-xs">
+      <div className="flex items-center justify-between px-1 flex-wrap gap-2 text-xs min-h-[34px]">
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300">
-          {isRecording ? (
+          {statusTitle ? (
             <>
-              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              {isRecording ? (
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              )}
+              <span className="font-extrabold text-[11px]">{statusTitle}</span>
+              {statusSubtitle && <span className="text-[11px] text-zinc-300">{statusSubtitle}</span>}
+            </>
+          ) : isRecording ? (
+            <>
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
               <span className="font-extrabold text-[11px]">琴鍵即時收音中：</span>
               <span className="text-[11px] text-zinc-300">按住保持時值，鬆開自動量化</span>
             </>
           ) : (
             <>
-              <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+              <Volume2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span className="font-extrabold text-[11px]">琴鍵試音練習：</span>
-              <span className="text-[11px] text-zinc-300">點擊琴鍵或鍵盤試聽，不計入樂譜</span>
+              <span className="text-[11px] text-zinc-300">支援滑音(Glissando)與點擊，鬆開即停</span>
             </>
           )}
         </div>
 
-        {/* Octave Range Switcher & Metadata */}
-        <div className="flex items-center gap-3">
+        {/* Range Presets & Navigation Controls */}
+        <div className="flex items-center gap-2 flex-wrap">
           {onOctaveBedViewChange && (
-            <div className="flex items-center gap-1">
-              <span className="text-zinc-500 text-[11px] font-bold">顯示：</span>
-              {(['low_mid', 'mid_high', 'all'] as const).map(viewOption => (
+            <div className="flex items-center gap-1 bg-zinc-900/90 p-1 rounded-xl border border-zinc-800">
+              <span className="text-zinc-500 text-[10px] font-bold px-1 hidden sm:inline">琴鍵：</span>
+              {(
+                [
+                  { id: '88keys', label: '88鍵全鋼琴' },
+                  { id: '61keys', label: '61鍵' },
+                  { id: 'all', label: '3八度' },
+                  { id: 'mid_high', label: '中高音' },
+                  { id: 'low_mid', label: '低中音' },
+                ] as const
+              ).map(viewOption => (
                 <button
-                  key={viewOption}
+                  key={viewOption.id}
                   type="button"
-                  onClick={() => onOctaveBedViewChange(viewOption)}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
-                    octaveBedView === viewOption
+                  onClick={() => onOctaveBedViewChange(viewOption.id as OctaveBedView)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                    octaveBedView === viewOption.id
                       ? 'bg-amber-500 text-zinc-950 border-amber-400 font-extrabold shadow-xs'
-                      : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border-zinc-800'
+                      : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 border-zinc-700/60'
                   }`}
                 >
-                  {viewOption === 'low_mid'
-                    ? '低+中八度'
-                    : viewOption === 'mid_high'
-                      ? '中+高八度'
-                      : '全 3 八度'}
+                  {viewOption.label}
                 </button>
               ))}
             </div>
           )}
 
-          <div className="text-[11px] text-zinc-500 font-mono hidden sm:flex items-center gap-1">
-            <span>1 = {activeKey}</span>
+          {/* Quick Navigator for scrollable modes */}
+          {isScrollableMode && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => scrollOctave('left')}
+                title="向左滾動低音區"
+                className="p-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollToMiddleC('smooth')}
+                title="快速對齊中央 C (C4)"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-[10px] font-bold text-amber-300 transition-colors cursor-pointer"
+              >
+                <Compass className="w-3 h-3 text-amber-400" />
+                中央 C
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollOctave('right')}
+                title="向右滾動高音區"
+                className="p-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 transition-colors cursor-pointer"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          <div className="text-[11px] text-zinc-400 font-mono hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800">
+            <span className="font-bold text-amber-400">1 = {activeKey}</span>
             {octaveShiftVal !== 0 && (
-              <span>· 移調 {octaveShiftVal > 0 ? `+${octaveShiftVal}` : octaveShiftVal}</span>
+              <span className="text-zinc-500">· 移調 {octaveShiftVal > 0 ? `+${octaveShiftVal}` : octaveShiftVal}</span>
             )}
           </div>
         </div>
       </div>
 
-      {/* On-screen Piano Bed */}
+      {/* On-screen Piano Bed Surface */}
       <div
         id="piano-bed-surface"
-        ref={surfaceRef}
-        className="relative select-none touch-none w-full bg-zinc-900/90 p-2.5 rounded-2xl border border-zinc-800 shadow-inner overflow-x-auto"
-        style={{ minHeight: '170px' }}
+        ref={scrollContainerRef}
         onPointerDown={handleSurfacePointerDown}
-        onPointerMove={handleSurfacePointerMove}
-        onPointerUp={handleSurfacePointerUp}
-        onPointerCancel={handleSurfacePointerUp}
+        onContextMenu={e => e.preventDefault()}
+        className={`relative select-none touch-none w-full bg-zinc-950 p-2 sm:p-2.5 rounded-2xl border border-zinc-800 shadow-2xl ${
+          isScrollableMode ? 'overflow-x-auto scroll-smooth' : 'overflow-hidden'
+        }`}
+        style={{
+          minHeight: '175px',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+        }}
       >
-        {/* White Keys Row */}
-        <div className="flex w-full h-40 sm:h-44 relative">
-          {pianoKeys.whiteKeys.map(wk => {
+        {/* Keyboard container */}
+        <div
+          className="relative flex h-40 sm:h-44 select-none touch-none"
+          style={{
+            width: isScrollableMode
+              ? `max(100%, ${totalWhiteKeys * (defaultKeyWidthPx || 32)}px)`
+              : '100%',
+          }}
+        >
+          {/* White Keys */}
+          {whiteKeys.map(wk => {
             const isActive = activeMidiSet.has(wk.midi);
 
             return (
               <div
                 key={`wk-${wk.midi}`}
                 data-midi={wk.midi}
-                onPointerDown={e => {
-                  handleKeyPointerDown(e, wk.midi);
-                }}
-                onPointerEnter={e => {
-                  handleKeyPointerEnter(e, wk.midi);
-                }}
-                onContextMenu={e => e.preventDefault()}
+                data-middle-c={wk.isMiddleC ? 'true' : 'false'}
+                ref={wk.isMiddleC ? middleCElementRef : undefined}
                 className={`flex-1 flex flex-col justify-end items-center pb-2 border-r border-zinc-300 dark:border-zinc-800 rounded-b-lg cursor-pointer select-none touch-none transition-all duration-75 relative ${
                   isActive
-                    ? 'bg-amber-300 dark:bg-amber-400 text-zinc-950 shadow-md transform translate-y-0.5'
-                    : 'bg-white hover:bg-zinc-100 text-zinc-800'
+                    ? 'bg-amber-300 dark:bg-amber-400 text-zinc-950 shadow-md transform translate-y-0.5 font-bold'
+                    : wk.isMiddleC
+                      ? 'bg-amber-50/90 dark:bg-zinc-100 hover:bg-amber-100 text-zinc-900'
+                      : 'bg-white hover:bg-zinc-100 text-zinc-800'
                 }`}
+                style={{
+                  minWidth: isScrollableMode ? `${defaultKeyWidthPx || 32}px` : undefined,
+                }}
               >
+                {/* Middle C marker or Octave Note Name on C keys */}
+                {wk.isMiddleC ? (
+                  <div className="absolute top-1.5 px-1 py-0.2 rounded bg-amber-500/90 text-zinc-950 text-[7px] font-black tracking-tight uppercase shadow-xs">
+                    C4 (中央)
+                  </div>
+                ) : wk.isC ? (
+                  <div className="absolute top-1.5 text-[8px] font-bold text-zinc-400">
+                    {wk.noteName}
+                  </div>
+                ) : null}
+
                 {/* Numbered Notation Degree */}
                 <div className="flex flex-col items-center">
-                  {wk.octave > 0 && <span className="text-[8px] leading-none -mb-1">●</span>}
-                  <span className="text-sm font-black font-mono">
+                  {wk.octave > 0 && (
+                    <span className="text-[8px] leading-none -mb-1 text-amber-600 dark:text-amber-500 font-black">
+                      {wk.octave === 1 ? '●' : '●●'}
+                    </span>
+                  )}
+                  <span className="text-sm font-black font-mono tracking-tighter">
                     {wk.numberedNotationLabel}
                   </span>
-                  {wk.octave < 0 && <span className="text-[8px] leading-none -mt-1">●</span>}
+                  {wk.octave < 0 && (
+                    <span className="text-[8px] leading-none -mt-1 text-amber-600 dark:text-amber-500 font-black">
+                      {wk.octave === -1 ? '●' : '●●'}
+                    </span>
+                  )}
                 </div>
 
                 {/* Solfege Name */}
-                <span className="text-[9px] font-sans text-zinc-500 font-medium">
+                <span className="text-[9px] font-sans text-zinc-500 font-medium leading-tight">
                   {wk.solfege}
                 </span>
 
                 {/* QWERTY Key Label */}
                 {showQwertyHints && wk.qwertyKey && (
-                  <span className="text-[8px] font-mono font-extrabold px-1 rounded bg-zinc-200 text-zinc-700 mt-0.5">
+                  <span className="text-[8px] font-mono font-extrabold px-1 rounded bg-zinc-200 text-zinc-700 mt-0.5 shadow-2xs">
                     {wk.qwertyKey}
                   </span>
                 )}
@@ -373,49 +584,55 @@ export const PianoBed: React.FC<PianoBedProps> = ({
             );
           })}
 
-          {/* Black Keys Layer */}
-          {pianoOctaves.map((oct, oIdx) => {
-            const octWidthPercent = 100 / pianoOctaves.length;
-            const bKeysInOct = pianoKeys.blackKeys.filter(bk => bk.octave === oct);
+          {/* Black Keys */}
+          {blackKeys.map(bk => {
+            const isActive = activeMidiSet.has(bk.midi);
 
-            return bKeysInOct.map(bk => {
-              const isActive = activeMidiSet.has(bk.midi);
-              const leftPos = oIdx * octWidthPercent + ((bk.leftPercent || 0) * octWidthPercent) / 100;
-
-              return (
-                <div
-                  key={`bk-${bk.midi}`}
-                  data-midi={bk.midi}
-                  onPointerDown={e => {
-                    handleKeyPointerDown(e, bk.midi);
-                  }}
-                  onPointerEnter={e => {
-                    handleKeyPointerEnter(e, bk.midi);
-                  }}
-                  onContextMenu={e => e.preventDefault()}
-                  style={{
-                    left: `${leftPos}%`,
-                    width: `${octWidthPercent * 0.09}%`,
-                    height: '62%',
-                  }}
-                  className={`absolute top-0 z-10 flex flex-col justify-end items-center pb-1.5 rounded-b-md cursor-pointer select-none touch-none transition-all duration-75 ${
-                    isActive
-                      ? 'bg-amber-400 text-zinc-950 shadow-lg transform translate-y-0.5'
-                      : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-x border-b border-black shadow-md'
-                  }`}
-                >
-                  <span className="text-[10px] font-black font-mono">
+            return (
+              <div
+                key={`bk-${bk.midi}`}
+                data-midi={bk.midi}
+                style={{
+                  left: `${bk.leftPercent}%`,
+                  width: `${bk.widthPercent}%`,
+                  height: '62%',
+                }}
+                className={`absolute top-0 z-10 flex flex-col justify-end items-center pb-1.5 rounded-b-md cursor-pointer select-none touch-none transition-all duration-75 shadow-lg ${
+                  isActive
+                    ? 'bg-amber-400 text-zinc-950 shadow-amber-500/50 transform translate-y-0.5'
+                    : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-x border-b border-black'
+                }`}
+              >
+                {/* Numbered Notation Degree */}
+                <div className="flex flex-col items-center">
+                  {bk.octave > 0 && (
+                    <span className="text-[7px] leading-none -mb-0.5 text-amber-400 font-black">
+                      {bk.octave === 1 ? '●' : '●●'}
+                    </span>
+                  )}
+                  <span className="text-[10px] font-black font-mono tracking-tighter leading-tight">
                     {bk.numberedNotationLabel}
                   </span>
-
-                  {showQwertyHints && bk.qwertyKey && (
-                    <span className="text-[7px] font-mono font-bold px-0.5 rounded bg-zinc-800 text-amber-400 mt-0.5">
-                      {bk.qwertyKey}
+                  {bk.octave < 0 && (
+                    <span className="text-[7px] leading-none -mt-0.5 text-amber-400 font-black">
+                      {bk.octave === -1 ? '●' : '●●'}
                     </span>
                   )}
                 </div>
-              );
-            });
+
+                {/* Solfege Name */}
+                <span className="text-[7.5px] font-sans text-zinc-400 font-semibold leading-none mt-0.5">
+                  {bk.solfege}
+                </span>
+
+                {/* QWERTY Key Hint */}
+                {showQwertyHints && bk.qwertyKey && (
+                  <span className="text-[7px] font-mono font-bold px-0.5 rounded bg-zinc-800 text-amber-400 mt-0.5 shadow-2xs">
+                    {bk.qwertyKey}
+                  </span>
+                )}
+              </div>
+            );
           })}
         </div>
       </div>

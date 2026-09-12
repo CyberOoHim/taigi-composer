@@ -37,6 +37,8 @@ import {
   setStoredLayoutMode,
   getStoredLyricAlign,
   setStoredLyricAlign,
+  getStoredEnableChords,
+  setStoredEnableChords,
   KaraokeStageTheme,
   KaraokeLayoutMode,
   KaraokeLyricAlign,
@@ -123,6 +125,10 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   const [backingVolume, setBackingVolumeState] = useState<number>(() => {
     if (typeof window !== 'undefined') return getStoredBackingVolume(0.5);
     return 0.5;
+  });
+  const [enableChords, setEnableChords] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return getStoredEnableChords(true);
+    return true;
   });
   const [metronomeVolume, setMetronomeVolumeState] = useState<number>(() => {
     if (typeof window !== 'undefined') return getStoredMetronomeVolume(0.45);
@@ -247,6 +253,15 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     setBackingVolumeState(vol);
     setStoredBackingVolume(vol);
     audioEngine.setOptions({ backingVolume: vol });
+  }, [audioEngine]);
+
+  const toggleEnableChords = useCallback(() => {
+    setEnableChords(prev => {
+      const next = !prev;
+      setStoredEnableChords(next);
+      audioEngine.setOptions({ chordEnabled: next });
+      return next;
+    });
   }, [audioEngine]);
 
   const setMetronomeVolume = useCallback((vol: number) => {
@@ -396,6 +411,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
       tempoMultiplier,
       targetFps: isEcoMode ? 20 : 30,
       ecoMode: isEcoMode,
+      chordEnabled: enableChords,
     });
   }, [
     audioEngine,
@@ -406,6 +422,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     transpose,
     tempoMultiplier,
     isEcoMode,
+    enableChords,
   ]);
 
   // Update loop measure or A-B loop setting when looping options change

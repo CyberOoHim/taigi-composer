@@ -617,7 +617,8 @@ export class KeyEventEngine {
     if (this.activeNote && !this.activeNote.resolved) {
       const isMatch =
         this.activeNote.midi === midi ||
-        (sourceKeyId && this.activeNote.sourceKeyId === sourceKeyId);
+        (sourceKeyId && this.activeNote.sourceKeyId === sourceKeyId) ||
+        !sourceKeyId;
 
       if (isMatch) {
         this.commitActiveNote(now);
@@ -668,6 +669,18 @@ export class KeyEventEngine {
     this.flushPendingKeyReleases();
     if (this.activeNote && !this.activeNote.resolved) {
       this.commitActiveNote(now);
+    }
+    for (const sourceKeyId of Array.from(this.activeSourceKeys)) {
+      const resolved = resolveQwertyKey(
+        sourceKeyId,
+        this.config.keySignature,
+        this.config.octaveShift,
+        this.config.qwertyMappingMode,
+        this.config.accidentalPreference
+      );
+      if (resolved) {
+        this.callbacks.onNoteOff?.(resolved.midi, sourceKeyId);
+      }
     }
     this.activeSourceKeys.clear();
     this.notifyActiveKeys();
@@ -844,8 +857,9 @@ export class KeyEventEngine {
       const sourceKeyId = resolved.code;
       const now = timestampMs ?? this.nowProvider();
 
-      // Only stage release if key is currently active
+      // If key is not recorded as active, still trigger safety callback to halt any dangling voice
       if (!this.activeSourceKeys.has(sourceKeyId) && !this.pendingKeyReleases.has(sourceKeyId)) {
+        this.callbacks.onNoteOff?.(resolved.midi, sourceKeyId);
         return true;
       }
 

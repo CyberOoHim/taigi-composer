@@ -473,4 +473,18 @@ export function setStoredLyricAlign(align: KaraokeLyricAlign): void {
   safeSetItem(STORAGE_KEYS.KARAOKE_LYRIC_ALIGN, align);
 }
 
+// ============================================================================
+// 9. CHORD ENABLED PREFERENCE
+// ============================================================================
+export function getStoredEnableChords(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.CHORD_ENABLED);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredEnableChords(enabled: boolean): void {
+  safeSetItem(STORAGE_KEYS.CHORD_ENABLED, String(enabled));
+}
+
+
 

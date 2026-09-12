@@ -79,6 +79,15 @@ export class AudioEngine {
   private scheduledTimeoutIds: number[] = [];
   private scheduledCancels: Array<() => void> = [];
   private activeOscillators: OscillatorNode[] = [];
+  private activeSustainedVoices: Map<
+    string,
+    {
+      oscillators: OscillatorNode[];
+      gainNodes: GainNode[];
+      gainMaster: GainNode;
+      stopTimeoutId?: ReturnType<typeof setTimeout>;
+    }
+  > = new Map();
   private idleSuspendTimer: ReturnType<typeof setTimeout> | null = null;
   private trackingTimerId: ReturnType<typeof setTimeout> | null = null;
   private schedulerTimerId: ReturnType<typeof setTimeout> | null = null;
@@ -569,6 +578,240 @@ export class AudioEngine {
 
     // Auto suspend AudioContext after preview note finishes to power down audio hardware
     this.scheduleAutoSuspend(Math.round((playDuration + 2.0) * 1000));
+  }
+
+  /**
+   * Start playing a sustained musical note (for live screen piano, QWERTY typing, or Web MIDI).
+   * Holds the note steadily for as long as the key is depressed, and smoothly releases when stopSustainedNote is called.
+   */
+  public startSustainedNote(
+    key: KeySignature,
+    note: NumberedNotationNote,
+    voiceId: string,
+    instrument?: InstrumentType
+  ): void {
+    if (isNonNotationItem(note)) return;
+    this.initContext();
+    if (!this.ctx || !this.melodyGain) return;
+    this.cancelAutoSuspend();
+
+    // If this voice is already singing, release old instance first
+    this.stopSustainedNote(voiceId, 0.03);
+
+    const freq = getPitchFrequency(key, note.pitch, note.octave, note.accidental, this.options.transpose);
+    if (freq <= 0) return;
+
+    const chosenInstrument = instrument || note.instrument || this.options.instrument || 'piano';
+    const startTime = this.ctx.currentTime;
+    const oscs: OscillatorNode[] = [];
+    const gains: GainNode[] = [];
+
+    const voiceGain = this.ctx.createGain();
+    voiceGain.gain.setValueAtTime(0.0001, startTime);
+
+    const volMul = 1.0;
+    const mainOsc = this.ctx.createOscillator();
+    this.registerOscillator(mainOsc);
+    oscs.push(mainOsc);
+
+    switch (chosenInstrument) {
+      case 'piano': {
+        const pianoFilter = this.ctx.createBiquadFilter();
+        pianoFilter.type = 'lowpass';
+        pianoFilter.frequency.setValueAtTime(Math.min(5000, Math.max(1400, freq * 3.8)), startTime);
+        pianoFilter.Q.setValueAtTime(1.2, startTime);
+        pianoFilter.frequency.exponentialRampToValueAtTime(
+          Math.max(250, freq * 1.5),
+          startTime + 0.35
+        );
+
+        // String 1 (center trichord string)
+        mainOsc.type = 'triangle';
+        mainOsc.frequency.setValueAtTime(freq, startTime);
+        mainOsc.connect(pianoFilter);
+
+        // String 2 (detuned by +2.5 cents for realistic grand piano multi-string chorus shimmer)
+        const str2 = this.ctx.createOscillator();
+        this.registerOscillator(str2);
+        oscs.push(str2);
+        str2.type = 'triangle';
+        str2.frequency.setValueAtTime(freq * 1.0015, startTime);
+        str2.connect(pianoFilter);
+        str2.start(startTime);
+
+        // 2nd Harmonic (Octave string partial)
+        const harm2 = this.ctx.createOscillator();
+        this.registerOscillator(harm2);
+        oscs.push(harm2);
+        const harm2Gain = this.ctx.createGain();
+        gains.push(harm2Gain);
+        harm2.type = 'sine';
+        harm2.frequency.setValueAtTime(freq * 2, startTime);
+        harm2Gain.gain.setValueAtTime(0.35 * volMul, startTime);
+        harm2Gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.3);
+        harm2.connect(harm2Gain);
+        harm2Gain.connect(voiceGain);
+        harm2.start(startTime);
+
+        // Hammer felt strike percussive knock
+        const hammer = this.ctx.createOscillator();
+        this.registerOscillator(hammer);
+        oscs.push(hammer);
+        const hammerGain = this.ctx.createGain();
+        gains.push(hammerGain);
+        hammer.type = 'sine';
+        hammer.frequency.setValueAtTime(180, startTime);
+        hammer.frequency.exponentialRampToValueAtTime(60, startTime + 0.025);
+        hammerGain.gain.setValueAtTime(0.4 * volMul, startTime);
+        hammerGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.028);
+        hammer.connect(hammerGain);
+        hammerGain.connect(voiceGain);
+        hammer.start(startTime);
+
+        // Main acoustic envelope: crisp hammer strike attack (3ms), settling to steady sustain floor
+        pianoFilter.connect(voiceGain);
+        voiceGain.gain.setValueAtTime(0.0001, startTime);
+        voiceGain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + 0.004);
+        voiceGain.gain.exponentialRampToValueAtTime(0.48 * volMul, startTime + 0.12);
+        // Very slow natural acoustic piano string energy decay while held (up to 15s)
+        voiceGain.gain.exponentialRampToValueAtTime(Math.max(0.05, 0.22 * volMul), startTime + 10.0);
+        break;
+      }
+      case 'flute': {
+        mainOsc.type = 'sine';
+        mainOsc.frequency.setValueAtTime(freq, startTime);
+
+        const oddHarm = this.ctx.createOscillator();
+        this.registerOscillator(oddHarm);
+        oscs.push(oddHarm);
+        const oddGain = this.ctx.createGain();
+        gains.push(oddGain);
+        oddHarm.type = 'sine';
+        oddHarm.frequency.setValueAtTime(freq * 3, startTime);
+        oddGain.gain.setValueAtTime(0.16 * volMul, startTime);
+        oddHarm.connect(oddGain);
+        oddGain.connect(voiceGain);
+        oddHarm.start(startTime);
+
+        mainOsc.connect(voiceGain);
+        voiceGain.gain.setValueAtTime(0.0001, startTime);
+        voiceGain.gain.linearRampToValueAtTime(0.7 * volMul, startTime + 0.035);
+        break;
+      }
+      case 'guitar': {
+        mainOsc.type = 'sawtooth';
+        mainOsc.frequency.setValueAtTime(freq, startTime);
+
+        const pluckFilter = this.ctx.createBiquadFilter();
+        pluckFilter.type = 'lowpass';
+        pluckFilter.frequency.setValueAtTime(Math.min(4500, freq * 4.5), startTime);
+        pluckFilter.frequency.exponentialRampToValueAtTime(Math.max(200, freq * 1.2), startTime + 0.3);
+
+        mainOsc.connect(pluckFilter);
+        pluckFilter.connect(voiceGain);
+
+        voiceGain.gain.setValueAtTime(0.0001, startTime);
+        voiceGain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + 0.005);
+        voiceGain.gain.exponentialRampToValueAtTime(0.38 * volMul, startTime + 0.15);
+        break;
+      }
+      default: {
+        mainOsc.type = 'triangle';
+        mainOsc.frequency.setValueAtTime(freq, startTime);
+        mainOsc.connect(voiceGain);
+
+        voiceGain.gain.setValueAtTime(0.0001, startTime);
+        voiceGain.gain.linearRampToValueAtTime(0.75 * volMul, startTime + 0.01);
+        break;
+      }
+    }
+
+    voiceGain.connect(this.melodyGain);
+    mainOsc.start(startTime);
+
+    // Ultimate hardware safety ceiling: stop oscillators after 25s to guarantee no infinite hanging voices
+    const MAX_SUSTAIN_HARDWARE_LIMIT_SEC = 25.0;
+    for (const osc of oscs) {
+      try {
+        osc.stop(startTime + MAX_SUSTAIN_HARDWARE_LIMIT_SEC);
+      } catch {}
+    }
+
+    this.activeSustainedVoices.set(voiceId, {
+      oscillators: oscs,
+      gainNodes: gains,
+      gainMaster: voiceGain,
+    });
+  }
+
+  /**
+   * Smoothly release and stop a sustained note voice when key is released.
+   */
+  public stopSustainedNote(voiceId: string, releaseTimeSec: number = 0.08): void {
+    const voice = this.activeSustainedVoices.get(voiceId);
+    if (!voice || !this.ctx) return;
+    this.activeSustainedVoices.delete(voiceId);
+
+    const now = this.ctx.currentTime;
+    try {
+      if (typeof (voice.gainMaster.gain as any).cancelAndHoldAtTime === 'function') {
+        (voice.gainMaster.gain as any).cancelAndHoldAtTime(now);
+      } else {
+        voice.gainMaster.gain.cancelScheduledValues(now);
+        const currentGain = Math.max(0.0001, voice.gainMaster.gain.value);
+        voice.gainMaster.gain.setValueAtTime(currentGain, now);
+      }
+      // Linear ramp to absolute silence guarantees no RangeError and smooth click-free release
+      voice.gainMaster.gain.linearRampToValueAtTime(0.00001, now + releaseTimeSec);
+      voice.gainMaster.gain.setValueAtTime(0, now + releaseTimeSec + 0.01);
+    } catch {
+      try {
+        voice.gainMaster.gain.setValueAtTime(0, now);
+      } catch {}
+    }
+
+    // Schedule stop on Web Audio rendering thread immediately so hardware sound cuts at exact release time
+    const oscStopTime = now + releaseTimeSec + 0.03;
+    for (const osc of voice.oscillators) {
+      try {
+        osc.stop(oscStopTime);
+      } catch {}
+    }
+
+    // Clean up nodes after release is complete
+    const stopDelayMs = Math.ceil(releaseTimeSec * 1000) + 40;
+    setTimeout(() => {
+      for (const osc of voice.oscillators) {
+        try {
+          osc.stop();
+          osc.disconnect();
+        } catch {}
+      }
+      for (const gn of voice.gainNodes) {
+        try {
+          gn.disconnect();
+        } catch {}
+      }
+      try {
+        voice.gainMaster.disconnect();
+      } catch {}
+    }, stopDelayMs);
+
+    if (this.activeSustainedVoices.size === 0) {
+      this.scheduleAutoSuspend(3000);
+    }
+  }
+
+  /**
+   * Stop and release all active sustained keyboard/MIDI voice notes immediately.
+   */
+  public stopAllSustainedNotes(): void {
+    if (this.activeSustainedVoices.size === 0) return;
+    const voiceIds = Array.from(this.activeSustainedVoices.keys());
+    for (const voiceId of voiceIds) {
+      this.stopSustainedNote(voiceId, 0.04);
+    }
+    this.activeSustainedVoices.clear();
   }
 
   /**
@@ -2536,6 +2779,7 @@ export class AudioEngine {
   }
 
   private stopAudioNodes() {
+    this.stopAllSustainedNotes();
     // 1. Immediately stop and disconnect all scheduled/playing oscillators
     const currentOscs = [...this.activeOscillators];
     this.activeOscillators = [];

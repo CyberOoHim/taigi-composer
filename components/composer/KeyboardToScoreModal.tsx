@@ -21,14 +21,12 @@ import { useWebMidi } from '@/lib/keyboard/webMidi';
 import type { RawNoteSegment } from '@/lib/pitch/onsetDetector';
 import {
   QuantizeGrid,
-  getExpectedMeasureBeats,
   midiToNumberedPitch,
   quantizeDurationToBeats,
   transcribeKeyboardSegmentsToMeasures,
   type TranscriptionResult,
 } from '@/lib/pitch/scoreQuantizer';
 import { wakeLockManager } from '@/lib/wakeLock';
-import { startAudioClockMetronome } from '@/lib/keyboard/audioClockMetronome';
 import { CHROMATIC_KEYS, STANDARD_TIME_SIGNATURES } from '@/lib/taigiUtils';
 import { NumberedNotationNoteComponent } from '@/components/NumberedNotationNoteComponent';
 import { PianoBed, OctaveBedView } from './PianoBed';
@@ -136,20 +134,13 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
 
   // Refs
   const keyEngineRef = useRef<KeyEventEngine | null>(null);
+  const countInIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
-  const recordingAudioOriginRef = useRef<number | null>(null);
-  const recordingSecondsRef = useRef(0);
-  const metronomeStopRef = useRef<(() => void) | null>(null);
+  const metronomeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const metronomePulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audibleClickRef = useRef<boolean>(audibleClickDuringRecording);
   const rawPlaybackTimersRef = useRef<number[]>([]);
-  const pauseFinishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isRecordingPaused, setIsRecordingPaused] = useState(false);
-  const [isPageVisible, setIsPageVisible] = useState(
-    () => typeof document === 'undefined' || !document.hidden
-  );
-  const isRecordingPausedRef = useRef(false);
 
   // Closure-safe parameter refs for live callbacks
   const activeKeyRef = useRef(activeKey);
@@ -194,7 +185,6 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       if (!keyEngineRef.current) return;
 
       if (step === 'RECORDING') {
-        if (isRecordingPausedRef.current) return;
         keyEngineRef.current.handleMidiMessage(event);
       } else {
         // Audition note without modifying performance buffer
@@ -205,20 +195,25 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
             accidentalPreference: accidentalPrefRef.current,
             octaveShift: octaveShiftRef.current,
           });
-          audioEngine.previewNote(activeKeyRef.current, {
-            id: `midi-audition-${midi}`,
-            pitch: pitchInfo.pitch,
-            octave: pitchInfo.octave,
-            accidental: pitchInfo.accidental,
-            duration: 1,
-            lyric: {},
-          });
+          audioEngine.startSustainedNote(
+            activeKeyRef.current,
+            {
+              id: `midi-audition-${midi}`,
+              pitch: pitchInfo.pitch,
+              octave: pitchInfo.octave,
+              accidental: pitchInfo.accidental,
+              duration: 1,
+              lyric: {},
+            },
+            `voice-${midi}`
+          );
           setActiveMidiSet(prev => new Set(prev).add(midi));
         } else if (
           data &&
           ((data[0] & 0xf0) === 0x80 || ((data[0] & 0xf0) === 0x90 && data[2] === 0))
         ) {
           const midi = data[1];
+          audioEngine.stopSustainedNote(`voice-${midi}`);
           setActiveMidiSet(prev => {
             const next = new Set(prev);
             next.delete(midi);
@@ -277,18 +272,26 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
             midi: note.midi,
           });
 
-          // Zero-latency real-time preview audio during recording
+          // Zero-latency real-time sustained audio during recording
           const tempNote: NumberedNotationNote = {
-            id: `live-key-${note.midi}-${Date.now()}`,
+            id: `live-key-${note.midi}`,
             pitch: note.pitch,
             octave: note.octave,
             accidental: note.accidental,
             duration: 1,
             lyric: {},
           };
-          audioEngine.previewNote(activeKeyRef.current, tempNote);
+          audioEngine.startSustainedNote(activeKeyRef.current, tempNote, `voice-${note.midi}`);
         },
-        onNoteOff: (midi: number) => {
+        onNoteOff: (midi: number, sourceKeyId?: string) => {
+          audioEngine.stopSustainedNote(`voice-${midi}`);
+          if (sourceKeyId) {
+            audioEngine.stopSustainedNote(sourceKeyId);
+          }
+          audioEngine.stopSustainedNote(`touch-${midi}`);
+          audioEngine.stopSustainedNote(`qwerty-audition-${midi}`);
+          audioEngine.stopSustainedNote(`midi-audition-${midi}`);
+          audioEngine.stopSustainedNote(`piano-audition-${midi}`);
           setActiveMidiSet(prev => {
             const next = new Set(prev);
             next.delete(midi);
@@ -341,12 +344,6 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
         onOctaveShiftChange: shift => {
           setOctaveShiftVal(shift);
         },
-      },
-      () => {
-        if (audioEngine.getAudioContextState() === 'running') {
-          return audioEngine.getAudioContextTime() * 1000;
-        }
-        return performance.now();
       }
     );
 
@@ -403,35 +400,26 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     };
   }, [step]);
 
-  // Visual metronome preview pulse in SETUP step (audio-clock lookahead, not setInterval-per-beat)
+  // Visual metronome preview pulse in SETUP step
   useEffect(() => {
-    if (step !== 'SETUP' || !isOpen || !isPageVisible) return;
-    const beatsPerBar = Math.max(1, Math.round(getExpectedMeasureBeats(activeTimeSignature))) || 4;
-    audioEngine.initContext();
-    const usingAudio = audioEngine.getAudioContextState() === 'running';
-    const wallOriginSec = performance.now() / 1000;
-    const audioOrigin = audioEngine.getAudioContextTime();
+    if (step !== 'SETUP' || !isOpen) return;
+    const beats = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
+    const intervalMs = (60 / activeBpm) * 1000;
+    let b = 1;
     let pulseTimeout: ReturnType<typeof setTimeout> | null = null;
-
-    const stop = startAudioClockMetronome({
-      getCurrentTime: () =>
-        usingAudio ? audioEngine.getAudioContextTime() : audioOrigin + (performance.now() / 1000 - wallOriginSec),
-      bpm: activeBpm,
-      beatsPerBar,
-      shouldClick: () => false,
-      onBeat: ({ beatInBar }) => {
-        setSetupPreviewBeat(beatInBar);
-        setSetupPreviewPulse(true);
-        if (pulseTimeout) clearTimeout(pulseTimeout);
-        pulseTimeout = setTimeout(() => setSetupPreviewPulse(false), 140);
-      },
-    });
+    const timer = setInterval(() => {
+      b = (b % beats) + 1;
+      setSetupPreviewBeat(b);
+      setSetupPreviewPulse(true);
+      if (pulseTimeout) clearTimeout(pulseTimeout);
+      pulseTimeout = setTimeout(() => setSetupPreviewPulse(false), 140);
+    }, intervalMs);
 
     return () => {
-      stop();
+      clearInterval(timer);
       if (pulseTimeout) clearTimeout(pulseTimeout);
     };
-  }, [step, isOpen, isPageVisible, activeTimeSignature, activeBpm, audioEngine]);
+  }, [step, isOpen, activeTimeSignature, activeBpm]);
 
   // Clean up all audio audition and tickers
   const stopAllPlayback = useCallback(() => {
@@ -446,20 +434,18 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     stopAllPlayback();
     void wakeLockManager.release();
 
-    if (metronomeStopRef.current) {
-      metronomeStopRef.current();
-      metronomeStopRef.current = null;
+    if (countInIntervalRef.current) {
+      clearInterval(countInIntervalRef.current);
+      countInIntervalRef.current = null;
     }
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
     }
-    if (pauseFinishTimerRef.current) {
-      clearTimeout(pauseFinishTimerRef.current);
-      pauseFinishTimerRef.current = null;
+    if (metronomeIntervalRef.current) {
+      clearInterval(metronomeIntervalRef.current);
+      metronomeIntervalRef.current = null;
     }
-    isRecordingPausedRef.current = false;
-    setIsRecordingPaused(false);
     if (metronomePulseTimeoutRef.current) {
       clearTimeout(metronomePulseTimeoutRef.current);
       metronomePulseTimeoutRef.current = null;
@@ -473,9 +459,10 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
         keyEngineRef.current.stopRecording();
       }
     }
+    audioEngine.stopAllSustainedNotes();
     setActiveMidiSet(new Set());
     setActiveHeldBeats(null);
-  }, [stopAllPlayback]);
+  }, [stopAllPlayback, audioEngine]);
 
   // Unmount lifecycle cleanup
   useEffect(() => {
@@ -486,20 +473,8 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     };
   }, [stopAllPipelines]);
 
-  const flashMetronomeBeat = useCallback((beatInBar: number, isDownbeat: boolean) => {
-    setCurrentBeatInBar(beatInBar);
-    setIsBeatPulse(true);
-    setIsDownbeatFlash(isDownbeat);
-    if (metronomePulseTimeoutRef.current) clearTimeout(metronomePulseTimeoutRef.current);
-    metronomePulseTimeoutRef.current = setTimeout(() => {
-      setIsBeatPulse(false);
-      setIsDownbeatFlash(false);
-      metronomePulseTimeoutRef.current = null;
-    }, 140);
-  }, []);
-
-  // Actual recording execution. `startAudioTime` is beat-1 origin on the AudioContext clock.
-  const beginActiveRecording = useCallback((startAudioTime?: number) => {
+  // Actual recording execution
+  const beginActiveRecording = useCallback(() => {
     setStep('RECORDING');
     setRecordingSeconds(0);
     setActiveMidiSet(new Set());
@@ -508,62 +483,62 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     setLastPlayedNote(null);
     void wakeLockManager.request();
 
-    audioEngine.initContext();
-    audioEngine.cancelAutoSuspend();
-    const originSec = startAudioTime ?? audioEngine.getAudioContextTime();
-    recordingAudioOriginRef.current = originSec;
-    setIsRecordingPaused(false);
-    isRecordingPausedRef.current = false;
-
     const engine = keyEngineRef.current;
     if (engine) {
-      engine.startRecording(originSec * 1000);
+      engine.startRecording();
     }
 
     recordingStartTimeRef.current = performance.now();
-    recordingSecondsRef.current = 0;
 
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
+    // Elapsed time ticker
     recordingTimerRef.current = setInterval(() => {
-      if (isRecordingPausedRef.current) return;
       const elapsed = (performance.now() - recordingStartTimeRef.current) / 1000;
-      const rounded = Math.round(elapsed * 10) / 10;
-      recordingSecondsRef.current = rounded;
-      setRecordingSeconds(rounded);
+      setRecordingSeconds(Math.round(elapsed * 10) / 10);
     }, 100);
 
-    if (metronomeStopRef.current) {
-      metronomeStopRef.current();
-      metronomeStopRef.current = null;
-    }
+    // Metronome ticker during recording
+    const beatsPerBar = parseInt(activeTimeSignature.split('/')[0], 10) || 4;
+    const intervalMs = (60 / activeBpm) * 1000;
+    let b = 1;
 
-    const beatsPerBar = Math.max(1, Math.round(getExpectedMeasureBeats(activeTimeSignature))) || 4;
-    metronomeStopRef.current = startAudioClockMetronome({
-      getCurrentTime: () => audioEngine.getAudioContextTime(),
-      startAt: originSec,
-      bpm: activeBpm,
-      beatsPerBar,
-      shouldClick: () => audibleClickRef.current,
-      scheduleClick: (when, isDownbeat) => {
-        audioEngine.scheduleMetronomeTick(when, isDownbeat);
-      },
-      scheduleCallback: (when, cb) => audioEngine.scheduleAudioCallback(when, cb),
-      onBeat: ({ beatInBar, isDownbeat }) => {
-        audioEngine.cancelAutoSuspend();
-        flashMetronomeBeat(beatInBar, isDownbeat);
-      },
-    });
-  }, [activeTimeSignature, activeBpm, audioEngine, flashMetronomeBeat]);
+    setCurrentBeatInBar(1);
+    setIsBeatPulse(true);
+    setIsDownbeatFlash(true);
+    if (audibleClickRef.current) {
+      audioEngine.playMetronomeTick(true);
+    }
+    if (metronomePulseTimeoutRef.current) clearTimeout(metronomePulseTimeoutRef.current);
+    metronomePulseTimeoutRef.current = setTimeout(() => {
+      setIsBeatPulse(false);
+      setIsDownbeatFlash(false);
+      metronomePulseTimeoutRef.current = null;
+    }, 140);
+
+    metronomeIntervalRef.current = setInterval(() => {
+      b = (b % beatsPerBar) + 1;
+      setCurrentBeatInBar(b);
+      setIsBeatPulse(true);
+      const isDown = b === 1;
+      setIsDownbeatFlash(isDown);
+
+      if (audibleClickRef.current) {
+        audioEngine.playMetronomeTick(isDown);
+      }
+
+      if (metronomePulseTimeoutRef.current) clearTimeout(metronomePulseTimeoutRef.current);
+      metronomePulseTimeoutRef.current = setTimeout(() => {
+        setIsBeatPulse(false);
+        setIsDownbeatFlash(false);
+        metronomePulseTimeoutRef.current = null;
+      }, 140);
+    }, intervalMs);
+  }, [activeTimeSignature, activeBpm, audioEngine]);
 
   // Handle Count-in and Start Recording (standardized 3-beat countdown: 3 -> 2 -> 1 -> Record)
   const startRecordingFlow = useCallback(() => {
     stopAllPipelines();
-    audioEngine.initContext();
-    audioEngine.unlockOnUserGesture();
-    audioEngine.cancelAutoSuspend();
+
+    const secPerBeat = 60 / activeBpm;
 
     if (!enableCountIn) {
       beginActiveRecording();
@@ -574,47 +549,28 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     setStep('COUNTING_IN');
     setCountdownBeat(COUNT_IN_BEATS);
 
-    let remaining = COUNT_IN_BEATS;
-    const beatsPerBar = Math.max(1, Math.round(getExpectedMeasureBeats(activeTimeSignature))) || 4;
+    let count = COUNT_IN_BEATS;
+    audioEngine.playMetronomeTick(true);
 
-    metronomeStopRef.current = startAudioClockMetronome({
-      getCurrentTime: () => audioEngine.getAudioContextTime(),
-      bpm: activeBpm,
-      beatsPerBar,
-      maxBeats: COUNT_IN_BEATS,
-      scheduleClick: (when, isDownbeat) => {
-        audioEngine.scheduleMetronomeTick(when, isDownbeat);
-      },
-      scheduleCallback: (when, cb) => audioEngine.scheduleAudioCallback(when, cb),
-      onBeat: ({ isDownbeat }) => {
-        audioEngine.cancelAutoSuspend();
-        setCountdownBeat(remaining);
-        if (isDownbeat) {
-          setIsDownbeatFlash(true);
-          setTimeout(() => setIsDownbeatFlash(false), 140);
-        }
-        remaining -= 1;
-      },
-      onComplete: nextBeatTime => {
-        metronomeStopRef.current = null;
-        beginActiveRecording(nextBeatTime);
-      },
-    });
-  }, [
-    activeBpm,
-    activeTimeSignature,
-    enableCountIn,
-    stopAllPipelines,
-    audioEngine,
-    beginActiveRecording,
-  ]);
-
-  const clearPauseFinishTimer = useCallback(() => {
-    if (pauseFinishTimerRef.current) {
-      clearTimeout(pauseFinishTimerRef.current);
-      pauseFinishTimerRef.current = null;
+    if (countInIntervalRef.current) {
+      clearInterval(countInIntervalRef.current);
+      countInIntervalRef.current = null;
     }
-  }, []);
+
+    countInIntervalRef.current = setInterval(() => {
+      count -= 1;
+      if (count > 0) {
+        setCountdownBeat(count);
+        audioEngine.playMetronomeTick(false);
+      } else {
+        if (countInIntervalRef.current) {
+          clearInterval(countInIntervalRef.current);
+          countInIntervalRef.current = null;
+        }
+        beginActiveRecording();
+      }
+    }, secPerBeat * 1000);
+  }, [activeBpm, enableCountIn, stopAllPipelines, audioEngine, beginActiveRecording]);
 
   // Finish recording and transcribe
   const handleFinishRecording = useCallback(() => {
@@ -639,9 +595,6 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
 
     setTranscriptionResult(result);
     setStep('REVIEW');
-    setIsRecordingPaused(false);
-    isRecordingPausedRef.current = false;
-    clearPauseFinishTimer();
   }, [
     stopAllPipelines,
     activeKey,
@@ -651,81 +604,21 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     allowTriplets,
     octaveShiftVal,
     accidentalPref,
-    clearPauseFinishTimer,
   ]);
 
-  const pauseRecordingSession = useCallback(() => {
-    if (step !== 'RECORDING' || isRecordingPausedRef.current) return;
-    isRecordingPausedRef.current = true;
-    setIsRecordingPaused(true);
-    keyEngineRef.current?.pauseRecording();
-    if (metronomeStopRef.current) {
-      metronomeStopRef.current();
-      metronomeStopRef.current = null;
-    }
-    void wakeLockManager.release();
-    clearPauseFinishTimer();
-    pauseFinishTimerRef.current = setTimeout(() => {
-      pauseFinishTimerRef.current = null;
-      handleFinishRecording();
-    }, 3 * 60 * 1000);
-  }, [step, clearPauseFinishTimer, handleFinishRecording]);
-
-  const resumeRecordingSession = useCallback(() => {
-    if (!isRecordingPausedRef.current) return;
-    clearPauseFinishTimer();
-    audioEngine.unlockOnUserGesture();
-    audioEngine.cancelAutoSuspend();
-    void wakeLockManager.request();
-    keyEngineRef.current?.resumeRecording();
-
-    recordingStartTimeRef.current = performance.now() - recordingSecondsRef.current * 1000;
-    isRecordingPausedRef.current = false;
-    setIsRecordingPaused(false);
-
-    const beatsPerBar = Math.max(1, Math.round(getExpectedMeasureBeats(activeTimeSignature))) || 4;
-    // Use the (pause-shifted) recording origin so clicks resume on the same
-    // beat grid the transcriber uses for key-press times.
-    const originSec =
-      (keyEngineRef.current?.getRecordingStartTime() ?? 0) / 1000 ||
-      recordingAudioOriginRef.current ||
-      audioEngine.getAudioContextTime();
-    metronomeStopRef.current = startAudioClockMetronome({
-      getCurrentTime: () => audioEngine.getAudioContextTime(),
-      startAt: originSec,
-      bpm: activeBpm,
-      beatsPerBar,
-      shouldClick: () => audibleClickRef.current,
-      scheduleClick: (when, isDownbeat) => {
-        audioEngine.scheduleMetronomeTick(when, isDownbeat);
-      },
-      scheduleCallback: (when, cb) => audioEngine.scheduleAudioCallback(when, cb),
-      onBeat: ({ beatInBar, isDownbeat }) => {
-        audioEngine.cancelAutoSuspend();
-        flashMetronomeBeat(beatInBar, isDownbeat);
-      },
-    });
-  }, [audioEngine, activeTimeSignature, activeBpm, flashMetronomeBeat, clearPauseFinishTimer]);
-
-  // Pause (do not auto-finish) recording when the tab/app is hidden.
+  // Page Visibility API handler: auto-finish recording if page goes to background
   useEffect(() => {
     if (!isOpen) return;
     const handleVisibilityChange = () => {
-      const hidden = document.hidden;
-      setIsPageVisible(!hidden);
-      if (!hidden) return;
-      if (step === 'RECORDING') {
-        pauseRecordingSession();
-      } else if (step === 'COUNTING_IN') {
-        stopAllPipelines();
-        setStep('SETUP');
+      if (document.hidden && step === 'RECORDING') {
+        handleFinishRecording();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isOpen, step, pauseRecordingSession, stopAllPipelines]);
+  }, [isOpen, step, handleFinishRecording]);
 
   // Re-transcribe with new options during Review
   const retranscribeCurrent = useCallback(
@@ -788,6 +681,10 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
         }
 
         // Audition key in SETUP or COUNTING_IN
+        if (e.repeat) {
+          e.preventDefault();
+          return;
+        }
         const resolved = resolveQwertyKey(
           e.code,
           activeKeyRef.current,
@@ -797,27 +694,24 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
         );
         if (resolved) {
           e.preventDefault();
-          audioEngine.previewNote(activeKeyRef.current, {
-            id: `qwerty-audition-${resolved.midi}-${Date.now()}`,
-            pitch: resolved.pitch,
-            octave: resolved.octave,
-            accidental: resolved.accidental,
-            duration: 1,
-            lyric: {},
-          });
+          audioEngine.startSustainedNote(
+            activeKeyRef.current,
+            {
+              id: `qwerty-audition-${resolved.midi}`,
+              pitch: resolved.pitch,
+              octave: resolved.octave,
+              accidental: resolved.accidental,
+              duration: 1,
+              lyric: {},
+            },
+            `voice-${resolved.midi}`
+          );
           setActiveMidiSet(prev => new Set(prev).add(resolved.midi));
         }
         return;
       }
 
       if (step === 'RECORDING') {
-        if (isRecordingPausedRef.current) {
-          if (e.code === 'Space' || e.code === 'Enter') {
-            e.preventDefault();
-            resumeRecordingSession();
-          }
-          return;
-        }
         if (e.code === 'Enter') {
           e.preventDefault();
           handleFinishRecording();
@@ -831,14 +725,23 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      const resolved = resolveQwertyKey(
+        e.code,
+        activeKeyRef.current,
+        octaveShiftRef.current,
+        qwertyMappingMode,
+        accidentalPrefRef.current
+      );
+
+      if (resolved) {
+        // Direct safety stop for all possible voice IDs associated with this MIDI key
+        audioEngine.stopSustainedNote(`voice-${resolved.midi}`);
+        audioEngine.stopSustainedNote(`qwerty-audition-${resolved.midi}`);
+        audioEngine.stopSustainedNote(`touch-${resolved.midi}`);
+        audioEngine.stopSustainedNote(resolved.code);
+      }
+
       if (step === 'SETUP' || step === 'COUNTING_IN') {
-        const resolved = resolveQwertyKey(
-          e.code,
-          activeKeyRef.current,
-          octaveShiftRef.current,
-          qwertyMappingMode,
-          accidentalPrefRef.current
-        );
         if (resolved) {
           setActiveMidiSet(prev => {
             const next = new Set(prev);
@@ -854,18 +757,23 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
       }
     };
 
+    const handleWindowBlur = () => {
+      stopAllPipelines();
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleWindowBlur);
     };
   }, [
     isOpen,
     step,
     startRecordingFlow,
     handleFinishRecording,
-    resumeRecordingSession,
     stopAllPipelines,
     onClose,
     qwertyMappingMode,
@@ -989,7 +897,6 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
   const handlePianoNoteDown = useCallback(
     (midi: number, sourceId?: string) => {
       if (step === 'RECORDING') {
-        if (isRecordingPausedRef.current) return;
         if (keyEngineRef.current) {
           keyEngineRef.current.noteOn(midi, 0.9, undefined, sourceId);
         }
@@ -999,14 +906,18 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
           accidentalPreference: accidentalPrefRef.current,
           octaveShift: octaveShiftRef.current,
         });
-        audioEngine.previewNote(activeKeyRef.current, {
-          id: `piano-audition-${midi}-${Date.now()}`,
-          pitch: pitchInfo.pitch,
-          octave: pitchInfo.octave,
-          accidental: pitchInfo.accidental,
-          duration: 1,
-          lyric: {},
-        });
+        audioEngine.startSustainedNote(
+          activeKeyRef.current,
+          {
+            id: `piano-audition-${midi}`,
+            pitch: pitchInfo.pitch,
+            octave: pitchInfo.octave,
+            accidental: pitchInfo.accidental,
+            duration: 1,
+            lyric: {},
+          },
+          sourceId || `voice-${midi}`
+        );
         setActiveMidiSet(prev => new Set(prev).add(midi));
       }
     },
@@ -1020,6 +931,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
           keyEngineRef.current.noteOff(midi, undefined, sourceId);
         }
       } else {
+        audioEngine.stopSustainedNote(sourceId || `voice-${midi}`);
         setActiveMidiSet(prev => {
           const next = new Set(prev);
           next.delete(midi);
@@ -1027,7 +939,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
         });
       }
     },
-    [step]
+    [step, audioEngine]
   );
 
   const getBeatDurationLabel = useCallback((beats: number): string => {
@@ -1058,11 +970,11 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="keyboard-modal-title"
-        className="relative w-full max-w-4xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[95vh]"
+        className="relative w-full max-w-4xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto h-[92vh] max-h-[860px] min-h-[580px]"
         onClick={e => e.stopPropagation()}
       >
         {/* MODAL HEADER */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 backdrop-blur-xs shrink-0">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 backdrop-blur-xs shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-2xl bg-amber-500/15 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400">
               <Keyboard className="w-5 h-5" />
@@ -1381,56 +1293,6 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                   </p>
                 </div>
               </div>
-
-              {/* PERSISTENT AUDITION PIANO BED */}
-              <div className="flex flex-col gap-2">
-                <PianoBed
-                  activeKey={activeKey}
-                  accidentalPreference={accidentalPref}
-                  octaveBedView={octaveBedView}
-                  onOctaveBedViewChange={setOctaveBedView}
-                  activeMidiSet={activeMidiSet}
-                  onNoteDown={handlePianoNoteDown}
-                  onNoteUp={handlePianoNoteUp}
-                  isRecording={false}
-                  octaveShiftVal={octaveShiftVal}
-                />
-              </div>
-
-              {/* PRIMARY START RECORDING BUTTON */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
-                <div className="text-xs text-zinc-500">
-                  按{' '}
-                  <kbd className="px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono font-bold">
-                    空白鍵
-                  </kbd>{' '}
-                  或點擊按鈕開始
-                </div>
-
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <button
-                    id="keyboard-setup-cancel-btn"
-                    type="button"
-                    onClick={() => {
-                      stopAllPipelines();
-                      onClose();
-                    }}
-                    className="flex-1 sm:flex-initial px-5 py-3 text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors cursor-pointer"
-                  >
-                    取消
-                  </button>
-
-                  <button
-                    id="keyboard-start-record-btn"
-                    type="button"
-                    onClick={startRecordingFlow}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-sm rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[48px]"
-                  >
-                    <Play className="w-4 h-4 fill-current ml-0.5" />
-                    <span>開始彈奏錄音 (Start Recording)</span>
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 
@@ -1438,31 +1300,20 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
           {/* STEP 2: COUNT-IN / RECORDING INTEGRATED STUDIO VIEW                        */}
           {/* ========================================================================= */}
           {(step === 'COUNTING_IN' || step === 'RECORDING') && (
-            <div className="relative flex flex-col gap-4 animate-in fade-in duration-150">
-              {isRecordingPaused && step === 'RECORDING' && (
-                <button
-                  type="button"
-                  onClick={resumeRecordingSession}
-                  className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-2xl bg-zinc-950/80 text-white cursor-pointer touch-manipulation"
-                >
-                  <Pause className="w-10 h-10 text-amber-400" />
-                  <span className="text-base font-black">錄音已暫停</span>
-                  <span className="text-xs text-zinc-300">點擊繼續 · recording paused — tap to continue</span>
-                </button>
-              )}
-              {/* Telemetry & Metronome Status Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-zinc-900 text-white rounded-2xl border border-zinc-800 shadow-md">
+            <div className="flex flex-col gap-3 animate-in fade-in duration-150">
+              {/* ROW 1: Telemetry & Metronome Status Bar (Fixed min-height) */}
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-zinc-900 text-white rounded-2xl border border-zinc-800 shadow-md min-h-[52px]">
                 {step === 'COUNTING_IN' ? (
                   <>
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-3.5 h-3.5 rounded-full bg-amber-400 animate-ping" />
-                      <span className="text-xs font-black text-amber-300 uppercase tracking-wider">
-                        琴鍵預備 · 倒數 {countdownBeat} 拍
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-3 h-3 rounded-full bg-amber-400 animate-ping shrink-0" />
+                      <span className="text-xs sm:text-sm font-black text-amber-300 tracking-wide truncate">
+                        預備拍倒數中（{countdownBeat}）•••請準備在第 1 拍開始彈奏！
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-amber-400 font-bold hidden sm:inline">
-                        3 拍預備 · 速度 {activeBpm} BPM
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-xs font-mono text-amber-400/90 font-bold hidden sm:inline">
+                        1 = {activeKey} · {activeTimeSignature} · {activeBpm} BPM
                       </span>
                       <button
                         type="button"
@@ -1470,7 +1321,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                           stopAllPipelines();
                           setStep('SETUP');
                         }}
-                        className="px-3 py-1 rounded-xl border border-zinc-700 text-xs font-bold text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                        className="px-3 py-1.5 rounded-xl border border-zinc-700 text-xs font-bold text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
                       >
                         取消預備
                       </button>
@@ -1478,20 +1329,18 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                   </>
                 ) : (
                   <>
-                    {/* Timer & Pulsing Dot */}
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/20 text-red-400 border border-red-500/40 font-bold text-xs">
+                    {/* Timer & Pulsing Dot & Beat Pulse */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/20 text-red-400 border border-red-500/40 font-bold text-xs shrink-0">
                         <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
                         <span>REC</span>
                       </div>
-                      <span className="text-lg font-mono font-bold tracking-wider text-amber-400">
+                      <span className="text-base sm:text-lg font-mono font-bold tracking-wider text-amber-400 shrink-0">
                         {recordingSeconds.toFixed(1)}s
                       </span>
-                    </div>
 
-                    {/* Metronome Beat Pulse */}
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1.5">
+                      {/* Metronome Beat Pulse */}
+                      <div className="flex items-center gap-1.5 pl-1 shrink-0">
                         <span
                           className={`w-3 h-3 rounded-full transition-all duration-75 ${
                             isBeatPulse
@@ -1501,7 +1350,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                               : 'bg-zinc-700 scale-100'
                           }`}
                         />
-                        <span className="text-xs font-mono font-bold text-zinc-300">
+                        <span className="text-xs font-mono font-bold text-zinc-300 hidden sm:inline">
                           第 {currentBeatInBar} 拍 / {activeTimeSignature.split('/')[0]} 拍
                         </span>
                       </div>
@@ -1511,7 +1360,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                         onClick={() =>
                           setAudibleClickDuringRecording(!audibleClickDuringRecording)
                         }
-                        className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer"
+                        className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer shrink-0"
                         title={audibleClickDuringRecording ? '靜音節拍聲' : '開啟節拍聲'}
                       >
                         {audibleClickDuringRecording ? (
@@ -1523,11 +1372,11 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                     </div>
 
                     {/* Last Played Note & Live Held Duration Readout */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-zinc-400">當前音高：</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-zinc-400 hidden sm:inline">當前音高：</span>
                       {lastPlayedNote ? (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono font-bold text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono font-bold text-xs">
                             <span className="text-sm font-black">
                               {lastPlayedNote.accidental}
                               {lastPlayedNote.pitch}
@@ -1542,7 +1391,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                             </span>
                           </div>
                           {activeHeldBeats !== null && (
-                            <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold text-xs animate-pulse">
+                            <div className="hidden sm:flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold text-xs animate-pulse">
                               <span className="text-[10px] text-emerald-400 uppercase tracking-wider">
                                 持續按住:
                               </span>
@@ -1554,46 +1403,58 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                         <span className="text-xs text-zinc-500 italic">等待彈奏...</span>
                       )}
                     </div>
-
-                    {/* Quick Rest & Undo Controls */}
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        id="keyboard-trigger-rest-btn"
-                        type="button"
-                        onClick={() => keyEngineRef.current?.triggerRest(500)}
-                        className="px-2.5 py-1 text-xs font-bold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer"
-                        title="輸入休止符 0 (Spacebar)"
-                      >
-                        休止符 (0)
-                      </button>
-
-                      <button
-                        id="keyboard-undo-note-btn"
-                        type="button"
-                        onClick={() => keyEngineRef.current?.undoLastNote()}
-                        className="px-2.5 py-1 text-xs font-bold rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer"
-                        title="撤銷上一個音 (Backspace)"
-                      >
-                        撤銷 (Undo)
-                      </button>
-                    </div>
                   </>
                 )}
               </div>
 
-              {/* LIVE RECORDED NOTES STREAM OR COUNTDOWN HINT */}
-              <div className="h-14 bg-zinc-950/80 rounded-xl border border-zinc-800 p-2 flex items-center overflow-x-auto gap-1.5">
-                {step === 'COUNTING_IN' ? (
-                  <div className="flex items-center justify-between w-full px-2 text-xs text-amber-400/90 font-mono">
-                    <span className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 animate-spin text-amber-400" />
-                      <span>預備拍倒數中 ({countdownBeat})... 請準備在第 1 拍開始彈奏！</span>
-                    </span>
-                    <span className="text-[10px] text-zinc-500 shrink-0">
-                      1 = {activeKey} · {activeTimeSignature}
-                    </span>
-                  </div>
-                ) : liveRecordedNotes.length > 0 ? (
+              {/* ROW 2: Fixed Rest & Undo Action Line (Fixed height, prevents keyboard fluctuation) */}
+              <div className="flex items-center justify-between gap-3 px-3.5 py-2 bg-zinc-900/90 text-white rounded-xl border border-zinc-800/90 shadow-sm min-h-[44px]">
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    id="keyboard-trigger-rest-btn"
+                    type="button"
+                    onClick={() => keyEngineRef.current?.triggerRest(500)}
+                    disabled={step !== 'RECORDING'}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      step === 'RECORDING'
+                        ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700 hover:border-zinc-600 shadow-2xs'
+                        : 'bg-zinc-800/40 text-zinc-500 border-zinc-800 cursor-not-allowed'
+                    }`}
+                    title="輸入休止符 0 (快捷鍵: Spacebar 空白鍵)"
+                  >
+                    <span>休止符 (0)</span>
+                  </button>
+
+                  <button
+                    id="keyboard-undo-note-btn"
+                    type="button"
+                    onClick={() => keyEngineRef.current?.undoLastNote()}
+                    disabled={step !== 'RECORDING'}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      step === 'RECORDING'
+                        ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700 hover:border-zinc-600 shadow-2xs'
+                        : 'bg-zinc-800/40 text-zinc-500 border-zinc-800 cursor-not-allowed'
+                    }`}
+                    title="撤銷上一個音 (快捷鍵: Backspace 倒退鍵)"
+                  >
+                    <span>撤銷 (Undo)</span>
+                  </button>
+
+                  <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline ml-2">
+                    快捷鍵：<kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono text-[10px]">Space</kbd> 休止 · <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono text-[10px]">Backspace</kbd> 撤銷
+                  </span>
+                </div>
+
+                <div className="text-[11px] text-zinc-400 flex items-center gap-2">
+                  <span className="font-mono text-zinc-500">
+                    1 = {activeKey} · {activeTimeSignature}
+                  </span>
+                </div>
+              </div>
+
+              {/* ROW 3: FIXED-HEIGHT LIVE RECORDED NOTES STREAM BAR */}
+              <div className="h-14 bg-zinc-950/80 rounded-xl border border-zinc-800 p-2 flex items-center overflow-x-auto gap-1.5 shrink-0">
+                {liveRecordedNotes.length > 0 ? (
                   <>
                     <span className="text-[10px] font-bold text-zinc-400 font-mono shrink-0">
                       已錄入音符：
@@ -1622,55 +1483,18 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                   </>
                 ) : (
                   <div className="flex items-center justify-between w-full px-2 text-xs text-zinc-500">
-                    <span>🎹 彈奏中，音符將隨彈奏即時顯示在此流水線中。</span>
+                    <span className="flex items-center gap-2">
+                      <span>🎹</span>
+                      <span>
+                        {step === 'COUNTING_IN'
+                          ? '彈奏音符流水線就緒，倒數結束後彈奏即時顯示在此...'
+                          : '彈奏中，音符將隨彈奏即時顯示在此流水線中。'}
+                      </span>
+                    </span>
                     <span className="font-mono text-[10px] text-zinc-600 shrink-0">
                       1 = {activeKey} · {activeTimeSignature}
                     </span>
                   </div>
-                )}
-              </div>
-
-              {/* PERSISTENT INTERACTIVE PIANO BED */}
-              <div className="flex flex-col gap-2">
-                <PianoBed
-                  activeKey={activeKey}
-                  accidentalPreference={accidentalPref}
-                  octaveBedView={octaveBedView}
-                  onOctaveBedViewChange={setOctaveBedView}
-                  activeMidiSet={activeMidiSet}
-                  onNoteDown={handlePianoNoteDown}
-                  onNoteUp={handlePianoNoteUp}
-                  isRecording={step === 'RECORDING' && !isRecordingPaused}
-                  disabled={isRecordingPaused}
-                  octaveShiftVal={octaveShiftVal}
-                />
-              </div>
-
-              {/* BOTTOM ACTIONS: FINISH OR RE-RECORD */}
-              <div className="flex items-center justify-between pt-2">
-                <button
-                  id="keyboard-recording-restart-btn"
-                  type="button"
-                  onClick={() => {
-                    stopAllPipelines();
-                    setStep('SETUP');
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors cursor-pointer"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
-                  <span>重新開始 (Restart)</span>
-                </button>
-
-                {step === 'RECORDING' && (
-                  <button
-                    id="keyboard-finish-record-btn"
-                    type="button"
-                    onClick={handleFinishRecording}
-                    className="flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-sm rounded-xl shadow-md transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px]"
-                  >
-                    <Check className="w-4 h-4 stroke-[3]" />
-                    <span>完成彈奏轉譜 (Finish &amp; Transcribe)</span>
-                  </button>
                 )}
               </div>
             </div>
@@ -1988,9 +1812,144 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+        </div>
 
-              {/* COMMIT ACTION BUTTONS */}
-              <div className="flex items-center justify-end gap-3 pt-2">
+        {/* STABLE PINNED PIANO BED (Anchored in the exact same position across practice, countdown, recording, and review) */}
+        <div className="shrink-0 px-4 sm:px-6 pb-2 pt-1 border-t border-zinc-200/70 dark:border-zinc-800/80 bg-zinc-50/40 dark:bg-zinc-950/40">
+          <PianoBed
+            activeKey={activeKey}
+            accidentalPreference={accidentalPref}
+            octaveBedView={octaveBedView}
+            onOctaveBedViewChange={setOctaveBedView}
+            activeMidiSet={activeMidiSet}
+            onNoteDown={handlePianoNoteDown}
+            onNoteUp={handlePianoNoteUp}
+            isRecording={step === 'RECORDING'}
+            octaveShiftVal={octaveShiftVal}
+            statusTitle={
+              step === 'SETUP'
+                ? '琴鍵試音練習：'
+                : step === 'COUNTING_IN'
+                  ? '琴鍵預備中：'
+                  : step === 'RECORDING'
+                    ? '琴鍵即時收音中：'
+                    : '琴鍵試音對照：'
+            }
+            statusSubtitle={
+              step === 'SETUP'
+                ? '點擊琴鍵或電腦鍵盤試聽，不計入樂譜'
+                : step === 'COUNTING_IN'
+                  ? `倒數 ${countdownBeat} 拍後請於第 1 拍開始彈奏`
+                  : step === 'RECORDING'
+                    ? '按住保持時值，鬆開自動量化'
+                    : '點擊琴鍵可即時試聽音高，對照上方簡譜'
+            }
+          />
+        </div>
+
+        {/* PINNED ACTION FOOTER BAR */}
+        <div className="shrink-0 px-5 sm:px-6 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/90 dark:bg-zinc-900/90 flex items-center justify-between gap-3 min-h-[64px]">
+          {step === 'SETUP' && (
+            <>
+              <div className="text-xs text-zinc-500">
+                按{' '}
+                <kbd className="px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono font-bold text-zinc-700 dark:text-zinc-300">
+                  空白鍵
+                </kbd>{' '}
+                或點擊按鈕開始
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  id="keyboard-setup-cancel-btn"
+                  type="button"
+                  onClick={() => {
+                    stopAllPipelines();
+                    onClose();
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 rounded-xl transition-colors cursor-pointer min-h-[42px] flex items-center"
+                >
+                  取消
+                </button>
+
+                <button
+                  id="keyboard-start-record-btn"
+                  type="button"
+                  onClick={startRecordingFlow}
+                  className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-xs sm:text-sm rounded-xl shadow-md transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px]"
+                >
+                  <Play className="w-4 h-4 fill-current ml-0.5" />
+                  <span>開始彈奏錄音 (Start Recording)</span>
+                </button>
+              </div>
+            </>
+          )}
+
+          {step === 'COUNTING_IN' && (
+            <>
+              <div className="flex items-center gap-2 text-xs text-amber-500 font-bold">
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                <span>預備拍倒數中 · 準備彈奏</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  stopAllPipelines();
+                  setStep('SETUP');
+                }}
+                className="px-4 py-2.5 text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 rounded-xl transition-colors cursor-pointer min-h-[42px] flex items-center"
+              >
+                取消預備
+              </button>
+            </>
+          )}
+
+          {step === 'RECORDING' && (
+            <>
+              <button
+                id="keyboard-recording-restart-btn"
+                type="button"
+                onClick={() => {
+                  stopAllPipelines();
+                  setStep('SETUP');
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 rounded-xl transition-colors cursor-pointer min-h-[42px]"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                <span>重新開始 (Restart)</span>
+              </button>
+
+              <button
+                id="keyboard-finish-record-btn"
+                type="button"
+                onClick={handleFinishRecording}
+                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-xs sm:text-sm rounded-xl shadow-md transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px]"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>完成彈奏轉譜 (Finish &amp; Transcribe)</span>
+              </button>
+            </>
+          )}
+
+          {step === 'REVIEW' && (
+            <>
+              <button
+                id="keyboard-retake-footer-btn"
+                type="button"
+                onClick={() => {
+                  stopAllPipelines();
+                  setStep('SETUP');
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 rounded-xl transition-colors cursor-pointer min-h-[42px]"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                <span>重新彈奏 (Re-take)</span>
+              </button>
+
+              <div className="flex items-center gap-3">
                 <button
                   id="keyboard-cancel-btn"
                   type="button"
@@ -1998,7 +1957,7 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                     stopAllPipelines();
                     onClose();
                   }}
-                  className="px-5 py-2.5 text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 rounded-xl transition-colors cursor-pointer min-h-[42px] flex items-center"
                 >
                   取消
                 </button>
@@ -2007,13 +1966,13 @@ export const KeyboardToScoreModal: React.FC<KeyboardToScoreModalProps> = ({
                   id="keyboard-commit-btn"
                   type="button"
                   onClick={handleCommit}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-sm rounded-xl shadow-md transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px]"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black text-xs sm:text-sm rounded-xl shadow-md transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px]"
                 >
                   <Check className="w-4 h-4 text-zinc-950 stroke-[3]" />
                   <span>確定置入樂譜 (Insert into Score)</span>
                 </button>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>

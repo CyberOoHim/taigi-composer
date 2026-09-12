@@ -25,6 +25,8 @@ import {
   saveSongToCustomLibrary,
   getStoredAutosaveInterval,
   setStoredAutosaveInterval,
+  getStoredEnableChords,
+  setStoredEnableChords,
   STORAGE_KEYS,
 } from '@/lib/storage';
 import { prefersKaraokeDefaultLayout } from '@/lib/device';
@@ -69,12 +71,27 @@ export default function Home() {
     isCharging,
   } = usePowerSaveMode();
 
+  const [enableChords, setEnableChords] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return getStoredEnableChords(true);
+    return true;
+  });
+
+  const toggleEnableChords = useCallback(() => {
+    setEnableChords(prev => {
+      const next = !prev;
+      setStoredEnableChords(next);
+      audioEngine.setOptions({ chordEnabled: next });
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     audioEngine.setOptions({
       ecoMode: isEcoMode,
       targetFps: isEcoMode ? 20 : 30,
+      chordEnabled: enableChords,
     });
-  }, [isEcoMode]);
+  }, [isEcoMode, enableChords]);
 
   // SSR/desktop default is split; first-run iPad/standalone/coarse pointers switch to karaoke in bootstrap.
   const [activeTab, setActiveTabState] = useState<ActiveTabMode>('split');

@@ -643,18 +643,23 @@ export function quantizeDurationToBeats(
   const rawBeats = durationMs / msPerBeat;
 
   // In keyboardMode (live screen piano, QWERTY typing, Web MIDI), human key press duration
-  // should naturally map to standard musical beat lengths (0.25, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4 beats)
+  // should naturally map to standard musical beat lengths (0.25, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4+ beats)
   // with human performance tolerance, preventing tenuto notes (e.g. 0.70-0.95 beat)
   // from erroneously fragmenting into dotted eighths and rests.
-  if (keyboardMode && rawBeats <= 4.3) {
+  if (keyboardMode) {
     let kbDuration: NoteDuration | null = null;
     if (grid === 'quarter') {
-      if (rawBeats >= 3.6) kbDuration = 4;
+      if (rawBeats >= 4.4) kbDuration = Math.round(rawBeats) as NoteDuration;
+      else if (rawBeats >= 3.6) kbDuration = 4;
       else if (rawBeats >= 2.6) kbDuration = 3;
       else if (rawBeats >= 1.6) kbDuration = 2;
       else kbDuration = 1;
     } else if (grid === 'eighth') {
-      if (rawBeats >= 3.65) kbDuration = 4;
+      if (rawBeats >= 4.4) {
+        // Multi-measure or ultra-long held notes snap to half-beat grid
+        kbDuration = (Math.round(rawBeats * 2) / 2) as NoteDuration;
+      }
+      else if (rawBeats >= 3.65) kbDuration = 4;
       else if (rawBeats >= 3.25 && rawBeats < 3.65) kbDuration = 3.5;
       else if (rawBeats >= 2.65 && rawBeats < 3.25) kbDuration = 3;
       else if (rawBeats >= 2.25 && rawBeats < 2.65) kbDuration = 2.5;
@@ -666,7 +671,11 @@ export function quantizeDurationToBeats(
       else if (rawBeats >= 0.35) kbDuration = 0.5;
       else kbDuration = 0.5;
     } else if (grid === 'sixteenth' || grid === 'thirtysecond') {
-      if (rawBeats >= 3.75) kbDuration = 4;
+      if (rawBeats >= 4.4) {
+        const step = getGridBeatValue(grid);
+        kbDuration = (Math.round(rawBeats / step) * step) as NoteDuration;
+      }
+      else if (rawBeats >= 3.75) kbDuration = 4;
       else if (rawBeats >= 3.35 && rawBeats < 3.75) kbDuration = 3.5;
       else if (rawBeats >= 2.75 && rawBeats < 3.35) kbDuration = 3;
       else if (rawBeats >= 2.35 && rawBeats < 2.75) kbDuration = 2.5;
