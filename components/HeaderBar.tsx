@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Song } from '@/types/song';
 import { PRESET_SONGS } from '@/lib/presets';
 import {
@@ -105,11 +105,23 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [isStudioMenuOpen, setIsStudioMenuOpen] = useState<boolean>(false);
 
+  // Close Studio popup when Escape is pressed
+  useEffect(() => {
+    if (!isStudioMenuOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsStudioMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isStudioMenuOpen]);
+
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#10121a]/95 backdrop-blur-md border-b border-zinc-200/90 dark:border-zinc-800/80 shadow-xs transition-colors select-none pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
-      <div className="w-full max-w-[1680px] mx-auto px-2 sm:px-4 h-14 flex items-center justify-between gap-1.5 sm:gap-3">
+      <div className="w-full max-w-[1680px] mx-auto px-2 sm:px-4 h-14 flex items-center justify-between gap-1.5 sm:gap-2.5 overflow-x-auto no-scrollbar touch-pan-x">
         {/* Left: Studio Brand & Active Song Selector */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
           <div className="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-zinc-950 font-black shadow-md shadow-amber-500/20 ring-1 ring-amber-400/50 shrink-0">
             <Music className={`w-4 h-4 shrink-0 ${isPlaying && !isEcoMode ? 'animate-bounce' : ''}`} />
             {isPlaying && (
@@ -119,7 +131,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
           {/* Song Quick Picker & Metadata Badge */}
           <div className="flex items-center gap-1.5 min-w-0">
-            <div className="relative flex items-center min-w-0 max-w-[140px] sm:max-w-[200px] md:max-w-[240px]">
+            <div className="relative flex items-center min-w-0 max-w-[120px] sm:max-w-[170px] md:max-w-[210px] xl:max-w-[240px]">
               <select
                 id="header-preset-song-select"
                 value={song.id}
@@ -161,7 +173,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </div>
 
             {/* Quick Song Spec Chip */}
-            <span className="hidden lg:inline-flex items-center text-[11px] px-2 py-1 rounded-lg bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 font-mono font-bold border border-amber-400/30 whitespace-nowrap shrink-0">
+            <span className="hidden xl:inline-flex items-center text-[11px] px-2 py-1 rounded-lg bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 font-mono font-bold border border-amber-400/30 whitespace-nowrap shrink-0">
               1={song.key} · {song.timeSignature} · {song.bpm}BPM
             </span>
 
@@ -186,7 +198,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             id="tab-btn-karaoke"
             type="button"
             onClick={() => setActiveTab('karaoke')}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer touch-manipulation h-8 whitespace-nowrap shrink-0 active:scale-95 ${
+            className={`flex items-center gap-1.5 px-2 sm:px-2.5 md:px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer touch-manipulation h-8 whitespace-nowrap shrink-0 active:scale-95 ${
               activeTab === 'karaoke'
                 ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold'
@@ -201,7 +213,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             id="tab-btn-editor"
             type="button"
             onClick={() => setActiveTab('editor')}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer touch-manipulation h-8 whitespace-nowrap shrink-0 active:scale-95 ${
+            className={`flex items-center gap-1.5 px-2 sm:px-2.5 md:px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer touch-manipulation h-8 whitespace-nowrap shrink-0 active:scale-95 ${
               activeTab === 'editor'
                 ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold'
@@ -209,14 +221,15 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             title="Score Editor"
           >
             <Music className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden sm:inline whitespace-nowrap">Score Editor</span>
+            <span className="hidden lg:inline whitespace-nowrap">Score Editor</span>
+            <span className="hidden sm:inline lg:hidden whitespace-nowrap">Editor</span>
           </button>
 
           <button
             id="tab-btn-split"
             type="button"
             onClick={() => setActiveTab('split')}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer touch-manipulation h-8 whitespace-nowrap shrink-0 active:scale-95 ${
+            className={`flex items-center gap-1.5 px-2 sm:px-2.5 md:px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer touch-manipulation h-8 whitespace-nowrap shrink-0 active:scale-95 ${
               activeTab === 'split'
                 ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                 : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold'
@@ -229,13 +242,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </div>
 
         {/* Right: Master Transport & Consolidated Studio Tools */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">
           {/* Master Transport Backlit Play/Pause Button */}
           <button
             id="header-toggle-play-btn"
             type="button"
             onClick={onTogglePlay}
-            className={`flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation h-9 whitespace-nowrap shrink-0 ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation h-9 whitespace-nowrap shrink-0 ${
               isPlaying
                 ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md shadow-amber-500/30 font-black'
                 : 'bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white'
@@ -262,7 +275,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               type="button"
               onClick={onSave}
               disabled={isSaving}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation h-9 shrink-0 border ${
+              className={`flex items-center gap-1.5 px-2 sm:px-2.5 md:px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation h-9 shrink-0 border ${
                 isSaving
                   ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-400/40'
                   : saveSuccess
@@ -295,7 +308,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           {onUndo && onRedo && (
             <div
               id="header-undo-redo-group"
-              className="hidden md:flex items-center bg-zinc-100 dark:bg-[#151822] p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-750 h-9 shrink-0"
+              className="hidden lg:flex items-center bg-zinc-100 dark:bg-[#151822] p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-750 h-9 shrink-0"
             >
               <button
                 id="header-undo-btn"
@@ -329,7 +342,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               id="header-top-search-btn"
               type="button"
               onClick={onOpenLyricSearch}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer h-9 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750 shrink-0"
+              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer h-9 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750 shrink-0"
               title="搜尋歌詞與樂譜 [Ctrl+K / ⌘K]"
             >
               <Search className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -339,250 +352,251 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           )}
 
           {/* Consolidated Studio Menu Dropdown Trigger (⋯ / Sliders) */}
-          <div className="relative">
-            <button
-              id="header-studio-menu-btn"
-              type="button"
-              onClick={() => setIsStudioMenuOpen(prev => !prev)}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer h-9 shrink-0 ${
-                isStudioMenuOpen
-                  ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs font-black'
-                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750'
-              }`}
-              title="Studio Tools & Settings (伴奏和弦、Eco、縮放、MIDI、AI等)"
-              aria-expanded={isStudioMenuOpen}
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden sm:inline whitespace-nowrap">Studio</span>
-              {isEcoMode && (
-                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Eco Mode Active" />
-              )}
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${isStudioMenuOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Click-away backdrop */}
-            {isStudioMenuOpen && (
-              <div
-                id="header-studio-menu-backdrop"
-                className="fixed inset-0 z-40 bg-black/10 dark:bg-black/30"
-                onClick={() => setIsStudioMenuOpen(false)}
-              />
+          <button
+            id="header-studio-menu-btn"
+            type="button"
+            onClick={() => setIsStudioMenuOpen(prev => !prev)}
+            className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer h-9 shrink-0 ${
+              isStudioMenuOpen
+                ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs font-black'
+                : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750'
+            }`}
+            title="Studio Tools & Settings (伴奏和弦、Eco、縮放、MIDI、AI等)"
+            aria-expanded={isStudioMenuOpen}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline whitespace-nowrap">Studio</span>
+            {isEcoMode && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Eco Mode Active" />
             )}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${isStudioMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+      </div>
 
-            {/* Consolidated Studio Menu Popover Card */}
-            {isStudioMenuOpen && (
-              <div
-                id="header-studio-menu-popover"
-                className="absolute right-0 top-full mt-2 z-50 w-80 sm:w-96 p-4 bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-750 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-3.5"
+      {/* Click-away backdrop */}
+      {isStudioMenuOpen && (
+        <div
+          id="header-studio-menu-backdrop"
+          className="fixed inset-0 z-40 bg-black/25 dark:bg-black/45 backdrop-blur-[1px] animate-in fade-in duration-150"
+          onClick={() => setIsStudioMenuOpen(false)}
+        />
+      )}
+
+      {/* Consolidated Studio Menu Popover Card - Viewport Clamped & Never Clipped */}
+      {isStudioMenuOpen && (
+        <div
+          id="header-studio-menu-popover"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Studio Deck & Tools"
+          className="fixed top-14 right-2 sm:right-4 z-50 w-[min(384px,calc(100vw-16px))] max-h-[calc(100dvh-68px)] overflow-y-auto no-scrollbar p-4 bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-750 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-3.5"
+        >
+          {/* Header in Popover */}
+          <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">
+                Studio Deck & Tools
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsStudioMenuOpen(false)}
+              className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Section 1: Playback Accompaniment & Audio */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+              Accompaniment & Playback
+            </span>
+
+            {/* Chord Playback Control */}
+            <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-850/80 border border-zinc-200/80 dark:border-zinc-750">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                  和弦伴奏 (Chords)
+                </span>
+              </div>
+              <ChordPlaybackControl variant="toolbar" previewKeyChord={song.key} idPrefix="header-chord" />
+            </div>
+
+            {/* Eco / Power Save Mode */}
+            {onToggleEcoMode && (
+              <button
+                id="header-popover-eco-btn"
+                type="button"
+                onClick={onToggleEcoMode}
+                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                  isEcoMode
+                    ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40 shadow-xs'
+                    : 'bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-850/80 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/80 dark:border-zinc-750'
+                }`}
               >
-                {/* Header in Popover */}
-                <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
-                  <div className="flex items-center gap-2">
-                    <SlidersHorizontal className="w-4 h-4 text-amber-500 shrink-0" />
-                    <span className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">
-                      Studio Deck & Tools
+                <div className="flex items-center gap-2">
+                  <Leaf className={`w-4 h-4 shrink-0 ${isEcoMode ? 'text-emerald-500 fill-emerald-500' : 'text-zinc-400'}`} />
+                  <div className="flex flex-col text-left">
+                    <span className="font-bold">{isEcoMode ? '節能模式已開啟 (Eco ON)' : '節能省電模式 (Eco Mode)'}</span>
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      {isEcoMode ? '螢幕可休眠 · 輕量音訊' : '較輕音訊 · 降低GPU負載'}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsStudioMenuOpen(false)}
-                    className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
                 </div>
-
-                {/* Section 1: Playback Accompaniment & Audio */}
-                <div className="flex flex-col gap-2">
-                  <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                    Accompaniment & Playback
+                {typeof batteryLevel === 'number' && (
+                  <span className="text-[11px] font-mono flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
+                    {isCharging ? (
+                      <BatteryCharging className="w-3.5 h-3.5 text-emerald-500" />
+                    ) : batteryLevel <= 0.2 ? (
+                      <BatteryLow className="w-3.5 h-3.5 text-rose-500" />
+                    ) : (
+                      <Battery className="w-3.5 h-3.5" />
+                    )}
+                    <span>{Math.round(batteryLevel * 100)}%</span>
                   </span>
+                )}
+              </button>
+            )}
+          </div>
 
-                  {/* Chord Playback Control */}
-                  <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-850/80 border border-zinc-200/80 dark:border-zinc-750">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                        和弦伴奏 (Chords)
-                      </span>
-                    </div>
-                    <ChordPlaybackControl variant="toolbar" previewKeyChord={song.key} idPrefix="header-chord" />
-                  </div>
+          {/* Section 2: Display & UI Text Zoom */}
+          <div className="flex flex-col gap-2 pt-1 border-t border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                UI Zoom & Autosave
+              </span>
+            </div>
 
-                  {/* Eco / Power Save Mode */}
-                  {onToggleEcoMode && (
-                    <button
-                      id="header-popover-eco-btn"
-                      type="button"
-                      onClick={onToggleEcoMode}
-                      className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                        isEcoMode
-                          ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40 shadow-xs'
-                          : 'bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-850/80 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/80 dark:border-zinc-750'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Leaf className={`w-4 h-4 shrink-0 ${isEcoMode ? 'text-emerald-500 fill-emerald-500' : 'text-zinc-400'}`} />
-                        <div className="flex flex-col text-left">
-                          <span className="font-bold">{isEcoMode ? '節能模式已開啟 (Eco ON)' : '節能省電模式 (Eco Mode)'}</span>
-                          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                            {isEcoMode ? '螢幕可休眠 · 輕量音訊' : '較輕音訊 · 降低GPU負載'}
-                          </span>
-                        </div>
-                      </div>
-                      {typeof batteryLevel === 'number' && (
-                        <span className="text-[11px] font-mono flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
-                          {isCharging ? (
-                            <BatteryCharging className="w-3.5 h-3.5 text-emerald-500" />
-                          ) : batteryLevel <= 0.2 ? (
-                            <BatteryLow className="w-3.5 h-3.5 text-rose-500" />
-                          ) : (
-                            <Battery className="w-3.5 h-3.5" />
-                          )}
-                          <span>{Math.round(batteryLevel * 100)}%</span>
-                        </span>
-                      )}
-                    </button>
-                  )}
-                </div>
+            <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-50 dark:bg-zinc-850/80 border border-zinc-200/80 dark:border-zinc-750">
+              <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                介面字級縮放
+              </span>
+              <UiZoomControl idPrefix="header-menu-ui-zoom" />
+            </div>
 
-                {/* Section 2: Display & UI Text Zoom */}
-                <div className="flex flex-col gap-2 pt-1 border-t border-zinc-200 dark:border-zinc-800">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                      UI Zoom & Autosave
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-50 dark:bg-zinc-850/80 border border-zinc-200/80 dark:border-zinc-750">
-                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                      介面字級縮放
-                    </span>
-                    <UiZoomControl idPrefix="header-menu-ui-zoom" />
-                  </div>
-
-                  {/* Autosave Interval */}
-                  {onSetAutosaveInterval && (
-                    <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-50 dark:bg-zinc-850/80 border border-zinc-200/80 dark:border-zinc-750">
-                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                        自動儲存頻率
-                      </span>
-                      <select
-                        id="header-menu-autosave-select"
-                        value={autosaveInterval}
-                        onChange={e => onSetAutosaveInterval(Number(e.target.value))}
-                        className="text-xs font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 px-2 py-1 rounded-lg cursor-pointer focus:outline-hidden"
-                      >
-                        <option value={0}>手動儲存 (預設)</option>
-                        <option value={60000}>每 1 分鐘</option>
-                        <option value={180000}>每 3 分鐘</option>
-                        <option value={300000}>每 5 分鐘</option>
-                        <option value={600000}>每 10 分鐘</option>
-                      </select>
-                    </div>
-                  )}
-                </div>
-
-                {/* Section 3: Creation, Import & AI Tools */}
-                <div className="flex flex-col gap-2 pt-1 border-t border-zinc-200 dark:border-zinc-800">
-                  <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                    Project & AI Tools
-                  </span>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* Song Library */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsStudioMenuOpen(false);
-                        onOpenImportExport();
-                      }}
-                      className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-850/80 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer"
-                    >
-                      <Library className="w-4 h-4 text-amber-500 shrink-0" />
-                      <span>曲庫與匯入</span>
-                    </button>
-
-                    {/* MIDI Export */}
-                    {onOpenMidiExport && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsStudioMenuOpen(false);
-                          onOpenMidiExport();
-                        }}
-                        className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-850/80 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer"
-                      >
-                        <Download className="w-4 h-4 text-amber-500 shrink-0" />
-                        <span>匯出 MIDI</span>
-                      </button>
-                    )}
-
-                    {/* AI Scanner */}
-                    {onOpenScanner && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (hasApiKey) {
-                            setIsStudioMenuOpen(false);
-                            onOpenScanner();
-                          }
-                        }}
-                        disabled={!hasApiKey}
-                        className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all ${
-                          hasApiKey
-                            ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border-amber-400/40 cursor-pointer'
-                            : 'bg-zinc-100/60 dark:bg-zinc-900/40 text-zinc-400 border-zinc-200/60 cursor-not-allowed opacity-50'
-                        }`}
-                      >
-                        <ScanLine className={`w-4 h-4 shrink-0 ${hasApiKey ? 'text-amber-500' : 'text-zinc-400'}`} />
-                        <span>AI 辨識樂譜</span>
-                      </button>
-                    )}
-
-                    {/* Gemini AI Settings */}
-                    {onOpenGeminiAuth && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsStudioMenuOpen(false);
-                          onOpenGeminiAuth();
-                        }}
-                        className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                          !hasApiKey
-                            ? 'bg-zinc-50 dark:bg-zinc-850/80 text-zinc-400 border-zinc-200/80 dark:border-zinc-750'
-                            : isAuthenticated
-                            ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40'
-                            : 'bg-amber-500/15 text-amber-900 dark:text-amber-200 border-amber-400/40'
-                        }`}
-                      >
-                        {isAuthenticated ? (
-                          <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-                        ) : (
-                          <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-                        )}
-                        <span>{isAuthenticated ? 'AI 已解鎖' : 'AI 設定'}</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Shortcuts Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsStudioMenuOpen(false);
-                      setShowKeyboardShortcuts(true);
-                    }}
-                    className="flex items-center justify-center gap-2 p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold text-xs transition-colors cursor-pointer"
-                  >
-                    <Keyboard className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                    <span>鍵盤快捷鍵一覽 (Shortcuts Guide)</span>
-                  </button>
-                </div>
+            {/* Autosave Interval */}
+            {onSetAutosaveInterval && (
+              <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-50 dark:bg-zinc-850/80 border border-zinc-200/80 dark:border-zinc-750">
+                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                  自動儲存頻率
+                </span>
+                <select
+                  id="header-menu-autosave-select"
+                  value={autosaveInterval}
+                  onChange={e => onSetAutosaveInterval(Number(e.target.value))}
+                  className="text-xs font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 px-2 py-1 rounded-lg cursor-pointer focus:outline-hidden"
+                >
+                  <option value={0}>手動儲存 (預設)</option>
+                  <option value={60000}>每 1 分鐘</option>
+                  <option value={180000}>每 3 分鐘</option>
+                  <option value={300000}>每 5 分鐘</option>
+                  <option value={600000}>每 10 分鐘</option>
+                </select>
               </div>
             )}
           </div>
+
+          {/* Section 3: Creation, Import & AI Tools */}
+          <div className="flex flex-col gap-2 pt-1 border-t border-zinc-200 dark:border-zinc-800">
+            <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+              Project & AI Tools
+            </span>
+
+            <div className="grid grid-cols-2 gap-2">
+              {/* Song Library */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsStudioMenuOpen(false);
+                  onOpenImportExport();
+                }}
+                className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-850/80 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer"
+              >
+                <Library className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>曲庫與匯入</span>
+              </button>
+
+              {/* MIDI Export */}
+              {onOpenMidiExport && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStudioMenuOpen(false);
+                    onOpenMidiExport();
+                  }}
+                  className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-850/80 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>匯出 MIDI</span>
+                </button>
+              )}
+
+              {/* AI Scanner */}
+              {onOpenScanner && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (hasApiKey) {
+                      setIsStudioMenuOpen(false);
+                      onOpenScanner();
+                    }
+                  }}
+                  disabled={!hasApiKey}
+                  className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all ${
+                    hasApiKey
+                      ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border-amber-400/40 cursor-pointer'
+                      : 'bg-zinc-100/60 dark:bg-zinc-900/40 text-zinc-400 border-zinc-200/60 cursor-not-allowed opacity-50'
+                  }`}
+                >
+                  <ScanLine className={`w-4 h-4 shrink-0 ${hasApiKey ? 'text-amber-500' : 'text-zinc-400'}`} />
+                  <span>AI 辨識樂譜</span>
+                </button>
+              )}
+
+              {/* Gemini AI Settings */}
+              {onOpenGeminiAuth && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStudioMenuOpen(false);
+                    onOpenGeminiAuth();
+                  }}
+                  className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    !hasApiKey
+                      ? 'bg-zinc-50 dark:bg-zinc-850/80 text-zinc-400 border-zinc-200/80 dark:border-zinc-750'
+                      : isAuthenticated
+                      ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40'
+                      : 'bg-amber-500/15 text-amber-900 dark:text-amber-200 border-amber-400/40'
+                  }`}
+                >
+                  {isAuthenticated ? (
+                    <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                  )}
+                  <span>{isAuthenticated ? 'AI 已解鎖' : 'AI 設定'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Shortcuts Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsStudioMenuOpen(false);
+                setShowKeyboardShortcuts(true);
+              }}
+              className="flex items-center justify-center gap-2 p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold text-xs transition-colors cursor-pointer"
+            >
+              <Keyboard className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+              <span>鍵盤快捷鍵一覽 (Shortcuts Guide)</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Keyboard Shortcuts Modal */}
       {showKeyboardShortcuts && (

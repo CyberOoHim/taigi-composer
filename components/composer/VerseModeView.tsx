@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NumberedNotationNote, KeySignature, LyricDisplayMode, NoteDuration, PitchNumber, VerseItem, VerseNoteRef, ArticulationType, Song } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import { isNonNotationItem, isPunctuationOrSpacer, getMeasureRhythmReport } from '@/lib/taigiUtils';
-import { scrollToCardElement } from '@/lib/utils';
+import { scrollToCardElement, scrollToScoreTop } from '@/lib/utils';
 import { NoteCell } from './NoteCell';
 import { NoteEditorHud } from './NoteEditorHud';
 import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
@@ -18,6 +18,7 @@ import {
   Copy,
   ArrowUp,
   ArrowDown,
+  ArrowUpToLine,
   Trash2,
   AlertCircle,
   CheckCircle2,
@@ -364,7 +365,7 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                 scrollToCardElement(`verse-card-${vIdx}`, { align: 'top', headerOffset: 0 });
               }
             }}
-            className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs cursor-pointer scroll-mt-0 ${
+            className={`flex flex-col p-4 sm:p-5 rounded-2xl border transition-all duration-200 shadow-xs cursor-pointer scroll-mt-0 relative ${
               isPlayingThisVerse
                 ? 'border-amber-500 ring-2 ring-amber-400 bg-amber-500/10 dark:bg-amber-950/30 shadow-md'
                 : hasSelectedNoteInVerse
@@ -372,8 +373,25 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                 : 'border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-[#141720]'
             }`}
           >
+            {/* Go To Top Button (Pinned to Top-Right Corner of Verse Card) */}
+            <button
+              id={`verse-go-to-top-btn-${vIdx}`}
+              type="button"
+              onClick={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                scrollToScoreTop();
+              }}
+              className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 z-10 flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-100/95 hover:bg-amber-500 hover:text-zinc-950 dark:bg-[#0a0c10]/95 dark:hover:bg-amber-400 dark:hover:text-zinc-950 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-700 shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px]"
+              title={`回到頁首 (Jump to top of score editor from Verse #${vIdx + 1})`}
+              aria-label={`Jump to top of score editor from Verse #${vIdx + 1}`}
+            >
+              <ArrowUpToLine className="w-3.5 h-3.5" />
+              <span className="font-bold text-[11px]">Top</span>
+            </button>
+
             {/* Verse Header Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-zinc-200/80 dark:border-zinc-800 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-zinc-200/80 dark:border-zinc-800 text-xs pr-16 sm:pr-20">
               {/* Left: Dedicated Play Controls & Verse Info */}
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Unified Transport: Play Verse + Play Measure quick button */}

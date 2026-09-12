@@ -5,6 +5,31 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Scrolls smoothly to the top of the score editor page.
+ * Targets the top of the window as well as the composer editor root element.
+ */
+export function scrollToScoreTop(behavior: ScrollBehavior = 'smooth') {
+  if (typeof window === 'undefined') return;
+
+  window.scrollTo({
+    top: 0,
+    behavior,
+  });
+
+  const topEl =
+    document.getElementById('composer-editor-root') ||
+    document.getElementById('song-metadata-header') ||
+    document.getElementById('main-app-header');
+
+  if (topEl) {
+    topEl.scrollIntoView({
+      behavior,
+      block: 'start',
+    });
+  }
+}
+
 export interface ScrollToCardOptions {
   headerOffset?: number;
   bottomPadding?: number;

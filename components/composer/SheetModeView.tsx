@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { BarlineType, LyricDisplayMode, Song, VerseItem, VerseNoteRef } from '@/types/song';
 import { getMeasureRhythmReport, groupSongIntoVerses } from '@/lib/taigiUtils';
+import { scrollToScoreTop } from '@/lib/utils';
 import { NumberedNotationNoteComponent } from '@/components/NumberedNotationNoteComponent';
 import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
 import {
@@ -10,6 +11,7 @@ import {
   AlertCircle,
   ArrowUp,
   ArrowDown,
+  ArrowUpToLine,
   CornerDownLeft,
   Wand2,
   ExternalLink,
@@ -634,6 +636,21 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                         )}
                       </button>
                     )}
+
+                    {/* Go to Top Quick Jump */}
+                    <button
+                      id={`sheet-system-go-to-top-btn-${system.systemIndex}`}
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        scrollToScoreTop();
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-amber-500 hover:text-zinc-950 dark:bg-zinc-800 dark:hover:bg-amber-400 dark:hover:text-zinc-950 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[30px]"
+                      title="回到頁首 (Jump to top of score editor)"
+                    >
+                      <ArrowUpToLine className="w-3.5 h-3.5" />
+                      <span className="text-[11px] font-bold">Top</span>
+                    </button>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
@@ -1445,6 +1462,21 @@ export const SheetModeView: React.FC<SheetModeViewProps> = ({
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
+
+                        {/* Go to Top Quick Jump */}
+                        <button
+                          id={`sheet-verse-go-to-top-btn-${vIdx}`}
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            scrollToScoreTop();
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-100 hover:bg-amber-500 hover:text-zinc-950 dark:bg-zinc-800 dark:hover:bg-amber-400 dark:hover:text-zinc-950 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation"
+                          title="回到頁首 (Jump to top of score editor)"
+                        >
+                          <ArrowUpToLine className="w-3.5 h-3.5" />
+                          <span className="text-[11px] font-bold">Top</span>
+                        </button>
                       </div>
                     </div>
 
