@@ -222,55 +222,46 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
 
   return (
     <div id="verse-mode-container" className="flex flex-col gap-6 pb-[75vh]">
-      {/* JUMP RETURN NAVIGATION BANNER (Karaoke Mode / Sheet Mode) */}
+      {/* CONSOLIDATED JUMP RETURN NAVIGATION DOCK (Karaoke Mode / Sheet Mode) */}
       {(karaokeReturnTarget || sheetReturnTarget) && (
         <div
           id="verse-editor-return-banner"
-          className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border shadow-xs transition-all ${
+          className={`sticky top-2 z-30 flex items-center justify-between gap-2.5 px-3.5 py-2 rounded-2xl border shadow-md backdrop-blur-md transition-all ${
             karaokeReturnTarget
-              ? 'bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-zinc-100 dark:to-zinc-900/80 border-amber-400/80 dark:border-amber-500/60 ring-1 ring-amber-400/30'
-              : 'bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-zinc-100 dark:to-zinc-900/80 border-emerald-400/80 dark:border-emerald-500/60 ring-1 ring-emerald-400/30'
+              ? 'bg-amber-500/15 dark:bg-amber-950/85 border-amber-400 dark:border-amber-600 text-amber-950 dark:text-amber-100 ring-1 ring-amber-400/30'
+              : 'bg-emerald-500/15 dark:bg-emerald-950/85 border-emerald-400 dark:border-emerald-600 text-emerald-950 dark:text-emerald-100 ring-1 ring-emerald-400/30'
           }`}
         >
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold shrink-0 border ${
-                karaokeReturnTarget
-                  ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs'
-                  : 'bg-emerald-600 text-white border-emerald-400 shadow-xs'
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span
+              className={`p-1.5 rounded-xl text-xs font-bold shrink-0 shadow-2xs ${
+                karaokeReturnTarget ? 'bg-amber-500 text-zinc-950' : 'bg-emerald-600 text-white'
               }`}
             >
-              {karaokeReturnTarget ? <Mic2 className="w-5 h-5" /> : <FileSpreadsheet className="w-5 h-5" />}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
-                  {karaokeReturnTarget ? 'Jumped from Karaoke Mode' : 'Jumped from Sheet Mode'}
-                </span>
-                <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-900/10 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
-                  Origin: Measure #{karaokeReturnTarget ? karaokeReturnTarget.originalMeasureIndex + 1 : sheetReturnTarget ? sheetReturnTarget.originalMeasureIndex + 1 : 1}
-                </span>
-              </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                {karaokeReturnTarget
-                  ? `Editing Verse phrase at Measure #${(selectedMeasureIndex ?? karaokeReturnTarget.originalMeasureIndex) + 1}. When finished, you can return immediately to your original place in Karaoke Mode.`
-                  : `Editing Verse phrase at Measure #${(selectedMeasureIndex ?? sheetReturnTarget?.originalMeasureIndex ?? 0) + 1}. Return anytime to view full sheet score layout.`}
-              </p>
+              {karaokeReturnTarget ? <Mic2 className="w-3.5 h-3.5" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+            </span>
+            <div className="flex items-center gap-1.5 text-xs truncate">
+              <span className="font-black truncate">
+                {karaokeReturnTarget ? 'Karaoke Return Point' : 'Sheet Return Point'}
+              </span>
+              <span className="text-[11px] font-mono opacity-80 shrink-0">
+                (Origin: M.#{karaokeReturnTarget ? karaokeReturnTarget.originalMeasureIndex + 1 : sheetReturnTarget ? sheetReturnTarget.originalMeasureIndex + 1 : 1})
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap">
+          <div className="flex items-center gap-1.5 shrink-0">
             {karaokeReturnTarget && onReturnToKaraoke && (
               <button
                 id="verse-btn-return-to-karaoke-origin"
                 type="button"
                 onClick={() => onReturnToKaraoke(karaokeReturnTarget.originalMeasureIndex)}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px]"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
                 title={`Jump back to Karaoke mode at Measure #${karaokeReturnTarget.originalMeasureIndex + 1}`}
               >
-                <CornerUpLeft className="w-4 h-4" />
-                <Mic2 className="w-3.5 h-3.5" />
-                <span>Back to Karaoke mode (Measure #{karaokeReturnTarget.originalMeasureIndex + 1})</span>
+                <CornerUpLeft className="w-3.5 h-3.5" />
+                <Mic2 className="w-3 h-3" />
+                <span>Return to Karaoke</span>
               </button>
             )}
 
@@ -279,12 +270,39 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
                 id="verse-btn-return-to-sheet-origin"
                 type="button"
                 onClick={() => onReturnToSheet(sheetReturnTarget.originalMeasureIndex)}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-950 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px]"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-950 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
                 title={`Jump back to Sheet mode at Measure #${sheetReturnTarget.originalMeasureIndex + 1}`}
               >
-                <CornerUpLeft className="w-4 h-4" />
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Back to Sheet (Measure #{sheetReturnTarget.originalMeasureIndex + 1})</span>
+                <CornerUpLeft className="w-3.5 h-3.5" />
+                <FileSpreadsheet className="w-3 h-3" />
+                <span>Return to Sheet</span>
+              </button>
+            )}
+
+            {/* Quick Switch to other mode */}
+            {karaokeReturnTarget && onReturnToSheet && (
+              <button
+                id="verse-btn-return-to-sheet-from-karaoke"
+                type="button"
+                onClick={() => onReturnToSheet(selectedMeasureIndex ?? karaokeReturnTarget.originalMeasureIndex)}
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-white/80 dark:bg-zinc-800/80 hover:bg-white dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 font-bold text-xs rounded-xl transition-all cursor-pointer min-h-[34px]"
+                title="View in Sheet Mode"
+              >
+                <FileSpreadsheet className="w-3 h-3" />
+                <span>Sheet</span>
+              </button>
+            )}
+
+            {sheetReturnTarget && onReturnToKaraoke && (
+              <button
+                id="verse-btn-return-to-karaoke-from-sheet"
+                type="button"
+                onClick={() => onReturnToKaraoke(selectedMeasureIndex ?? sheetReturnTarget.originalMeasureIndex)}
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-white/80 dark:bg-zinc-800/80 hover:bg-white dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 font-bold text-xs rounded-xl transition-all cursor-pointer min-h-[34px]"
+                title="Switch to Karaoke Mode"
+              >
+                <Mic2 className="w-3 h-3 text-amber-500" />
+                <span>Karaoke</span>
               </button>
             )}
 
@@ -293,10 +311,10 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
               <button
                 type="button"
                 onClick={karaokeReturnTarget ? onDismissKaraokeReturn : onDismissSheetReturn}
-                className="p-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors cursor-pointer"
+                className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
                 title="Dismiss return notice"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
@@ -356,68 +374,71 @@ export const VerseModeView: React.FC<VerseModeViewProps> = React.memo(({
           >
             {/* Verse Header Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-zinc-200/80 dark:border-zinc-800 text-xs">
-              {/* Left: Dedicated Play Button & Verse Info */}
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <button
-                  id={`verse-play-btn-${vIdx}`}
-                  type="button"
-                  onClick={e => {
-                    e.stopPropagation();
-                    onTogglePlayVerse(vIdx, verse.notes);
-                  }}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer touch-manipulation min-h-[40px] ${
-                    isPlayingThisVerse
-                      ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 animate-pulse font-black'
-                      : 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
-                  }`}
-                  title={`Play Verse #${vIdx + 1}`}
-                >
-                  {isPlayingThisVerse ? (
-                    <>
-                      <Square className="w-4 h-4 fill-current text-zinc-950" />
-                      <span>Stop Verse</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-4 h-4 fill-current" />
-                      <span>Play Verse #{vIdx + 1}</span>
-                    </>
-                  )}
-                </button>
-
-                {/* Play Current Measure Only Button (Verse Mode) */}
-                {currentMeasureIdxForVerse !== null && onTogglePlayMeasure && (
+              {/* Left: Dedicated Play Controls & Verse Info */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Unified Transport: Play Verse + Play Measure quick button */}
+                <div className="flex items-center gap-1">
                   <button
-                    id={`verse-play-measure-btn-${vIdx}`}
+                    id={`verse-play-btn-${vIdx}`}
                     type="button"
                     onClick={e => {
                       e.stopPropagation();
-                      onTogglePlayMeasure(currentMeasureIdxForVerse);
+                      onTogglePlayVerse(vIdx, verse.notes);
                     }}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer touch-manipulation min-h-[40px] ${
-                      playingMeasureIdx === currentMeasureIdxForVerse
-                        ? 'bg-rose-500 hover:bg-rose-600 text-white animate-pulse font-black ring-2 ring-rose-400'
-                        : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700'
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
+                      isPlayingThisVerse
+                        ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 animate-pulse font-black'
+                        : 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
                     }`}
-                    title={
-                      playingMeasureIdx === currentMeasureIdxForVerse
-                        ? `Stop playing Measure #${currentMeasureIdxForVerse + 1}`
-                        : `Play current Measure #${currentMeasureIdxForVerse + 1} only`
-                    }
+                    title={`Play Verse #${vIdx + 1}`}
                   >
-                    {playingMeasureIdx === currentMeasureIdxForVerse ? (
+                    {isPlayingThisVerse ? (
                       <>
-                        <Square className="w-3.5 h-3.5 fill-current" />
-                        <span>Stop M#{currentMeasureIdxForVerse + 1}</span>
+                        <Square className="w-3.5 h-3.5 fill-current text-zinc-950" />
+                        <span>Stop Verse</span>
                       </>
                     ) : (
                       <>
-                        <Play className="w-3.5 h-3.5 fill-current text-amber-500" />
-                        <span>Play Measure #{currentMeasureIdxForVerse + 1}</span>
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>Play Verse</span>
                       </>
                     )}
                   </button>
-                )}
+
+                  {/* Play Current Measure Only Button (Verse Mode) */}
+                  {currentMeasureIdxForVerse !== null && onTogglePlayMeasure && (
+                    <button
+                      id={`verse-play-measure-btn-${vIdx}`}
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onTogglePlayMeasure(currentMeasureIdxForVerse);
+                      }}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
+                        playingMeasureIdx === currentMeasureIdxForVerse
+                          ? 'bg-rose-500 hover:bg-rose-600 text-white animate-pulse font-black ring-2 ring-rose-400'
+                          : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700'
+                      }`}
+                      title={
+                        playingMeasureIdx === currentMeasureIdxForVerse
+                          ? `Stop playing Measure #${currentMeasureIdxForVerse + 1}`
+                          : `Play current Measure #${currentMeasureIdxForVerse + 1} only`
+                      }
+                    >
+                      {playingMeasureIdx === currentMeasureIdxForVerse ? (
+                        <>
+                          <Square className="w-3 h-3 fill-current" />
+                          <span>Stop M#{currentMeasureIdxForVerse + 1}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3 h-3 fill-current text-amber-500" />
+                          <span>M#{currentMeasureIdxForVerse + 1}</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
 
                 {/* Chord Playback Control on active/playing Verse */}
                 {(isPlayingThisVerse || hasSelectedNoteInVerse) && (

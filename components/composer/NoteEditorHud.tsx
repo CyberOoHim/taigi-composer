@@ -705,40 +705,6 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             <span>Play</span>
           </button>
 
-          {/* Quick Play Measure Audition */}
-          {onTogglePlayMeasure && (
-            <button
-              id="hud-play-measure-btn"
-              type="button"
-              onClick={() => onTogglePlayMeasure(selectedMeasureIndex)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px] ${
-                isPlayingMeasure
-                  ? 'bg-rose-500 hover:bg-rose-600 text-white animate-pulse font-black'
-                  : 'bg-zinc-200/90 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700'
-              }`}
-              title={
-                isPlayingMeasure
-                  ? `Stop playing Measure #${selectedMeasureIndex + 1}`
-                  : `Play current Measure #${selectedMeasureIndex + 1} only`
-              }
-            >
-              {isPlayingMeasure ? (
-                <>
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>Stop M#{selectedMeasureIndex + 1}</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-3.5 h-3.5 fill-current text-amber-500" />
-                  <span>Play Measure #{selectedMeasureIndex + 1}</span>
-                </>
-              )}
-            </button>
-          )}
-
-          {/* Chord Backing Control (Toggle & Volume) */}
-          <ChordPlaybackControl variant="compact" previewKeyChord={keySignature} idPrefix="hud-chord" />
-
           {/* Prev / Next Note Quick Navigation */}
           {onNavigatePrevNote && onNavigateNextNote && (
             <div className="flex items-center bg-zinc-200/80 dark:bg-zinc-800 rounded-xl border border-zinc-300 dark:border-zinc-700 p-0.5 shadow-2xs">
@@ -939,68 +905,6 @@ export const NoteEditorHud: React.FC<NoteEditorHudProps> = ({
             >
               <ArrowRight className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span className="hidden sm:inline">Push Note →</span>
-            </button>
-          )}
-
-          {/* Measure / Verse Actions: Move Backward / Forward */}
-          {(onMoveContainerBackward || onMoveContainerForward) && (
-            <div
-              id="hud-move-container-group"
-              className="flex items-center bg-zinc-200/80 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-300 dark:border-zinc-700 shadow-2xs"
-            >
-              <button
-                id="hud-move-backward-btn"
-                type="button"
-                onClick={onMoveContainerBackward}
-                disabled={!canMoveContainerBackward}
-                title={canMoveContainerBackward ? `Move ${containerLabel || (containerType === 'verse' ? 'verse' : 'measure')} backward (earlier in song)` : 'Cannot move backward (already at first position)'}
-                className="p-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] min-w-[36px] flex items-center justify-center"
-              >
-                <ArrowLeft className="w-4 h-4 shrink-0" />
-              </button>
-              <span className="text-[11px] font-bold px-1.5 text-zinc-700 dark:text-zinc-200 select-none whitespace-nowrap">
-                Move {containerType === 'verse' ? 'Verse' : 'Measure'}
-              </span>
-              <button
-                id="hud-move-forward-btn"
-                type="button"
-                onClick={onMoveContainerForward}
-                disabled={!canMoveContainerForward}
-                title={canMoveContainerForward ? `Move ${containerLabel || (containerType === 'verse' ? 'verse' : 'measure')} forward (later in song)` : 'Already at last position'}
-                className="p-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] min-w-[36px] flex items-center justify-center"
-              >
-                <ArrowRight className="w-4 h-4 shrink-0" />
-              </button>
-            </div>
-          )}
-
-          {/* Measure / Verse Actions: Duplicate */}
-          {onDuplicateContainer && (
-            <button
-              id="hud-duplicate-container-btn"
-              type="button"
-              onClick={onDuplicateContainer}
-              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold border border-zinc-300 dark:border-zinc-700 transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-              title={`Duplicate current ${containerType === 'verse' ? 'verse' : 'measure'}`}
-            >
-              <Copy className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-              <span className="hidden sm:inline">Duplicate {containerType === 'verse' ? 'Verse' : 'Measure'}</span>
-              <span className="sm:hidden">Dup {containerType === 'verse' ? 'Verse' : 'Bar'}</span>
-            </button>
-          )}
-
-          {/* Delete Measure Action */}
-          {onDeleteMeasure && (
-            <button
-              id="hud-delete-measure-btn"
-              type="button"
-              onClick={onDeleteMeasure}
-              className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 rounded-xl text-xs font-bold border border-rose-200 dark:border-rose-900/60 transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[40px]"
-              title={`Delete current measure (#${selectedMeasureIndex + 1})`}
-            >
-              <Trash2 className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-              <span className="hidden sm:inline">Delete Measure</span>
-              <span className="sm:hidden">Del Bar</span>
             </button>
           )}
 

@@ -257,55 +257,46 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
 
   return (
     <div id="measure-mode-container" className="flex flex-col gap-6 pb-[75vh]">
-      {/* JUMP RETURN NAVIGATION BANNER (Karaoke Mode / Sheet Mode) */}
+      {/* CONSOLIDATED JUMP RETURN NAVIGATION DOCK (Karaoke Mode / Sheet Mode) */}
       {(karaokeReturnTarget || sheetReturnTarget) && (
         <div
           id="editor-return-banner"
-          className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border shadow-xs transition-all ${
+          className={`sticky top-2 z-30 flex items-center justify-between gap-2.5 px-3.5 py-2 rounded-2xl border shadow-md backdrop-blur-md transition-all ${
             karaokeReturnTarget
-              ? 'bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-zinc-100 dark:to-zinc-900/80 border-amber-400/80 dark:border-amber-500/60 ring-1 ring-amber-400/30'
-              : 'bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-zinc-100 dark:to-zinc-900/80 border-emerald-400/80 dark:border-emerald-500/60 ring-1 ring-emerald-400/30'
+              ? 'bg-amber-500/15 dark:bg-amber-950/85 border-amber-400 dark:border-amber-600 text-amber-950 dark:text-amber-100 ring-1 ring-amber-400/30'
+              : 'bg-emerald-500/15 dark:bg-emerald-950/85 border-emerald-400 dark:border-emerald-600 text-emerald-950 dark:text-emerald-100 ring-1 ring-emerald-400/30'
           }`}
         >
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold shrink-0 border ${
-                karaokeReturnTarget
-                  ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs'
-                  : 'bg-emerald-600 text-white border-emerald-400 shadow-xs'
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span
+              className={`p-1.5 rounded-xl text-xs font-bold shrink-0 shadow-2xs ${
+                karaokeReturnTarget ? 'bg-amber-500 text-zinc-950' : 'bg-emerald-600 text-white'
               }`}
             >
-              {karaokeReturnTarget ? <Mic2 className="w-5 h-5" /> : <FileSpreadsheet className="w-5 h-5" />}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
-                  {karaokeReturnTarget ? 'Jumped from Karaoke Mode' : 'Jumped from Sheet Mode'}
-                </span>
-                <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-900/10 dark:bg-white/10 text-zinc-800 dark:text-zinc-200">
-                  Origin: Measure #{karaokeReturnTarget ? karaokeReturnTarget.originalMeasureIndex + 1 : sheetReturnTarget ? sheetReturnTarget.originalMeasureIndex + 1 : 1}
-                </span>
-              </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                {karaokeReturnTarget
-                  ? `You are editing Measure #${(selectedMeasureIndex ?? karaokeReturnTarget.originalMeasureIndex) + 1}. When finished, you can return immediately to your original place in Karaoke Mode.`
-                  : `You are editing Measure #${(selectedMeasureIndex ?? sheetReturnTarget?.originalMeasureIndex ?? 0) + 1}. Return anytime to view full sheet score layout.`}
-              </p>
+              {karaokeReturnTarget ? <Mic2 className="w-3.5 h-3.5" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+            </span>
+            <div className="flex items-center gap-1.5 text-xs truncate">
+              <span className="font-black truncate">
+                {karaokeReturnTarget ? 'Karaoke Return Point' : 'Sheet Return Point'}
+              </span>
+              <span className="text-[11px] font-mono opacity-80 shrink-0">
+                (Origin: M.#{karaokeReturnTarget ? karaokeReturnTarget.originalMeasureIndex + 1 : sheetReturnTarget ? sheetReturnTarget.originalMeasureIndex + 1 : 1})
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap">
+          <div className="flex items-center gap-1.5 shrink-0">
             {karaokeReturnTarget && onReturnToKaraoke && (
               <button
                 id="btn-return-to-karaoke-origin"
                 type="button"
                 onClick={() => onReturnToKaraoke(karaokeReturnTarget.originalMeasureIndex)}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px]"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
                 title={`Jump back to Karaoke mode at Measure #${karaokeReturnTarget.originalMeasureIndex + 1}`}
               >
-                <CornerUpLeft className="w-4 h-4" />
-                <Mic2 className="w-3.5 h-3.5" />
-                <span>Back to Karaoke mode (Measure #{karaokeReturnTarget.originalMeasureIndex + 1})</span>
+                <CornerUpLeft className="w-3.5 h-3.5" />
+                <Mic2 className="w-3 h-3" />
+                <span>Return to Karaoke</span>
               </button>
             )}
 
@@ -314,40 +305,39 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                 id="btn-return-to-sheet-origin"
                 type="button"
                 onClick={() => onReturnToSheet(sheetReturnTarget.originalMeasureIndex)}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-950 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px]"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-950 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
                 title={`Jump back to Sheet mode at Measure #${sheetReturnTarget.originalMeasureIndex + 1}`}
               >
-                <CornerUpLeft className="w-4 h-4" />
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Back to Sheet (Measure #{sheetReturnTarget.originalMeasureIndex + 1})</span>
+                <CornerUpLeft className="w-3.5 h-3.5" />
+                <FileSpreadsheet className="w-3 h-3" />
+                <span>Return to Sheet</span>
               </button>
             )}
 
-            {/* If karaoke is active, also offer Sheet Mode button */}
+            {/* Quick Switch to other mode */}
             {karaokeReturnTarget && onReturnToSheet && (
               <button
                 id="btn-return-to-sheet-from-karaoke"
                 type="button"
                 onClick={() => onReturnToSheet(selectedMeasureIndex ?? karaokeReturnTarget.originalMeasureIndex)}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 font-bold text-xs rounded-xl transition-all cursor-pointer min-h-[38px]"
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-white/80 dark:bg-zinc-800/80 hover:bg-white dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 font-bold text-xs rounded-xl transition-all cursor-pointer min-h-[34px]"
                 title="View in Sheet Mode"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Sheet Mode</span>
+                <FileSpreadsheet className="w-3 h-3" />
+                <span>Sheet</span>
               </button>
             )}
 
-            {/* If sheet is active, also offer Karaoke Mode button */}
             {sheetReturnTarget && onReturnToKaraoke && (
               <button
                 id="btn-return-to-karaoke-from-sheet"
                 type="button"
                 onClick={() => onReturnToKaraoke(selectedMeasureIndex ?? sheetReturnTarget.originalMeasureIndex)}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 font-bold text-xs rounded-xl transition-all cursor-pointer min-h-[38px]"
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-white/80 dark:bg-zinc-800/80 hover:bg-white dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 font-bold text-xs rounded-xl transition-all cursor-pointer min-h-[34px]"
                 title="Switch to Karaoke Mode"
               >
-                <Mic2 className="w-3.5 h-3.5 text-amber-500" />
-                <span className="hidden md:inline">Karaoke Mode</span>
+                <Mic2 className="w-3 h-3 text-amber-500" />
+                <span>Karaoke</span>
               </button>
             )}
 
@@ -359,10 +349,10 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                 if (karaokeReturnTarget && onDismissKaraokeReturn) onDismissKaraokeReturn();
                 if (sheetReturnTarget && onDismissSheetReturn) onDismissSheetReturn();
               }}
-              className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
+              className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
               title="Dismiss notification"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -551,87 +541,6 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                     </div>
                   )}
 
-                  {/* Smart Measure Beat-Count Badge & Quick Fix */}
-                  <div className="flex items-center gap-1.5">
-                    <div
-                      id={`measure-beat-badge-${mIdx}`}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold border shadow-2xs select-none transition-all ${
-                        rhythm.isFull
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
-                          : rhythm.isUnder
-                          ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800 ring-1 ring-amber-400/60'
-                          : 'bg-rose-50 text-rose-900 border-rose-300 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800 ring-1 ring-rose-400/60'
-                      }`}
-                      title={
-                        rhythm.isFull
-                          ? `Full beats (${rhythm.currentBeats}/${rhythm.expectedBeats} beats)`
-                          : rhythm.isUnder
-                          ? `Under beat: currently ${rhythm.currentBeats} beats, missing ${rhythm.absDiff} beats`
-                          : `Over beat: currently ${rhythm.currentBeats} beats, excess ${rhythm.absDiff} beats`
-                      }
-                    >
-                      {rhythm.isFull ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      ) : (
-                        <AlertCircle className={`w-3.5 h-3.5 ${rhythm.isUnder ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`} />
-                      )}
-                      <span>{rhythm.currentBeats}/{rhythm.expectedBeats} beats</span>
-                      {!rhythm.isFull && (
-                        <span className="text-[10px] font-sans font-medium opacity-85">
-                          {rhythm.isUnder ? `(-${rhythm.absDiff} beats)` : `(+${rhythm.absDiff} beats)`}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Auto-fill Rest Quick Fix Button */}
-                    {rhythm.isUnder && onAutoFillRest && (
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          onAutoFillRest(mIdx);
-                        }}
-                        className="flex items-center gap-1 px-2 py-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[32px]"
-                        title={`Auto-fill ${rhythm.absDiff} beats of rest notes (0) at end of measure`}
-                      >
-                        <Wand2 className="w-3 h-3" />
-                        <span>Fill Rest (+{rhythm.absDiff})</span>
-                      </button>
-                    )}
-
-                    {/* Trim Excess Quick Fix Button */}
-                    {rhythm.isOver && onTrimExcessNotes && (
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          onTrimExcessNotes(mIdx);
-                        }}
-                        className="flex items-center gap-1 px-2 py-1 bg-rose-500 hover:bg-rose-400 text-white font-bold rounded-lg text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[32px]"
-                        title={`Split excess ${rhythm.absDiff} beats into a new measure`}
-                      >
-                        <Scissors className="w-3 h-3" />
-                        <span>Split Excess</span>
-                      </button>
-                    )}
-
-                    {/* 1-Tap Measure Duration Toggle: Quarter (1) ↔ 8th (0.5) */}
-                    {onQuickToggleMeasureDuration && (
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          onQuickToggleMeasureDuration(mIdx);
-                        }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-950 dark:text-amber-100 border border-amber-300 dark:border-amber-700/80 rounded-xl text-xs font-black shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[32px]"
-                        title={`Quick 1-Tap Duration Toggle for Measure #${mIdx + 1}: Convert between Quarter (1.0) ↔ 8th (0.5)`}
-                      >
-                        <span className="font-mono text-sm leading-none">♩ ↔ ♪</span>
-                        <span className="hidden md:inline text-[11px] font-bold">1-Tap Dur</span>
-                      </button>
-                    )}
-                  </div>
-
                   {/* Section Selector */}
                   <select
                     id={`measure-section-select-${mIdx}`}
@@ -752,59 +661,8 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                   </div>
                 </div>
 
-                {/* Right: Line Break, Barline Type, Add Note, Duplicate, Delete */}
+                {/* Right Zone: Measure State & Utility Actions */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {/* Quick Back to Karaoke & Back to Sheet buttons on active/focused measure */}
-                  {isSelectedMeasure && onReturnToKaraoke && (
-                    <button
-                      id={`measure-card-back-to-karaoke-${mIdx}`}
-                      type="button"
-                      onClick={e => {
-                        e.stopPropagation();
-                        onReturnToKaraoke(karaokeReturnTarget ? karaokeReturnTarget.originalMeasureIndex : mIdx);
-                      }}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
-                        karaokeReturnTarget
-                          ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-1 ring-amber-400'
-                          : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700'
-                      }`}
-                      title={
-                        karaokeReturnTarget
-                          ? `Back to Karaoke mode (Original place: Measure #${karaokeReturnTarget.originalMeasureIndex + 1})`
-                          : `Jump to Karaoke mode at Measure #${mIdx + 1}`
-                      }
-                    >
-                      <CornerUpLeft className="w-3.5 h-3.5" />
-                      <Mic2 className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Back to Karaoke</span>
-                    </button>
-                  )}
-
-                  {isSelectedMeasure && onReturnToSheet && (
-                    <button
-                      id={`measure-card-back-to-sheet-${mIdx}`}
-                      type="button"
-                      onClick={e => {
-                        e.stopPropagation();
-                        onReturnToSheet(sheetReturnTarget ? sheetReturnTarget.originalMeasureIndex : mIdx);
-                      }}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
-                        sheetReturnTarget
-                          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-black shadow-xs'
-                          : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700'
-                      }`}
-                      title={
-                        sheetReturnTarget
-                          ? `Back to Sheet mode (Original place: Measure #${sheetReturnTarget.originalMeasureIndex + 1})`
-                          : `Back to Sheet mode at Measure #${mIdx + 1}`
-                      }
-                    >
-                      <CornerUpLeft className="w-3.5 h-3.5" />
-                      <FileSpreadsheet className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Back to Sheet</span>
-                    </button>
-                  )}
-
                   {/* Line Break Toggle */}
                   {onToggleLineBreak && (
                     <button
@@ -896,42 +754,119 @@ export const MeasureModeView: React.FC<MeasureModeViewProps> = React.memo(({
                 </div>
               </div>
 
-              {/* Visual Beat Meter / Rhythm Progress Strip */}
+              {/* UNIFIED MEASURE RHYTHM PROGRESS & DIAGNOSTIC HEALTH STRIP */}
               <div
                 id={`measure-beat-progress-${mIdx}`}
-                className="mb-3 px-3 py-1.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center gap-3 text-[11px]"
+                className="mb-3 px-3 py-2 rounded-xl bg-zinc-100/80 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/60 flex flex-wrap items-center justify-between gap-2.5 text-xs shadow-2xs"
               >
-                <span className="font-bold text-zinc-500 dark:text-zinc-400 shrink-0">Beat Progress:</span>
-                <div className="flex-1 h-2.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden flex">
-                  {/* Filled portion */}
+                {/* Left: Health Status Badge, Meter Bar & Beat Readout */}
+                <div className="flex items-center gap-2.5 flex-1 min-w-[220px]">
+                  {/* Status Badge */}
                   <div
-                    className={`h-full transition-all duration-200 ${
+                    id={`measure-beat-badge-${mIdx}`}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold border shadow-2xs select-none shrink-0 ${
                       rhythm.isFull
-                        ? 'bg-emerald-500'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
                         : rhythm.isUnder
-                        ? 'bg-amber-500'
-                        : 'bg-rose-500'
+                        ? 'bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800 ring-1 ring-amber-400/60'
+                        : 'bg-rose-50 text-rose-900 border-rose-300 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800 ring-1 ring-rose-400/60'
                     }`}
-                    style={{
-                      width: `${Math.min(100, (rhythm.currentBeats / rhythm.expectedBeats) * 100)}%`,
-                    }}
-                  />
-                  {/* Deficit stripe if under */}
-                  {rhythm.isUnder && (
+                    title={
+                      rhythm.isFull
+                        ? `Full beats (${rhythm.currentBeats}/${rhythm.expectedBeats} beats)`
+                        : rhythm.isUnder
+                        ? `Under beat: currently ${rhythm.currentBeats} beats, missing ${rhythm.absDiff} beats`
+                        : `Over beat: currently ${rhythm.currentBeats} beats, excess ${rhythm.absDiff} beats`
+                    }
+                  >
+                    {rhythm.isFull ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <AlertCircle className={`w-3.5 h-3.5 ${rhythm.isUnder ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`} />
+                    )}
+                    <span>{rhythm.currentBeats}/{rhythm.expectedBeats} beats</span>
+                    {!rhythm.isFull && (
+                      <span className="text-[10px] font-sans font-medium opacity-85">
+                        {rhythm.isUnder ? `(-${rhythm.absDiff})` : `(+${rhythm.absDiff})`}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Filled Progress Bar */}
+                  <div className="flex-1 h-2.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden flex min-w-[70px]">
                     <div
-                      className="h-full bg-amber-300/40 dark:bg-amber-600/30 repeating-linear-stripes"
+                      className={`h-full transition-all duration-200 ${
+                        rhythm.isFull
+                          ? 'bg-emerald-500'
+                          : rhythm.isUnder
+                          ? 'bg-amber-500'
+                          : 'bg-rose-500'
+                      }`}
                       style={{
-                        width: `${Math.max(0, 100 - (rhythm.currentBeats / rhythm.expectedBeats) * 100)}%`,
+                        width: `${Math.min(100, (rhythm.currentBeats / rhythm.expectedBeats) * 100)}%`,
                       }}
                     />
+                    {rhythm.isUnder && (
+                      <div
+                        className="h-full bg-amber-300/40 dark:bg-amber-600/30 repeating-linear-stripes"
+                        style={{
+                          width: `${Math.max(0, 100 - (rhythm.currentBeats / rhythm.expectedBeats) * 100)}%`,
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: Inline Rhythm Diagnostic Fixes & Quick Duration Toggle */}
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                  {/* Auto-fill Rest Quick Fix Button */}
+                  {rhythm.isUnder && onAutoFillRest && (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onAutoFillRest(mIdx);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[30px]"
+                      title={`Auto-fill ${rhythm.absDiff} beats of rest notes (0) at end of measure`}
+                    >
+                      <Wand2 className="w-3 h-3" />
+                      <span>Fill Rest (+{rhythm.absDiff})</span>
+                    </button>
+                  )}
+
+                  {/* Trim Excess Quick Fix Button */}
+                  {rhythm.isOver && onTrimExcessNotes && (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onTrimExcessNotes(mIdx);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-rose-500 hover:bg-rose-400 text-white font-bold rounded-lg text-[11px] shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[30px]"
+                      title={`Split excess ${rhythm.absDiff} beats into a new measure`}
+                    >
+                      <Scissors className="w-3 h-3" />
+                      <span>Split Excess</span>
+                    </button>
+                  )}
+
+                  {/* 1-Tap Measure Duration Toggle: Quarter (1) ↔ 8th (0.5) */}
+                  {onQuickToggleMeasureDuration && (
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onQuickToggleMeasureDuration(mIdx);
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-950 dark:text-amber-100 border border-amber-300 dark:border-amber-700/80 rounded-lg text-xs font-black shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[30px]"
+                      title={`Quick 1-Tap Duration Toggle for Measure #${mIdx + 1}: Convert between Quarter (1.0) ↔ 8th (0.5)`}
+                    >
+                      <span className="font-mono text-sm leading-none">♩ ↔ ♪</span>
+                      <span className="text-[11px] font-bold">1-Tap Dur</span>
+                    </button>
                   )}
                 </div>
-                <span className="font-mono text-zinc-700 dark:text-zinc-300 font-bold shrink-0">
-                  {rhythm.currentBeats} / {rhythm.expectedBeats} beats
-                  {rhythm.isUnder && <span className="text-amber-600 dark:text-amber-400 ml-1">(-{rhythm.absDiff})</span>}
-                  {rhythm.isOver && <span className="text-rose-600 dark:text-rose-400 ml-1">(+{rhythm.absDiff})</span>}
-                  {rhythm.isFull && <span className="text-emerald-600 dark:text-emerald-400 ml-1">✓</span>}
-                </span>
               </div>
 
               {/* One-Tap Diatonic Chord Palette */}
