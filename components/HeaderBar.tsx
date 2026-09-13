@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Song } from '@/types/song';
+import { Song, InstrumentType } from '@/types/song';
 import { PRESET_SONGS } from '@/lib/presets';
+import { INSTRUMENT_OPTIONS } from '@/lib/taigiUtils';
 import {
   Mic2,
   Music,
@@ -67,6 +68,8 @@ interface HeaderBarProps {
   onSetAutosaveInterval?: (intervalMs: number) => void;
   customSongs?: Song[];
   modifiedPresetIds?: Set<string>;
+  instrument?: InstrumentType;
+  onSetInstrument?: (instrument: InstrumentType) => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -100,6 +103,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onSetAutosaveInterval,
   customSongs = [],
   modifiedPresetIds = new Set(),
+  instrument = 'piano',
+  onSetInstrument,
 }) => {
   const { isAuthenticated, hasApiKey } = useGeminiAuth();
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
@@ -268,6 +273,29 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             )}
           </button>
 
+          {/* Master Instrument Selector */}
+          {onSetInstrument && (
+            <div
+              id="header-instrument-selector"
+              className="flex items-center gap-1 bg-zinc-100 dark:bg-[#151822] px-2 py-1 rounded-xl border border-zinc-200/90 dark:border-zinc-750 text-xs h-9 shrink-0 shadow-2xs"
+            >
+              <Music className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <select
+                id="header-instrument-select"
+                value={instrument}
+                onChange={e => onSetInstrument(e.target.value as InstrumentType)}
+                className="bg-transparent font-bold text-xs text-zinc-800 dark:text-zinc-200 focus:outline-hidden cursor-pointer"
+                title="切換主旋律音色 (鋼琴、竹笛、口笛、吉他、合成器、鐘琴、大提琴)"
+              >
+                {INSTRUMENT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                    {opt.labelZh} ({opt.labelEn})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* User Save Button with Dirty Dot */}
           {onSave && (
             <button
@@ -351,6 +379,29 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </button>
           )}
 
+          {/* Master Transport Instrument Selector */}
+          {onSetInstrument && (
+            <div
+              id="header-instrument-quick-group"
+              className="hidden md:flex items-center gap-1.5 bg-zinc-100 dark:bg-[#151822] px-2 py-1 rounded-xl border border-zinc-200/90 dark:border-zinc-750 h-9 shrink-0"
+              title="切換主旋律樂器音色 (鋼琴、竹笛、口笛、吉他、合成器、鐘琴、大提琴)"
+            >
+              <Music className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <select
+                id="header-top-instrument-select"
+                value={instrument}
+                onChange={e => onSetInstrument(e.target.value as InstrumentType)}
+                className="bg-transparent text-xs font-bold text-zinc-800 dark:text-zinc-200 focus:outline-none cursor-pointer pr-1"
+              >
+                {INSTRUMENT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                    {opt.labelZh}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Consolidated Studio Menu Dropdown Trigger (⋯ / Sliders) */}
           <button
             id="header-studio-menu-btn"
@@ -414,6 +465,43 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
               Accompaniment & Playback
             </span>
+
+            {/* Instrument Timbre Selector */}
+            {onSetInstrument && (
+              <div className="p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Music className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
+                      主旋律樂器音色 (Instrument)
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono font-bold">
+                    {INSTRUMENT_OPTIONS.find(o => o.value === instrument)?.labelEn}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                  {INSTRUMENT_OPTIONS.map(opt => {
+                    const isSelected = instrument === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => onSetInstrument(opt.value)}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                            : 'bg-white/80 dark:bg-zinc-800/80 hover:bg-zinc-200/60 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200'
+                        }`}
+                      >
+                        <span className="truncate">{opt.labelZh}</span>
+                        {isSelected && <Check className="w-3 h-3 text-zinc-950 stroke-[3] shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Chord Playback Control */}
             <div className="p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750">

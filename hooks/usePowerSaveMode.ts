@@ -100,21 +100,16 @@ export function usePowerSaveMode() {
         setBatteryLevel(battery.level);
         setIsCharging(battery.charging);
 
-        // If battery is low (<= 20%) and not charging, and no explicit preference is set, suggest/enable eco mode
+        // We record battery metrics for UI display, but do not forcefully override user's sound quality
         let saved: string | null = null;
         try { saved = localStorage.getItem(STORAGE_KEY); } catch { /* storage blocked */ }
-        if (saved === null && battery.level <= 0.2 && !battery.charging) {
+        if (saved === 'true') {
           setEcoMode(true);
         }
 
         handleLevelChange = () => {
           if (!isMounted) return;
           setBatteryLevel(battery.level);
-          let savedPref: string | null = null;
-          try { savedPref = localStorage.getItem(STORAGE_KEY); } catch { /* storage blocked */ }
-          if (savedPref === null && battery.level <= 0.2 && !battery.charging) {
-            setEcoMode(true);
-          }
         };
 
         handleChargingChange = () => {

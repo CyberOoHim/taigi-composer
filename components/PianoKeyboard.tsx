@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { NumberedNotationNote, KeySignature, PitchNumber } from '@/types/song';
+import { NumberedNotationNote, KeySignature, PitchNumber, InstrumentType } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
-import { KEY_SEMITONES, SCALE_DEGREE_SEMITONES } from '@/lib/taigiUtils';
+import { KEY_SEMITONES, SCALE_DEGREE_SEMITONES, INSTRUMENT_OPTIONS } from '@/lib/taigiUtils';
+import { getStoredInstrument, setStoredInstrument } from '@/lib/storage';
 import { Music, Sparkles, Keyboard } from 'lucide-react';
 
 interface PianoKeyboardProps {
@@ -13,6 +14,8 @@ interface PianoKeyboardProps {
   audioEngine: AudioEngine;
   className?: string;
   onOpenKeyboardToScore?: () => void;
+  instrument?: InstrumentType;
+  onSetInstrument?: (inst: InstrumentType) => void;
 }
 
 // 12 chromatic note names
@@ -37,11 +40,32 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
   audioEngine,
   className = '',
   onOpenKeyboardToScore,
+  instrument: propInstrument,
+  onSetInstrument,
 }) => {
   // Octave display range view: 'low_mid' (-1, 0), 'mid_high' (0, 1), 'all' (-1, 0, 1), 'mid' (0)
   const [octaveView, setOctaveView] = useState<'low_mid' | 'mid_high' | 'all' | 'mid'>('low_mid');
   // Label mode: 'both' | 'numberedNotations' | 'note'
   const [labelMode, setLabelMode] = useState<'both' | 'numberedNotations' | 'note'>('both');
+
+  // Active instrument
+  const [localInstrument, setLocalInstrument] = useState<InstrumentType>(() => {
+    if (propInstrument) return propInstrument;
+    if (typeof window !== 'undefined') return getStoredInstrument();
+    return 'piano';
+  });
+
+  const activeInstrument = propInstrument || localInstrument;
+
+  const handleInstrumentChange = useCallback((newInst: InstrumentType) => {
+    setLocalInstrument(newInst);
+    setStoredInstrument(newInst);
+    audioEngine.setOptions({ instrument: newInst });
+    audioEngine.previewInstrumentTone(keySignature, newInst);
+    if (onSetInstrument) {
+      onSetInstrument(newInst);
+    }
+  }, [audioEngine, keySignature, onSetInstrument]);
 
   // Base key semitone relative to C4 (0 = C)
   const baseKeySemitone = KEY_SEMITONES[keySignature] ?? 0;
@@ -216,7 +240,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
   const handleKeyClick = (keyDef: KeyDefinition) => {
     onSelectPitch(keyDef.pitch, keyDef.octave, keyDef.accidental);
 
-    // Audio preview
+    // Audio preview with chosen instrument
     const tempNote: NumberedNotationNote = {
       id: 'preview',
       pitch: keyDef.pitch,
@@ -224,6 +248,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
       accidental: keyDef.accidental,
       duration: currentNote?.duration || 1,
       lyric: {},
+      instrument: currentNote?.instrument || activeInstrument,
     };
     audioEngine.previewNote(keySignature, tempNote);
   };
@@ -245,6 +270,24 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
           <span className="daw-lcd px-2.5 py-1 rounded-lg text-xs font-mono font-bold shadow-xs">
             Key: <strong className="text-amber-400 font-black">1 = {keySignature}</strong>
           </span>
+
+          {/* Instrument Selector Pill */}
+          <div className="flex items-center gap-1.5 bg-[#0a0c10] px-2 py-1 rounded-xl border border-zinc-800 text-xs shadow-xs">
+            <span className="text-zinc-400 font-semibold text-[11px]">音色:</span>
+            <select
+              id="piano-instrument-select"
+              value={activeInstrument}
+              onChange={e => handleInstrumentChange(e.target.value as InstrumentType)}
+              className="bg-transparent text-amber-400 font-bold focus:outline-none cursor-pointer text-xs"
+              title="切換音色 (鋼琴、竹笛、口笛、吉他、合成器、鐘琴、大提琴)"
+            >
+              {INSTRUMENT_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value} className="bg-zinc-900 text-zinc-100">
+                  {opt.labelZh} ({opt.labelEn})
+                </option>
+              ))}
+            </select>
+          </div>
 
           {onOpenKeyboardToScore && (
             <button

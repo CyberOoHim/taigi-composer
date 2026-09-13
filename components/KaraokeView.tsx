@@ -84,6 +84,8 @@ interface KaraokeViewProps {
   onEnableEco?: () => void;
   targetKaraokeMeasureIndex?: number | null;
   onTargetKaraokeMeasureHandled?: () => void;
+  instrument?: InstrumentType;
+  onSetInstrument?: (inst: InstrumentType) => void;
 }
 
 export const KaraokeView: React.FC<KaraokeViewProps> = ({
@@ -98,6 +100,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
   onEnableEco,
   targetKaraokeMeasureIndex = null,
   onTargetKaraokeMeasureHandled,
+  instrument: propInstrument,
+  onSetInstrument: propOnSetInstrument,
 }) => {
   const [playbackState, setPlaybackState] = useState<PlaybackState>(() => {
     if (audioEngine && typeof audioEngine.getState === 'function') {
@@ -119,6 +123,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     if (typeof window !== 'undefined') return getStoredInstrument();
     return 'piano';
   });
+  const activeInstrument = propInstrument || instrument;
   const [melodyVolume, setMelodyVolumeState] = useState<number>(() => {
     if (typeof window !== 'undefined') return getStoredMelodyVolume(0.85);
     return 0.85;
@@ -238,10 +243,12 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
     setInstrumentState(inst);
     setStoredInstrument(inst);
     audioEngine.setOptions({ instrument: inst });
-    if (!audioEngine.getIsPlaying()) {
+    if (propOnSetInstrument) {
+      propOnSetInstrument(inst);
+    } else if (!audioEngine.getIsPlaying()) {
       audioEngine.previewInstrumentTone(song.key, inst);
     }
-  }, [audioEngine, song.key]);
+  }, [audioEngine, propOnSetInstrument, song.key]);
 
   const metronomePreviewTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -1144,7 +1151,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
         currentDisplayTime={currentDisplayTime}
         currentDisplayPercent={currentDisplayPercent}
         sliderDraggingPercent={sliderDraggingPercent}
-        instrument={instrument}
+        instrument={activeInstrument}
         melodyVolume={melodyVolume}
         backingVolume={backingVolume}
         metronomeVolume={metronomeVolume}

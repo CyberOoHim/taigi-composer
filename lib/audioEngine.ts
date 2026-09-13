@@ -254,6 +254,18 @@ export class AudioEngine {
             this.options.backingVolume = num;
           }
         }
+        const savedInst = localStorage.getItem('taigi_composer_instrument');
+        if (
+          savedInst === 'piano' ||
+          savedInst === 'flute' ||
+          savedInst === 'whistle' ||
+          savedInst === 'guitar' ||
+          savedInst === 'synth' ||
+          savedInst === 'bell' ||
+          savedInst === 'cello'
+        ) {
+          this.options.instrument = savedInst;
+        }
       } catch {}
     }
   }
@@ -512,6 +524,11 @@ export class AudioEngine {
   public setOptions(opts: Partial<AudioEngineOptions>) {
     const prevInstrument = this.options.instrument;
     this.options = { ...this.options, ...opts };
+    if (opts.instrument) {
+      try {
+        localStorage.setItem('taigi_composer_instrument', opts.instrument);
+      } catch {}
+    }
     if (this.ctx) {
       if (this.melodyGain && this.options.melodyVolume !== undefined) {
         this.melodyGain.gain.setValueAtTime(this.options.melodyVolume, this.ctx.currentTime);
@@ -622,14 +639,16 @@ export class AudioEngine {
     type: BiquadFilterType,
     freq: number,
     Q = 1.0,
-    gain = 0
+    gain = 0,
+    startTime?: number
   ): BiquadFilterNode {
     const filter = this.ctx!.createBiquadFilter();
     filter.type = type;
-    filter.frequency.setValueAtTime(freq, this.ctx!.currentTime);
-    filter.Q.setValueAtTime(Q, this.ctx!.currentTime);
+    const t = startTime !== undefined ? startTime : this.ctx!.currentTime;
+    filter.frequency.setValueAtTime(freq, t);
+    filter.Q.setValueAtTime(Q, t);
     if (gain !== 0) {
-      filter.gain.setValueAtTime(gain, this.ctx!.currentTime);
+      filter.gain.setValueAtTime(gain, t);
     }
     return filter;
   }
@@ -706,7 +725,9 @@ export class AudioEngine {
         const pianoFilter = this.createVoiceFilter(
           'lowpass',
           Math.min(5200, Math.max(1500, freq * 3.8)),
-          1.2
+          1.2,
+          0,
+          startTime
         );
         pianoFilter.frequency.exponentialRampToValueAtTime(Math.max(260, freq * 1.35), startTime + 0.35);
 
@@ -765,7 +786,7 @@ export class AudioEngine {
         if (!isEco) {
           // Di Mo (笛膜) reed buzzing membrane
           const membrane = this.createVoiceOsc('sawtooth', freq * 2, startTime);
-          const membraneFilter = this.createVoiceFilter('bandpass', 2400, 3.4);
+          const membraneFilter = this.createVoiceFilter('bandpass', 2400, 3.4, 0, startTime);
           const membraneGain = this.createVoiceGain(startTime, 0.14 * volMul);
           membrane.connect(membraneFilter);
           membraneFilter.connect(membraneGain);
@@ -786,7 +807,7 @@ export class AudioEngine {
         break;
       }
       case 'whistle': {
-        const whistleFreq = freq < 800 ? freq * 2 : freq;
+        const whistleFreq = freq < 700 ? freq * 2 : freq;
         const mainOsc = this.createVoiceOsc('sine', whistleFreq * 0.94, startTime);
         mainOsc.frequency.exponentialRampToValueAtTime(whistleFreq, startTime + 0.025);
         mainOsc.connect(voiceGain);
@@ -817,7 +838,9 @@ export class AudioEngine {
         const pluckFilter = this.createVoiceFilter(
           'lowpass',
           Math.min(5400, Math.max(1800, freq * 5.0)),
-          2.2
+          2.2,
+          0,
+          startTime
         );
         pluckFilter.frequency.exponentialRampToValueAtTime(Math.max(150, freq * 1.25), startTime + 0.28);
         mainOsc.connect(pluckFilter);
@@ -827,7 +850,7 @@ export class AudioEngine {
         if (!isEco) {
           // Pick snap transient
           const snap = this.createVoiceOsc('sawtooth', freq * 3, startTime);
-          const snapFilter = this.createVoiceFilter('highpass', 2800, 1.0);
+          const snapFilter = this.createVoiceFilter('highpass', 2800, 1.0, 0, startTime);
           const snapGain = this.createVoiceGain(startTime, 0.45 * volMul);
           snapGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.014);
           snap.connect(snapFilter);
@@ -859,7 +882,9 @@ export class AudioEngine {
         const vcf = this.createVoiceFilter(
           'lowpass',
           Math.min(6600, Math.max(2200, freq * 4.8)),
-          4.2
+          4.2,
+          0,
+          startTime
         );
         vcf.frequency.exponentialRampToValueAtTime(Math.max(360, freq * 1.35), startTime + 0.22);
         mainOsc.connect(vcf);
@@ -928,23 +953,26 @@ export class AudioEngine {
         break;
       }
       case 'cello': {
-        const mainOsc = this.createVoiceOsc('sawtooth', freq, startTime);
+        const celloFreq = freq > 350 ? freq * 0.5 : freq;
+        const mainOsc = this.createVoiceOsc('sawtooth', celloFreq, startTime);
         const celloFilter = this.createVoiceFilter(
           'lowpass',
-          Math.min(3800, Math.max(900, freq * 3.2)),
-          1.8
+          Math.min(3800, Math.max(900, celloFreq * 3.2)),
+          1.8,
+          0,
+          startTime
         );
         mainOsc.connect(celloFilter);
         oscs.push(mainOsc);
 
         let celloOutputNode: AudioNode = celloFilter;
         if (!isEco) {
-          const bodyPeaking = this.createVoiceFilter('peaking', 450, 1.6, 3.8);
+          const bodyPeaking = this.createVoiceFilter('peaking', 450, 1.6, 3.8, startTime);
           celloFilter.connect(bodyPeaking);
           celloOutputNode = bodyPeaking;
 
           // Air cavity Helmholtz body resonance
-          const airCavity = this.createVoiceOsc('triangle', freq, startTime);
+          const airCavity = this.createVoiceOsc('triangle', celloFreq, startTime);
           const airCavityGain = this.createVoiceGain(startTime, 0.24 * volMul);
           airCavity.connect(airCavityGain);
           airCavityGain.connect(voiceGain);
@@ -952,8 +980,8 @@ export class AudioEngine {
           gains.push(airCavityGain);
 
           // Bow rosin friction bite
-          const rosinBite = this.createVoiceOsc('sawtooth', freq * 2.5, startTime);
-          const rosinFilter = this.createVoiceFilter('bandpass', 2200, 2.0);
+          const rosinBite = this.createVoiceOsc('sawtooth', celloFreq * 2.5, startTime);
+          const rosinFilter = this.createVoiceFilter('bandpass', 2200, 2.0, 0, startTime);
           const rosinGain = this.createVoiceGain(startTime, 0.22 * volMul);
           rosinGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.045);
           rosinBite.connect(rosinFilter);
@@ -962,7 +990,7 @@ export class AudioEngine {
           oscs.push(rosinBite);
           gains.push(rosinGain);
 
-          const { lfo } = this.createVibratoLfo(5.0, freq * 0.016, startTime, startTime + 25.0, [
+          const { lfo } = this.createVibratoLfo(5.0, celloFreq * 0.016, startTime, startTime + 25.0, [
             mainOsc.frequency,
             airCavity.frequency,
           ], 0.12);
@@ -1329,18 +1357,84 @@ export class AudioEngine {
 
     const stopTime = startTime + effectiveDuration + 0.05;
 
-    // Eco: one oscillator, no filter / extra partials / LFO. Cuts the iPad audio graph ~4x.
+    // Eco: single-oscillator lightweight synthesis with distinct waveform & envelope per instrument
     if (this.options.ecoMode) {
-      const ecoType = instrument === 'flute' || instrument === 'whistle' ? 'sine' : 'triangle';
-      const osc = this.createVoiceOsc(ecoType, options?.glideFromFreq || freq, startTime, stopTime);
-      if (options?.glideFromFreq) {
+      let ecoFreq = options?.glideFromFreq || freq;
+      let ecoType: OscillatorType = 'triangle';
+      let attackSec = isLegato ? 0.015 : 0.005;
+
+      switch (instrument) {
+        case 'piano':
+          ecoType = 'triangle';
+          attackSec = isLegato ? 0.015 : 0.003;
+          break;
+        case 'guitar':
+          ecoType = 'sawtooth';
+          attackSec = isLegato ? 0.012 : 0.002;
+          break;
+        case 'bell':
+          ecoType = 'sine';
+          attackSec = 0.001;
+          break;
+        case 'flute':
+          ecoType = 'sine';
+          attackSec = isLegato ? 0.018 : 0.038;
+          break;
+        case 'whistle':
+          ecoType = 'sine';
+          ecoFreq = freq < 700 ? freq * 2 : freq;
+          attackSec = isLegato ? 0.012 : 0.018;
+          break;
+        case 'synth':
+          ecoType = 'sawtooth';
+          attackSec = isLegato ? 0.01 : 0.02;
+          break;
+        case 'cello':
+          ecoType = 'sawtooth';
+          ecoFreq = freq > 350 ? freq * 0.5 : freq;
+          attackSec = isLegato ? 0.014 : 0.028;
+          break;
+      }
+
+      const osc = this.createVoiceOsc(ecoType, ecoFreq, startTime, stopTime);
+      if (options?.glideFromFreq && (instrument !== 'whistle' && instrument !== 'cello')) {
         osc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
       }
       const gain = this.createVoiceGain(startTime, 0.0001);
-      const ecoAttack = isLegato ? 0.016 : 0.008;
-      gain.gain.linearRampToValueAtTime(0.78 * volMul, startTime + ecoAttack);
-      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
-      osc.connect(gain);
+
+      // Lightweight filter for guitar, cello, synth in eco mode so they sound like the actual instrument
+      let voiceOutput: AudioNode = osc;
+      if (instrument === 'guitar') {
+        const f = this.createVoiceFilter('lowpass', Math.min(3200, freq * 3.5), 1.5, 0, startTime);
+        f.frequency.exponentialRampToValueAtTime(Math.max(160, freq * 1.2), startTime + Math.min(0.09, effectiveDuration * 0.4));
+        osc.connect(f);
+        voiceOutput = f;
+      } else if (instrument === 'cello') {
+        const f = this.createVoiceFilter('lowpass', Math.min(2400, Math.max(600, ecoFreq * 2.8)), 1.2, 0, startTime);
+        osc.connect(f);
+        voiceOutput = f;
+      } else if (instrument === 'synth') {
+        const f = this.createVoiceFilter('lowpass', Math.min(4800, freq * 3.8), 2.5, 0, startTime);
+        f.frequency.exponentialRampToValueAtTime(Math.max(300, freq * 1.3), startTime + Math.min(0.12, effectiveDuration * 0.4));
+        osc.connect(f);
+        voiceOutput = f;
+      }
+
+      if (instrument === 'guitar' || instrument === 'bell' || instrument === 'piano') {
+        // Percussive decay envelope
+        gain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + attackSec);
+        const dropTime = startTime + Math.min(0.12, effectiveDuration * 0.35);
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.35 * volMul), dropTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, Math.max(dropTime + 0.02, startTime + effectiveDuration));
+      } else {
+        // Sustained vocal/wind/synth envelope with strictly monotonic time progression
+        gain.gain.linearRampToValueAtTime(0.78 * volMul, startTime + attackSec);
+        const sustainTime = Math.max(startTime + attackSec + 0.005, startTime + effectiveDuration * 0.85);
+        gain.gain.setValueAtTime(0.70 * volMul, sustainTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, Math.max(sustainTime + 0.015, startTime + effectiveDuration));
+      }
+
+      voiceOutput.connect(gain);
       gain.connect(destination);
       return;
     }
@@ -1350,7 +1444,7 @@ export class AudioEngine {
 
     switch (instrument) {
       case 'piano': {
-        const pianoFilter = this.createVoiceFilter('lowpass', Math.min(5000, Math.max(1400, freq * 3.8)), 1.2);
+        const pianoFilter = this.createVoiceFilter('lowpass', Math.min(5000, Math.max(1400, freq * 3.8)), 1.2, 0, startTime);
         pianoFilter.frequency.exponentialRampToValueAtTime(
           Math.max(250, freq * 1.4),
           startTime + Math.min(0.2, effectiveDuration * 0.5)
@@ -1406,7 +1500,7 @@ export class AudioEngine {
 
         // 2. Di Mo (笛膜) Resonant Buzzing Membrane
         const membrane = this.createVoiceOsc('sawtooth', freq * 2, startTime, stopTime);
-        const membraneFilter = this.createVoiceFilter('bandpass', 2400, 3.2);
+        const membraneFilter = this.createVoiceFilter('bandpass', 2400, 3.2, 0, startTime);
         const membraneGain = this.createVoiceGain(startTime, 0.0001);
         membraneGain.gain.linearRampToValueAtTime(0.14 * volMul, startTime + 0.04);
         membraneGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
@@ -1428,14 +1522,15 @@ export class AudioEngine {
         outputNode = osc;
         const fluteAttack = isLegato ? 0.016 : 0.038;
         gain.gain.linearRampToValueAtTime(0.72 * volMul, startTime + fluteAttack);
-        gain.gain.setValueAtTime(0.66 * volMul, startTime + effectiveDuration * 0.85);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        const fluteSustain = Math.max(startTime + fluteAttack + 0.005, startTime + effectiveDuration * 0.85);
+        gain.gain.setValueAtTime(0.66 * volMul, fluteSustain);
+        gain.gain.exponentialRampToValueAtTime(0.0001, Math.max(fluteSustain + 0.015, startTime + effectiveDuration));
         break;
       }
       case 'whistle': {
-        const whistleFreq = freq < 900 ? freq * 2 : freq;
+        const whistleFreq = freq < 700 ? freq * 2 : freq;
         const glideStart = options?.glideFromFreq
-          ? (options.glideFromFreq < 900 ? options.glideFromFreq * 2 : options.glideFromFreq)
+          ? (options.glideFromFreq < 700 ? options.glideFromFreq * 2 : options.glideFromFreq)
           : whistleFreq * 0.94;
 
         const osc = this.createVoiceOsc('sine', glideStart, startTime, stopTime);
@@ -1466,8 +1561,9 @@ export class AudioEngine {
         outputNode = osc;
         const whistleAttack = isLegato ? 0.012 : 0.018;
         gain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + whistleAttack);
-        gain.gain.setValueAtTime(0.78 * volMul, startTime + effectiveDuration * 0.86);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        const whistleSustain = Math.max(startTime + whistleAttack + 0.005, startTime + effectiveDuration * 0.86);
+        gain.gain.setValueAtTime(0.78 * volMul, whistleSustain);
+        gain.gain.exponentialRampToValueAtTime(0.0001, Math.max(whistleSustain + 0.015, startTime + effectiveDuration));
         break;
       }
       case 'guitar': {
@@ -1477,7 +1573,7 @@ export class AudioEngine {
         }
 
         // 1. Dynamic Lowpass Filter (Karplus-Strong pluck curve)
-        const guitarFilter = this.createVoiceFilter('lowpass', Math.min(5200, Math.max(1800, freq * 5.5)), 2.2);
+        const guitarFilter = this.createVoiceFilter('lowpass', Math.min(5200, Math.max(1800, freq * 5.5)), 2.2, 0, startTime);
         const pluckDampTime = Math.min(0.09, effectiveDuration * 0.35);
         guitarFilter.frequency.exponentialRampToValueAtTime(Math.max(130, freq * 1.3), startTime + pluckDampTime);
         osc.connect(guitarFilter);
@@ -1485,7 +1581,7 @@ export class AudioEngine {
 
         // 2. Pick snap / fingernail transient click
         const snap = this.createVoiceOsc('sawtooth', freq * 3, startTime, startTime + 0.02);
-        const snapFilter = this.createVoiceFilter('highpass', 2800);
+        const snapFilter = this.createVoiceFilter('highpass', 2800, 1.0, 0, startTime);
         const snapGain = this.createVoiceGain(startTime, 0.5 * volMul);
         snapGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.012);
         snap.connect(snapFilter);
@@ -1528,7 +1624,7 @@ export class AudioEngine {
         subOsc.connect(subGain);
 
         // Resonant VCF Lowpass Filter
-        const vcf = this.createVoiceFilter('lowpass', Math.min(6500, Math.max(2200, freq * 4.8)), 4.2);
+        const vcf = this.createVoiceFilter('lowpass', Math.min(6500, Math.max(2200, freq * 4.8)), 4.2, 0, startTime);
         vcf.frequency.exponentialRampToValueAtTime(
           Math.max(380, freq * 1.4),
           startTime + Math.min(0.18, effectiveDuration * 0.45)
@@ -1552,8 +1648,9 @@ export class AudioEngine {
 
         const synthAttack = isLegato ? 0.01 : 0.02;
         gain.gain.linearRampToValueAtTime(0.78 * volMul, startTime + synthAttack);
-        gain.gain.setValueAtTime(0.68 * volMul, startTime + effectiveDuration * 0.82);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        const synthSustain = Math.max(startTime + synthAttack + 0.005, startTime + effectiveDuration * 0.82);
+        gain.gain.setValueAtTime(0.68 * volMul, synthSustain);
+        gain.gain.exponentialRampToValueAtTime(0.0001, Math.max(synthSustain + 0.015, startTime + effectiveDuration));
         break;
       }
       case 'bell': {
@@ -1589,28 +1686,29 @@ export class AudioEngine {
         break;
       }
       case 'cello': {
-        const osc = this.createVoiceOsc('sawtooth', options?.glideFromFreq || freq, startTime, stopTime);
+        const celloFreq = freq > 350 ? freq * 0.5 : freq;
+        const osc = this.createVoiceOsc('sawtooth', options?.glideFromFreq || celloFreq, startTime, stopTime);
         if (options?.glideFromFreq) {
-          osc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
+          osc.frequency.exponentialRampToValueAtTime(celloFreq, startTime + Math.min(0.08, effectiveDuration * 0.5));
         }
 
         // 1. Cello Wooden Body Formant Filter
-        const celloFilter = this.createVoiceFilter('lowpass', Math.min(3800, Math.max(900, freq * 3.2)), 1.8);
-        const bodyPeaking = this.createVoiceFilter('peaking', 450, 1.5, 3.5);
+        const celloFilter = this.createVoiceFilter('lowpass', Math.min(3800, Math.max(900, celloFreq * 3.2)), 1.8, 0, startTime);
+        const bodyPeaking = this.createVoiceFilter('peaking', 450, 1.5, 3.5, startTime);
         celloFilter.connect(bodyPeaking);
         osc.connect(celloFilter);
         outputNode = bodyPeaking;
 
         // 2. Deep Sub-body Resonance (Air Cavity)
-        const airCavity = this.createVoiceOsc('triangle', freq, startTime, stopTime);
+        const airCavity = this.createVoiceOsc('triangle', celloFreq, startTime, stopTime);
         const airCavityGain = this.createVoiceGain(startTime, 0.25 * volMul);
         airCavityGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
         airCavity.connect(airCavityGain);
         airCavityGain.connect(gain);
 
         // 3. Rosin / Bow Scrape Initial Friction Transient
-        const rosinBite = this.createVoiceOsc('sawtooth', freq * 2.5, startTime, startTime + 0.06);
-        const rosinFilter = this.createVoiceFilter('bandpass', 2200, 2.0);
+        const rosinBite = this.createVoiceOsc('sawtooth', celloFreq * 2.5, startTime, startTime + 0.06);
+        const rosinFilter = this.createVoiceFilter('bandpass', 2200, 2.0, 0, startTime);
         const rosinGain = this.createVoiceGain(startTime, 0.22 * volMul);
         rosinGain.gain.exponentialRampToValueAtTime(0.0001, startTime + (isLegato ? 0.025 : 0.045));
         rosinBite.connect(rosinFilter);
@@ -1620,7 +1718,7 @@ export class AudioEngine {
         // 4. Warm delayed cello vibrato (5.2 Hz)
         this.createVibratoLfo(
           5.2,
-          freq * 0.015,
+          celloFreq * 0.015,
           startTime,
           stopTime,
           [osc.frequency, airCavity.frequency],
@@ -1630,8 +1728,9 @@ export class AudioEngine {
 
         const bowAttack = isLegato ? 0.012 : 0.026;
         gain.gain.linearRampToValueAtTime(0.82 * volMul, startTime + bowAttack);
-        gain.gain.setValueAtTime(0.74 * volMul, startTime + effectiveDuration * 0.88);
-        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        const celloSustain = Math.max(startTime + bowAttack + 0.005, startTime + effectiveDuration * 0.88);
+        gain.gain.setValueAtTime(0.74 * volMul, celloSustain);
+        gain.gain.exponentialRampToValueAtTime(0.0001, Math.max(celloSustain + 0.015, startTime + effectiveDuration));
         break;
       }
       default: {

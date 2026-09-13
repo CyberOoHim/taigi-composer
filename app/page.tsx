@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { LyricDisplayMode, Song } from '@/types/song';
+import { LyricDisplayMode, Song, InstrumentType } from '@/types/song';
 import { PRESET_SONGS, createFreshSong } from '@/lib/presets';
 import { audioEngine } from '@/lib/audioEngine';
 import { wakeLockManager } from '@/lib/wakeLock';
@@ -29,6 +29,8 @@ import {
   getStoredEnableChords,
   setStoredEnableChords,
   setStoredNoteSubMode,
+  getStoredInstrument,
+  setStoredInstrument,
   STORAGE_KEYS,
 } from '@/lib/storage';
 import { prefersKaraokeDefaultLayout } from '@/lib/device';
@@ -87,13 +89,41 @@ export default function Home() {
     });
   }, []);
 
+  const [instrument, setInstrumentState] = useState<InstrumentType>(() => {
+    if (typeof window !== 'undefined') return getStoredInstrument();
+    return 'piano';
+  });
+
+  const handleSetInstrument = useCallback((inst: InstrumentType) => {
+    setInstrumentState(inst);
+    setStoredInstrument(inst);
+    audioEngine.setOptions({ instrument: inst });
+    if (!audioEngine.getIsPlaying()) {
+      audioEngine.previewInstrumentTone(song.key, inst);
+    }
+  }, [song.key]);
+
+  // Keep instrument synced if updated in another component
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEYS.INSTRUMENT && e.newValue) {
+        const newInst = e.newValue as InstrumentType;
+        setInstrumentState(newInst);
+        audioEngine.setOptions({ instrument: newInst });
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   useEffect(() => {
     audioEngine.setOptions({
       ecoMode: isEcoMode,
       targetFps: isEcoMode ? 20 : 30,
       chordEnabled: enableChords,
+      instrument,
     });
-  }, [isEcoMode, enableChords]);
+  }, [isEcoMode, enableChords, instrument]);
 
   // SSR/desktop default is split; first-run iPad/standalone/coarse pointers switch to karaoke in bootstrap.
   const [activeTab, setActiveTabState] = useState<ActiveTabMode>('split');
@@ -617,6 +647,8 @@ export default function Home() {
         onSetAutosaveInterval={handleSetAutosaveInterval}
         customSongs={customSongs}
         modifiedPresetIds={modifiedPresetIds}
+        instrument={instrument}
+        onSetInstrument={handleSetInstrument}
       />
 
       {/* Main Studio Canvas */}
@@ -636,6 +668,8 @@ export default function Home() {
               onEnableEco={() => setEcoMode(true)}
               targetKaraokeMeasureIndex={targetKaraokeMeasureIndex}
               onTargetKaraokeMeasureHandled={() => setTargetKaraokeMeasureIndex(null)}
+              instrument={instrument}
+              onSetInstrument={handleSetInstrument}
             />
 
             {/* Quick Switch to Editor CTA Rack */}
@@ -718,6 +752,8 @@ export default function Home() {
                 onEnableEco={() => setEcoMode(true)}
                 targetKaraokeMeasureIndex={targetKaraokeMeasureIndex}
                 onTargetKaraokeMeasureHandled={() => setTargetKaraokeMeasureIndex(null)}
+                instrument={instrument}
+                onSetInstrument={handleSetInstrument}
               />
             </div>
 
