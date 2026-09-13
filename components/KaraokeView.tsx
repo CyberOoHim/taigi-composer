@@ -65,6 +65,7 @@ import {
   AlignCenter,
   AlignLeft,
   Leaf,
+  Rows,
 } from 'lucide-react';
 
 export type { KaraokeSection } from './karaoke/SectionJumpBar';
@@ -1010,6 +1011,22 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({
           >
             {lyricAlign === 'left' ? <AlignLeft className="w-3.5 h-3.5 text-amber-400" /> : <AlignCenter className="w-3.5 h-3.5 text-zinc-400" />}
             <span>{lyricAlign === 'left' ? '歌詞: 靠左' : '歌詞: 置中'}</span>
+          </button>
+
+          {/* Layout Mode Toggle (單行 / 雙行) */}
+          <button
+            id="ktv-layout-mode-toggle"
+            type="button"
+            onClick={toggleLayoutMode}
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl text-xs font-bold border transition-all active:scale-95 touch-manipulation cursor-pointer ${
+              layoutMode === 'single_line'
+                ? 'bg-amber-500/20 text-amber-300 border-amber-400/50 shadow-xs'
+                : 'bg-[#0a0c10] text-zinc-400 hover:text-white hover:bg-zinc-800 border-zinc-800'
+            }`}
+            title="切換排版模式（單行完整呈現 vs 經典雙行輪替）"
+          >
+            <Rows className="w-3.5 h-3.5 text-amber-400" />
+            <span>{layoutMode === 'single_line' ? '單行模式' : '雙行模式'}</span>
           </button>
         </div>
       </div>

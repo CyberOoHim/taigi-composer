@@ -7,7 +7,8 @@ import { VerseTiming, KaraokeLeadInState } from '@/lib/karaokeSequencer';
 import { KaraokeSection } from './SectionJumpBar';
 import { KaraokeStageTheme, KaraokeLayoutMode, KaraokeLyricAlign } from '@/lib/storage';
 import { isNonNotationItem, isPunctuationOrSpacer } from '@/lib/taigiUtils';
-import { CheckCircle2, Wind, Pencil, AlignCenter, AlignLeft } from 'lucide-react';
+import { segmentDisplayNotesIntoLines, type DisplayNote, type VerseLineItem } from '@/lib/karaokeLineBreaker';
+import { CheckCircle2, Wind, Pencil, AlignCenter, AlignLeft, Rows } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 
 export interface KaraokeStageProps {
@@ -641,28 +642,7 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
 
 SyllableCell.displayName = 'SyllableCell';
 
-export interface VerseLineItem {
-  id: string;
-  measureNumber: number;
-  notes: Array<{
-    item: VerseNoteRef;
-    globalIdx: number;
-    effectiveTiming?: {
-      startTimeSec: number;
-      durationSec: number;
-      endTimeSec: number;
-    };
-    subNotes?: Array<{
-      item: VerseNoteRef;
-      globalIdx: number;
-      effectiveTiming: {
-        startTimeSec: number;
-        durationSec: number;
-        endTimeSec: number;
-      };
-    }>;
-  }>;
-}
+export type { VerseLineItem } from '@/lib/karaokeLineBreaker';
 
 export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
   currentVerse,
@@ -935,27 +915,6 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
     const rawTimeline = activeVerseTiming?.notesTimeline || [];
 
     // Step 1: Preprocess notes into display note references
-    type SubNoteItem = {
-      item: VerseNoteRef;
-      globalIdx: number;
-      effectiveTiming: {
-        startTimeSec: number;
-        durationSec: number;
-        endTimeSec: number;
-      };
-    };
-
-    type DisplayNote = {
-      item: VerseNoteRef;
-      globalIdx: number;
-      effectiveTiming: {
-        startTimeSec: number;
-        durationSec: number;
-        endTimeSec: number;
-      };
-      subNotes?: SubNoteItem[];
-    };
-
     const displayNotes: DisplayNote[] = [];
 
     currentVerse.notes.forEach((item, globalIdx) => {
@@ -1022,136 +981,28 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
     });
 
     if (displayNotes.length === 0) {
-      return [{ id: 'line-default', measureNumber: 1, notes: currentVerse.notes.map((item, globalIdx) => ({ item, globalIdx })) }];
-    }
-
-    // Step 2: Estimate visual footprint of each display note to decide if single-line fits
-    const estimateNoteFootprint = (dn: DisplayNote): number => {
-      if (showNotation) {
-        const baseNoteWidth = zoomScale >= 1.75 ? 70 : zoomScale >= 1.5 ? 60 : zoomScale >= 1.25 ? 50 : 42;
-        const gap = zoomScale >= 1.5 ? 10 : 6;
-        const dashes =
-          typeof dn.item.note.duration === 'number' && dn.item.note.duration >= 2
-            ? Math.floor(dn.item.note.duration) - 1
-            : 0;
-        const dashWidth = dashes * 16;
-        const subNotesWidth = (dn.subNotes?.length || 0) * (baseNoteWidth * 0.75 + 4);
-        return baseNoteWidth + dashWidth + subNotesWidth + gap;
-      }
-
-      const n = dn.item.note;
-      const rawH = (n.lyric.hanlo ?? n.lyric.hanji ?? n.lyric.custom ?? '').trim();
-      const rawR = (n.lyric.poj ?? n.lyric.tl ?? '').trim();
-
-      if (!rawH && !rawR && n.annotation) {
-        return 48;
-      }
-      if (isPunctuationOrSpacer(rawH) || isPunctuationOrSpacer(rawR)) {
-        return 24;
-      }
-
-      const baseCharWidth = zoomScale >= 1.75 ? 96 : zoomScale >= 1.5 ? 74 : zoomScale >= 1.25 ? 60 : 50;
-
-      if (effectiveMode === 'roman_major_hanlo' || effectiveMode === 'hanlo_major_roman') {
-        const romanWidth = Math.max(1, rawR.length) * (baseCharWidth * 0.42);
-        const hanjiWidth = Math.max(1, rawH.length) * baseCharWidth;
-        return Math.max(hanjiWidth, romanWidth) + 6;
-      }
-      if (effectiveMode === 'roman') {
-        return Math.max(1, rawR.length) * (baseCharWidth * 0.52) + 8;
-      }
-      return Math.max(1, rawH.length) * baseCharWidth + 4;
-    };
-
-    const totalEstimatedWidth = displayNotes.reduce((sum, dn) => sum + estimateNoteFootprint(dn), 0);
-    const vocalCount = displayNotes.filter(dn => {
-      const h = (dn.item.note.lyric.hanlo ?? dn.item.note.lyric.hanji ?? dn.item.note.lyric.custom ?? '').trim();
-      const p = (dn.item.note.lyric.poj ?? dn.item.note.lyric.tl ?? '').trim();
-      return (h && !isPunctuationOrSpacer(h)) || (p && !isPunctuationOrSpacer(p));
-    }).length;
-
-    const maxSingleLineSyllables = !showNotation
-      ? (zoomScale >= 1.75 ? 7 : zoomScale >= 1.5 ? 8 : zoomScale >= 1.25 ? 10 : 12)
-      : (zoomScale >= 1.5 ? 6 : 8);
-
-    const availableWidth = Math.max(300, containerWidth - 48);
-    const canFitSingleLine = totalEstimatedWidth <= availableWidth && vocalCount <= maxSingleLineSyllables;
-
-    if (canFitSingleLine) {
       return [
         {
-          id: `line-single-${currentVerse.id || currentVerse.verseIndex}`,
-          measureNumber: displayNotes[0]?.item.measureNumber ?? 1,
-          notes: displayNotes,
+          id: `line-default-${currentVerse.id || currentVerse.verseIndex}`,
+          measureNumber: currentVerse.notes[0]?.measureNumber ?? 1,
+          notes: currentVerse.notes.map((item, globalIdx) => ({
+            item,
+            globalIdx,
+            effectiveTiming: { startTimeSec: 0, durationSec: 1, endTimeSec: 1 },
+          })),
         },
       ];
     }
 
-    // Step 3: Smart 2-line balancing (Avoid orphan lines, favor natural syntactic/musical pauses)
-    let bestSplit = -1;
-    let bestScore = -Infinity;
-
-    for (let i = 1; i < displayNotes.length; i++) {
-      const left = displayNotes.slice(0, i);
-      const right = displayNotes.slice(i);
-
-      const leftVocal = left.filter(dn => {
-        const h = (dn.item.note.lyric.hanlo ?? dn.item.note.lyric.hanji ?? dn.item.note.lyric.custom ?? '').trim();
-        const p = (dn.item.note.lyric.poj ?? dn.item.note.lyric.tl ?? '').trim();
-        return (h && !isPunctuationOrSpacer(h)) || (p && !isPunctuationOrSpacer(p));
-      }).length;
-
-      const rightVocal = right.filter(dn => {
-        const h = (dn.item.note.lyric.hanlo ?? dn.item.note.lyric.hanji ?? dn.item.note.lyric.custom ?? '').trim();
-        const p = (dn.item.note.lyric.poj ?? dn.item.note.lyric.tl ?? '').trim();
-        return (h && !isPunctuationOrSpacer(h)) || (p && !isPunctuationOrSpacer(p));
-      }).length;
-
-      const minVocal = vocalCount >= 8 ? 3 : 2;
-      if (leftVocal < minVocal || rightVocal < minVocal) {
-        continue;
-      }
-
-      const prevNote = displayNotes[i - 1].item.note;
-      const nextNote = displayNotes[i].item.note;
-      const prevHanlo = (prevNote.lyric.hanlo ?? prevNote.lyric.hanji ?? prevNote.lyric.custom ?? '').trim();
-      const isPunctSplit = isPunctuationOrSpacer(prevHanlo);
-      const isRestSplit = (prevNote.pitch === 0 || prevNote.pitch === 'empty') || (nextNote.pitch === 0 || nextNote.pitch === 'empty');
-      const isMeasureSplit = displayNotes[i - 1].item.measureNumber !== displayNotes[i].item.measureNumber;
-
-      let score = 0;
-      if (isPunctSplit) score += 100;
-      if (isRestSplit) score += 60;
-      if (isMeasureSplit) score += 40;
-
-      score -= Math.abs(leftVocal - rightVocal) * 15;
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestSplit = i;
-      }
-    }
-
-    if (bestSplit === -1) {
-      bestSplit = Math.floor(displayNotes.length / 2);
-    }
-
-    const line1Notes = displayNotes.slice(0, bestSplit);
-    const line2Notes = displayNotes.slice(bestSplit);
-
-    return [
-      {
-        id: `line-1-${currentVerse.id || currentVerse.verseIndex}`,
-        measureNumber: line1Notes[0]?.item.measureNumber ?? 1,
-        notes: line1Notes,
-      },
-      {
-        id: `line-2-${currentVerse.id || currentVerse.verseIndex}`,
-        measureNumber: line2Notes[0]?.item.measureNumber ?? 2,
-        notes: line2Notes,
-      },
-    ];
-  }, [currentVerse, activeVerseTiming, showNotation, zoomScale, effectiveMode, containerWidth]);
+    return segmentDisplayNotesIntoLines(displayNotes, {
+      containerWidth,
+      zoomScale,
+      showNotation,
+      effectiveMode,
+      layoutMode,
+      verseId: currentVerse.id || currentVerse.verseIndex,
+    });
+  }, [currentVerse, activeVerseTiming, showNotation, zoomScale, effectiveMode, containerWidth, layoutMode]);
 
   // If a verse has more than 2 lines, determine which line is currently active
   const activeLineIndex = useMemo(() => {
@@ -1313,6 +1164,27 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                       <span>置中</span>
                     </>
                   )}
+                </button>
+              )}
+
+              {onToggleLayoutMode && (
+                <button
+                  id="ktv-stage-layout-mode-btn"
+                  type="button"
+                  onClick={onToggleLayoutMode}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold text-[11px] sm:text-xs border transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs ${
+                    isDark
+                      ? layoutMode === 'single_line'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-400/60'
+                        : 'bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                      : layoutMode === 'single_line'
+                        ? 'bg-blue-100 text-blue-800 border-blue-400'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                  }`}
+                  title={layoutMode === 'single_line' ? '單行排版（點擊切換為雙行）' : '雙行排版（點擊切換為單行）'}
+                >
+                  <Rows className="w-3 h-3 text-amber-400" />
+                  <span>{layoutMode === 'single_line' ? '單行' : '雙行'}</span>
                 </button>
               )}
             </div>
