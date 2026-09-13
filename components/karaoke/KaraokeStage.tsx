@@ -100,6 +100,15 @@ interface SyllableCellProps {
     durationSec: number;
     endTimeSec: number;
   };
+  subNotes?: Array<{
+    item: VerseNoteRef;
+    globalIdx: number;
+    effectiveTiming: {
+      startTimeSec: number;
+      durationSec: number;
+      endTimeSec: number;
+    };
+  }>;
 }
 
 const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
@@ -119,6 +128,7 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
   hasBouncingBall = false,
   secPerBeat = 0.75,
   effectiveTiming,
+  subNotes,
 }) => {
   const reduceMotion = useReducedMotion();
   const skipMotionFx = isEcoMode || Boolean(reduceMotion);
@@ -186,15 +196,10 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
   }
 
   // Dashes count for sustained held notes (suppressed during incoming cue and in pure lyrics mode)
-  const dashesCount = !isIncomingCue && !isNonNotation && showNotation
-    ? note.duration === 2
-      ? 1
-      : note.duration === 3
-      ? 2
-      : note.duration === 4
-      ? 3
-      : 0
-    : 0;
+  const dashesCount =
+    !isIncomingCue && !isNonNotation && showNotation && typeof note.duration === 'number' && note.duration >= 2
+      ? Math.floor(note.duration) - 1
+      : 0;
 
   // Mode text routing
   let subRubyDisplay = '\u00A0';
@@ -295,15 +300,215 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
     !rawRoman.endsWith('-') &&
     !rawRoman.endsWith('~');
 
+  // Primary note timing (ends when first subNote begins, if any)
+  const pStart = effectiveTiming?.startTimeSec ?? startSec;
+  const pEnd =
+    subNotes && subNotes.length > 0 && subNotes[0].effectiveTiming
+      ? subNotes[0].effectiveTiming.startTimeSec
+      : effectiveTiming?.endTimeSec ?? endSec;
+  const primaryIndividualTiming = {
+    startTimeSec: pStart,
+    durationSec: Math.max(0.05, pEnd - pStart),
+    endTimeSec: pEnd,
+  };
+
+  // Render a single compact numbered notation badge with pitch, octave dots, underlines & extension dashes
+  const renderNoteBadge = (
+    targetNote: NumberedNotationNote,
+    timing: { startTimeSec: number; durationSec: number; endTimeSec: number },
+    badgeKey: string | number,
+    isPrimary: boolean = true
+  ) => {
+    const tStart = timing.startTimeSec;
+    const tEnd = timing.endTimeSec;
+    const isThisNoteActive = !isIncomingCue && (currentTime >= tStart && currentTime < tEnd);
+    const isThisPassed = !isIncomingCue && (currentTime >= tEnd && tEnd > 0);
+
+    const badgeDashes =
+      !isIncomingCue && !isNonNotation && showNotation && typeof targetNote.duration === 'number' && targetNote.duration >= 2
+        ? Math.floor(targetNote.duration) - 1
+        : 0;
+
+    const targetIsPitched = typeof targetNote.pitch === 'number' && targetNote.pitch > 0;
+    const topDots = targetIsPitched && targetNote.octave > 0 ? targetNote.octave : 0;
+    const bottomDots = targetIsPitched && targetNote.octave < 0 ? Math.abs(targetNote.octave) : 0;
+    const isEighthNote = typeof targetNote.duration === 'number' && (targetNote.duration === 0.5 || targetNote.duration === 0.75);
+    const isSixteenthNote = typeof targetNote.duration === 'number' && (targetNote.duration === 0.25 || targetNote.duration === 0.375);
+    const isThirtySecondNote = typeof targetNote.duration === 'number' && targetNote.duration <= 0.125;
+    const targetShowDot =
+      targetNote.isDotted ||
+      targetNote.duration === 1.5 ||
+      targetNote.duration === 0.75 ||
+      targetNote.duration === 3 ||
+      targetNote.duration === 0.375 ||
+      targetNote.duration === 1.75;
+    const targetAccidental = targetNote.accidental === '#' ? '♯' : targetNote.accidental === 'b' ? '♭' : '';
+
+    const pitchVal = isIncomingCue
+      ? typeof targetNote.pitch === 'number' && targetNote.pitch > 0
+        ? targetNote.pitch
+        : '␣'
+      : isNonNotation
+      ? targetNote.annotation
+        ? ''
+        : '␣'
+      : targetNote.pitch === 'empty'
+      ? '␣'
+      : targetNote.pitch === 0
+      ? '0'
+      : targetNote.pitch;
+
+    return (
+      <div
+        key={badgeKey}
+        className={`inline-flex flex-col items-center justify-center relative rounded-md transition-all duration-150 px-1.5 py-0.5 border ${
+          isIncomingCue
+            ? isDark
+              ? 'bg-zinc-900/60 text-zinc-400 font-medium border-zinc-800'
+              : 'bg-white text-slate-600 font-medium border-slate-300'
+            : isThisNoteActive
+            ? isDark
+              ? 'bg-amber-400 text-zinc-950 font-black border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.8)]'
+              : 'bg-blue-600 text-white font-black border-blue-500 shadow-md'
+            : isThisPassed
+            ? isDark
+              ? 'bg-zinc-800/90 text-amber-300 font-bold border-zinc-700'
+              : 'bg-slate-200 text-blue-700 font-bold border-slate-300'
+            : isFirstTarget && isPrimary
+            ? isDark
+              ? 'bg-amber-950/70 text-amber-300 font-black border-amber-500/60 ring-1 ring-amber-400/40'
+              : 'bg-blue-50 text-blue-700 font-black border-blue-400 ring-1 ring-blue-300'
+            : isDark
+            ? 'bg-zinc-900/60 text-zinc-400 font-medium border-zinc-800'
+            : 'bg-white text-slate-600 font-medium border-slate-300'
+        }`}
+      >
+        {/* Top octave dots */}
+        {topDots > 0 && (
+          <span className="flex items-center justify-center gap-0.5 leading-none mb-0.5">
+            {Array.from({ length: topDots }).map((_, i) => (
+              <span
+                key={i}
+                className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full inline-block ${
+                  isThisNoteActive
+                    ? isDark ? 'bg-zinc-950' : 'bg-white'
+                    : isDark ? 'bg-zinc-300' : 'bg-slate-700'
+                }`}
+              />
+            ))}
+          </span>
+        )}
+
+        {/* Numeral, accidental, dot, and extension dashes */}
+        <span className="inline-flex items-baseline justify-center leading-none">
+          {targetAccidental && (
+            <span
+              className={`text-[9px] sm:text-[10px] mr-0.5 font-bold ${
+                isThisNoteActive ? (isDark ? 'text-zinc-950' : 'text-white') : isDark ? 'text-amber-400' : 'text-blue-600'
+              }`}
+            >
+              {targetAccidental}
+            </span>
+          )}
+          <span className="font-mono text-xs sm:text-base font-black">
+            {pitchVal}
+          </span>
+          {targetShowDot && (
+            <span
+              className={`text-xs sm:text-sm font-black ml-0.5 ${
+                isThisNoteActive ? (isDark ? 'text-zinc-950' : 'text-white') : isDark ? 'text-amber-400' : 'text-blue-600'
+              }`}
+            >
+              ·
+            </span>
+          )}
+          {badgeDashes > 0 && (
+            <span
+              className={`font-mono text-xs sm:text-base font-black ml-1 tracking-wider whitespace-nowrap ${
+                isThisNoteActive
+                  ? isDark ? 'text-zinc-950' : 'text-white'
+                  : isDark ? 'text-amber-400/90' : 'text-blue-600'
+              }`}
+            >
+              {' —'.repeat(badgeDashes)}
+            </span>
+          )}
+        </span>
+
+        {/* Bottom octave dots */}
+        {bottomDots > 0 && (
+          <span className="flex items-center justify-center gap-0.5 leading-none mt-0.5">
+            {Array.from({ length: bottomDots }).map((_, i) => (
+              <span
+                key={i}
+                className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full inline-block ${
+                  isThisNoteActive
+                    ? isDark ? 'bg-zinc-950' : 'bg-white'
+                    : isDark ? 'bg-zinc-300' : 'bg-slate-700'
+                }`}
+              />
+            ))}
+          </span>
+        )}
+
+        {/* Duration underlines */}
+        {isEighthNote && (
+          <span
+            className={`block w-full h-[1.5px] rounded-full mt-0.5 ${
+              isThisNoteActive ? (isDark ? 'bg-zinc-950' : 'bg-white') : isDark ? 'bg-zinc-400' : 'bg-slate-500'
+            }`}
+          />
+        )}
+        {isSixteenthNote && (
+          <span className="flex flex-col gap-[1px] w-full mt-0.5">
+            <span
+              className={`block w-full h-[1.5px] rounded-full ${
+                isThisNoteActive ? (isDark ? 'bg-zinc-950' : 'bg-white') : isDark ? 'bg-zinc-400' : 'bg-slate-500'
+              }`}
+            />
+            <span
+              className={`block w-full h-[1.5px] rounded-full ${
+                isThisNoteActive ? (isDark ? 'bg-zinc-950' : 'bg-white') : isDark ? 'bg-zinc-400' : 'bg-slate-500'
+              }`}
+            />
+          </span>
+        )}
+        {isThirtySecondNote && (
+          <span className="flex flex-col gap-[1px] w-full mt-0.5">
+            <span
+              className={`block w-full h-[1px] rounded-full ${
+                isThisNoteActive ? (isDark ? 'bg-zinc-950' : 'bg-white') : isDark ? 'bg-zinc-400' : 'bg-slate-500'
+              }`}
+            />
+            <span
+              className={`block w-full h-[1px] rounded-full ${
+                isThisNoteActive ? (isDark ? 'bg-zinc-950' : 'bg-white') : isDark ? 'bg-zinc-400' : 'bg-slate-500'
+              }`}
+            />
+            <span
+              className={`block w-full h-[1px] rounded-full ${
+                isThisNoteActive ? (isDark ? 'bg-zinc-950' : 'bg-white') : isDark ? 'bg-zinc-400' : 'bg-slate-500'
+              }`}
+            />
+          </span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div
       className={`relative flex flex-col items-center justify-end select-none transition-opacity duration-150 ${
         isIncomingCue ? 'opacity-60' : ''
       } ${
         showNotation
-          ? dashesCount > 0
-            ? 'min-w-[48px] sm:min-w-[64px] px-1 sm:px-1.5'
-            : 'min-w-[32px] sm:min-w-[44px] px-1 sm:px-1.5'
+          ? dashesCount >= 3
+            ? 'min-w-[68px] sm:min-w-[84px] px-1 sm:px-1.5'
+            : dashesCount > 0
+            ? 'min-w-[46px] sm:min-w-[58px] px-1 sm:px-1.5'
+            : subNotes && subNotes.length > 0
+            ? 'min-w-[60px] sm:min-w-[76px] px-1 sm:px-1.5'
+            : 'min-w-[28px] sm:min-w-[36px] px-0.5 sm:px-1'
           : isAnnotationOnly
           ? 'min-w-0 px-1 self-center'
           : `min-w-0 px-0.5 ${isRomanEndWord ? 'mr-1.5 sm:mr-2' : ''}`
@@ -412,173 +617,22 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
           >
             {mainWordDisplay}
           </span>
-
-          {/* Trailing Sustained Dashes */}
-          {dashesCount > 0 && (
-            <span
-              className={`text-base sm:text-xl font-bold ml-1 tracking-widest ${
-                isNoteActive
-                  ? isDark
-                    ? 'text-amber-300 font-black'
-                    : 'text-blue-600 font-black'
-                  : isPassed
-                  ? isDark
-                    ? 'text-amber-400/90'
-                    : 'text-blue-500'
-                  : isDark
-                  ? 'text-zinc-500'
-                  : 'text-slate-400'
-              }`}
-            >
-              {' -'.repeat(dashesCount)}
-            </span>
-          )}
         </div>
       ) : null}
 
-      {/* TIER 3: NUMBERED NOTATION (Pitch, Octave Dots, Accidentals, Underlines) */}
+      {/* TIER 3: NUMBERED NOTATION (Compactly grouped under character & word) */}
       {showNotation && (
-        <div
-          className={`mt-1.5 inline-flex flex-col items-center justify-center relative rounded-md transition-all duration-150 px-1.5 py-0.5 border ${
-            isIncomingCue
-              ? isDark
-                ? 'bg-zinc-900/60 text-zinc-400 font-medium border-zinc-800'
-                : 'bg-white text-slate-600 font-medium border-slate-300'
-              : isNoteActive
-              ? isDark
-                ? 'bg-amber-400 text-zinc-950 font-black border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.8)]'
-                : 'bg-blue-600 text-white font-black border-blue-500 shadow-md'
-              : isPassed
-              ? isDark
-                ? 'bg-zinc-800/90 text-amber-300 font-bold border-zinc-700'
-                : 'bg-slate-200 text-blue-700 font-bold border-slate-300'
-              : isFirstTarget
-              ? isDark
-                ? 'bg-amber-950/70 text-amber-300 font-black border-amber-500/60 ring-1 ring-amber-400/40'
-                : 'bg-blue-50 text-blue-700 font-black border-blue-400 ring-1 ring-blue-300'
-              : isDark
-              ? 'bg-zinc-900/60 text-zinc-400 font-medium border-zinc-800'
-              : 'bg-white text-slate-600 font-medium border-slate-300'
-          }`}
-        >
-          {/* Octave high dots */}
-          {octaveTopDots > 0 && (
-            <span className="flex items-center justify-center gap-0.5 leading-none mb-0.5">
-              {Array.from({ length: octaveTopDots }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full inline-block ${
-                    isNoteActive
-                      ? isDark
-                        ? 'bg-zinc-950'
-                        : 'bg-white'
-                      : isDark
-                      ? 'bg-zinc-300'
-                      : 'bg-slate-700'
-                  }`}
-                />
-              ))}
-            </span>
-          )}
-
-          {/* Numeral and accidental */}
-          <span className="inline-flex items-baseline justify-center leading-none">
-            {accidentalSymbol && (
-              <span
-                className={`text-[9px] sm:text-[10px] mr-0.5 font-bold ${
-                  isNoteActive ? (isDark ? 'text-zinc-950' : 'text-white') : isDark ? 'text-amber-400' : 'text-blue-600'
-                }`}
-              >
-                {accidentalSymbol}
-              </span>
+        <div className="mt-1.5 flex items-center justify-center gap-1">
+          {renderNoteBadge(displayNote, primaryIndividualTiming, 'primary-badge', true)}
+          {subNotes &&
+            subNotes.map((sn, snIdx) =>
+              renderNoteBadge(
+                sn.item.note,
+                sn.effectiveTiming,
+                `sub-badge-${snIdx}`,
+                false
+              )
             )}
-            <span className="font-mono text-xs sm:text-base font-black">
-              {isIncomingCue
-                ? typeof displayNote.pitch === 'number' && displayNote.pitch > 0
-                  ? displayNote.pitch
-                  : '␣'
-                : isNonNotation
-                ? note.annotation
-                  ? ''
-                  : '␣'
-                : note.pitch === 'empty'
-                ? '␣'
-                : note.pitch === 0
-                ? '0'
-                : note.pitch}
-            </span>
-            {showDot && (
-              <span
-                className={`text-xs sm:text-sm font-black ml-0.5 ${
-                  isNoteActive ? (isDark ? 'text-zinc-950' : 'text-white') : isDark ? 'text-amber-400' : 'text-blue-600'
-                }`}
-              >
-                ·
-              </span>
-            )}
-          </span>
-
-          {/* Octave low dots */}
-          {octaveBottomDots > 0 && (
-            <span className="flex items-center justify-center gap-0.5 leading-none mt-0.5">
-              {Array.from({ length: octaveBottomDots }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full inline-block ${
-                    isNoteActive
-                      ? isDark
-                        ? 'bg-zinc-950'
-                        : 'bg-white'
-                      : isDark
-                      ? 'bg-zinc-300'
-                      : 'bg-slate-700'
-                  }`}
-                />
-              ))}
-            </span>
-          )}
-
-          {/* Duration underlines */}
-          {isEighth && (
-            <span
-              className={`block w-full h-[1.5px] rounded-full mt-0.5 ${
-                isNoteActive ? (isDark ? 'bg-zinc-950' : 'bg-white') : isDark ? 'bg-zinc-400' : 'bg-slate-500'
-              }`}
-            />
-          )}
-          {isSixteenth && (
-            <span className="flex flex-col gap-[1px] w-full mt-0.5">
-              <span
-                className={`block w-full h-[1.5px] rounded-full ${
-                  isNoteActive ? (isDark ? 'bg-zinc-950' : 'bg-white') : isDark ? 'bg-zinc-400' : 'bg-slate-500'
-                }`}
-              />
-              <span
-                className={`block w-full h-[1.5px] rounded-full ${
-                  isNoteActive ? (isDark ? 'bg-zinc-950' : 'bg-white') : isDark ? 'bg-zinc-400' : 'bg-slate-500'
-                }`}
-              />
-            </span>
-          )}
-          {isThirtySecond && (
-            <span className="flex flex-col gap-[1px] w-full mt-0.5">
-              <span
-                className={`block w-full h-[1.5px] rounded-full ${
-                  isNoteActive ? (isDark ? 'bg-zinc-950' : 'bg-white') : isDark ? 'bg-zinc-400' : 'bg-slate-500'
-                }`}
-              />
-              <span
-                className={`block w-full h-[1.5px] rounded-full ${
-                  isNoteActive ? (isDark ? 'bg-zinc-950' : 'bg-white') : isDark ? 'bg-zinc-400' : 'bg-slate-500'
-                }`}
-              />
-              <span
-                className={`block w-full h-[1.5px] rounded-full ${
-                  isNoteActive ? (isDark ? 'bg-zinc-950' : 'bg-white') : isDark ? 'bg-zinc-400' : 'bg-slate-500'
-                }`}
-              />
-            </span>
-          )}
         </div>
       )}
     </div>
@@ -598,6 +652,15 @@ export interface VerseLineItem {
       durationSec: number;
       endTimeSec: number;
     };
+    subNotes?: Array<{
+      item: VerseNoteRef;
+      globalIdx: number;
+      effectiveTiming: {
+        startTimeSec: number;
+        durationSec: number;
+        endTimeSec: number;
+      };
+    }>;
   }>;
 }
 
@@ -872,6 +935,16 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
     const rawTimeline = activeVerseTiming?.notesTimeline || [];
 
     // Step 1: Preprocess notes into display note references
+    type SubNoteItem = {
+      item: VerseNoteRef;
+      globalIdx: number;
+      effectiveTiming: {
+        startTimeSec: number;
+        durationSec: number;
+        endTimeSec: number;
+      };
+    };
+
     type DisplayNote = {
       item: VerseNoteRef;
       globalIdx: number;
@@ -880,6 +953,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
         durationSec: number;
         endTimeSec: number;
       };
+      subNotes?: SubNoteItem[];
     };
 
     const displayNotes: DisplayNote[] = [];
@@ -904,20 +978,36 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
 
       if (isLineBreak) return;
 
-      if (!showNotation) {
-        // 純歌詞模式:
-        // If note has no text and no annotation, it's a slur/melisma/continuation note (e.g. Note 11)
-        if (!hasText && !hasAnnotation && !isPunct) {
-          if (displayNotes.length > 0) {
-            const prev = displayNotes[displayNotes.length - 1];
-            if (endSec > prev.effectiveTiming.endTimeSec) {
-              prev.effectiveTiming.endTimeSec = endSec;
-              prev.effectiveTiming.durationSec = prev.effectiveTiming.endTimeSec - prev.effectiveTiming.startTimeSec;
-            }
+      // Handle melisma / continuation notes (notes without explicit lyrics or annotations)
+      if (!hasText && !hasAnnotation && !isPunct) {
+        if (displayNotes.length > 0) {
+          const prev = displayNotes[displayNotes.length - 1];
+          // Extend previous syllable timing to cover the sustained vocal
+          if (endSec > prev.effectiveTiming.endTimeSec) {
+            prev.effectiveTiming.endTimeSec = endSec;
+            prev.effectiveTiming.durationSec = prev.effectiveTiming.endTimeSec - prev.effectiveTiming.startTimeSec;
+          }
+          if (showNotation && isPitched) {
+            // Group continuation note into previous syllable cell
+            if (!prev.subNotes) prev.subNotes = [];
+            prev.subNotes.push({
+              item,
+              globalIdx,
+              effectiveTiming: {
+                startTimeSec: startSec,
+                durationSec,
+                endTimeSec: endSec,
+              },
+            });
           }
           return;
+        } else if (!isPitched) {
+          // Unpitched rest with no lyrics before vocal
+          return;
         }
+      }
 
+      if (hasText || isPitched || hasAnnotation || isPunct) {
         displayNotes.push({
           item,
           globalIdx,
@@ -926,20 +1016,8 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
             durationSec,
             endTimeSec: endSec,
           },
+          subNotes: [],
         });
-      } else {
-        // 簡譜模式: keep all pitched, lyrical, or annotation notes
-        if (hasText || isPitched || hasAnnotation || isPunct) {
-          displayNotes.push({
-            item,
-            globalIdx,
-            effectiveTiming: {
-              startTimeSec: startSec,
-              durationSec,
-              endTimeSec: endSec,
-            },
-          });
-        }
       }
     });
 
@@ -950,9 +1028,15 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
     // Step 2: Estimate visual footprint of each display note to decide if single-line fits
     const estimateNoteFootprint = (dn: DisplayNote): number => {
       if (showNotation) {
-        const baseNoteWidth = zoomScale >= 1.75 ? 76 : zoomScale >= 1.5 ? 68 : zoomScale >= 1.25 ? 56 : 48;
-        const gap = zoomScale >= 1.5 ? 16 : 12;
-        return baseNoteWidth + gap;
+        const baseNoteWidth = zoomScale >= 1.75 ? 70 : zoomScale >= 1.5 ? 60 : zoomScale >= 1.25 ? 50 : 42;
+        const gap = zoomScale >= 1.5 ? 10 : 6;
+        const dashes =
+          typeof dn.item.note.duration === 'number' && dn.item.note.duration >= 2
+            ? Math.floor(dn.item.note.duration) - 1
+            : 0;
+        const dashWidth = dashes * 16;
+        const subNotesWidth = (dn.subNotes?.length || 0) * (baseNoteWidth * 0.75 + 4);
+        return baseNoteWidth + dashWidth + subNotesWidth + gap;
       }
 
       const n = dn.item.note;
@@ -1336,7 +1420,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                             key={line.id}
                             className={`w-full flex flex-wrap items-end ${
                               showNotation
-                                ? 'gap-x-2 sm:gap-x-3.5 md:gap-x-5 gap-y-2'
+                                ? 'gap-x-1.5 sm:gap-x-2.5 md:gap-x-3.5 gap-y-2'
                                 : 'gap-x-0.5 sm:gap-x-1 gap-y-1.5'
                             } transition-all duration-200 ${
                               lyricAlign === 'left' ? 'justify-start' : 'justify-center'
@@ -1348,7 +1432,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                                 : ''
                             }`}
                           >
-                            {line.notes.map(({ item, globalIdx, effectiveTiming }) => {
+                            {line.notes.map(({ item, globalIdx, effectiveTiming, subNotes }) => {
                               let incomingCueOverride: IncomingAttackCue | null = null;
                               let hasBouncingBall = false;
 
@@ -1379,6 +1463,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                                   hasBouncingBall={hasBouncingBall}
                                   secPerBeat={secPerBeat}
                                   effectiveTiming={effectiveTiming}
+                                  subNotes={subNotes}
                                 />
                               );
                             })}
