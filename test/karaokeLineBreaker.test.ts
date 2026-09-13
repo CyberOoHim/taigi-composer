@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import type { PitchNumber } from '../types/song.ts';
 import type { DisplayNote } from '../lib/karaokeLineBreaker.ts';
 import {
   segmentDisplayNotesIntoLines,
@@ -9,7 +10,7 @@ import {
 function createMockNote(
   hanlo: string,
   poj: string,
-  pitch: number,
+  pitch: PitchNumber,
   duration: number,
   measureNumber: number,
   globalIdx: number
@@ -25,6 +26,8 @@ function createMockNote(
       },
       measureIndex: measureNumber - 1,
       noteIndex: globalIdx,
+      measureIdx: measureNumber - 1,
+      noteIdx: globalIdx,
       measureNumber,
       isFirstInMeasure: false,
     },
