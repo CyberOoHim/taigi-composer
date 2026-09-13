@@ -147,6 +147,18 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
   const hasHanlo = Boolean(rawHanlo && rawHanlo.trim());
   const hasRoman = Boolean(rawRoman && rawRoman.trim());
   const hasExplicitText = hasHanlo || hasRoman;
+  const isAnnotationOnly = !isIncomingCue && !hasExplicitText && Boolean(note.annotation);
+
+  // Font sizing: Strictly invariant across all verses and line duration
+  const mainFontSizeClass = getMainFontSizeClass(zoomScale, showNotation);
+
+  const rubyFontSizeClass = !showNotation
+    ? zoomScale >= 1.5
+      ? 'text-xl sm:text-2xl md:text-3xl min-h-[2rem] sm:min-h-[2.5rem]'
+      : 'text-base sm:text-lg md:text-xl min-h-[1.5rem] sm:min-h-[2rem]'
+    : zoomScale >= 1.5
+    ? 'text-lg sm:text-xl md:text-2xl min-h-[1.75rem] sm:min-h-[2.25rem]'
+    : 'text-sm sm:text-base md:text-lg min-h-[1.25rem] sm:min-h-[1.75rem]';
 
   // Render line breaks (omitted in single-line view so trailing breaks consume 0 width)
   if (rawHanlo === '\n' || rawHanlo === '↵') {
@@ -156,18 +168,24 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
   // Render punctuation spacers
   if (!isIncomingCue && isPunctuationOrSpacer(rawHanlo)) {
     return (
-      <div className="flex items-center justify-center self-center px-0.5 sm:px-1 font-sans select-none opacity-60">
-        <span
-          className={
-            zoomScale >= 1.5
-              ? 'text-2xl sm:text-4xl'
-              : zoomScale >= 1.25
-              ? 'text-xl sm:text-3xl'
-              : 'text-lg sm:text-2xl'
-          }
-        >
-          {rawHanlo}
-        </span>
+      <div className="flex flex-col items-center justify-start px-0.5 sm:px-1 font-sans select-none opacity-60">
+        {!isAnnotationOnly && (effectiveMode === 'roman_major_hanlo' || effectiveMode === 'hanlo_major_roman') && (
+          <div className={`w-full ${rubyFontSizeClass} pt-1 pb-0.5 flex items-center justify-center`}>
+            <span>&nbsp;</span>
+          </div>
+        )}
+        <div className="w-full relative flex items-center justify-center">
+          <span
+            className={`${mainFontSizeClass} font-black tracking-wider flex items-center justify-center leading-none px-0.5`}
+          >
+            {rawHanlo}
+          </span>
+        </div>
+        {showNotation && (
+          <div className="mt-1.5 sm:mt-2 flex items-start justify-center min-h-[32px] w-full">
+            &nbsp;
+          </div>
+        )}
       </div>
     );
   }
@@ -249,20 +267,9 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
     ? {
         color: sungColorHex,
       }
-    : {
+      : {
         color: unsungColorHex,
       };
-
-  // Font sizing: Strictly invariant across all verses and line duration
-  const mainFontSizeClass = getMainFontSizeClass(zoomScale, showNotation);
-
-  const rubyFontSizeClass = !showNotation
-    ? zoomScale >= 1.5
-      ? 'text-xl sm:text-2xl md:text-3xl min-h-[2rem] sm:min-h-[2.5rem]'
-      : 'text-base sm:text-lg md:text-xl min-h-[1.5rem] sm:min-h-[2rem]'
-    : zoomScale >= 1.5
-    ? 'text-lg sm:text-xl md:text-2xl min-h-[1.75rem] sm:min-h-[2.25rem]'
-    : 'text-sm sm:text-base md:text-lg min-h-[1.25rem] sm:min-h-[1.75rem]';
 
   // Highlight first sung syllable of the line during entry / countdown or before sung
   // (Suppressed when replaced by incoming cue override)
@@ -293,7 +300,6 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
     noteForNotation.duration === 1.75;
   const accidentalSymbol = noteForNotation.accidental === '#' ? '♯' : noteForNotation.accidental === 'b' ? '♭' : '';
 
-  const isAnnotationOnly = !isIncomingCue && !hasExplicitText && Boolean(note.annotation);
   const isRomanEndWord =
     !showNotation &&
     (effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo') &&
@@ -499,7 +505,7 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-end select-none transition-opacity duration-150 ${
+      className={`relative flex flex-col items-center justify-start select-none transition-opacity duration-150 ${
         isIncomingCue ? 'opacity-60' : ''
       } ${
         showNotation
@@ -542,7 +548,7 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
       {/* Visual Attack / Entry Cue Badge on First Sung Syllable */}
       {isFirstTarget && (
         <span
-          className={`absolute -top-7 sm:-top-8 text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full border shadow-md whitespace-nowrap animate-bounce ${
+          className={`absolute -top-7 sm:-top-8 left-1/2 -translate-x-1/2 text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full border shadow-md whitespace-nowrap animate-bounce z-20 ${
             isDark
               ? 'bg-amber-500/20 text-amber-300 border-amber-400/80 ring-2 ring-amber-400/40'
               : 'bg-blue-100 text-blue-800 border-blue-400 ring-2 ring-blue-300'
@@ -552,10 +558,10 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
         </span>
       )}
 
-      {/* Optional Musical Annotation (e.g. 漸慢, rit., V) */}
+      {/* Optional Musical Annotation (e.g. 漸慢, rit., V) - Positioned absolutely so it does not shift lyric baseline */}
       {!isIncomingCue && note.annotation && (
         <span
-          className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full border mb-0.5 ${
+          className={`absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold px-1.5 py-0.2 rounded-full border whitespace-nowrap z-10 ${
             isDark
               ? 'text-indigo-300 bg-indigo-950/80 border-indigo-700/60'
               : 'text-indigo-800 bg-indigo-100 border-indigo-300'
@@ -565,10 +571,10 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
         </span>
       )}
 
-      {/* TIER 1: RUBY PRONUNCIATION (Ample line-height so POJ/TL tone marks never crop) */}
+      {/* TIER 1: RUBY PRONUNCIATION (Uniform height & alignment so POJ/TL tone marks never crop or fluctuate) */}
       {!isAnnotationOnly && (effectiveMode === 'roman_major_hanlo' || effectiveMode === 'hanlo_major_roman') && (
         <div
-          className={`${rubyFontSizeClass} pt-1 pb-0.5 flex items-center justify-center font-sans tracking-wide leading-normal overflow-visible ${
+          className={`w-full ${rubyFontSizeClass} pt-1 pb-0.5 flex items-center justify-center font-sans tracking-wide leading-normal overflow-visible ${
             effectiveMode === 'hanlo_major_roman' ? 'italic font-serif' : 'font-medium'
           } ${
             isNoteActive
@@ -593,11 +599,11 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
         </div>
       )}
 
-      {/* TIER 2: MAIN DISPLAY LYRIC (with Continuous Syllable Wipe) */}
+      {/* TIER 2: MAIN DISPLAY LYRIC (with Continuous Syllable Wipe & Invariant Fixed Baseline) */}
       {!isAnnotationOnly ? (
-        <div className="relative flex items-baseline justify-center">
+        <div className="w-full relative flex items-center justify-center">
           <span
-            className={`${mainFontSizeClass} font-black tracking-wider flex items-center justify-center px-0.5 transition-all duration-100 ${
+            className={`${mainFontSizeClass} font-black tracking-wider flex items-center justify-center leading-none px-0.5 transition-all duration-100 ${
               effectiveMode === 'roman' || effectiveMode === 'roman_major_hanlo'
                 ? 'font-serif italic font-extrabold'
                 : 'font-sans'
@@ -621,9 +627,9 @@ const SyllableCell: React.FC<SyllableCellProps> = React.memo(({
         </div>
       ) : null}
 
-      {/* TIER 3: NUMBERED NOTATION (Compactly grouped under character & word) */}
+      {/* TIER 3: NUMBERED NOTATION (Compactly grouped under character & word, expanding downwards without disturbing lyric baseline) */}
       {showNotation && (
-        <div className="mt-1.5 flex items-center justify-center gap-1">
+        <div className="mt-1.5 sm:mt-2 flex items-start justify-center gap-1 min-h-[32px] w-full">
           {renderNoteBadge(displayNote, primaryIndividualTiming, 'primary-badge', true)}
           {subNotes &&
             subNotes.map((sn, snIdx) =>
@@ -1290,7 +1296,7 @@ export const KaraokeStage: React.FC<KaraokeStageProps> = React.memo(({
                         return (
                           <div
                             key={line.id}
-                            className={`w-full flex flex-wrap items-end ${
+                            className={`w-full flex flex-wrap items-start ${
                               showNotation
                                 ? 'gap-x-1.5 sm:gap-x-2.5 md:gap-x-3.5 gap-y-2'
                                 : 'gap-x-0.5 sm:gap-x-1 gap-y-1.5'
